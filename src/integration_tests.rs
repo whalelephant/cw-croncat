@@ -39,7 +39,9 @@ mod tests {
         let cw_template_id = app.store_code(contract_template());
         let owner_addr = Addr::unchecked(ADMIN);
 
-        let msg = InstantiateMsg { owner_id: Some(owner_addr) };
+        let msg = InstantiateMsg {
+            owner_id: Some(owner_addr),
+        };
         let cw_template_contract_addr = app
             .instantiate_contract(
                 cw_template_id,
@@ -64,7 +66,9 @@ mod tests {
         fn update_settings() {
             let (mut app, cw_template_contract) = proper_instantiate();
 
-            let msg = ExecuteMsg::UpdateSettings { owner_id: Some(Addr::unchecked(USER)) };
+            let msg = ExecuteMsg::UpdateSettings {
+                owner_id: Some(Addr::unchecked(USER)),
+            };
             let cosmos_msg = cw_template_contract.call(msg).unwrap();
             app.execute(Addr::unchecked(ADMIN), cosmos_msg).unwrap();
         }
