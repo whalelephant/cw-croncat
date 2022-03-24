@@ -68,6 +68,14 @@ mod tests {
 
             let msg = ExecuteMsg::UpdateSettings {
                 owner_id: Some(Addr::unchecked(USER)),
+                paused: None,
+                slot_granularity: None,
+                agent_fee: None,
+                gas_price: None,
+                proxy_callback_gas: None,
+                agent_task_ratio: None,
+                agents_eject_threshold: None,
+                treasury_id: None,
             };
             let cosmos_msg = cw_template_contract.call(msg).unwrap();
             app.execute(Addr::unchecked(ADMIN), cosmos_msg).unwrap();

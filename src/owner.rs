@@ -1,6 +1,23 @@
 use crate::error::ContractError;
-use crate::state::CONFIG;
-use cosmwasm_std::{Addr, DepsMut, MessageInfo, Response};
+use crate::msg::ConfigResponse;
+use crate::state::{Config, CONFIG};
+use cosmwasm_std::{Addr, Coin, Deps, DepsMut, MessageInfo, Response, StdResult};
+
+pub(crate) fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let c = CONFIG.load(deps.storage)?;
+    Ok(ConfigResponse {
+        paused: c.paused,
+        owner_id: c.owner_id,
+        treasury_id: c.treasury_id,
+        agent_task_ratio: c.agent_task_ratio,
+        agent_active_index: c.agent_active_index,
+        agents_eject_threshold: c.agents_eject_threshold,
+        agent_fee: c.agent_fee,
+        gas_price: c.gas_price,
+        proxy_callback_gas: c.proxy_callback_gas,
+        slot_granularity: c.slot_granularity,
+    })
+}
 
 /// Changes core configurations
 /// Should only be updated by owner -- in best case DAO based :)
@@ -8,6 +25,14 @@ pub fn update_settings(
     deps: DepsMut,
     info: MessageInfo,
     owner_id: Option<Addr>,
+    slot_granularity: Option<u64>,
+    paused: Option<bool>,
+    agent_fee: Option<Coin>,
+    gas_price: Option<u32>,
+    proxy_callback_gas: Option<u32>,
+    agent_task_ratio: Option<Vec<u64>>,
+    agents_eject_threshold: Option<u128>,
+    treasury_id: Option<Addr>,
 ) -> Result<Response, ContractError> {
     CONFIG.update(deps.storage, |mut config| -> Result<_, ContractError> {
         if info.sender != config.owner_id {
@@ -17,39 +42,57 @@ pub fn update_settings(
         if let Some(owner_id) = owner_id {
             config.owner_id = owner_id;
         }
+        if let Some(treasury_id) = treasury_id {
+            config.treasury_id = Some(treasury_id);
+        }
+
+        if let Some(slot_granularity) = slot_granularity {
+            config.slot_granularity = slot_granularity;
+        }
+        if let Some(paused) = paused {
+            config.paused = paused;
+        }
+        if let Some(gas_price) = gas_price {
+            config.gas_price = gas_price;
+        }
+        if let Some(proxy_callback_gas) = proxy_callback_gas {
+            config.proxy_callback_gas = proxy_callback_gas;
+        }
+        if let Some(agent_fee) = agent_fee {
+            config.agent_fee = agent_fee;
+        }
+        if let Some(agent_task_ratio) = agent_task_ratio {
+            config.agent_task_ratio = [agent_task_ratio[0], agent_task_ratio[1]];
+        }
+        if let Some(agents_eject_threshold) = agents_eject_threshold {
+            config.agents_eject_threshold = agents_eject_threshold;
+        }
         Ok(config)
     })?;
+    let c: Config = CONFIG.load(deps.storage)?;
     Ok(Response::new()
         .add_attribute("method", "update_settings")
-        .add_attribute("owner", info.sender))
+        .add_attribute("paused", c.paused.to_string())
+        .add_attribute("owner_id", c.owner_id.to_string())
+        .add_attribute("treasury_id", c.treasury_id.unwrap().to_string())
+        .add_attribute(
+            "agent_task_ratio",
+            c.agent_task_ratio
+                .to_vec()
+                .into_iter()
+                .map(|i| i.to_string())
+                .collect::<String>(),
+        )
+        .add_attribute("agent_active_index", c.agent_active_index.to_string())
+        .add_attribute(
+            "agents_eject_threshold",
+            c.agents_eject_threshold.to_string(),
+        )
+        .add_attribute("agent_fee", c.agent_fee.to_string())
+        .add_attribute("gas_price", c.gas_price.to_string())
+        .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
+        .add_attribute("slot_granularity", c.slot_granularity.to_string()))
 }
-
-// impl Contract {
-//     /// Changes core configurations
-//     /// Should only be updated by owner -- in best case DAO based :)
-//     pub fn update_settings(
-//         &mut self,
-//         owner_id: Option<AccountId>,
-//         slot_granularity: Option<u64>,
-//         paused: Option<bool>,
-//         agent_fee: Option<U128>,
-//         gas_price: Option<U128>,
-//         proxy_callback_gas: Option<U64>,
-//         agent_task_ratio: Option<Vec<U64>>,
-//         agents_eject_threshold: Option<U128>,
-//         treasury_id: Option<AccountId>,
-//     ) {
-//         assert_eq!(
-//             self.owner_id,
-//             env::predecessor_account_id(),
-//             "Must be owner"
-//         );
-
-//         // BE CAREFUL!
-//         if let Some(owner_id) = owner_id {
-//             self.owner_id = owner_id;
-//         }
-//     }
 
 // /// Allows admin to calculate internal balances
 // /// Returns surplus and rewards balances

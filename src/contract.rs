@@ -1,12 +1,17 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    SubMsg, WasmMsg,
+};
 use cw2::set_contract_version;
+use cw20::Cw20ExecuteMsg;
 
+use crate::agent::{query_get_agent, register_agent};
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::owner::update_settings;
-use crate::state::{Config, CONFIG};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::owner::{query_config, update_settings};
+use crate::state::{Config, GenericBalance, CONFIG};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -19,13 +24,29 @@ pub fn instantiate(
     info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let denom = deps.querier.query_bonded_denom()?;
     let config = Config {
         paused: false,
         owner_id: info.sender.clone(),
+        treasury_id: None,
+        agent_task_ratio: [1, 2],
+        agent_active_index: 0,
+        agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
+        available_balance: GenericBalance::default(),
+        staked_balance: GenericBalance::default(),
+        agent_fee: Coin::new(5, denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
+        agent_storage_deposit: Coin::new(1, denom), // 1uJuno (Ensure they have balance signing keys)
+        gas_price: 100_000_000,
+        proxy_callback_gas: 30_000_000,
+        slot_granularity: 60_000_000_000,
+        cw20_whitelist: vec![],
+        // TODO: ????
+        // cw20_fees: vec![],
     };
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
 
+    // TODO: Refactor to include all instantiated data
     Ok(Response::new()
         .add_attribute("method", "instantiate")
         .add_attribute("owner_id", info.sender))
@@ -34,54 +55,85 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        // ExecuteMsg::Increment {} => try_increment(deps),
-        // ExecuteMsg::Reset { count } => try_reset(deps, info, count),
-        ExecuteMsg::UpdateSettings { owner_id } => update_settings(deps, info, owner_id),
+        ExecuteMsg::UpdateSettings {
+            owner_id,
+            slot_granularity,
+            paused,
+            agent_fee,
+            gas_price,
+            proxy_callback_gas,
+            agent_task_ratio,
+            agents_eject_threshold,
+            treasury_id,
+        } => update_settings(
+            deps,
+            info,
+            owner_id,
+            slot_granularity,
+            paused,
+            agent_fee,
+            gas_price,
+            proxy_callback_gas,
+            agent_task_ratio,
+            agents_eject_threshold,
+            treasury_id,
+        ),
+        ExecuteMsg::RegisterAgent { payable_account_id } => {
+            register_agent(deps, info, env, payable_account_id)
+        }
+        ExecuteMsg::UpdateAgent { payable_account_id } => Ok(Response::new()),
+        ExecuteMsg::CheckInAgent {} => Ok(Response::new()),
+        ExecuteMsg::UnregisterAgent {} => Ok(Response::new()),
+        ExecuteMsg::WithdrawReward {} => Ok(Response::new()),
     }
 }
-
-// pub fn try_increment(deps: DepsMut) -> Result<Response, ContractError> {
-//     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-//         state.count += 1;
-//         Ok(state)
-//     })?;
-
-//     Ok(Response::new().add_attribute("method", "try_increment"))
-// }
-
-// pub fn try_reset(deps: DepsMut, info: MessageInfo, count: i32) -> Result<Response, ContractError> {
-//     STATE.update(deps.storage, |mut state| -> Result<_, ContractError> {
-//         if info.sender != state.owner {
-//             return Err(ContractError::Unauthorized {});
-//         }
-//         state.count = count;
-//         Ok(state)
-//     })?;
-//     Ok(Response::new().add_attribute("method", "reset"))
-// }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
+        QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
+        QueryMsg::GetAgentIds {} => to_binary(&query_config(deps)?),
+        QueryMsg::GetAgents { from_index, limit } => to_binary(&query_config(deps)?),
+        QueryMsg::GetAgentTasks { account_id } => to_binary(&query_config(deps)?),
     }
 }
 
-// fn query_count(deps: Deps) -> StdResult<CountResponse> {
-//     let state = STATE.load(deps.storage)?;
-//     Ok(CountResponse { count: state.count })
-// }
+// Helper to distribute funds/tokens
+fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
+    let native_balance = &balance.native;
+    let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
+        vec![]
+    } else {
+        vec![SubMsg::new(BankMsg::Send {
+            to_address: to.into(),
+            amount: native_balance.to_vec(),
+        })]
+    };
 
-fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let config = CONFIG.load(deps.storage)?;
-    Ok(ConfigResponse {
-        owner_id: config.owner_id,
-    })
+    let cw20_balance = &balance.cw20;
+    let cw20_msgs: StdResult<Vec<_>> = cw20_balance
+        .iter()
+        .map(|c| {
+            let msg = Cw20ExecuteMsg::Transfer {
+                recipient: to.into(),
+                amount: c.amount,
+            };
+            let exec = SubMsg::new(WasmMsg::Execute {
+                contract_addr: c.address.to_string(),
+                msg: to_binary(&msg)?,
+                funds: vec![],
+            });
+            Ok(exec)
+        })
+        .collect();
+    msgs.append(&mut cw20_msgs?);
+    Ok(msgs)
 }
 
 // #[cfg(test)]

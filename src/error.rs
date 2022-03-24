@@ -9,6 +9,15 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("No coin balance found")]
+    EmptyBalance {},
+
+    #[error("Only accepts tokens in the cw20_whitelist")]
+    NotInWhitelist {},
+
+    #[error("{val:?} is paused")]
+    ContractPaused { val: String },
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.
