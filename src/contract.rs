@@ -1,13 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    SubMsg, WasmMsg,
-};
+use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
-use cw20::Cw20ExecuteMsg;
 
-use crate::agent::{query_get_agent, register_agent};
+use crate::agent::{
+    query_get_agent, query_get_agent_ids, query_get_agent_tasks, register_agent, update_agent,
+};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::owner::{query_config, update_settings};
@@ -35,7 +33,6 @@ pub fn instantiate(
         available_balance: GenericBalance::default(),
         staked_balance: GenericBalance::default(),
         agent_fee: Coin::new(5, denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
-        agent_storage_deposit: Coin::new(1, denom), // 1uJuno (Ensure they have balance signing keys)
         gas_price: 100_000_000,
         proxy_callback_gas: 30_000_000,
         slot_granularity: 60_000_000_000,
@@ -86,7 +83,9 @@ pub fn execute(
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
-        ExecuteMsg::UpdateAgent { payable_account_id } => Ok(Response::new()),
+        ExecuteMsg::UpdateAgent { payable_account_id } => {
+            update_agent(deps, info, env, payable_account_id)
+        }
         ExecuteMsg::CheckInAgent {} => Ok(Response::new()),
         ExecuteMsg::UnregisterAgent {} => Ok(Response::new()),
         ExecuteMsg::WithdrawReward {} => Ok(Response::new()),
@@ -98,42 +97,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
-        QueryMsg::GetAgentIds {} => to_binary(&query_config(deps)?),
-        QueryMsg::GetAgents { from_index, limit } => to_binary(&query_config(deps)?),
-        QueryMsg::GetAgentTasks { account_id } => to_binary(&query_config(deps)?),
+        QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
+        QueryMsg::GetAgentTasks { account_id } => {
+            to_binary(&query_get_agent_tasks(deps, account_id)?)
+        }
     }
-}
-
-// Helper to distribute funds/tokens
-fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
-    let native_balance = &balance.native;
-    let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
-        vec![]
-    } else {
-        vec![SubMsg::new(BankMsg::Send {
-            to_address: to.into(),
-            amount: native_balance.to_vec(),
-        })]
-    };
-
-    let cw20_balance = &balance.cw20;
-    let cw20_msgs: StdResult<Vec<_>> = cw20_balance
-        .iter()
-        .map(|c| {
-            let msg = Cw20ExecuteMsg::Transfer {
-                recipient: to.into(),
-                amount: c.amount,
-            };
-            let exec = SubMsg::new(WasmMsg::Execute {
-                contract_addr: c.address.to_string(),
-                msg: to_binary(&msg)?,
-                funds: vec![],
-            });
-            Ok(exec)
-        })
-        .collect();
-    msgs.append(&mut cw20_msgs?);
-    Ok(msgs)
 }
 
 // #[cfg(test)]

@@ -64,7 +64,6 @@ pub struct Config {
 
     // Economics
     pub agent_fee: Coin,
-    pub agent_storage_deposit: Coin,
     pub gas_price: u32,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,

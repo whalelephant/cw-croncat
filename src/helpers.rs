@@ -1,9 +1,43 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{to_binary, Addr, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, StdResult, SubMsg, WasmMsg};
+use cw20::Cw20ExecuteMsg;
 
 use crate::msg::ExecuteMsg;
+use crate::state::GenericBalance;
+
+// Helper to distribute funds/tokens
+pub(crate) fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
+    let native_balance = &balance.native;
+    let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
+        vec![]
+    } else {
+        vec![SubMsg::new(BankMsg::Send {
+            to_address: to.into(),
+            amount: native_balance.to_vec(),
+        })]
+    };
+
+    let cw20_balance = &balance.cw20;
+    let cw20_msgs: StdResult<Vec<_>> = cw20_balance
+        .iter()
+        .map(|c| {
+            let msg = Cw20ExecuteMsg::Transfer {
+                recipient: to.into(),
+                amount: c.amount,
+            };
+            let exec = SubMsg::new(WasmMsg::Execute {
+                contract_addr: c.address.to_string(),
+                msg: to_binary(&msg)?,
+                funds: vec![],
+            });
+            Ok(exec)
+        })
+        .collect();
+    msgs.append(&mut cw20_msgs?);
+    Ok(msgs)
+}
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
 /// for working with this.

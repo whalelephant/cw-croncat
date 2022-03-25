@@ -25,7 +25,7 @@ pub enum ExecuteMsg {
         payable_account_id: Option<Addr>,
     },
     UpdateAgent {
-        payable_account_id: Option<Addr>,
+        payable_account_id: Addr,
     },
     CheckInAgent {},
     UnregisterAgent {},
@@ -36,17 +36,9 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetConfig {},
-    GetAgent {
-        account_id: Addr,
-    },
+    GetAgent { account_id: Addr },
     GetAgentIds {},
-    GetAgents {
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    },
-    GetAgentTasks {
-        account_id: Addr,
-    },
+    GetAgentTasks { account_id: Addr },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
