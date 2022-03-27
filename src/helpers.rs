@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, StdResult, SubMsg, WasmMsg};
-use cw20::Cw20ExecuteMsg;
+use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::msg::ExecuteMsg;
 use crate::state::GenericBalance;
@@ -43,6 +43,15 @@ pub(crate) fn send_tokens(
     coins.cw20 = balance.cw20.clone();
     msgs.append(&mut cw20_msgs?);
     Ok((msgs, coins))
+}
+
+/// has_cw_coins returns true if the list of CW20 coins has at least the required amount
+pub(crate) fn has_cw_coins(coins: &[Cw20CoinVerified], required: &Cw20CoinVerified) -> bool {
+    coins
+        .iter()
+        .find(|c| c.address == required.address)
+        .map(|m| m.amount >= required.amount)
+        .unwrap_or(false)
 }
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers

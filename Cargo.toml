@@ -1,6 +1,6 @@
 [package]
 name = "cw-croncat"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["meow@cron.cat>", "@tjtc"]
 edition = "2018"
 

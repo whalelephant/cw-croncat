@@ -9,7 +9,7 @@ use crate::agent::{
 };
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::owner::{query_config, update_settings};
+use crate::owner::{move_balances, query_config, update_settings};
 use crate::state::{Config, GenericBalance, CONFIG};
 
 // version info for migration info
@@ -21,13 +21,15 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     // TODO: is denom: "" native?
     let denom = deps.querier.query_bonded_denom()?;
     let config = Config {
         paused: false,
-        owner_id: info.sender.clone(),
+        owner_id: deps
+            .api
+            .addr_validate(msg.owner_id.unwrap_or_else(|| info.sender.clone()).as_str())?,
         treasury_id: None,
         agent_task_ratio: [1, 2],
         agent_active_index: 0,
@@ -61,6 +63,10 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateSettings { .. } => update_settings(deps, info, msg),
+        ExecuteMsg::MoveBalances {
+            balances,
+            account_id,
+        } => move_balances(deps, info, env, balances, account_id),
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
@@ -119,51 +125,4 @@ mod tests {
         assert_eq!(30_000_000, value.proxy_callback_gas);
         assert_eq!(60_000_000_000, value.slot_granularity);
     }
-
-    // #[test]
-    // fn increment() {
-    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
-
-    //     let msg = InstantiateMsg { count: 17 };
-    //     let info = mock_info("creator", &coins(2, "token"));
-    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //     // beneficiary can release it
-    //     let info = mock_info("anyone", &coins(2, "token"));
-    //     let msg = ExecuteMsg::Increment {};
-    //     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //     // should increase counter by 1
-    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-    //     let value: CountResponse = from_binary(&res).unwrap();
-    //     assert_eq!(18, value.count);
-    // }
-
-    // #[test]
-    // fn reset() {
-    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
-
-    //     let msg = InstantiateMsg { count: 17 };
-    //     let info = mock_info("creator", &coins(2, "token"));
-    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-    //     // beneficiary can release it
-    //     let unauth_info = mock_info("anyone", &coins(2, "token"));
-    //     let msg = ExecuteMsg::Reset { count: 5 };
-    //     let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
-    //     match res {
-    //         Err(ContractError::Unauthorized {}) => {}
-    //         _ => panic!("Must return unauthorized error"),
-    //     }
-
-    //     // only the original creator can reset the counter
-    //     let auth_info = mock_info("creator", &coins(2, "token"));
-    //     let msg = ExecuteMsg::Reset { count: 5 };
-    //     let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
-
-    //     // should now be 5
-    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-    //     let value: CountResponse = from_binary(&res).unwrap();
-    //     assert_eq!(5, value.count);
-    // }
 }

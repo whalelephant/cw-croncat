@@ -4,7 +4,9 @@ use crate::state::{
     Agent, AgentStatus, Config, GenericBalance, AGENTS, AGENTS_ACTIVE_QUEUE, AGENTS_PENDING_QUEUE,
     CONFIG,
 };
-use cosmwasm_std::{Addr, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg};
+use cosmwasm_std::{
+    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
+};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -88,6 +90,11 @@ pub fn register_agent(
     env: Env,
     payable_account_id: Option<Addr>,
 ) -> Result<Response, ContractError> {
+    if !info.funds.is_empty() {
+        return Err(ContractError::CustomError {
+            val: "Do not attach funds".to_string(),
+        });
+    }
     let c: Config = CONFIG.load(deps.storage)?;
     if c.paused {
         return Err(ContractError::CustomError {
@@ -95,24 +102,23 @@ pub fn register_agent(
         });
     }
 
-    let account = info.sender.clone();
+    let account = info.sender;
 
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
-    // Check if native token balance is sufficient for a few txns
-    // let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-    // if has_coins(&agent_wallet_balances, &Coin::new(1, c.native_denom)) {
-    //     // TODO: Change to real amount
-    //     return Err(ContractError::CustomError {
-    //         val: "Insufficient deposit".to_string(),
-    //     });
-    // }
-    let agent_wallet_balance: Balance = Balance::from(info.funds);
-    if agent_wallet_balance.is_empty() {
-        return Err(ContractError::EmptyBalance {});
+    // Check if native token balance is sufficient for a few txns, in this case 4 txns
+    // TODO: Adjust gas & costs based on real usage cost
+    let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
+    let unit_cost = c.gas_price * 4;
+    if has_coins(
+        &agent_wallet_balances,
+        &Coin::new(u128::from(unit_cost), c.native_denom),
+    ) {
+        return Err(ContractError::CustomError {
+            val: "Insufficient deposit".to_string(),
+        });
     }
 
     let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
-
     let push_account = |mut aq: Vec<Addr>| -> Result<_, ContractError> {
         aq.push(account.clone());
         Ok(aq)
@@ -133,7 +139,11 @@ pub fn register_agent(
         account,
         |a: Option<Agent>| -> Result<_, ContractError> {
             match a {
-                Some(_) => {
+                // make sure that account isn't already added
+                Some(_) => Err(ContractError::CustomError {
+                    val: "Agent already exists".to_string(),
+                }),
+                None => {
                     Ok(Agent {
                         status: agent_status.clone(),
                         payable_account_id: payable_id,
@@ -144,10 +154,6 @@ pub fn register_agent(
                         register_start: env.block.time.nanos(),
                     })
                 }
-                // make sure that account isn't already added
-                None => Err(ContractError::CustomError {
-                    val: "Agent already exists".to_string(),
-                }),
             }
         },
     )?;

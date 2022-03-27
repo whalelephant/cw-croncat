@@ -3,5 +3,5 @@ set -e
 
 export RUSTFLAGS='-C link-arg=-s'
 
-cargo unit-test --locked
-cargo wasm --locked
+cargo unit-test
+cargo wasm

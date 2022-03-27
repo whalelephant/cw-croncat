@@ -1,4 +1,5 @@
 use cosmwasm_std::{Addr, Coin};
+use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +21,10 @@ pub enum ExecuteMsg {
         agent_task_ratio: Option<Vec<u64>>,
         agents_eject_threshold: Option<u64>,
         treasury_id: Option<Addr>,
+    },
+    MoveBalances {
+        balances: Vec<Balance>,
+        account_id: Addr,
     },
     RegisterAgent {
         payable_account_id: Option<Addr>,
