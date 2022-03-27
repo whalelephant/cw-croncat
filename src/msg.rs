@@ -1,3 +1,4 @@
+use crate::state::GenericBalance;
 use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -41,6 +42,7 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetConfig {},
+    GetBalances {},
     GetAgent { account_id: Addr },
     GetAgentIds {},
     GetAgentTasks { account_id: Addr },
@@ -59,4 +61,12 @@ pub struct ConfigResponse {
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BalancesResponse {
+    pub native_denom: String,
+    pub available_balance: GenericBalance,
+    pub staked_balance: GenericBalance,
+    pub cw20_whitelist: Vec<Addr>,
 }

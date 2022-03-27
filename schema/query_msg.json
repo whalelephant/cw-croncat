@@ -17,6 +17,18 @@
     {
       "type": "object",
       "required": [
+        "get_balances"
+      ],
+      "properties": {
+        "get_balances": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
         "get_agent"
       ],
       "properties": {

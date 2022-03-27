@@ -1,6 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+};
 use cw2::set_contract_version;
 
 use crate::agent::{
@@ -9,8 +11,9 @@ use crate::agent::{
 };
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::owner::{move_balances, query_config, update_settings};
+use crate::owner::{move_balances, query_balances, query_config, update_settings};
 use crate::state::{Config, GenericBalance, CONFIG};
+use cw20::Balance;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -19,12 +22,18 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    // TODO: is denom: "" native?
     let denom = deps.querier.query_bonded_denom()?;
+    let mut available_balance = GenericBalance::default();
+
+    // keep tally of balances initialized
+    let state_balances = deps.querier.query_all_balances(&env.contract.address)?;
+    available_balance.add_tokens(Balance::from(state_balances));
+    available_balance.add_tokens(Balance::from(info.funds.clone()));
+
     let config = Config {
         paused: false,
         owner_id: deps
@@ -34,7 +43,7 @@ pub fn instantiate(
         agent_task_ratio: [1, 2],
         agent_active_index: 0,
         agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
-        available_balance: GenericBalance::default(),
+        available_balance,
         staked_balance: GenericBalance::default(),
         agent_fee: Coin::new(5, denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
         gas_price: 100_000_000,
@@ -48,10 +57,37 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
 
-    // TODO: Refactor to include all instantiated data
+    // all instantiated data
     Ok(Response::new()
         .add_attribute("method", "instantiate")
-        .add_attribute("owner_id", info.sender))
+        .add_attribute("paused", config.paused.to_string())
+        .add_attribute("owner_id", config.owner_id.to_string())
+        .add_attribute(
+            "treasury_id",
+            config
+                .treasury_id
+                .unwrap_or_else(|| Addr::unchecked(""))
+                .to_string(),
+        )
+        .add_attribute(
+            "agent_task_ratio",
+            config
+                .agent_task_ratio
+                .iter()
+                .copied()
+                .map(|i| i.to_string())
+                .collect::<String>(),
+        )
+        .add_attribute("agent_active_index", config.agent_active_index.to_string())
+        .add_attribute(
+            "agents_eject_threshold",
+            config.agents_eject_threshold.to_string(),
+        )
+        .add_attribute("native_denom", config.native_denom)
+        .add_attribute("agent_fee", config.agent_fee.to_string())
+        .add_attribute("gas_price", config.gas_price.to_string())
+        .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
+        .add_attribute("slot_granularity", config.slot_granularity.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -83,6 +119,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
+        QueryMsg::GetBalances {} => to_binary(&query_balances(deps)?),
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
         QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
         QueryMsg::GetAgentTasks { account_id } => {
@@ -112,7 +149,6 @@ mod tests {
         // it worked, let's query the state
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();
         let value: ConfigResponse = from_binary(&res).unwrap();
-        // println!("CONFIG {:?}", value);
         assert_eq!(false, value.paused);
         assert_eq!(info.sender, value.owner_id);
         assert_eq!(None, value.treasury_id);
