@@ -1,18 +1,21 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "ConfigResponse",
+  "title": "Config",
   "type": "object",
   "required": [
     "agent_active_index",
     "agent_fee",
     "agent_task_ratio",
     "agents_eject_threshold",
+    "available_balance",
+    "cw20_whitelist",
     "gas_price",
     "native_denom",
     "owner_id",
     "paused",
     "proxy_callback_gas",
-    "slot_granularity"
+    "slot_granularity",
+    "staked_balance"
   ],
   "properties": {
     "agent_active_index": {
@@ -38,6 +41,15 @@
       "format": "uint64",
       "minimum": 0.0
     },
+    "available_balance": {
+      "$ref": "#/definitions/GenericBalance"
+    },
+    "cw20_whitelist": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Addr"
+      }
+    },
     "gas_price": {
       "type": "integer",
       "format": "uint32",
@@ -61,6 +73,9 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
+    },
+    "staked_balance": {
+      "$ref": "#/definitions/GenericBalance"
     },
     "treasury_id": {
       "anyOf": [
@@ -90,6 +105,42 @@
         },
         "denom": {
           "type": "string"
+        }
+      }
+    },
+    "Cw20CoinVerified": {
+      "type": "object",
+      "required": [
+        "address",
+        "amount"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Addr"
+        },
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "GenericBalance": {
+      "type": "object",
+      "required": [
+        "cw20",
+        "native"
+      ],
+      "properties": {
+        "cw20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "native": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
         }
       }
     },

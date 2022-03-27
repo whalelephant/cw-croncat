@@ -1,10 +1,10 @@
 use crate::error::ContractError;
-use crate::msg::ConfigResponse;
+use crate::msg::{ConfigResponse, ExecuteMsg};
 use crate::state::{Config, CONFIG};
-use cosmwasm_std::{Addr, Coin, Deps, DepsMut, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Addr, Deps, DepsMut, MessageInfo, Response, StdResult};
 
 pub(crate) fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let c = CONFIG.load(deps.storage)?;
+    let c: Config = CONFIG.load(deps.storage)?;
     Ok(ConfigResponse {
         paused: c.paused,
         owner_id: c.owner_id,
@@ -12,6 +12,7 @@ pub(crate) fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         agent_task_ratio: c.agent_task_ratio,
         agent_active_index: c.agent_active_index,
         agents_eject_threshold: c.agents_eject_threshold,
+        native_denom: c.native_denom,
         agent_fee: c.agent_fee,
         gas_price: c.gas_price,
         proxy_callback_gas: c.proxy_callback_gas,
@@ -24,57 +25,67 @@ pub(crate) fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 pub fn update_settings(
     deps: DepsMut,
     info: MessageInfo,
-    owner_id: Option<Addr>,
-    slot_granularity: Option<u64>,
-    paused: Option<bool>,
-    agent_fee: Option<Coin>,
-    gas_price: Option<u32>,
-    proxy_callback_gas: Option<u32>,
-    agent_task_ratio: Option<Vec<u64>>,
-    agents_eject_threshold: Option<u128>,
-    treasury_id: Option<Addr>,
+    payload: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    CONFIG.update(deps.storage, |mut config| -> Result<_, ContractError> {
-        if info.sender != config.owner_id {
-            return Err(ContractError::Unauthorized {});
-        }
+    match payload {
+        ExecuteMsg::UpdateSettings {
+            owner_id,
+            slot_granularity,
+            paused,
+            agent_fee,
+            gas_price,
+            proxy_callback_gas,
+            agent_task_ratio,
+            agents_eject_threshold,
+            treasury_id,
+        } => {
+            CONFIG.update(deps.storage, |mut config| -> Result<_, ContractError> {
+                if info.sender != config.owner_id {
+                    return Err(ContractError::Unauthorized {});
+                }
 
-        if let Some(owner_id) = owner_id {
-            config.owner_id = owner_id;
-        }
-        if let Some(treasury_id) = treasury_id {
-            config.treasury_id = Some(treasury_id);
-        }
+                if let Some(owner_id) = owner_id {
+                    config.owner_id = owner_id;
+                }
+                if let Some(treasury_id) = treasury_id {
+                    config.treasury_id = Some(treasury_id);
+                }
 
-        if let Some(slot_granularity) = slot_granularity {
-            config.slot_granularity = slot_granularity;
+                if let Some(slot_granularity) = slot_granularity {
+                    config.slot_granularity = slot_granularity;
+                }
+                if let Some(paused) = paused {
+                    config.paused = paused;
+                }
+                if let Some(gas_price) = gas_price {
+                    config.gas_price = gas_price;
+                }
+                if let Some(proxy_callback_gas) = proxy_callback_gas {
+                    config.proxy_callback_gas = proxy_callback_gas;
+                }
+                if let Some(agent_fee) = agent_fee {
+                    config.agent_fee = agent_fee;
+                }
+                if let Some(agent_task_ratio) = agent_task_ratio {
+                    config.agent_task_ratio = [agent_task_ratio[0], agent_task_ratio[1]];
+                }
+                if let Some(agents_eject_threshold) = agents_eject_threshold {
+                    config.agents_eject_threshold = agents_eject_threshold;
+                }
+                Ok(config)
+            })?;
         }
-        if let Some(paused) = paused {
-            config.paused = paused;
-        }
-        if let Some(gas_price) = gas_price {
-            config.gas_price = gas_price;
-        }
-        if let Some(proxy_callback_gas) = proxy_callback_gas {
-            config.proxy_callback_gas = proxy_callback_gas;
-        }
-        if let Some(agent_fee) = agent_fee {
-            config.agent_fee = agent_fee;
-        }
-        if let Some(agent_task_ratio) = agent_task_ratio {
-            config.agent_task_ratio = [agent_task_ratio[0], agent_task_ratio[1]];
-        }
-        if let Some(agents_eject_threshold) = agents_eject_threshold {
-            config.agents_eject_threshold = agents_eject_threshold;
-        }
-        Ok(config)
-    })?;
+        _ => unreachable!(),
+    }
     let c: Config = CONFIG.load(deps.storage)?;
     Ok(Response::new()
         .add_attribute("method", "update_settings")
         .add_attribute("paused", c.paused.to_string())
         .add_attribute("owner_id", c.owner_id.to_string())
-        .add_attribute("treasury_id", c.treasury_id.unwrap().to_string())
+        .add_attribute(
+            "treasury_id",
+            c.treasury_id.unwrap_or(Addr::unchecked("")).to_string(),
+        )
         .add_attribute(
             "agent_task_ratio",
             c.agent_task_ratio
@@ -88,6 +99,7 @@ pub fn update_settings(
             "agents_eject_threshold",
             c.agents_eject_threshold.to_string(),
         )
+        .add_attribute("native_denom", c.native_denom)
         .add_attribute("agent_fee", c.agent_fee.to_string())
         .add_attribute("gas_price", c.gas_price.to_string())
         .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
@@ -209,138 +221,90 @@ pub fn update_settings(
 // }
 // }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use near_sdk::json_types::ValidAccountId;
-//     use near_sdk::test_utils::{accounts, VMContextBuilder};
-//     use near_sdk::{testing_env, MockedBlockchain};
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    use crate::contract::{execute, instantiate, query};
+    use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
+    use cosmwasm_std::{coins, from_binary};
 
-//     const BLOCK_START_BLOCK: u64 = 52_201_040;
-//     const BLOCK_START_TS: u64 = 1_624_151_503_447_000_000;
+    #[test]
+    fn test_update_settings() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
-//     fn get_context(predecessor_account_id: ValidAccountId) -> VMContextBuilder {
-//         let mut builder = VMContextBuilder::new();
-//         builder
-//             .current_account_id(accounts(0))
-//             .signer_account_id(predecessor_account_id.clone())
-//             .signer_account_pk(b"ed25519:4ZhGmuKTfQn9ZpHCQVRwEr4JnutL8Uu3kArfxEqksfVM".to_vec())
-//             .predecessor_account_id(predecessor_account_id)
-//             .block_index(BLOCK_START_BLOCK)
-//             .block_timestamp(BLOCK_START_TS);
-//         builder
-//     }
+        let msg = InstantiateMsg { owner_id: None };
+        let info = mock_info("creator", &coins(1000, "meow"));
+        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        assert_eq!(0, res_init.messages.len());
 
-//     #[test]
-//     #[should_panic(expected = "Must be owner")]
-//     fn test_update_settings_fail() {
-//         let mut context = get_context(accounts(1));
-//         testing_env!(context.build());
-//         let mut contract = Contract::new();
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.slot_granularity, SLOT_GRANULARITY);
+        // do the thing
+        let payload = ExecuteMsg::UpdateSettings {
+            paused: Some(true),
+            owner_id: None,
+            treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
+        assert_eq!(0, res_exec.messages.len());
 
-//         testing_env!(context
-//             .is_view(false)
-//             .signer_account_id(accounts(3))
-//             .predecessor_account_id(accounts(3))
-//             .build());
-//         contract.update_settings(None, Some(10), None, None, None, None, None, None, None);
-//     }
+        // it worked, let's query the state
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();
+        let value: ConfigResponse = from_binary(&res).unwrap();
+        println!("CONFIG {:?}", value);
+        assert_eq!(true, value.paused);
+        assert_eq!(info.sender, value.owner_id);
+    }
 
-//     #[test]
-//     fn test_update_settings() {
-//         let mut context = get_context(accounts(1));
-//         testing_env!(context.build());
-//         let mut contract = Contract::new();
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.slot_granularity, SLOT_GRANULARITY);
+    // #[test]
+    // fn increment() {
+    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-//         testing_env!(context.is_view(false).build());
-//         contract.update_settings(
-//             None,
-//             Some(10),
-//             Some(true),
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//             None,
-//         );
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.slot_granularity, 10);
-//         assert_eq!(contract.paused, true);
-//     }
+    //     let msg = InstantiateMsg { count: 17 };
+    //     let info = mock_info("creator", &coins(2, "token"));
+    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//     #[test]
-//     fn test_update_settings_agent_ratio() {
-//         let mut context = get_context(accounts(1));
-//         testing_env!(context.build());
-//         let mut contract = Contract::new();
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.slot_granularity, SLOT_GRANULARITY);
+    //     // beneficiary can release it
+    //     let info = mock_info("anyone", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Increment {};
+    //     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//         testing_env!(context.is_view(false).build());
-//         contract.update_settings(
-//             None,
-//             None,
-//             Some(true),
-//             None,
-//             None,
-//             None,
-//             Some(vec![U64(2), U64(5)]),
-//             None,
-//             None,
-//         );
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.agent_task_ratio[0], 2);
-//         assert_eq!(contract.agent_task_ratio[1], 5);
-//         assert_eq!(contract.paused, true);
-//     }
+    //     // should increase counter by 1
+    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+    //     let value: CountResponse = from_binary(&res).unwrap();
+    //     assert_eq!(18, value.count);
+    // }
 
-//     #[test]
-//     fn test_calc_balances() {
-//         let mut context = get_context(accounts(1));
-//         testing_env!(context.build());
-//         let mut contract = Contract::new();
-//         let base_agent_storage: u128 = 2260000000000000000000;
-//         contract.calc_balances();
+    // #[test]
+    // fn reset() {
+    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-//         testing_env!(context
-//             .is_view(false)
-//             .attached_deposit(ONE_NEAR * 5)
-//             .build());
-//         contract.create_task(
-//             accounts(3),
-//             "increment".to_string(),
-//             "0 0 */1 * * *".to_string(),
-//             Some(true),
-//             Some(U128::from(ONE_NEAR)),
-//             Some(200),
-//             None,
-//         );
-//         contract.register_agent(Some(accounts(1)));
-//         testing_env!(context.is_view(false).build());
+    //     let msg = InstantiateMsg { count: 17 };
+    //     let info = mock_info("creator", &coins(2, "token"));
+    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//         // recalc the balances
-//         let (surplus, rewards) = contract.calc_balances();
-//         testing_env!(context.is_view(true).build());
-//         assert_eq!(contract.available_balance, 5002260000000000000000000);
-//         assert_eq!(surplus.0, 91925740000000000000000000);
-//         assert_eq!(rewards.0, base_agent_storage);
-//     }
+    //     // beneficiary can release it
+    //     let unauth_info = mock_info("anyone", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Reset { count: 5 };
+    //     let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
+    //     match res {
+    //         Err(ContractError::Unauthorized {}) => {}
+    //         _ => panic!("Must return unauthorized error"),
+    //     }
 
-//     #[test]
-//     fn test_move_balance() {
-//         let mut context = get_context(accounts(1));
-//         testing_env!(context.is_view(false).build());
-//         let mut contract = Contract::new();
-//         contract.calc_balances();
-//         contract.move_balance(U128::from(ONE_NEAR / 2), accounts(1).to_string());
-//         testing_env!(context.is_view(true).build());
+    //     // only the original creator can reset the counter
+    //     let auth_info = mock_info("creator", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Reset { count: 5 };
+    //     let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
 
-//         let (_, _, _, surplus) = contract.get_balances();
-//         assert_eq!(surplus.0, 91928000000000000000000000);
-//     }
-// }
+    //     // should now be 5
+    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+    //     let value: CountResponse = from_binary(&res).unwrap();
+    //     assert_eq!(5, value.count);
+    // }
+}

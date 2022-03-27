@@ -4,7 +4,8 @@ use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Res
 use cw2::set_contract_version;
 
 use crate::agent::{
-    query_get_agent, query_get_agent_ids, query_get_agent_tasks, register_agent, update_agent,
+    accept_nomination_agent, query_get_agent, query_get_agent_ids, query_get_agent_tasks,
+    register_agent, unregister_agent, update_agent, withdraw_task_balance,
 };
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -22,6 +23,7 @@ pub fn instantiate(
     info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    // TODO: is denom: "" native?
     let denom = deps.querier.query_bonded_denom()?;
     let config = Config {
         paused: false,
@@ -36,6 +38,7 @@ pub fn instantiate(
         gas_price: 100_000_000,
         proxy_callback_gas: 30_000_000,
         slot_granularity: 60_000_000_000,
+        native_denom: denom,
         cw20_whitelist: vec![],
         // TODO: ????
         // cw20_fees: vec![],
@@ -57,38 +60,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateSettings {
-            owner_id,
-            slot_granularity,
-            paused,
-            agent_fee,
-            gas_price,
-            proxy_callback_gas,
-            agent_task_ratio,
-            agents_eject_threshold,
-            treasury_id,
-        } => update_settings(
-            deps,
-            info,
-            owner_id,
-            slot_granularity,
-            paused,
-            agent_fee,
-            gas_price,
-            proxy_callback_gas,
-            agent_task_ratio,
-            agents_eject_threshold,
-            treasury_id,
-        ),
+        ExecuteMsg::UpdateSettings { .. } => update_settings(deps, info, msg),
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
         ExecuteMsg::UpdateAgent { payable_account_id } => {
             update_agent(deps, info, env, payable_account_id)
         }
-        ExecuteMsg::CheckInAgent {} => Ok(Response::new()),
-        ExecuteMsg::UnregisterAgent {} => Ok(Response::new()),
-        ExecuteMsg::WithdrawReward {} => Ok(Response::new()),
+        ExecuteMsg::UnregisterAgent {} => unregister_agent(deps, info, env),
+        ExecuteMsg::WithdrawReward {} => withdraw_task_balance(deps, info, env),
+        ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
     }
 }
 
@@ -104,73 +85,85 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-//     use cosmwasm_std::{coins, from_binary};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::msg::{ConfigResponse, QueryMsg};
+    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
+    use cosmwasm_std::{coin, coins, from_binary};
 
-//     #[test]
-//     fn proper_initialization() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    #[test]
+    fn proper_initialization() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(1000, "earth"));
+        let msg = InstantiateMsg { owner_id: None };
+        let info = mock_info("creator", &coins(1000, "meow"));
 
-//         // we can just call .unwrap() to assert this was a success
-//         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//         assert_eq!(0, res.messages.len());
+        // we can just call .unwrap() to assert this was a success
+        let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        assert_eq!(0, res.messages.len());
 
-//         // it worked, let's query the state
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(17, value.count);
-//     }
+        // it worked, let's query the state
+        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();
+        let value: ConfigResponse = from_binary(&res).unwrap();
+        // println!("CONFIG {:?}", value);
+        assert_eq!(false, value.paused);
+        assert_eq!(info.sender, value.owner_id);
+        assert_eq!(None, value.treasury_id);
+        assert_eq!([1, 2], value.agent_task_ratio);
+        assert_eq!(0, value.agent_active_index);
+        assert_eq!(600, value.agents_eject_threshold);
+        assert_eq!("", value.native_denom);
+        assert_eq!(coin(5, ""), value.agent_fee);
+        assert_eq!(100_000_000, value.gas_price);
+        assert_eq!(30_000_000, value.proxy_callback_gas);
+        assert_eq!(60_000_000_000, value.slot_granularity);
+    }
 
-//     #[test]
-//     fn increment() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    // #[test]
+    // fn increment() {
+    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    //     let msg = InstantiateMsg { count: 17 };
+    //     let info = mock_info("creator", &coins(2, "token"));
+    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//         // beneficiary can release it
-//         let info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Increment {};
-//         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    //     // beneficiary can release it
+    //     let info = mock_info("anyone", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Increment {};
+    //     let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//         // should increase counter by 1
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(18, value.count);
-//     }
+    //     // should increase counter by 1
+    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+    //     let value: CountResponse = from_binary(&res).unwrap();
+    //     assert_eq!(18, value.count);
+    // }
 
-//     #[test]
-//     fn reset() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    // #[test]
+    // fn reset() {
+    //     let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+    //     let msg = InstantiateMsg { count: 17 };
+    //     let info = mock_info("creator", &coins(2, "token"));
+    //     let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-//         // beneficiary can release it
-//         let unauth_info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Reset { count: 5 };
-//         let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
-//         match res {
-//             Err(ContractError::Unauthorized {}) => {}
-//             _ => panic!("Must return unauthorized error"),
-//         }
+    //     // beneficiary can release it
+    //     let unauth_info = mock_info("anyone", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Reset { count: 5 };
+    //     let res = execute(deps.as_mut(), mock_env(), unauth_info, msg);
+    //     match res {
+    //         Err(ContractError::Unauthorized {}) => {}
+    //         _ => panic!("Must return unauthorized error"),
+    //     }
 
-//         // only the original creator can reset the counter
-//         let auth_info = mock_info("creator", &coins(2, "token"));
-//         let msg = ExecuteMsg::Reset { count: 5 };
-//         let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
+    //     // only the original creator can reset the counter
+    //     let auth_info = mock_info("creator", &coins(2, "token"));
+    //     let msg = ExecuteMsg::Reset { count: 5 };
+    //     let _res = execute(deps.as_mut(), mock_env(), auth_info, msg).unwrap();
 
-//         // should now be 5
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(5, value.count);
-//     }
-// }
+    //     // should now be 5
+    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
+    //     let value: CountResponse = from_binary(&res).unwrap();
+    //     assert_eq!(5, value.count);
+    // }
+}

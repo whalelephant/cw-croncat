@@ -8,11 +8,16 @@ use crate::msg::ExecuteMsg;
 use crate::state::GenericBalance;
 
 // Helper to distribute funds/tokens
-pub(crate) fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<SubMsg>> {
+pub(crate) fn send_tokens(
+    to: &Addr,
+    balance: &GenericBalance,
+) -> StdResult<(Vec<SubMsg>, GenericBalance)> {
     let native_balance = &balance.native;
+    let mut coins: GenericBalance = GenericBalance::default();
     let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
         vec![]
     } else {
+        coins.native = balance.native.clone();
         vec![SubMsg::new(BankMsg::Send {
             to_address: to.into(),
             amount: native_balance.to_vec(),
@@ -35,8 +40,9 @@ pub(crate) fn send_tokens(to: &Addr, balance: &GenericBalance) -> StdResult<Vec<
             Ok(exec)
         })
         .collect();
+    coins.cw20 = balance.cw20.clone();
     msgs.append(&mut cw20_msgs?);
-    Ok(msgs)
+    Ok((msgs, coins))
 }
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers

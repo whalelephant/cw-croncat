@@ -18,7 +18,7 @@ pub enum ExecuteMsg {
         gas_price: Option<u32>,
         proxy_callback_gas: Option<u32>,
         agent_task_ratio: Option<Vec<u64>>,
-        agents_eject_threshold: Option<u128>,
+        agents_eject_threshold: Option<u64>,
         treasury_id: Option<Addr>,
     },
     RegisterAgent {
@@ -48,9 +48,10 @@ pub struct ConfigResponse {
     pub treasury_id: Option<Addr>,
     pub agent_task_ratio: [u64; 2],
     pub agent_active_index: u64,
-    pub agents_eject_threshold: u128,
+    pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
     pub gas_price: u32,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
+    pub native_denom: String,
 }

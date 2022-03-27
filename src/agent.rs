@@ -4,7 +4,7 @@ use crate::state::{
     Agent, AgentStatus, Config, GenericBalance, AGENTS, AGENTS_ACTIVE_QUEUE, AGENTS_PENDING_QUEUE,
     CONFIG,
 };
-use cosmwasm_std::{Addr, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{Addr, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -95,9 +95,13 @@ pub fn register_agent(
         });
     }
 
+    let account = info.sender.clone();
+
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
-    // TODO: Change to just check if native token balance is sufficient for a few txns
-    // if has_coins(info.funds.as_ref(), &c.agent_storage_deposit) {
+    // Check if native token balance is sufficient for a few txns
+    // let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
+    // if has_coins(&agent_wallet_balances, &Coin::new(1, c.native_denom)) {
+    //     // TODO: Change to real amount
     //     return Err(ContractError::CustomError {
     //         val: "Insufficient deposit".to_string(),
     //     });
@@ -107,7 +111,6 @@ pub fn register_agent(
         return Err(ContractError::EmptyBalance {});
     }
 
-    let account = info.sender.clone();
     let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
 
     let push_account = |mut aq: Vec<Addr>| -> Result<_, ContractError> {
@@ -189,30 +192,32 @@ pub fn update_agent(
     Ok(Response::new().add_attribute("method", "update_agent"))
 }
 
-/// Removes the agent from the active set of agents.
-/// Withdraws all reward balances to the agent payable account id.
-pub fn unregister_agent(
-    _deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
-) -> Result<Response, ContractError> {
-    // AGENTS.update(
-    //     deps.storage,
-    //     info.sender,
-    //     |mut a: Option<Agent>| -> Result<_, ContractError> {
-    //         match a {
-    //             Some(agent) => {
-    //                 agent.payable_account_id = payable_account_id;
-    //                 Ok(agent)
-    //             }
-    //             None => Err(ContractError::CustomError {
-    //                 val: "Agent doesnt exist".to_string(),
-    //             }),
-    //         }
-    //     },
-    // )?;
+/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+pub(crate) fn withdraw_balances(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Vec<SubMsg>, ContractError> {
+    let a = AGENTS.may_load(deps.storage, info.sender)?;
+    if a.is_none() {
+        return Err(ContractError::CustomError {
+            val: "Agent doesnt exist".to_string(),
+        });
+    }
+    let agent = a.unwrap();
 
-    Ok(Response::new().add_attribute("method", "unregister_agent"))
+    // This will send all token balances to Agent
+    let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
+    let mut config = CONFIG.load(deps.storage)?;
+    config
+        .available_balance
+        .minus_tokens(Balance::from(balances.native));
+    // TODO: Finish:
+    // config
+    //     .available_balance
+    //     .minus_tokens(Balance::from(balances.cw20));
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(messages)
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
@@ -221,49 +226,36 @@ pub fn withdraw_task_balance(
     info: MessageInfo,
     _env: Env,
 ) -> Result<Response, ContractError> {
-    // AGENTS.update(
-    //     deps.storage,
-    //     info.sender,
-    //     |mut a: Option<Agent>| -> Result<_, ContractError> {
-    //         match a {
-    //             Some(agent) => {
-    //                 agent.payable_account_id = payable_account_id;
-    //                 Ok(agent)
-    //             }
-    //             None => Err(ContractError::CustomError {
-    //                 val: "Agent doesnt exist".to_string(),
-    //             }),
-    //         }
-    //     },
-    // )?;
-    // let withdrawal_amount = agent_balance - storage_fee;
-    // agent.balance = U128::from(agent_balance - withdrawal_amount);
-
-    // // if this is a full exit, remove agent. Otherwise, update agent
-    // if let Some(remove) = remove {
-    //     if remove {
-    //         self.remove_agent(account);
-    //     }
-    // } else {
-    //     self.agents.insert(&account, &agent);
-    // }
-
-    // log!("Withdrawal of {} has been sent.", withdrawal_amount);
-    // self.available_balance = self.available_balance.saturating_sub(withdrawal_amount);
-    // Promise::new(agent.payable_account_id.to_string()).transfer(withdrawal_amount)
-
-    let a = AGENTS.may_load(deps.storage, info.sender.clone())?;
-    if a.is_none() {
-        return Err(ContractError::CustomError {
-            val: "Agent doesnt exist".to_string(),
-        });
-    }
-    let agent = a.unwrap();
-    let messages = send_tokens(&agent.payable_account_id, &agent.balance)?;
+    let messages = withdraw_balances(deps, info.clone())?;
 
     Ok(Response::new()
         .add_attribute("method", "withdraw_task_balance")
         .add_attribute("account_id", info.sender)
-        .add_attribute("payable_account_id", agent.payable_account_id)
         .add_submessages(messages))
+}
+
+/// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
+pub fn accept_nomination_agent(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+) -> Result<Response, ContractError> {
+    Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
+}
+
+/// Removes the agent from the active set of agents.
+/// Withdraws all reward balances to the agent payable account id.
+pub fn unregister_agent(
+    deps: DepsMut,
+    info: MessageInfo,
+    _env: Env,
+) -> Result<Response, ContractError> {
+    // TODO: Finish
+    // let messages = withdraw_balances(deps.storage, info.clone())?;
+    AGENTS.remove(deps.storage, info.sender.clone());
+
+    Ok(Response::new()
+        .add_attribute("method", "unregister_agent")
+        .add_attribute("account_id", info.sender))
+    // .add_submessages(messages))
 }

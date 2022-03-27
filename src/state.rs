@@ -44,6 +44,36 @@ impl GenericBalance {
             }
         };
     }
+    pub fn minus_tokens(&mut self, minus: Balance) {
+        match minus {
+            Balance::Native(balance) => {
+                for token in balance.0 {
+                    let index = self.native.iter().enumerate().find_map(|(i, exist)| {
+                        if exist.denom == token.denom {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(idx) = index {
+                        self.native[idx].amount -= token.amount
+                    }
+                }
+            }
+            Balance::Cw20(token) => {
+                let index = self.cw20.iter().enumerate().find_map(|(i, exist)| {
+                    if exist.address == token.address {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                });
+                if let Some(idx) = index {
+                    self.cw20[idx].amount -= token.amount
+                }
+            }
+        };
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -60,7 +90,7 @@ pub struct Config {
     // NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub agent_task_ratio: [u64; 2],
     pub agent_active_index: u64,
-    pub agents_eject_threshold: u128,
+    pub agents_eject_threshold: u64,
 
     // Economics
     pub agent_fee: Coin,
@@ -71,6 +101,7 @@ pub struct Config {
     // Treasury
     pub treasury_id: Option<Addr>,
     pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
+    pub native_denom: String,
     pub available_balance: GenericBalance, // tasks + rewards balances
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
