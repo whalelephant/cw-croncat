@@ -84,13 +84,15 @@ pub fn update_settings(
         .add_attribute("owner_id", c.owner_id.to_string())
         .add_attribute(
             "treasury_id",
-            c.treasury_id.unwrap_or(Addr::unchecked("")).to_string(),
+            c.treasury_id
+                .unwrap_or_else(|| Addr::unchecked(""))
+                .to_string(),
         )
         .add_attribute(
             "agent_task_ratio",
             c.agent_task_ratio
-                .to_vec()
-                .into_iter()
+                .iter()
+                .copied()
                 .map(|i| i.to_string())
                 .collect::<String>(),
         )
