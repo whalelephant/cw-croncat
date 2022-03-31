@@ -112,9 +112,9 @@ pub fn register_agent(
     if has_coins(
         &agent_wallet_balances,
         &Coin::new(u128::from(unit_cost), c.native_denom),
-    ) {
+    ) || agent_wallet_balances.is_empty() {
         return Err(ContractError::CustomError {
-            val: "Insufficient deposit".to_string(),
+            val: "Insufficient funds".to_string(),
         });
     }
 
@@ -264,4 +264,208 @@ pub fn unregister_agent(
         .add_attribute("method", "unregister_agent")
         .add_attribute("account_id", info.sender))
     // .add_submessages(messages))
+}
+
+
+#[cfg(test)]
+mod tests {
+    // use crate::agent::GetAgentResponse;
+    use crate::contract::{execute, instantiate};
+    use crate::error::ContractError;
+    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
+    use cosmwasm_std::{coin, coins, Addr, Coin, Empty, Uint128};
+    use crate::helpers::CwTemplateContract;
+    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+
+    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            crate::contract::execute,
+            crate::contract::instantiate,
+            crate::contract::query,
+        );
+        Box::new(contract)
+    }
+
+    const AGENT1: &str = "AGENT001";
+    const ADMIN: &str = "ADMIN";
+    const NATIVE_DENOM: &str = "";
+
+    fn mock_app() -> App {
+        AppBuilder::new().build(|router, _, storage| {
+            router
+                .bank
+                .init_balance(
+                    storage,
+                    &Addr::unchecked(ADMIN),
+                    vec![coin(100, NATIVE_DENOM.to_string())],
+                )
+                .unwrap();
+            router
+                .bank
+                .init_balance(
+                    storage,
+                    &Addr::unchecked(AGENT1),
+                    vec![coin(100, NATIVE_DENOM.to_string())],
+                )
+                .unwrap();
+        })
+    }
+
+    fn proper_instantiate() -> (App, CwTemplateContract) {
+        let mut app = mock_app();
+        let cw_template_id = app.store_code(contract_template());
+        let owner_addr = Addr::unchecked(ADMIN);
+
+        let msg = InstantiateMsg {
+            owner_id: Some(owner_addr),
+        };
+        println!("msg {:?}", msg);
+        let cw_template_contract_addr = app
+            .instantiate_contract(
+                cw_template_id,
+                Addr::unchecked(ADMIN),
+                &msg,
+                &[],
+                "Instantiate",
+                None,
+            );
+        println!("cw_template_contract_addr {:?}", cw_template_contract_addr);
+
+        let cw_template_contract = CwTemplateContract(cw_template_contract_addr.unwrap());
+
+        (app, cw_template_contract)
+    }
+
+    #[test]
+    fn test_register_agent_fail_cases() {
+        let mut deps = mock_dependencies_with_balance(&coins(20000, "atom"));
+        let msg = InstantiateMsg { owner_id: None };
+        let info = mock_info("creator", &vec![]);
+        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        assert_eq!(0, res_init.messages.len());
+
+        let payload_reg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked("paymeplease".to_string())),
+        };
+
+        // Test funds fail register if sent
+        let info_fail = mock_info("agent_1", &coins(1337, "leet"));
+        let res_fail_1 = execute(deps.as_mut(), mock_env(), info_fail, payload_reg.clone());
+        match res_fail_1 {
+            Err(ContractError::CustomError { val }) => {
+                assert_eq!(val, "Do not attach funds");
+            }
+            _ => panic!("Must return attach funds error"),
+        }
+
+        // Test Can't register if contract is paused
+        let payload_1 = ExecuteMsg::UpdateSettings {
+            paused: Some(true),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload_1).unwrap();
+        assert!(res_exec.messages.is_empty());
+        let res_fail_2 = execute(deps.as_mut(), mock_env(), info.clone(), payload_reg.clone());
+        match res_fail_2 {
+            Err(ContractError::CustomError { val }) => {
+                assert_eq!(val, "Register agent paused");
+            }
+            _ => panic!("Must return paused contract error"),
+        }
+
+        // Test wallet rejected if doesnt have enough funds
+        let payload_2 = ExecuteMsg::UpdateSettings {
+            paused: Some(false),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload_2).unwrap();
+        assert!(res_exec.messages.is_empty());
+        let res_fail_3 = execute(deps.as_mut(), mock_env(), info.clone(), payload_reg);
+        match res_fail_3 {
+            Err(ContractError::CustomError { val }) => {
+                assert_eq!(val, "Insufficient funds");
+            }
+            _ => panic!("Must return insuffient balance error"),
+        }
+    }
+
+    #[test]
+    fn register_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        println!("HEREEEE {:?}", cw_template_contract);
+
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked("givememoney".to_string())),
+        };
+        println!("register_agent msg {:?}", msg);
+
+        // let msg = ExecuteMsg::UpdateSettings {
+        //     owner_id: Some(Addr::unchecked(USER)),
+        //     paused: None,
+        //     slot_granularity: None,
+        //     agent_fee: None,
+        //     gas_price: None,
+        //     proxy_callback_gas: None,
+        //     agent_task_ratio: None,
+        //     agents_eject_threshold: None,
+        //     treasury_id: None,
+        // };
+        let cosmos_msg = cw_template_contract.call(msg).unwrap();
+        println!("register_agent cosmos_msg {:?}", cosmos_msg);
+        let res = app.execute(Addr::unchecked(AGENT1), cosmos_msg).unwrap();
+        println!("register_agent res {:?}", res);
+    }
+
+    // #[test]
+    // fn test_register_agent_success() {
+    //     let mut deps = mock_dependencies_with_balance(&coins(20000, "atom"));
+    //     let msg = InstantiateMsg { owner_id: None };
+    //     let info = mock_info("creator", &vec![]);
+    //     let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+    //     assert_eq!(0, res_init.messages.len());
+
+    //     // // give the agent some funds to start
+    //     // let agent_1 = Addr::unchecked("agent_1");
+    //     // let transfer = BankMsg::Send {
+    //     //     to_address: agent_1.into(),
+    //     //     amount: vec![Coin::new(200, "atom")],
+    //     // };
+    //     // let res = execute(deps.as_mut(), mock_env(), info.clone(), transfer).unwrap();
+    //     // assert!(res.messages.is_empty());
+
+    //     let payload = ExecuteMsg::RegisterAgent {
+    //         payable_account_id: Some(Addr::unchecked("givememoney".to_string())),
+    //     };
+
+    //     // Test register success
+    //     // let info = mock_info("agent_1", &vec![]);
+    //     let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
+    //     assert!(res_exec.messages.is_empty());
+    //     let res = query(deps.as_ref(), mock_env(), QueryMsg::GetAgent { account_id: Addr::unchecked("creator") }).unwrap();
+    //     let value: GetAgentResponse = from_binary(&res).unwrap();
+    //     println!("value {:?}", value);
+    //     // assert_eq!(true, value.paused);
+    //     // assert_eq!(info.sender, value.owner_id);
+
+    //     // TODO: message response matches expectations (same block, all the defaults)
+
+    //     // TODO: test fail if try to re-register
+
+    //     // TODO: test another register, put into pending queue
+    // }
 }

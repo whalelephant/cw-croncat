@@ -13,7 +13,7 @@ pub(crate) fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     Ok(ConfigResponse {
         paused: c.paused,
         owner_id: c.owner_id,
-        treasury_id: c.treasury_id,
+        // treasury_id: c.treasury_id,
         agent_task_ratio: c.agent_task_ratio,
         agent_active_index: c.agent_active_index,
         agents_eject_threshold: c.agents_eject_threshold,
@@ -52,7 +52,7 @@ pub fn update_settings(
             proxy_callback_gas,
             agent_task_ratio,
             agents_eject_threshold,
-            treasury_id,
+            // treasury_id,
         } => {
             CONFIG.update(deps.storage, |mut config| -> Result<_, ContractError> {
                 if info.sender != config.owner_id {
@@ -62,9 +62,9 @@ pub fn update_settings(
                 if let Some(owner_id) = owner_id {
                     config.owner_id = owner_id;
                 }
-                if let Some(treasury_id) = treasury_id {
-                    config.treasury_id = Some(treasury_id);
-                }
+                // if let Some(treasury_id) = treasury_id {
+                //     config.treasury_id = Some(treasury_id);
+                // }
 
                 if let Some(slot_granularity) = slot_granularity {
                     config.slot_granularity = slot_granularity;
@@ -97,12 +97,12 @@ pub fn update_settings(
         .add_attribute("method", "update_settings")
         .add_attribute("paused", c.paused.to_string())
         .add_attribute("owner_id", c.owner_id.to_string())
-        .add_attribute(
-            "treasury_id",
-            c.treasury_id
-                .unwrap_or_else(|| Addr::unchecked(""))
-                .to_string(),
-        )
+        // .add_attribute(
+        //     "treasury_id",
+        //     c.treasury_id
+        //         .unwrap_or_else(|| Addr::unchecked(""))
+        //         .to_string(),
+        // )
         .add_attribute(
             "agent_task_ratio",
             c.agent_task_ratio
@@ -135,20 +135,22 @@ pub fn move_balances(
 ) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
-    // Check if is owner OR the treasury account making the transfer request
-    if let Some(treasury_id) = config.treasury_id.clone() {
-        if treasury_id != info.sender && config.owner_id != info.sender {
-            return Err(ContractError::Unauthorized {});
-        }
-    } else if info.sender != config.owner_id {
+    // // Check if is owner OR the treasury account making the transfer request
+    // if let Some(treasury_id) = config.treasury_id.clone() {
+    //     if treasury_id != info.sender && config.owner_id != info.sender {
+    //         return Err(ContractError::Unauthorized {});
+    //     }
+    // } else 
+    if info.sender != config.owner_id {
         return Err(ContractError::Unauthorized {});
     }
 
     // for now, only allow movement of funds between owner and treasury
-    let check_account = config
-        .treasury_id
-        .clone()
-        .unwrap_or_else(|| config.owner_id.clone());
+    // let check_account = config
+    //     .treasury_id
+    //     .clone()
+    //     .unwrap_or_else(|| config.owner_id.clone());
+    let check_account = config.owner_id.clone();
     if check_account != account_id && config.owner_id != account_id {
         return Err(ContractError::CustomError {
             val: "Cannot move funds to this account".to_string(),
@@ -254,7 +256,7 @@ mod tests {
         let payload = ExecuteMsg::UpdateSettings {
             paused: Some(true),
             owner_id: None,
-            treasury_id: None,
+            // treasury_id: None,
             agent_fee: None,
             agent_task_ratio: None,
             agents_eject_threshold: None,
@@ -298,7 +300,7 @@ mod tests {
         let payload = ExecuteMsg::UpdateSettings {
             paused: None,
             owner_id: None,
-            treasury_id: Some(Addr::unchecked("money_bags")),
+            // treasury_id: Some(Addr::unchecked("money_bags")),
             agent_fee: None,
             agent_task_ratio: None,
             agents_eject_threshold: None,
@@ -338,7 +340,7 @@ mod tests {
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
         let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
-        let money_bags = Addr::unchecked("money_bags");
+        let money_bags = Addr::unchecked("owner_id");
 
         // instantiate with owner, then add treasury
         let msg = InstantiateMsg { owner_id: None };
@@ -348,7 +350,7 @@ mod tests {
         let payload = ExecuteMsg::UpdateSettings {
             paused: None,
             owner_id: None,
-            treasury_id: Some(money_bags.clone()),
+            // treasury_id: Some(money_bags.clone()),
             agent_fee: None,
             agent_task_ratio: None,
             agents_eject_threshold: None,
@@ -387,12 +389,12 @@ mod tests {
         );
     }
 
-    // TODO: Setup CW20 logic / balances!
+    // // TODO: Setup CW20 logic / balances!
     // #[test]
     // fn test_owner_move_balances_cw() {
     //     let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
-    //     let info = mock_info("owner_id", &coins(1000, "meow"));
-    //     let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
+    //     let info = mock_info("owner_id", &vec![Balance::Cw20(1000, "meow")]);
+    //     let money_bags = Addr::unchecked("money_bags");
     //     let exist_bal = vec![Balance::from(coins(2, "atom"))];
     //     let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
     //     let non_exist_bal = vec![Balance::from(coins(2, "shrute_bucks"))];
@@ -405,7 +407,7 @@ mod tests {
     //     let payload = ExecuteMsg::UpdateSettings {
     //         paused: None,
     //         owner_id: None,
-    //         treasury_id: Some(Addr::unchecked("money_bags")),
+    //         treasury_id: Some(money_bags.clone()),
     //         agent_fee: None,
     //         agent_task_ratio: None,
     //         agents_eject_threshold: None,
@@ -417,9 +419,9 @@ mod tests {
     //     assert!(res_exec.messages.is_empty());
 
     //     // try to move funds with greater amount than cw available
-    //     let msg_move_5 = ExecuteMsg::MoveBalances { balances: spensive_bal, account_id: Addr::unchecked("owner_id") };
-    //     let res_fail_5 = execute(deps.as_mut(), mock_env(), info.clone(), msg_move_5);
-    //     match res_fail_5 {
+    //     let msg_move_fail = ExecuteMsg::MoveBalances { balances: spensive_bal, account_id: money_bags.clone() };
+    //     let res_fail = execute(deps.as_mut(), mock_env(), info.clone(), msg_move_fail);
+    //     match res_fail {
     //         Err(ContractError::CustomError { .. }) => {}
     //         _ => panic!("Must return custom not enough funds error"),
     //     }
@@ -427,7 +429,7 @@ mod tests {
     //     // try to move cw available funds
     //     // // do the right thing
     //     // let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
-    //     // assert_eq!(0, res_exec.messages.len());
+    //     // assert!(!res_exec.messages.is_empty());
 
     //     // // it worked, let's query the state
     //     // let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();

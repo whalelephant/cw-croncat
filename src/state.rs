@@ -99,7 +99,7 @@ pub struct Config {
     pub slot_granularity: u64,
 
     // Treasury
-    pub treasury_id: Option<Addr>,
+    // pub treasury_id: Option<Addr>,
     pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
     pub native_denom: String,
     pub available_balance: GenericBalance, // tasks + rewards balances

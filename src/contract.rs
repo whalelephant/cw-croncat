@@ -26,7 +26,9 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    // TODO: Why is this not working in AppBuilder
     let denom = deps.querier.query_bonded_denom()?;
+    // let denom = "".to_string();
     let mut available_balance = GenericBalance::default();
 
     // keep tally of balances initialized
@@ -34,12 +36,16 @@ pub fn instantiate(
     available_balance.add_tokens(Balance::from(state_balances));
     available_balance.add_tokens(Balance::from(info.funds.clone()));
 
+    let owner_acct = msg.owner_id.unwrap_or_else(|| info.sender.clone());
+    println!("owner_acct {:?}", owner_acct);
+    // let owner_valid = deps.api.addr_validate(owner_acct.as_str())?;
+    // println!("owner_valid {:?}", owner_valid);
+    assert!(!deps.api.addr_validate(owner_acct.as_str()).is_err(), "Invalid address");
+
     let config = Config {
         paused: false,
-        owner_id: deps
-            .api
-            .addr_validate(msg.owner_id.unwrap_or_else(|| info.sender.clone()).as_str())?,
-        treasury_id: None,
+        owner_id: owner_acct,
+        // treasury_id: None,
         agent_task_ratio: [1, 2],
         agent_active_index: 0,
         agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
@@ -62,13 +68,13 @@ pub fn instantiate(
         .add_attribute("method", "instantiate")
         .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner_id", config.owner_id.to_string())
-        .add_attribute(
-            "treasury_id",
-            config
-                .treasury_id
-                .unwrap_or_else(|| Addr::unchecked(""))
-                .to_string(),
-        )
+        // .add_attribute(
+        //     "treasury_id",
+        //     config
+        //         .treasury_id
+        //         .unwrap_or_else(|| Addr::unchecked(""))
+        //         .to_string(),
+        // )
         .add_attribute(
             "agent_task_ratio",
             config
@@ -151,7 +157,7 @@ mod tests {
         let value: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!(false, value.paused);
         assert_eq!(info.sender, value.owner_id);
-        assert_eq!(None, value.treasury_id);
+        // assert_eq!(None, value.treasury_id);
         assert_eq!([1, 2], value.agent_task_ratio);
         assert_eq!(0, value.agent_active_index);
         assert_eq!(600, value.agents_eject_threshold);
