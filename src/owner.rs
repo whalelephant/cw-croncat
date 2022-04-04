@@ -140,7 +140,7 @@ pub fn move_balances(
     //     if treasury_id != info.sender && config.owner_id != info.sender {
     //         return Err(ContractError::Unauthorized {});
     //     }
-    // } else 
+    // } else
     if info.sender != config.owner_id {
         return Err(ContractError::Unauthorized {});
     }
@@ -248,7 +248,10 @@ mod tests {
     fn test_update_settings() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
-        let msg = InstantiateMsg { owner_id: None };
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+        };
         let info = mock_info("creator", &coins(1000, "meow"));
         let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         assert_eq!(0, res_init.messages.len());
@@ -293,7 +296,10 @@ mod tests {
         let non_exist_bal = vec![Balance::from(coins(2, "shrute_bucks"))];
 
         // instantiate with owner, then add treasury
-        let msg = InstantiateMsg { owner_id: None };
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+        };
         let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         assert!(res_init.messages.is_empty());
 
@@ -343,7 +349,10 @@ mod tests {
         let money_bags = Addr::unchecked("owner_id");
 
         // instantiate with owner, then add treasury
-        let msg = InstantiateMsg { owner_id: None };
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+        };
         let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         assert!(res_init.messages.is_empty());
 

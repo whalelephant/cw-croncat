@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
+    // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
+    pub denom: String,
     pub owner_id: Option<Addr>,
 }
 

@@ -79,16 +79,6 @@
               ],
               "format": "uint64",
               "minimum": 0.0
-            },
-            "treasury_id": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Addr"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           }
         }

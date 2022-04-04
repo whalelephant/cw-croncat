@@ -76,16 +76,6 @@
     },
     "staked_balance": {
       "$ref": "#/definitions/GenericBalance"
-    },
-    "treasury_id": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/Addr"
-        },
-        {
-          "type": "null"
-        }
-      ]
     }
   },
   "definitions": {
