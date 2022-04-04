@@ -288,12 +288,9 @@ pub fn unregister_agent(
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::agent::GetAgentResponse;
-    use crate::contract::{execute, instantiate};
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
     use cosmwasm_std::{coin, coins, Addr, Empty, Timestamp};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -306,6 +303,7 @@ mod tests {
         Box::new(contract)
     }
 
+    const AGENT0: &str = "AGENT000";
     const AGENT1: &str = "AGENT001";
     const AGENT2: &str = "AGENT002";
     const AGENT1_BENEFICIARY: &str = "AGENT001_BENEFICIARY";
@@ -314,38 +312,23 @@ mod tests {
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(ADMIN),
-                    vec![coin(100, NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(AGENT1),
-                    vec![coin(100, NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(AGENT2),
-                    vec![coin(100, NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(AGENT1_BENEFICIARY),
-                    vec![coin(1, NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
+            let accounts: Vec<(u128, String)> = vec![
+                (100, ADMIN.to_string()),
+                (1, AGENT0.to_string()),
+                (100, AGENT1.to_string()),
+                (100, AGENT2.to_string()),
+                (1, AGENT1_BENEFICIARY.to_string()),
+            ];
+            for (amt, address) in accounts.iter() {
+                router
+                    .bank
+                    .init_balance(
+                        storage,
+                        &Addr::unchecked(address),
+                        vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    )
+                    .unwrap();
+            }
         })
     }
 
@@ -369,28 +352,30 @@ mod tests {
 
     #[test]
     fn test_register_agent_fail_cases() {
-        let mut deps = mock_dependencies_with_balance(&coins(20000, "atom"));
-        let msg = InstantiateMsg {
-            denom: "atom".to_string(),
-            owner_id: None,
-        };
-        let info = mock_info("creator", &vec![]);
-        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
-        assert_eq!(0, res_init.messages.len());
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
 
-        let payload_reg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked("paymeplease".to_string())),
+        // start first register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
         };
 
         // Test funds fail register if sent
-        let info_fail = mock_info("agent_1", &coins(1337, "leet"));
-        let res_fail_1 = execute(deps.as_mut(), mock_env(), info_fail, payload_reg.clone());
-        match res_fail_1 {
-            Err(ContractError::CustomError { val }) => {
-                assert_eq!(val, "Do not attach funds");
-            }
-            _ => panic!("Must return attach funds error"),
-        }
+        let rereg_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT1),
+                contract_addr.clone(),
+                &msg,
+                &coins(37, "atom"),
+            )
+            .unwrap_err();
+        println!("rereg_errrereg_err {:?}", rereg_err);
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Do not attach funds".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
 
         // Test Can't register if contract is paused
         let payload_1 = ExecuteMsg::UpdateSettings {
@@ -404,15 +389,23 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload_1).unwrap();
-        assert!(res_exec.messages.is_empty());
-        let res_fail_2 = execute(deps.as_mut(), mock_env(), info.clone(), payload_reg.clone());
-        match res_fail_2 {
-            Err(ContractError::CustomError { val }) => {
-                assert_eq!(val, "Register agent paused");
-            }
-            _ => panic!("Must return paused contract error"),
-        }
+
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &payload_1,
+            &[],
+        )
+        .unwrap();
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Register agent paused".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
 
         // Test wallet rejected if doesnt have enough funds
         let payload_2 = ExecuteMsg::UpdateSettings {
@@ -426,15 +419,23 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload_2).unwrap();
-        assert!(res_exec.messages.is_empty());
-        let res_fail_3 = execute(deps.as_mut(), mock_env(), info.clone(), payload_reg);
-        match res_fail_3 {
-            Err(ContractError::CustomError { val }) => {
-                assert_eq!(val, "Insufficient funds");
-            }
-            _ => panic!("Must return insuffient balance error"),
-        }
+
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &payload_2,
+            &[],
+        )
+        .unwrap();
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Insufficient funds".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
     }
 
     #[test]
@@ -442,7 +443,6 @@ mod tests {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
         let blk_time = app.block_info().time;
-        println!("blk_timeblk_time {:?}", blk_time);
 
         // start first register
         let msg = ExecuteMsg::RegisterAgent {
