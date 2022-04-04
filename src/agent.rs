@@ -5,7 +5,7 @@ use crate::state::{
     CONFIG,
 };
 use cosmwasm_std::{
-    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
+    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
 };
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -22,7 +22,11 @@ pub struct GetAgentResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentIdsResponse(Vec<Addr>, Vec<Addr>);
+pub struct GetAgentIdsResponse {
+    active: Vec<Addr>,
+    pending: Vec<Addr>,
+}
+// pub struct GetAgentIdsResponse(Vec<Addr>, Vec<Addr>);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentTasksResponse(u64, u128);
@@ -36,7 +40,9 @@ pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<
     }
     let a = agent.unwrap();
 
-    let pending = AGENTS_PENDING_QUEUE.load(deps.storage)?;
+    let pending: Vec<Addr> = AGENTS_PENDING_QUEUE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
 
     // If agent is pending, Check if they should get nominated to checkin to become active
     let agent_status: AgentStatus = if a.status == AgentStatus::Pending {
@@ -62,10 +68,17 @@ pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<
 
 /// Get a list of agent addresses
 pub(crate) fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> {
-    let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
-    let pending = AGENTS_PENDING_QUEUE.load(deps.storage)?;
+    // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    // let pending = AGENTS_PENDING_QUEUE.load(deps.storage)?;
+    let active: Vec<Addr> = AGENTS_ACTIVE_QUEUE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
+    let pending: Vec<Addr> = AGENTS_PENDING_QUEUE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
 
-    Ok(GetAgentIdsResponse(active, pending))
+    Ok(GetAgentIdsResponse { active, pending })
+    // Ok(GetAgentIdsResponse(active, pending))
 }
 
 // TODO:
@@ -109,28 +122,34 @@ pub fn register_agent(
     // TODO: Adjust gas & costs based on real usage cost
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
     let unit_cost = c.gas_price * 4;
-    if has_coins(
+    if !has_coins(
         &agent_wallet_balances,
         &Coin::new(u128::from(unit_cost), c.native_denom),
-    ) {
+    ) || agent_wallet_balances.is_empty()
+    {
         return Err(ContractError::CustomError {
-            val: "Insufficient deposit".to_string(),
+            val: "Insufficient funds".to_string(),
         });
     }
 
     let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
-    let push_account = |mut aq: Vec<Addr>| -> Result<_, ContractError> {
-        aq.push(account.clone());
-        Ok(aq)
-    };
 
-    let active_agents = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    // let active_agents = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE_QUEUE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
     let total_agents = active_agents.len();
     let agent_status = if total_agents == 0 {
-        AGENTS_ACTIVE_QUEUE.update(deps.storage, push_account)?;
+        // AGENTS_ACTIVE_QUEUE.update(deps.storage, push_account)?;
+        active_agents.push(account.clone());
+        AGENTS_ACTIVE_QUEUE.save(deps.storage, &active_agents)?;
         AgentStatus::Active
     } else {
-        AGENTS_PENDING_QUEUE.update(deps.storage, push_account)?;
+        let mut pending_agents = AGENTS_PENDING_QUEUE
+            .may_load(deps.storage)?
+            .unwrap_or_default();
+        pending_agents.push(account.clone());
+        AGENTS_PENDING_QUEUE.save(deps.storage, &pending_agents)?;
         AgentStatus::Pending
     };
 
@@ -200,10 +219,10 @@ pub fn update_agent(
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
 pub(crate) fn withdraw_balances(
-    deps: DepsMut,
+    storage: &mut dyn Storage,
     info: MessageInfo,
 ) -> Result<Vec<SubMsg>, ContractError> {
-    let a = AGENTS.may_load(deps.storage, info.sender)?;
+    let a = AGENTS.may_load(storage, info.sender)?;
     if a.is_none() {
         return Err(ContractError::CustomError {
             val: "Agent doesnt exist".to_string(),
@@ -213,7 +232,8 @@ pub(crate) fn withdraw_balances(
 
     // This will send all token balances to Agent
     let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
-    let mut config = CONFIG.load(deps.storage)?;
+    println!("balancesbalances {:?}", balances);
+    let mut config = CONFIG.load(storage)?;
     config
         .available_balance
         .minus_tokens(Balance::from(balances.native));
@@ -221,7 +241,7 @@ pub(crate) fn withdraw_balances(
     // config
     //     .available_balance
     //     .minus_tokens(Balance::from(balances.cw20));
-    CONFIG.save(deps.storage, &config)?;
+    CONFIG.save(storage, &config)?;
 
     Ok(messages)
 }
@@ -232,7 +252,7 @@ pub fn withdraw_task_balance(
     info: MessageInfo,
     _env: Env,
 ) -> Result<Response, ContractError> {
-    let messages = withdraw_balances(deps, info.clone())?;
+    let messages = withdraw_balances(deps.storage, info.clone())?;
 
     Ok(Response::new()
         .add_attribute("method", "withdraw_task_balance")
@@ -256,12 +276,422 @@ pub fn unregister_agent(
     info: MessageInfo,
     _env: Env,
 ) -> Result<Response, ContractError> {
-    // TODO: Finish
-    // let messages = withdraw_balances(deps.storage, info.clone())?;
-    AGENTS.remove(deps.storage, info.sender.clone());
+    // Get withdraw messages, if any
+    // NOTE: Since this also checks if agent exists, safe to not have redundant logic
+    let messages = withdraw_balances(deps.storage, info.clone())?;
+    let agent_id = info.sender;
+    AGENTS.remove(deps.storage, agent_id.clone());
 
-    Ok(Response::new()
+    let responses = Response::new()
         .add_attribute("method", "unregister_agent")
-        .add_attribute("account_id", info.sender))
-    // .add_submessages(messages))
+        .add_attribute("account_id", agent_id);
+
+    if messages.is_empty() {
+        Ok(responses)
+    } else {
+        Ok(responses.add_submessages(messages))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::ContractError;
+    use crate::helpers::CwTemplateContract;
+    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cosmwasm_std::{coin, coins, Addr, Empty, Timestamp};
+    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+
+    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            crate::contract::execute,
+            crate::contract::instantiate,
+            crate::contract::query,
+        );
+        Box::new(contract)
+    }
+
+    const AGENT0: &str = "AGENT000";
+    const AGENT1: &str = "AGENT001";
+    const AGENT2: &str = "AGENT002";
+    const AGENT1_BENEFICIARY: &str = "AGENT001_BENEFICIARY";
+    const ADMIN: &str = "ADMIN";
+    const NATIVE_DENOM: &str = "atom";
+
+    fn mock_app() -> App {
+        AppBuilder::new().build(|router, _, storage| {
+            let accounts: Vec<(u128, String)> = vec![
+                (100, ADMIN.to_string()),
+                (1, AGENT0.to_string()),
+                (100, AGENT1.to_string()),
+                (100, AGENT2.to_string()),
+                (1, AGENT1_BENEFICIARY.to_string()),
+            ];
+            for (amt, address) in accounts.iter() {
+                router
+                    .bank
+                    .init_balance(
+                        storage,
+                        &Addr::unchecked(address),
+                        vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    )
+                    .unwrap();
+            }
+        })
+    }
+
+    fn proper_instantiate() -> (App, CwTemplateContract) {
+        let mut app = mock_app();
+        let cw_template_id = app.store_code(contract_template());
+        let owner_addr = Addr::unchecked(ADMIN);
+
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: Some(owner_addr.clone()),
+        };
+        let cw_template_contract_addr = app
+            .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
+            .unwrap();
+
+        let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
+
+        (app, cw_template_contract)
+    }
+
+    #[test]
+    fn register_agent_fail_cases() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+
+        // Test funds fail register if sent
+        let rereg_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT1),
+                contract_addr.clone(),
+                &msg,
+                &coins(37, "atom"),
+            )
+            .unwrap_err();
+        println!("rereg_errrereg_err {:?}", rereg_err);
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Do not attach funds".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
+
+        // Test Can't register if contract is paused
+        let payload_1 = ExecuteMsg::UpdateSettings {
+            paused: Some(true),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &payload_1,
+            &[],
+        )
+        .unwrap();
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Register agent paused".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
+
+        // Test wallet rejected if doesnt have enough funds
+        let payload_2 = ExecuteMsg::UpdateSettings {
+            paused: Some(false),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &payload_2,
+            &[],
+        )
+        .unwrap();
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Insufficient funds".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
+    }
+
+    #[test]
+    fn register_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let blk_time = app.block_info().time;
+
+        // start first register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // check state to see if worked
+        let value: GetAgentIdsResponse = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetAgentIds {})
+            .unwrap();
+        assert_eq!(1, value.active.len());
+        assert_eq!(0, value.pending.len());
+
+        // message response matches expectations (same block, all the defaults)
+        let agent_info: GetAgentResponse = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetAgent {
+                    account_id: Addr::unchecked(AGENT1),
+                },
+            )
+            .unwrap();
+        println!("agent_infoagent_info {:?}", agent_info);
+        assert_eq!(AgentStatus::Active, agent_info.status);
+        assert_eq!(
+            Addr::unchecked(AGENT1_BENEFICIARY),
+            agent_info.payable_account_id
+        );
+        assert_eq!(GenericBalance::default(), agent_info.balance);
+        assert_eq!(0, agent_info.total_tasks_executed);
+        assert_eq!(0, agent_info.last_missed_slot);
+        assert_eq!(blk_time, Timestamp::from_nanos(agent_info.register_start));
+
+        // test fail if try to re-register
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent already exists".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
+
+        // test another register, put into pending queue
+        let msg2 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT2), contract_addr.clone(), &msg2, &[])
+            .unwrap();
+
+        // check state to see if worked
+        let value: GetAgentIdsResponse = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetAgentIds {})
+            .unwrap();
+        assert_eq!(1, value.active.len());
+        assert_eq!(1, value.pending.len());
+    }
+
+    #[test]
+    fn update_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let msg = ExecuteMsg::UpdateAgent {
+            payable_account_id: Addr::unchecked(AGENT0),
+        };
+        let update_err = app
+            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // payable account was in fact updated
+        let agent_info: GetAgentResponse = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetAgent {
+                    account_id: Addr::unchecked(AGENT1),
+                },
+            )
+            .unwrap();
+        assert_eq!(Addr::unchecked(AGENT0), agent_info.payable_account_id);
+    }
+
+    #[test]
+    fn unregister_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let unreg_msg = ExecuteMsg::UnregisterAgent {};
+        let update_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &unreg_msg,
+                &[],
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Get quick data about account before, to compare later
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+
+        // Attempt the unregister
+        app.execute_contract(
+            Addr::unchecked(AGENT1),
+            contract_addr.clone(),
+            &unreg_msg,
+            &[],
+        )
+        .unwrap();
+
+        // Agent should not exist now
+        let update_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT1),
+                contract_addr.clone(),
+                &unreg_msg,
+                &[],
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Agent should have appropriate balance change
+        // NOTE: Needs further checks when tasks can be performed
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+    }
+
+    #[test]
+    fn withdraw_task_balance() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let wthdrw_msg = ExecuteMsg::WithdrawReward {};
+        let update_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &wthdrw_msg,
+                &[],
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Get quick data about account before, to compare later
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+
+        // Attempt the withdraw
+        app.execute_contract(
+            Addr::unchecked(AGENT1),
+            contract_addr.clone(),
+            &wthdrw_msg,
+            &[],
+        )
+        .unwrap();
+
+        // Agent should have appropriate balance change
+        // NOTE: Needs further checks when tasks can be performed
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+    }
+
+    #[test]
+    fn accept_nomination_agent() {
+        // let (mut app, cw_template_contract) = proper_instantiate();
+        // let contract_addr = cw_template_contract.addr();
+
+        // TODO:
+        // - agent needs to be in pending list
+        // - agent needs to be next in line
+        // - agent within threshold of acceptance timeline
+        // - can accept
+        // - promoted to active
+        // - gets removed if next nomination completes successfully
+    }
 }

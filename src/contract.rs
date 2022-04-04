@@ -1,8 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use crate::agent::{
@@ -26,7 +24,6 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let denom = deps.querier.query_bonded_denom()?;
     let mut available_balance = GenericBalance::default();
 
     // keep tally of balances initialized
@@ -34,22 +31,28 @@ pub fn instantiate(
     available_balance.add_tokens(Balance::from(state_balances));
     available_balance.add_tokens(Balance::from(info.funds.clone()));
 
+    let owner_acct = msg.owner_id.unwrap_or_else(|| info.sender.clone());
+    // let owner_valid = deps.api.addr_validate(owner_acct.as_str())?;
+    // println!("owner_valid {:?}", owner_valid);
+    assert!(
+        deps.api.addr_validate(owner_acct.as_str()).is_ok(),
+        "Invalid address"
+    );
+
     let config = Config {
         paused: false,
-        owner_id: deps
-            .api
-            .addr_validate(msg.owner_id.unwrap_or_else(|| info.sender.clone()).as_str())?,
-        treasury_id: None,
+        owner_id: owner_acct,
+        // treasury_id: None,
         agent_task_ratio: [1, 2],
         agent_active_index: 0,
         agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
         available_balance,
         staked_balance: GenericBalance::default(),
-        agent_fee: Coin::new(5, denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
-        gas_price: 100_000_000,
-        proxy_callback_gas: 30_000_000,
+        agent_fee: Coin::new(5, msg.denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
+        gas_price: 1,
+        proxy_callback_gas: 3,
         slot_granularity: 60_000_000_000,
-        native_denom: denom,
+        native_denom: msg.denom,
         cw20_whitelist: vec![],
         // TODO: ????
         // cw20_fees: vec![],
@@ -62,13 +65,13 @@ pub fn instantiate(
         .add_attribute("method", "instantiate")
         .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner_id", config.owner_id.to_string())
-        .add_attribute(
-            "treasury_id",
-            config
-                .treasury_id
-                .unwrap_or_else(|| Addr::unchecked(""))
-                .to_string(),
-        )
+        // .add_attribute(
+        //     "treasury_id",
+        //     config
+        //         .treasury_id
+        //         .unwrap_or_else(|| Addr::unchecked(""))
+        //         .to_string(),
+        // )
         .add_attribute(
             "agent_task_ratio",
             config
@@ -136,10 +139,13 @@ mod tests {
     use cosmwasm_std::{coin, coins, from_binary};
 
     #[test]
-    fn proper_initialization() {
+    fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
-        let msg = InstantiateMsg { owner_id: None };
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+        };
         let info = mock_info("creator", &coins(1000, "meow"));
 
         // we can just call .unwrap() to assert this was a success
@@ -151,14 +157,14 @@ mod tests {
         let value: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!(false, value.paused);
         assert_eq!(info.sender, value.owner_id);
-        assert_eq!(None, value.treasury_id);
+        // assert_eq!(None, value.treasury_id);
         assert_eq!([1, 2], value.agent_task_ratio);
         assert_eq!(0, value.agent_active_index);
         assert_eq!(600, value.agents_eject_threshold);
-        assert_eq!("", value.native_denom);
-        assert_eq!(coin(5, ""), value.agent_fee);
-        assert_eq!(100_000_000, value.gas_price);
-        assert_eq!(30_000_000, value.proxy_callback_gas);
+        assert_eq!("atom", value.native_denom);
+        assert_eq!(coin(5, "atom"), value.agent_fee);
+        assert_eq!(1, value.gas_price);
+        assert_eq!(3, value.proxy_callback_gas);
         assert_eq!(60_000_000_000, value.slot_granularity);
     }
 }
