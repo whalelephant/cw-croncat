@@ -40,7 +40,9 @@ pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<
     }
     let a = agent.unwrap();
 
-    let pending = AGENTS_PENDING_QUEUE.load(deps.storage)?;
+    let pending: Vec<Addr> = AGENTS_PENDING_QUEUE
+        .may_load(deps.storage)?
+        .unwrap_or_default();
 
     // If agent is pending, Check if they should get nominated to checkin to become active
     let agent_status: AgentStatus = if a.status == AgentStatus::Pending {
@@ -292,7 +294,7 @@ mod tests {
     use crate::helpers::CwTemplateContract;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, Addr, Empty};
+    use cosmwasm_std::{coin, coins, Addr, Empty, Timestamp};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -305,6 +307,7 @@ mod tests {
     }
 
     const AGENT1: &str = "AGENT001";
+    const AGENT2: &str = "AGENT002";
     const AGENT1_BENEFICIARY: &str = "AGENT001_BENEFICIARY";
     const ADMIN: &str = "ADMIN";
     const NATIVE_DENOM: &str = "atom";
@@ -324,6 +327,14 @@ mod tests {
                 .init_balance(
                     storage,
                     &Addr::unchecked(AGENT1),
+                    vec![coin(100, NATIVE_DENOM.to_string())],
+                )
+                .unwrap();
+            router
+                .bank
+                .init_balance(
+                    storage,
+                    &Addr::unchecked(AGENT2),
                     vec![coin(100, NATIVE_DENOM.to_string())],
                 )
                 .unwrap();
@@ -430,11 +441,13 @@ mod tests {
     fn register_agent() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
+        let blk_time = app.block_info().time;
+        println!("blk_timeblk_time {:?}", blk_time);
 
+        // start first register
         let msg = ExecuteMsg::RegisterAgent {
             payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
         };
-
         app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
             .unwrap();
 
@@ -446,20 +459,51 @@ mod tests {
         assert_eq!(1, value.active.len());
         assert_eq!(0, value.pending.len());
 
-        // // Test register success
-        // // let info = mock_info("agent_1", &vec![]);
-        // let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
-        // assert!(res_exec.messages.is_empty());
-        // let res = query(deps.as_ref(), mock_env(), QueryMsg::GetAgent { account_id: Addr::unchecked("creator") }).unwrap();
-        // let value: GetAgentResponse = from_binary(&res).unwrap();
-        // println!("value {:?}", value);
-        // // assert_eq!(true, value.paused);
-        // // assert_eq!(info.sender, value.owner_id);
+        // message response matches expectations (same block, all the defaults)
+        let agent_info: GetAgentResponse = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetAgent {
+                    account_id: Addr::unchecked(AGENT1),
+                },
+            )
+            .unwrap();
+        println!("agent_infoagent_info {:?}", agent_info);
+        assert_eq!(AgentStatus::Active, agent_info.status);
+        assert_eq!(
+            Addr::unchecked(AGENT1_BENEFICIARY),
+            agent_info.payable_account_id
+        );
+        assert_eq!(GenericBalance::default(), agent_info.balance);
+        assert_eq!(0, agent_info.total_tasks_executed);
+        assert_eq!(0, agent_info.last_missed_slot);
+        assert_eq!(blk_time, Timestamp::from_nanos(agent_info.register_start));
 
-        // TODO: message response matches expectations (same block, all the defaults)
+        // test fail if try to re-register
+        let rereg_err = app
+            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent already exists".to_string()
+            },
+            rereg_err.downcast().unwrap()
+        );
 
-        // TODO: test fail if try to re-register
+        // test another register, put into pending queue
+        let msg2 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT2), contract_addr.clone(), &msg2, &[])
+            .unwrap();
 
-        // TODO: test another register, put into pending queue
+        // check state to see if worked
+        let value: GetAgentIdsResponse = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetAgentIds {})
+            .unwrap();
+        assert_eq!(1, value.active.len());
+        assert_eq!(1, value.pending.len());
     }
 }
