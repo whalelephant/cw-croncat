@@ -5,7 +5,7 @@ use crate::state::{
     CONFIG,
 };
 use cosmwasm_std::{
-    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, SubMsg,
+    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
 };
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -219,10 +219,10 @@ pub fn update_agent(
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
 pub(crate) fn withdraw_balances(
-    deps: DepsMut,
+    storage: &mut dyn Storage,
     info: MessageInfo,
 ) -> Result<Vec<SubMsg>, ContractError> {
-    let a = AGENTS.may_load(deps.storage, info.sender)?;
+    let a = AGENTS.may_load(storage, info.sender)?;
     if a.is_none() {
         return Err(ContractError::CustomError {
             val: "Agent doesnt exist".to_string(),
@@ -232,7 +232,8 @@ pub(crate) fn withdraw_balances(
 
     // This will send all token balances to Agent
     let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
-    let mut config = CONFIG.load(deps.storage)?;
+    println!("balancesbalances {:?}", balances);
+    let mut config = CONFIG.load(storage)?;
     config
         .available_balance
         .minus_tokens(Balance::from(balances.native));
@@ -240,7 +241,7 @@ pub(crate) fn withdraw_balances(
     // config
     //     .available_balance
     //     .minus_tokens(Balance::from(balances.cw20));
-    CONFIG.save(deps.storage, &config)?;
+    CONFIG.save(storage, &config)?;
 
     Ok(messages)
 }
@@ -251,7 +252,7 @@ pub fn withdraw_task_balance(
     info: MessageInfo,
     _env: Env,
 ) -> Result<Response, ContractError> {
-    let messages = withdraw_balances(deps, info.clone())?;
+    let messages = withdraw_balances(deps.storage, info.clone())?;
 
     Ok(Response::new()
         .add_attribute("method", "withdraw_task_balance")
@@ -275,14 +276,21 @@ pub fn unregister_agent(
     info: MessageInfo,
     _env: Env,
 ) -> Result<Response, ContractError> {
-    // TODO: Finish
-    // let messages = withdraw_balances(deps.storage, info.clone())?;
-    AGENTS.remove(deps.storage, info.sender.clone());
+    // Get withdraw messages, if any
+    // NOTE: Since this also checks if agent exists, safe to not have redundant logic
+    let messages = withdraw_balances(deps.storage, info.clone())?;
+    let agent_id = info.sender.clone();
+    AGENTS.remove(deps.storage, agent_id.clone());
 
-    Ok(Response::new()
-        .add_attribute("method", "unregister_agent")
-        .add_attribute("account_id", info.sender))
-    // .add_submessages(messages))
+    let responses = Response::new()
+            .add_attribute("method", "unregister_agent")
+            .add_attribute("account_id", agent_id);
+
+    if messages.is_empty() {
+        Ok(responses)
+    } else {
+        Ok(responses.add_submessages(messages))
+    }
 }
 
 #[cfg(test)]
@@ -351,7 +359,7 @@ mod tests {
     }
 
     #[test]
-    fn test_register_agent_fail_cases() {
+    fn register_agent_fail_cases() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
@@ -505,5 +513,105 @@ mod tests {
             .unwrap();
         assert_eq!(1, value.active.len());
         assert_eq!(1, value.pending.len());
+    }
+
+    #[test]
+    fn update_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let msg = ExecuteMsg::UpdateAgent {
+            payable_account_id: Addr::unchecked(AGENT0),
+        };
+        let update_err = app
+            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        // payable account was in fact updated
+        let agent_info: GetAgentResponse = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetAgent {
+                    account_id: Addr::unchecked(AGENT1),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            Addr::unchecked(AGENT0),
+            agent_info.payable_account_id
+        );
+    }
+
+    #[test]
+    fn unregister_agent() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let unreg_msg = ExecuteMsg::UnregisterAgent {};
+        let update_err = app
+            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &unreg_msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Get quick data about account before, to compare later
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+
+        // Attempt the unregister
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &unreg_msg, &[])
+            .unwrap();
+
+        // Agent should not exist now
+        let update_err = app
+            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &unreg_msg, &[])
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Agent should have appropriate balance change
+        // NOTE: Needs further checks when tasks can be performed
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
     }
 }
