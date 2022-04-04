@@ -245,7 +245,7 @@ mod tests {
     use cw20::Balance;
 
     #[test]
-    fn test_update_settings() {
+    fn update_settings() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
         let msg = InstantiateMsg {
@@ -288,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn test_owner_move_balances_auth_checks() {
+    fn move_balances_auth_checks() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
@@ -341,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_owner_move_balances_native() {
+    fn move_balances_native() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
@@ -400,7 +400,7 @@ mod tests {
 
     // // TODO: Setup CW20 logic / balances!
     // #[test]
-    // fn test_owner_move_balances_cw() {
+    // fn move_balances_cw() {
     //     let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
     //     let info = mock_info("owner_id", &vec![Balance::Cw20(1000, "meow")]);
     //     let money_bags = Addr::unchecked("money_bags");

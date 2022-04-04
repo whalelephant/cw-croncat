@@ -279,12 +279,12 @@ pub fn unregister_agent(
     // Get withdraw messages, if any
     // NOTE: Since this also checks if agent exists, safe to not have redundant logic
     let messages = withdraw_balances(deps.storage, info.clone())?;
-    let agent_id = info.sender.clone();
+    let agent_id = info.sender;
     AGENTS.remove(deps.storage, agent_id.clone());
 
     let responses = Response::new()
-            .add_attribute("method", "unregister_agent")
-            .add_attribute("account_id", agent_id);
+        .add_attribute("method", "unregister_agent")
+        .add_attribute("account_id", agent_id);
 
     if messages.is_empty() {
         Ok(responses)
@@ -554,10 +554,7 @@ mod tests {
                 },
             )
             .unwrap();
-        assert_eq!(
-            Addr::unchecked(AGENT0),
-            agent_info.payable_account_id
-        );
+        assert_eq!(Addr::unchecked(AGENT0), agent_info.payable_account_id);
     }
 
     #[test]
@@ -575,7 +572,12 @@ mod tests {
         // Fails for non-exist agents
         let unreg_msg = ExecuteMsg::UnregisterAgent {};
         let update_err = app
-            .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &unreg_msg, &[])
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &unreg_msg,
+                &[],
+            )
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
@@ -592,12 +594,22 @@ mod tests {
         assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
 
         // Attempt the unregister
-        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &unreg_msg, &[])
-            .unwrap();
+        app.execute_contract(
+            Addr::unchecked(AGENT1),
+            contract_addr.clone(),
+            &unreg_msg,
+            &[],
+        )
+        .unwrap();
 
         // Agent should not exist now
         let update_err = app
-            .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &unreg_msg, &[])
+            .execute_contract(
+                Addr::unchecked(AGENT1),
+                contract_addr.clone(),
+                &unreg_msg,
+                &[],
+            )
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
@@ -613,5 +625,73 @@ mod tests {
             .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
             .unwrap();
         assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+    }
+
+    #[test]
+    fn withdraw_task_balance() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // start first register
+        let msg1 = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
+            .unwrap();
+
+        // Fails for non-exist agents
+        let wthdrw_msg = ExecuteMsg::WithdrawReward {};
+        let update_err = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &wthdrw_msg,
+                &[],
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Agent doesnt exist".to_string()
+            },
+            update_err.downcast().unwrap()
+        );
+
+        // Get quick data about account before, to compare later
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+
+        // Attempt the withdraw
+        app.execute_contract(
+            Addr::unchecked(AGENT1),
+            contract_addr.clone(),
+            &wthdrw_msg,
+            &[],
+        )
+        .unwrap();
+
+        // Agent should have appropriate balance change
+        // NOTE: Needs further checks when tasks can be performed
+        let agent_bal = app
+            .wrap()
+            .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
+            .unwrap();
+        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+    }
+
+    #[test]
+    fn accept_nomination_agent() {
+        // let (mut app, cw_template_contract) = proper_instantiate();
+        // let contract_addr = cw_template_contract.addr();
+
+        // TODO:
+        // - agent needs to be in pending list
+        // - agent needs to be next in line
+        // - agent within threshold of acceptance timeline
+        // - can accept
+        // - promoted to active
+        // - gets removed if next nomination completes successfully
     }
 }

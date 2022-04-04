@@ -139,7 +139,7 @@ mod tests {
     use cosmwasm_std::{coin, coins, from_binary};
 
     #[test]
-    fn proper_initialization() {
+    fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
 
         let msg = InstantiateMsg {
