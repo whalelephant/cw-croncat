@@ -191,6 +191,79 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "create_task"
+      ],
+      "properties": {
+        "create_task": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "remove_task"
+      ],
+      "properties": {
+        "remove_task": {
+          "type": "object",
+          "required": [
+            "task_hash"
+          ],
+          "properties": {
+            "task_hash": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint8",
+                "minimum": 0.0
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "refill_task_balance"
+      ],
+      "properties": {
+        "refill_task_balance": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "proxy_call"
+      ],
+      "properties": {
+        "proxy_call": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "proxy_callback"
+      ],
+      "properties": {
+        "proxy_callback": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {

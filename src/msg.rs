@@ -38,6 +38,15 @@ pub enum ExecuteMsg {
     CheckInAgent {},
     UnregisterAgent {},
     WithdrawReward {},
+
+    // TODO: Finish!!!!
+    CreateTask {},
+    RemoveTask {
+        task_hash: Vec<u8>,
+    },
+    RefillTaskBalance {},
+    ProxyCall {},
+    ProxyCallback {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -45,9 +54,26 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     GetConfig {},
     GetBalances {},
-    GetAgent { account_id: Addr },
+    GetAgent {
+        account_id: Addr,
+    },
     GetAgentIds {},
-    GetAgentTasks { account_id: Addr },
+    GetAgentTasks {
+        account_id: Addr,
+    },
+    GetTasks {
+        slot: Option<u128>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    GetTasksByOwner {
+        owner_id: Addr,
+    },
+    GetTask {
+        task_hash: Vec<u8>,
+    },
+    // TODO: GetTaskHash { },
+    // TODO: ValidateCadence { },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

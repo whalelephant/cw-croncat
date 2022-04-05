@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Timestamp};
 use cw20::{Balance, Cw20CoinVerified};
 use cw_storage_plus::{Item, Map};
 
@@ -149,3 +149,76 @@ pub struct Agent {
 pub const AGENTS: Map<Addr, Agent> = Map::new("agents");
 pub const AGENTS_ACTIVE_QUEUE: Item<Vec<Addr>> = Item::new("agent_active_queue");
 pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue");
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum Interval {
+    Once,
+    /// Crontab Spec String
+    /// Defines the interval spacing of execution
+    Cron(String),
+
+    /// Allows timing based on block intervals rather than timestamps
+    Block(u64),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum BoundarySpec {
+    ///
+    Height(u64),
+
+    ///
+    Time(Timestamp),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Boundary {
+    ///
+    start: Option<BoundarySpec>,
+    ///
+    end: Option<BoundarySpec>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Rule {
+    /// TBD: Interchain query support (See ibc::IbcMsg)
+    pub chain_id: Option<String>,
+
+    /// Account to direct all view calls against
+    pub contract_id: Addr,
+
+    // NOTE: Only allow static pre-defined query msg
+    pub msg: Binary,
+}
+
+///
+pub type ResolverResponse = (bool, Binary);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Task {
+    /// Entity responsible for this task, can change task details
+    pub owner_id: Addr,
+
+    ///
+    pub interval: Interval,
+    pub boundary: Boundary,
+
+    /// NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks
+    pub total_deposit: Balance,
+
+    /// Defines if this task can continue until balance runs out
+    pub stop_on_fail: bool,
+
+    /// The cosmos message to call, if time or rules are met
+    pub action: CosmosMsg,
+
+    /// A prioritized list of messages that can be chained decision matrix
+    /// required to complete before task action
+    /// Rules MUST return the ResolverResponse type
+    pub rules: Option<Vec<Rule>>,
+}
+
+// TODO: FINISH!!!!!!!!!!!
+// REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#composite-keys
+// Idea - create composite keys that are filterable to owners of tasks
+pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
+// TODO: Slots

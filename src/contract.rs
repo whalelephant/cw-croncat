@@ -115,6 +115,12 @@ pub fn execute(
         ExecuteMsg::UnregisterAgent {} => unregister_agent(deps, info, env),
         ExecuteMsg::WithdrawReward {} => withdraw_task_balance(deps, info, env),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
+        // TODO: Finish!!!!
+        ExecuteMsg::CreateTask {} => Ok(Response::default()),
+        ExecuteMsg::RemoveTask { .. } => Ok(Response::default()),
+        ExecuteMsg::RefillTaskBalance {} => Ok(Response::default()),
+        ExecuteMsg::ProxyCall {} => Ok(Response::default()),
+        ExecuteMsg::ProxyCallback {} => Ok(Response::default()),
     }
 }
 
@@ -128,6 +134,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, account_id)?)
         }
+        // TODO: Finish!!!!
+        QueryMsg::GetTasks { .. } => Ok(Binary::default()),
+        QueryMsg::GetTasksByOwner { .. } => Ok(Binary::default()),
+        QueryMsg::GetTask { .. } => Ok(Binary::default()),
     }
 }
 
