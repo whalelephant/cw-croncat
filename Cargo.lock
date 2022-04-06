@@ -168,8 +168,10 @@ dependencies = [
  "cw2 0.13.0",
  "cw20",
  "cw20-base",
+ "hex",
  "schemars",
  "serde",
+ "sha2",
  "thiserror",
 ]
 

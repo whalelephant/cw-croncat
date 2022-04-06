@@ -8,9 +8,10 @@ use crate::agent::{
     register_agent, unregister_agent, update_agent, withdraw_task_balance,
 };
 use crate::error::ContractError;
+use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::owner::{move_balances, query_balances, query_config, update_settings};
-use crate::state::{Config, GenericBalance, CONFIG};
+use crate::state::{Config, CONFIG};
 use cw20::Balance;
 
 // version info for migration info

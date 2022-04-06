@@ -1,15 +1,50 @@
 use crate::error::ContractError;
-use crate::helpers::send_tokens;
-use crate::state::{
-    Agent, AgentStatus, Config, GenericBalance, AGENTS, AGENTS_ACTIVE_QUEUE, AGENTS_PENDING_QUEUE,
-    CONFIG,
-};
+use crate::helpers::{send_tokens, GenericBalance};
+use crate::state::{Config, AGENTS, AGENTS_ACTIVE_QUEUE, AGENTS_PENDING_QUEUE, CONFIG};
 use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
 };
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum AgentStatus {
+    // Default for any new agent, if tasks ratio allows
+    Active,
+
+    // Default for any new agent, until more tasks come online
+    Pending,
+
+    // More tasks are available, agent must checkin to become active
+    Nominated,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Agent {
+    pub status: AgentStatus,
+
+    // Where rewards get transferred
+    pub payable_account_id: Addr,
+
+    // accrued reward balance
+    pub balance: GenericBalance,
+
+    // stats
+    pub total_tasks_executed: u64,
+
+    // Holds slot number of a missed slot.
+    // If other agents see an agent miss a slot, they store the missed slot number.
+    // If agent does a task later, this number is reset to zero.
+    // Example data: 1633890060000000000 or 0
+    pub last_missed_slot: u64,
+
+    // Timestamp of when agent first registered
+    // Useful for rewarding agents for their patience while they are pending and operating service
+    // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
+    // Example data: 1633890060000000000 or 0
+    pub register_start: u64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentResponse {
@@ -134,13 +169,11 @@ pub fn register_agent(
 
     let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
 
-    // let active_agents = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE_QUEUE
         .may_load(deps.storage)?
         .unwrap_or_default();
     let total_agents = active_agents.len();
     let agent_status = if total_agents == 0 {
-        // AGENTS_ACTIVE_QUEUE.update(deps.storage, push_account)?;
         active_agents.push(account.clone());
         AGENTS_ACTIVE_QUEUE.save(deps.storage, &active_agents)?;
         AgentStatus::Active

@@ -1,4 +1,7 @@
-use crate::state::GenericBalance;
+use crate::agent::Agent;
+use crate::helpers::GenericBalance;
+use crate::state::Config;
+use crate::tasks::Task;
 use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -97,4 +100,12 @@ pub struct BalancesResponse {
     pub available_balance: GenericBalance,
     pub staked_balance: GenericBalance,
     pub cw20_whitelist: Vec<Addr>,
+}
+
+// Exporting a nice schema
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum Croncat {
+    Agent(Agent),
+    Config(Config),
+    Task(Task),
 }
