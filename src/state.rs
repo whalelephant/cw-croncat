@@ -45,7 +45,7 @@ pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue
 
 // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#composite-keys
 // Idea - create composite keys that are filterable to owners of tasks
-pub const TASKS: Map<([u8; 64], Addr), Task> = Map::new("tasks");
+pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
 // TODO: FINISH!!!!!!!!!!!
 // TODO: Change this to an indexed / iterable key
-pub const SLOTS: Map<u64, Vec<[u8; 64]>> = Map::new("slots");
+pub const SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("slots");

@@ -1,7 +1,7 @@
 use crate::agent::Agent;
 use crate::helpers::GenericBalance;
 use crate::state::Config;
-use crate::tasks::Task;
+use crate::tasks::{Task, Interval};
 use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -32,6 +32,7 @@ pub enum ExecuteMsg {
         balances: Vec<Balance>,
         account_id: Addr,
     },
+    
     RegisterAgent {
         payable_account_id: Option<Addr>,
     },
@@ -42,14 +43,20 @@ pub enum ExecuteMsg {
     UnregisterAgent {},
     WithdrawReward {},
 
-    // TODO: Finish!!!!
-    CreateTask {},
-    RemoveTask {
-        task_hash: Vec<u8>,
+    CreateTask {
+        task: Task,
     },
-    RefillTaskBalance {},
+    RemoveTask {
+        task_hash: String,
+    },
+    RefillTaskBalance {
+        task_hash: String,
+    },
     ProxyCall {},
-    ProxyCallback {},
+    ProxyCallback {
+        task_hash: String,
+        current_slot: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -73,10 +80,13 @@ pub enum QueryMsg {
         owner_id: Addr,
     },
     GetTask {
-        task_hash: Vec<u8>,
+        task_hash: String,
+        owner_id: Addr,
     },
-    // TODO: GetTaskHash { },
-    // TODO: ValidateCadence { },
+    GetTaskHash {
+        task: Task,
+    },
+    ValidateInterval { interval: Interval },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -108,4 +118,6 @@ pub enum Croncat {
     Agent(Agent),
     Config(Config),
     Task(Task),
+    ConfigResponse(ConfigResponse),
+    BalancesResponse(BalancesResponse),
 }

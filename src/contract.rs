@@ -7,6 +7,7 @@ use crate::agent::{
     accept_nomination_agent, query_get_agent, query_get_agent_ids, query_get_agent_tasks,
     register_agent, unregister_agent, update_agent, withdraw_task_balance,
 };
+use crate::tasks::{create_task, remove_task, refill_task, proxy_call, proxy_callback, query_get_task};
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -107,6 +108,7 @@ pub fn execute(
             balances,
             account_id,
         } => move_balances(deps, info, env, balances, account_id),
+
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
@@ -116,12 +118,12 @@ pub fn execute(
         ExecuteMsg::UnregisterAgent {} => unregister_agent(deps, info, env),
         ExecuteMsg::WithdrawReward {} => withdraw_task_balance(deps, info, env),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
-        // TODO: Finish!!!!
-        ExecuteMsg::CreateTask {} => Ok(Response::default()),
-        ExecuteMsg::RemoveTask { .. } => Ok(Response::default()),
-        ExecuteMsg::RefillTaskBalance {} => Ok(Response::default()),
-        ExecuteMsg::ProxyCall {} => Ok(Response::default()),
-        ExecuteMsg::ProxyCallback {} => Ok(Response::default()),
+
+        ExecuteMsg::CreateTask { task } => create_task(deps, info, env, task),
+        ExecuteMsg::RemoveTask { task_hash } => remove_task(deps, info, env, task_hash),
+        ExecuteMsg::RefillTaskBalance { task_hash } => refill_task(deps, info, env, task_hash),
+        ExecuteMsg::ProxyCall {} => proxy_call(deps, info, env),
+        ExecuteMsg::ProxyCallback { task_hash, current_slot } => proxy_callback(deps, info, env, task_hash, current_slot),
     }
 }
 
@@ -130,15 +132,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
         QueryMsg::GetBalances {} => to_binary(&query_balances(deps)?),
+
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
         QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, account_id)?)
         }
-        // TODO: Finish!!!!
-        QueryMsg::GetTasks { .. } => Ok(Binary::default()),
-        QueryMsg::GetTasksByOwner { .. } => Ok(Binary::default()),
-        QueryMsg::GetTask { .. } => Ok(Binary::default()),
+
+        QueryMsg::GetTasks { slot, from_index, limit } => Ok(Binary::default()),
+        QueryMsg::GetTasksByOwner { owner_id } => Ok(Binary::default()),
+        QueryMsg::GetTask { task_hash, owner_id } => to_binary(&query_get_task(deps, task_hash, owner_id)?),
+        QueryMsg::GetTaskHash { task } => Ok(Binary::default()),
+        QueryMsg::ValidateInterval { interval } => Ok(Binary::default()),
     }
 }
 

@@ -47,28 +47,17 @@ pub struct Agent {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentResponse {
-    pub status: AgentStatus,
-    pub payable_account_id: Addr,
-    pub balance: GenericBalance,
-    pub total_tasks_executed: u64,
-    pub last_missed_slot: u64,
-    pub register_start: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentIdsResponse {
     active: Vec<Addr>,
     pending: Vec<Addr>,
 }
-// pub struct GetAgentIdsResponse(Vec<Addr>, Vec<Addr>);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentTasksResponse(u64, u128);
 
 /// Get a single agent details
 /// Check's status as well, in case this agent needs to be considered for election
-pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<GetAgentResponse>> {
+pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<Agent>> {
     let agent = AGENTS.may_load(deps.storage, account_id.clone())?;
     if agent.is_none() {
         return Ok(None);
@@ -91,7 +80,7 @@ pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<
         a.status
     };
 
-    Ok(Some(GetAgentResponse {
+    Ok(Some(Agent {
         status: agent_status,
         payable_account_id: a.payable_account_id,
         balance: a.balance,

@@ -1,13 +1,11 @@
-// use crypto::digest::Digest;
-// use crypto::sha3::Sha3;
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-
-// use crate::traits::Hash;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Timestamp};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo, Response, StdResult, Timestamp};
 use cw20::Balance;
+use crate::error::ContractError;
+use crate::state::TASKS;
 
 /// Defines the spacing of execution
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -82,6 +80,7 @@ pub struct Task {
     pub rules: Option<Vec<Rule>>,
 }
 
+
 impl Task {
     pub fn to_hash(&self) -> String {
         let message = format!(
@@ -92,6 +91,163 @@ impl Task {
         let hash = Sha256::digest(message.as_bytes());
         encode(hash)
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TaskResponse {
+    pub task_hash: String,
+    pub owner_id: Addr,
+    pub interval: Interval,
+    pub boundary: Boundary,
+    pub stop_on_fail: bool,
+    pub total_deposit: Balance,
+    pub action: CosmosMsg,
+    pub rules: Option<Vec<Rule>>,
+}
+
+// TODO:
+// /// Returns task data
+// /// Used by the frontend for viewing tasks
+// pub(crate) fn query_get_tasks(
+//     _deps: Deps,
+//     _slot: Option<u128>,
+//     _from_index: Option<u64>,
+//     _limit: Option<u64>,
+// ) -> StdResult<Vec<TaskResponse>> {
+//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+
+//     Ok(vec![TaskResponse {}])
+// }
+
+// TODO:
+// /// Returns task data for a specific owner
+// pub(crate) fn query_get_tasks_by_owner(
+//     _deps: Deps,
+//     _owner_id: Addr,
+// ) -> StdResult<Vec<TaskResponse>> {
+//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+
+//     Ok(vec![TaskResponse {}])
+// }
+
+// TODO:
+/// Returns single task data
+pub(crate) fn query_get_task(
+    deps: Deps,
+    task_hash: String,
+    owner_id: Addr,
+) -> StdResult<Option<TaskResponse>> {
+    let res = TASKS
+        .may_load(deps.storage, (task_hash.as_bytes().to_vec(), owner_id))?;
+    if res.is_none() { () }
+
+    let task: Task = res.unwrap();
+
+    Ok(Some(TaskResponse {
+        task_hash: task.to_hash(),
+        owner_id: task.owner_id,
+        interval: task.interval,
+        boundary: task.boundary,
+        stop_on_fail: task.stop_on_fail,
+        total_deposit: task.total_deposit,
+        action: task.action,
+        rules: task.rules,
+    }))
+}
+
+// TODO:
+// /// Returns a hash computed by the input task data
+// pub(crate) fn query_get_task_hash(
+//     _deps: Deps,
+//     _task: Task,
+// ) -> StdResult<String> {
+//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+
+//     Ok("")
+// }
+
+// TODO:
+// /// Returns task data
+// /// Used by the frontend for viewing tasks
+// pub(crate) fn query_validate_interval(
+//     _deps: Deps,
+//     _interval: Interval,
+// ) -> StdResult<bool> {
+//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+
+//     Ok(false)
+// }
+
+/// Allows any user or contract to pay for future txns based on a specific schedule
+/// contract, function id & other settings. When the task runs out of balance
+/// the task is no longer executed, any additional funds will be returned to task owner.
+pub fn create_task(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+    _task: Task,
+) -> Result<Response, ContractError> {
+
+    // TODO:
+    Ok(Response::new().add_attribute("method", "create_task"))
+}
+
+// TODO:
+/// Deletes a task in its entirety, returning any remaining balance to task owner.
+pub fn remove_task(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+    _task_hash: String,
+) -> Result<Response, ContractError> {
+
+    // TODO:
+    Ok(Response::new().add_attribute("method", "remove_task"))
+}
+
+// TODO:
+/// Refill a task with more balance to continue its execution
+/// NOTE: Sending balance here for a task that doesnt exist will result in loss of funds, or you could just use this as an opportunity for donations :D
+/// NOTE: Currently restricting this to owner only, so owner can make sure the task ends
+pub fn refill_task(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+    _task_hash: String,
+) -> Result<Response, ContractError> {
+
+    // TODO:
+    Ok(Response::new().add_attribute("method", "refill_task"))
+}
+
+// TODO:
+/// Executes a task based on the current task slot
+/// Computes whether a task should continue further or not
+/// Makes a cross-contract call with the task configuration
+/// Called directly by a registered agent
+pub fn proxy_call(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+) -> Result<Response, ContractError> {
+
+    // TODO:
+    Ok(Response::new().add_attribute("method", "proxy_call"))
+}
+
+// TODO:
+/// Logic executed on the completion of a proxy call
+/// Reschedule next task
+pub fn proxy_callback(
+    _deps: DepsMut,
+    _info: MessageInfo,
+    _env: Env,
+    _task_hash: String,
+    _current_slot: u64,
+) -> Result<Response, ContractError> {
+
+    // TODO:
+    Ok(Response::new().add_attribute("method", "proxy_callback"))
 }
 
 #[cfg(test)]
