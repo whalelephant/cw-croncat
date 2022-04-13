@@ -78,7 +78,12 @@ fn get_next_block_by_offset(env: Env, boundary: Boundary, block: u64) -> (u64, S
             // and probably throw an error when mixing blocks and cron
             BoundarySpec::Height(id) => {
                 if current_block_height < id {
-                    id.saturating_sub(id % block)
+                    let rem = id % block;
+                    if rem > 0 {
+                        id.saturating_sub(rem) + block
+                    } else {
+                        id
+                    }
                 } else {
                     modulo_block
                 }
@@ -88,6 +93,25 @@ fn get_next_block_by_offset(env: Env, boundary: Boundary, block: u64) -> (u64, S
     } else {
         modulo_block
     };
+
+    if boundary.end.is_some() {
+        match boundary.end.unwrap() {
+            BoundarySpec::Height(id) => {
+                let rem = id % block;
+                let end_height = if rem > 0 {
+                    id.saturating_sub(rem)
+                } else {
+                    id
+                };
+
+                // we ONLY want to catch if we're passed the end block height
+                if next_block_height > end_height {
+                    return (end_height, SlotType::Block);
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
 
     (next_block_height, SlotType::Block)
 }
@@ -183,17 +207,32 @@ mod tests {
 
     #[test]
     fn interval_get_next_block_by_offset() {
-        let env = mock_env();
-        let interval = Interval::Block(10);
-        let boundary = Boundary {
-            start: None,
-            end: None,
-        };
-
-        // CHECK IT!
-        let (next_id, slot_kind) = interval.next(env, boundary);
-        println!("next_id {:?}, slot_kind {:?}", next_id, slot_kind);
-        assert_eq!(12350, next_id);
-        assert_eq!(SlotType::Block, slot_kind);
+        // (input, input, outcome, outcome)
+        let cases: Vec<(Interval, Boundary, u64, SlotType)> = vec![
+            // strictly modulo cases
+            (Interval::Block(1), Boundary { start: None, end: None }, 12346, SlotType::Block),
+            (Interval::Block(10), Boundary { start: None, end: None }, 12350, SlotType::Block),
+            (Interval::Block(100), Boundary { start: None, end: None }, 12400, SlotType::Block),
+            (Interval::Block(1000), Boundary { start: None, end: None }, 13000, SlotType::Block),
+            (Interval::Block(10000), Boundary { start: None, end: None }, 20000, SlotType::Block),
+            (Interval::Block(100000), Boundary { start: None, end: None }, 100000, SlotType::Block),
+            // modulo + boundary start
+            (Interval::Block(1), Boundary { start: Some(BoundarySpec::Height(12348)), end: None }, 12348, SlotType::Block),
+            (Interval::Block(10), Boundary { start: Some(BoundarySpec::Height(12360)), end: None }, 12360, SlotType::Block),
+            (Interval::Block(10), Boundary { start: Some(BoundarySpec::Height(12364)), end: None }, 12370, SlotType::Block),
+            (Interval::Block(100), Boundary { start: Some(BoundarySpec::Height(12364)), end: None }, 12400, SlotType::Block),
+            // modulo + boundary end
+            (Interval::Block(1), Boundary { start: None, end: Some(BoundarySpec::Height(12345)) }, 12345, SlotType::Block),
+            (Interval::Block(10), Boundary { start: None, end: Some(BoundarySpec::Height(12355)) }, 12350, SlotType::Block),
+            (Interval::Block(100), Boundary { start: None, end: Some(BoundarySpec::Height(12355)) }, 12300, SlotType::Block),
+        ];
+        for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
+            let env = mock_env();
+            // CHECK IT!
+            let (next_id, slot_kind) = interval.next(env, boundary.clone());
+            println!("next_id {:?}, slot_kind {:?}", next_id, slot_kind);
+            assert_eq!(outcome_block, &next_id);
+            assert_eq!(outcome_slot_kind, &slot_kind);
+        }
     }
 }
