@@ -46,6 +46,11 @@ pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue
 // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#composite-keys
 // Idea - create composite keys that are filterable to owners of tasks
 pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
+
 // TODO: FINISH!!!!!!!!!!!
 // TODO: Change this to an indexed / iterable key
-pub const SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("slots");
+/// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
+pub const TIME_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("time_slots");
+/// Block slots allow for grouping of tasks at a specific block height,
+/// this is done instead of forcing a block height into a range of timestamps for reliability
+pub const BLOCK_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("block_slots");

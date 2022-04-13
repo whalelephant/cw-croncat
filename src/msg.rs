@@ -1,7 +1,8 @@
 use crate::agent::Agent;
 use crate::helpers::GenericBalance;
+use crate::slots::Interval;
 use crate::state::Config;
-use crate::tasks::{Task, Interval};
+use crate::tasks::{Task, TaskRequest};
 use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -32,7 +33,7 @@ pub enum ExecuteMsg {
         balances: Vec<Balance>,
         account_id: Addr,
     },
-    
+
     RegisterAgent {
         payable_account_id: Option<Addr>,
     },
@@ -44,7 +45,7 @@ pub enum ExecuteMsg {
     WithdrawReward {},
 
     CreateTask {
-        task: Task,
+        task: TaskRequest,
     },
     RemoveTask {
         task_hash: String,
@@ -84,9 +85,11 @@ pub enum QueryMsg {
         owner_id: Addr,
     },
     GetTaskHash {
-        task: Task,
+        task: Box<Task>,
     },
-    ValidateInterval { interval: Interval },
+    ValidateInterval {
+        interval: Interval,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

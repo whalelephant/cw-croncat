@@ -490,7 +490,7 @@ mod tests {
         assert_eq!(0, value.pending.len());
 
         // message response matches expectations (same block, all the defaults)
-        let agent_info: GetAgentResponse = app
+        let agent_info: Agent = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),
@@ -567,7 +567,7 @@ mod tests {
             .unwrap();
 
         // payable account was in fact updated
-        let agent_info: GetAgentResponse = app
+        let agent_info: Agent = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),

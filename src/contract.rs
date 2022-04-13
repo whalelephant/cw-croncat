@@ -7,12 +7,14 @@ use crate::agent::{
     accept_nomination_agent, query_get_agent, query_get_agent_ids, query_get_agent_tasks,
     register_agent, unregister_agent, update_agent, withdraw_task_balance,
 };
-use crate::tasks::{create_task, remove_task, refill_task, proxy_call, proxy_callback, query_get_task};
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::owner::{move_balances, query_balances, query_config, update_settings};
 use crate::state::{Config, CONFIG};
+use crate::tasks::{
+    create_task, proxy_call, proxy_callback, query_get_task, refill_task, remove_task,
+};
 use cw20::Balance;
 
 // version info for migration info
@@ -123,7 +125,10 @@ pub fn execute(
         ExecuteMsg::RemoveTask { task_hash } => remove_task(deps, info, env, task_hash),
         ExecuteMsg::RefillTaskBalance { task_hash } => refill_task(deps, info, env, task_hash),
         ExecuteMsg::ProxyCall {} => proxy_call(deps, info, env),
-        ExecuteMsg::ProxyCallback { task_hash, current_slot } => proxy_callback(deps, info, env, task_hash, current_slot),
+        ExecuteMsg::ProxyCallback {
+            task_hash,
+            current_slot,
+        } => proxy_callback(deps, info, env, task_hash, current_slot),
     }
 }
 
@@ -139,11 +144,17 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_get_agent_tasks(deps, account_id)?)
         }
 
-        QueryMsg::GetTasks { slot, from_index, limit } => Ok(Binary::default()),
-        QueryMsg::GetTasksByOwner { owner_id } => Ok(Binary::default()),
-        QueryMsg::GetTask { task_hash, owner_id } => to_binary(&query_get_task(deps, task_hash, owner_id)?),
-        QueryMsg::GetTaskHash { task } => Ok(Binary::default()),
-        QueryMsg::ValidateInterval { interval } => Ok(Binary::default()),
+        // slot,
+        // from_index,
+        // limit,
+        QueryMsg::GetTasks { .. } => Ok(Binary::default()),
+        QueryMsg::GetTasksByOwner { owner_id: _ } => Ok(Binary::default()),
+        QueryMsg::GetTask {
+            task_hash,
+            owner_id,
+        } => to_binary(&query_get_task(deps, task_hash, owner_id)?),
+        QueryMsg::GetTaskHash { task: _ } => Ok(Binary::default()),
+        QueryMsg::ValidateInterval { interval: _ } => Ok(Binary::default()),
     }
 }
 

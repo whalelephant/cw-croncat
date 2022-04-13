@@ -37,6 +37,30 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "ConfigResponse"
+      ],
+      "properties": {
+        "ConfigResponse": {
+          "$ref": "#/definitions/ConfigResponse"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "BalancesResponse"
+      ],
+      "properties": {
+        "BalancesResponse": {
+          "$ref": "#/definitions/BalancesResponse"
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
@@ -116,6 +140,32 @@
           "additionalProperties": false
         }
       ]
+    },
+    "BalancesResponse": {
+      "type": "object",
+      "required": [
+        "available_balance",
+        "cw20_whitelist",
+        "native_denom",
+        "staked_balance"
+      ],
+      "properties": {
+        "available_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "cw20_whitelist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "staked_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        }
+      }
     },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
@@ -329,6 +379,70 @@
         }
       }
     },
+    "ConfigResponse": {
+      "type": "object",
+      "required": [
+        "agent_active_index",
+        "agent_fee",
+        "agent_task_ratio",
+        "agents_eject_threshold",
+        "gas_price",
+        "native_denom",
+        "owner_id",
+        "paused",
+        "proxy_callback_gas",
+        "slot_granularity"
+      ],
+      "properties": {
+        "agent_active_index": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "agent_fee": {
+          "$ref": "#/definitions/Coin"
+        },
+        "agent_task_ratio": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "agents_eject_threshold": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "owner_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "proxy_callback_gas": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "slot_granularity": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
     "CosmosMsg_for_Empty": {
       "anyOf": [
         {
@@ -483,7 +597,7 @@
       }
     },
     "Interval": {
-      "description": "Defines the spacing of execution",
+      "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
       "anyOf": [
         {
           "type": "string",
@@ -491,19 +605,6 @@
             "Once",
             "Immediate"
           ]
-        },
-        {
-          "description": "Crontab Spec String",
-          "type": "object",
-          "required": [
-            "Cron"
-          ],
-          "properties": {
-            "Cron": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false
         },
         {
           "description": "Allows timing based on block intervals rather than timestamps",
@@ -516,6 +617,19 @@
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Crontab Spec String",
+          "type": "object",
+          "required": [
+            "Cron"
+          ],
+          "properties": {
+            "Cron": {
+              "type": "string"
             }
           },
           "additionalProperties": false
