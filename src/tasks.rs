@@ -232,6 +232,7 @@ pub fn create_task(
         });
     }
 
+    // TODO:
     // // Check that balance is sufficient for 1 execution minimum
     // let call_balance_used = self.task_balance_uses(&item);
     // let min_balance_needed: u128 = if recurring == Some(true) {
@@ -251,26 +252,39 @@ pub fn create_task(
     // let schedule = Schedule::new(&item);
     // let slot = Slot::new(&item);
     // TODO: Check if next_id is 0, if so, panic
-    // let (next_id, slot_kind) = item.interval.next(env, item.boundary);
+    let (next_id, slot_kind) = item.interval.next(env, item.boundary);
 
+    // If the next interval comes back 0, then this task should not schedule again
+    if next_id == 0 {
+        return Err(ContractError::CustomError {
+            val: "Task ended".to_string(),
+        });
+    }
+
+    // Based on slot kind, put into blocks or cron slots
+
+    // TODO:
     // // Add task to catalog
     // assert!(
     //     self.tasks.insert(&hash.0, &item).is_none(),
     //     "Task already exists"
     // );
 
+    // TODO:
     // // Get previous task hashes in slot, add as needed
     // let mut slot_slots = self.slots.get(&next_slot).unwrap_or(Vec::new());
     // slot_slots.push(hash.0.clone());
     // log!("Task next slot: {}", next_slot);
     // self.slots.insert(&next_slot, &slot_slots);
 
+    // TODO:
     // // Keep track of which tasks are owned by whom
     // let mut owner_tasks = self.task_owners.get(&item.owner_id).unwrap_or(Vec::new());
     // owner_tasks.push(hash.0.clone());
     // log!("Task owner list: {}", item.owner_id);
     // self.task_owners.insert(&item.owner_id, &owner_tasks);
 
+    // TODO:
     // // Add the attached balance into available_balance
     // self.available_balance = self
     //     .available_balance
