@@ -45,7 +45,8 @@ pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue
 
 // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#composite-keys
 // Idea - create composite keys that are filterable to owners of tasks
-pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
+pub const TASKS: Map<Vec<u8>, Task> = Map::new("tasks");
+pub const TASK_OWNERS: Map<Addr, Vec<Vec<u8>>> = Map::new("task_owners");
 
 // TODO: FINISH!!!!!!!!!!!
 // TODO: Change this to an indexed / iterable key
@@ -54,3 +55,42 @@ pub const TIME_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("time_slots");
 /// Block slots allow for grouping of tasks at a specific block height,
 /// this is done instead of forcing a block height into a range of timestamps for reliability
 pub const BLOCK_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("block_slots");
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use cosmwasm_std::testing::{MockStorage};
+//     use cosmwasm_std::{coins, BankMsg, CosmosMsg, StdResult};
+//     use cw_storage_plus::{Bound, Order, Map};
+//     use cw20::Balance;
+//     use crate::slots::{Interval, Boundary};
+
+//     pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
+
+//     #[test]
+//     fn check_task_storage_structure() {
+//         let mut store = MockStorage::new();
+
+//         let to_address = String::from("you");
+//         let amount = coins(1015, "earth");
+//         let bank = BankMsg::Send { to_address, amount };
+//         let msg: CosmosMsg = bank.clone().into();
+
+//         let task = Task {
+//             owner_id: Addr::unchecked("nobody".to_string()),
+//             interval: Interval::Immediate,
+//             boundary: Boundary {
+//                 start: None,
+//                 end: None,
+//             },
+//             stop_on_fail: false,
+//             total_deposit: Balance::default(),
+//             action: msg,
+//             rules: None,
+//         };
+
+//         TASKS.save(&mut store, (task.to_hash_vec(), task.owner_id), &task);
+
+//         // TODO: Test if i can do tasks + owners in same map with filtering
+//     }
+// }

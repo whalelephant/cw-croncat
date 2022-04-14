@@ -149,10 +149,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         // limit,
         QueryMsg::GetTasks { .. } => Ok(Binary::default()),
         QueryMsg::GetTasksByOwner { owner_id: _ } => Ok(Binary::default()),
-        QueryMsg::GetTask {
-            task_hash,
-            owner_id,
-        } => to_binary(&query_get_task(deps, task_hash, owner_id)?),
+        QueryMsg::GetTask { task_hash } => to_binary(&query_get_task(deps, task_hash)?),
         QueryMsg::GetTaskHash { task: _ } => Ok(Binary::default()),
         QueryMsg::ValidateInterval { interval: _ } => Ok(Binary::default()),
     }

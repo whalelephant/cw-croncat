@@ -82,7 +82,6 @@ pub enum QueryMsg {
     },
     GetTask {
         task_hash: String,
-        owner_id: Addr,
     },
     GetTaskHash {
         task: Box<Task>,

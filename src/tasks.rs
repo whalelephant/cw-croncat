@@ -1,6 +1,6 @@
 use crate::error::ContractError;
 use crate::slots::{Boundary, Interval, SlotType};
-use crate::state::{Config, BLOCK_SLOTS, CONFIG, TASKS, TIME_SLOTS};
+use crate::state::{Config, BLOCK_SLOTS, CONFIG, TASKS, TASK_OWNERS, TIME_SLOTS};
 use cosmwasm_std::{
     Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
@@ -55,17 +55,19 @@ impl Task {
     pub fn to_hash(&self) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id, self.interval, self.boundary, self.action, self.rules
+            self.owner_id,
+            self.interval,
+            self.clone().boundary,
+            self.action,
+            self.rules
         );
 
         let hash = Sha256::digest(message.as_bytes());
         encode(hash)
     }
-    /// Check if a cadence string is valid by attempting to parse it
-    pub fn valid_interval(&self) -> bool {
-        // TODO: Use the schedule standard to validte
-
-        true
+    /// Get the hash of a task based on parameters
+    pub fn to_hash_vec(&self) -> Vec<u8> {
+        self.to_hash().into_bytes()
     }
     // /// Returns the base amount required to execute 1 task
     // /// NOTE: this is not the final used amount, just the user-specified amount total needed
@@ -122,12 +124,8 @@ pub struct TaskResponse {
 
 // TODO:
 /// Returns single task data
-pub(crate) fn query_get_task(
-    deps: Deps,
-    task_hash: String,
-    owner_id: Addr,
-) -> StdResult<Option<TaskResponse>> {
-    let res = TASKS.may_load(deps.storage, (task_hash.as_bytes().to_vec(), owner_id))?;
+pub(crate) fn query_get_task(deps: Deps, task_hash: String) -> StdResult<Option<TaskResponse>> {
+    let res = TASKS.may_load(deps.storage, task_hash.as_bytes().to_vec())?;
     if res.is_none() {
         return Ok(None);
     }
@@ -226,7 +224,7 @@ pub fn create_task(
         rules: task.rules,
     };
 
-    if !item.valid_interval() {
+    if !item.interval.is_valid() {
         return Err(ContractError::CustomError {
             val: "Interval invalid".to_string(),
         });
@@ -247,10 +245,9 @@ pub fn create_task(
     // );
 
     let hash = item.to_hash();
-    let hash_vec = hash.clone().into_bytes();
 
     // Add task to catalog
-    let has_task = TASKS.may_load(deps.storage, (hash_vec.clone(), item.owner_id))?;
+    let has_task = TASKS.may_load(deps.storage, item.to_hash_vec())?;
     if has_task.is_some() {
         return Err(ContractError::CustomError {
             val: "Task already exists".to_string(),
@@ -268,28 +265,31 @@ pub fn create_task(
     }
 
     // Get previous task hashes in slot, add as needed
-    let update_slot = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+    let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
         match d {
             // has some data, simply push new hash
             Some(data) => {
                 let mut s = data;
-                s.push(hash_vec.clone());
+                s.push(item.to_hash_vec());
                 Ok(s)
             }
             // No data, push new vec & hash
-            None => Ok(vec![hash_vec.clone()]),
+            None => Ok(vec![item.to_hash_vec()]),
         }
     };
 
     // Based on slot kind, put into block or cron slots
     match slot_kind {
         SlotType::Block => {
-            BLOCK_SLOTS.update(deps.storage, next_id, update_slot)?;
+            BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
         }
         SlotType::Cron => {
-            TIME_SLOTS.update(deps.storage, next_id, update_slot)?;
+            TIME_SLOTS.update(deps.storage, next_id, update_vec_data)?;
         }
     }
+
+    // update the owners list while at it:
+    TASK_OWNERS.update(deps.storage, item.clone().owner_id, update_vec_data)?;
 
     // TODO:
     // // Keep track of which tasks are owned by whom
@@ -313,26 +313,62 @@ pub fn create_task(
 // TODO:
 /// Deletes a task in its entirety, returning any remaining balance to task owner.
 pub fn remove_task(
-    _deps: DepsMut,
+    deps: DepsMut,
     _info: MessageInfo,
     _env: Env,
-    _task_hash: String,
+    task_hash: String,
 ) -> Result<Response, ContractError> {
-    // TODO: PEOPLE.remove(&mut store, "john");
+    let hash_vec = task_hash.into_bytes();
+    let task_raw = TASKS.may_load(deps.storage, hash_vec.clone())?;
+    if task_raw.is_none() {
+        return Err(ContractError::CustomError {
+            val: "No task found by hash".to_string(),
+        });
+    }
+    let task = task_raw.unwrap();
+    let owner_id = task.owner_id;
+
+    // Remove all the thangs
+    TASKS.remove(deps.storage, hash_vec);
+    TASK_OWNERS.remove(deps.storage, owner_id);
+
+    // TODO:
+    // find any scheduled things and remove them!
+
     Ok(Response::new().add_attribute("method", "remove_task"))
 }
 
-// TODO:
+// TODO: FINISH
 /// Refill a task with more balance to continue its execution
 /// NOTE: Sending balance here for a task that doesnt exist will result in loss of funds, or you could just use this as an opportunity for donations :D
 /// NOTE: Currently restricting this to owner only, so owner can make sure the task ends
 pub fn refill_task(
-    _deps: DepsMut,
-    _info: MessageInfo,
+    deps: DepsMut,
+    info: MessageInfo,
     _env: Env,
-    _task_hash: String,
+    task_hash: String,
 ) -> Result<Response, ContractError> {
+    let hash_vec = task_hash.into_bytes();
+    let task_raw = TASKS.may_load(deps.storage, hash_vec)?;
+    if task_raw.is_none() {
+        return Err(ContractError::CustomError {
+            val: "Task already exists".to_string(),
+        });
+    }
+    let task = task_raw.unwrap();
+    if task.owner_id != info.sender {
+        return Err(ContractError::CustomError {
+            val: "Only owner can refill their task".to_string(),
+        });
+    }
+
     // TODO:
+    // // Add the attached balance into available_balance
+    // self.available_balance = self
+    //     .available_balance
+    //     .saturating_add(env::attached_deposit());
+
+    // TODO: report how full the task is total
     Ok(Response::new().add_attribute("method", "refill_task"))
 }
 

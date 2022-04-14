@@ -24,7 +24,7 @@ pub enum Interval {
     Cron(String),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
 pub enum BoundarySpec {
     /// Represents the block height
     Height(u64),
@@ -33,7 +33,7 @@ pub enum BoundarySpec {
     Time(Timestamp),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Boundary {
     ///
     pub start: Option<BoundarySpec>,
@@ -176,6 +176,17 @@ impl Interval {
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
             Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
+        }
+    }
+    pub fn is_valid(&self) -> bool {
+        match self {
+            Interval::Once => true,
+            Interval::Immediate => true,
+            Interval::Block(_) => true,
+            Interval::Cron(crontab) => {
+                let s = Schedule::from_str(crontab);
+                s.is_ok()
+            }
         }
     }
     pub fn slot_id_from(&self, time: u64) -> u64 {

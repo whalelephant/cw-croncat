@@ -145,13 +145,9 @@
         "get_task": {
           "type": "object",
           "required": [
-            "owner_id",
             "task_hash"
           ],
           "properties": {
-            "owner_id": {
-              "$ref": "#/definitions/Addr"
-            },
             "task_hash": {
               "type": "string"
             }
