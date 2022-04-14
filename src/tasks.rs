@@ -1,6 +1,6 @@
 use crate::error::ContractError;
-use crate::slots::{Boundary, Interval};
-use crate::state::{Config, CONFIG, TASKS};
+use crate::slots::{Boundary, Interval, SlotType};
+use crate::state::{Config, BLOCK_SLOTS, CONFIG, TASKS, TIME_SLOTS};
 use cosmwasm_std::{
     Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
@@ -247,11 +247,17 @@ pub fn create_task(
     // );
 
     let hash = item.to_hash();
+    let hash_vec = hash.clone().into_bytes();
 
-    // // Parse cadence into a future timestamp, then convert to a slot
-    // let schedule = Schedule::new(&item);
-    // let slot = Slot::new(&item);
-    // TODO: Check if next_id is 0, if so, panic
+    // Add task to catalog
+    let has_task = TASKS.may_load(deps.storage, (hash_vec.clone(), item.owner_id))?;
+    if has_task.is_some() {
+        return Err(ContractError::CustomError {
+            val: "Task already exists".to_string(),
+        });
+    }
+
+    // Parse interval into a future timestamp, then convert to a slot
     let (next_id, slot_kind) = item.interval.next(env, item.boundary);
 
     // If the next interval comes back 0, then this task should not schedule again
@@ -261,21 +267,29 @@ pub fn create_task(
         });
     }
 
-    // Based on slot kind, put into blocks or cron slots
+    // Get previous task hashes in slot, add as needed
+    let update_slot = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+        match d {
+            // has some data, simply push new hash
+            Some(data) => {
+                let mut s = data;
+                s.push(hash_vec.clone());
+                Ok(s)
+            }
+            // No data, push new vec & hash
+            None => Ok(vec![hash_vec.clone()]),
+        }
+    };
 
-    // TODO:
-    // // Add task to catalog
-    // assert!(
-    //     self.tasks.insert(&hash.0, &item).is_none(),
-    //     "Task already exists"
-    // );
-
-    // TODO:
-    // // Get previous task hashes in slot, add as needed
-    // let mut slot_slots = self.slots.get(&next_slot).unwrap_or(Vec::new());
-    // slot_slots.push(hash.0.clone());
-    // log!("Task next slot: {}", next_slot);
-    // self.slots.insert(&next_slot, &slot_slots);
+    // Based on slot kind, put into block or cron slots
+    match slot_kind {
+        SlotType::Block => {
+            BLOCK_SLOTS.update(deps.storage, next_id, update_slot)?;
+        }
+        SlotType::Cron => {
+            TIME_SLOTS.update(deps.storage, next_id, update_slot)?;
+        }
+    }
 
     // TODO:
     // // Keep track of which tasks are owned by whom
@@ -304,7 +318,7 @@ pub fn remove_task(
     _env: Env,
     _task_hash: String,
 ) -> Result<Response, ContractError> {
-    // TODO:
+    // TODO: PEOPLE.remove(&mut store, "john");
     Ok(Response::new().add_attribute("method", "remove_task"))
 }
 
