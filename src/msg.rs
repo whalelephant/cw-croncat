@@ -1,4 +1,8 @@
-use crate::state::GenericBalance;
+use crate::agent::Agent;
+use crate::helpers::GenericBalance;
+use crate::slots::Interval;
+use crate::state::Config;
+use crate::tasks::{Task, TaskRequest};
 use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -29,6 +33,7 @@ pub enum ExecuteMsg {
         balances: Vec<Balance>,
         account_id: Addr,
     },
+
     RegisterAgent {
         payable_account_id: Option<Addr>,
     },
@@ -38,6 +43,21 @@ pub enum ExecuteMsg {
     CheckInAgent {},
     UnregisterAgent {},
     WithdrawReward {},
+
+    CreateTask {
+        task: TaskRequest,
+    },
+    RemoveTask {
+        task_hash: String,
+    },
+    RefillTaskBalance {
+        task_hash: String,
+    },
+    ProxyCall {},
+    ProxyCallback {
+        task_hash: String,
+        current_slot: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -45,9 +65,30 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     GetConfig {},
     GetBalances {},
-    GetAgent { account_id: Addr },
+    GetAgent {
+        account_id: Addr,
+    },
     GetAgentIds {},
-    GetAgentTasks { account_id: Addr },
+    GetAgentTasks {
+        account_id: Addr,
+    },
+    GetTasks {
+        slot: Option<u128>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    GetTasksByOwner {
+        owner_id: Addr,
+    },
+    GetTask {
+        task_hash: String,
+    },
+    GetTaskHash {
+        task: Box<Task>,
+    },
+    ValidateInterval {
+        interval: Interval,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -71,4 +112,14 @@ pub struct BalancesResponse {
     pub available_balance: GenericBalance,
     pub staked_balance: GenericBalance,
     pub cw20_whitelist: Vec<Addr>,
+}
+
+// Exporting a nice schema
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum Croncat {
+    Agent(Agent),
+    Config(Config),
+    Task(Task),
+    ConfigResponse(ConfigResponse),
+    BalancesResponse(BalancesResponse),
 }

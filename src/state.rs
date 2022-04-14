@@ -1,80 +1,11 @@
+use cosmwasm_std::{Addr, Coin};
+use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Coin};
-use cw20::{Balance, Cw20CoinVerified};
-use cw_storage_plus::{Item, Map};
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
-pub struct GenericBalance {
-    pub native: Vec<Coin>,
-    pub cw20: Vec<Cw20CoinVerified>,
-}
-
-impl GenericBalance {
-    pub fn add_tokens(&mut self, add: Balance) {
-        match add {
-            Balance::Native(balance) => {
-                for token in balance.0 {
-                    let index = self.native.iter().enumerate().find_map(|(i, exist)| {
-                        if exist.denom == token.denom {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    });
-                    match index {
-                        Some(idx) => self.native[idx].amount += token.amount,
-                        None => self.native.push(token),
-                    }
-                }
-            }
-            Balance::Cw20(token) => {
-                let index = self.cw20.iter().enumerate().find_map(|(i, exist)| {
-                    if exist.address == token.address {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
-                match index {
-                    Some(idx) => self.cw20[idx].amount += token.amount,
-                    None => self.cw20.push(token),
-                }
-            }
-        };
-    }
-    pub fn minus_tokens(&mut self, minus: Balance) {
-        match minus {
-            Balance::Native(balance) => {
-                for token in balance.0 {
-                    let index = self.native.iter().enumerate().find_map(|(i, exist)| {
-                        if exist.denom == token.denom {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(idx) = index {
-                        self.native[idx].amount -= token.amount
-                    }
-                }
-            }
-            Balance::Cw20(token) => {
-                let index = self.cw20.iter().enumerate().find_map(|(i, exist)| {
-                    if exist.address == token.address {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
-                if let Some(idx) = index {
-                    self.cw20[idx].amount -= token.amount
-                }
-            }
-        };
-    }
-}
+use crate::agent::Agent;
+use crate::helpers::GenericBalance;
+use crate::tasks::Task;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -108,44 +39,58 @@ pub struct Config {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub enum AgentStatus {
-    // Default for any new agent, if tasks ratio allows
-    Active,
-
-    // Default for any new agent, until more tasks come online
-    Pending,
-
-    // More tasks are available, agent must checkin to become active
-    Nominated,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Agent {
-    pub status: AgentStatus,
-
-    // Where rewards get transferred
-    pub payable_account_id: Addr,
-
-    // accrued reward balance
-    pub balance: GenericBalance,
-
-    // stats
-    pub total_tasks_executed: u64,
-
-    // Holds slot number of a missed slot.
-    // If other agents see an agent miss a slot, they store the missed slot number.
-    // If agent does a task later, this number is reset to zero.
-    // Example data: 1633890060000000000 or 0
-    pub last_missed_slot: u64,
-
-    // Timestamp of when agent first registered
-    // Useful for rewarding agents for their patience while they are pending and operating service
-    // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
-    // Example data: 1633890060000000000 or 0
-    pub register_start: u64,
-}
-
 pub const AGENTS: Map<Addr, Agent> = Map::new("agents");
 pub const AGENTS_ACTIVE_QUEUE: Item<Vec<Addr>> = Item::new("agent_active_queue");
 pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue");
+
+// REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#composite-keys
+// Idea - create composite keys that are filterable to owners of tasks
+pub const TASKS: Map<Vec<u8>, Task> = Map::new("tasks");
+pub const TASK_OWNERS: Map<Addr, Vec<Vec<u8>>> = Map::new("task_owners");
+
+// TODO: FINISH!!!!!!!!!!!
+// TODO: Change this to an indexed / iterable key
+/// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
+pub const TIME_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("time_slots");
+/// Block slots allow for grouping of tasks at a specific block height,
+/// this is done instead of forcing a block height into a range of timestamps for reliability
+pub const BLOCK_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("block_slots");
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use cosmwasm_std::testing::{MockStorage};
+//     use cosmwasm_std::{coins, BankMsg, CosmosMsg, StdResult};
+//     use cw_storage_plus::{Bound, Order, Map};
+//     use cw20::Balance;
+//     use crate::slots::{Interval, Boundary};
+
+//     pub const TASKS: Map<(Vec<u8>, Addr), Task> = Map::new("tasks");
+
+//     #[test]
+//     fn check_task_storage_structure() {
+//         let mut store = MockStorage::new();
+
+//         let to_address = String::from("you");
+//         let amount = coins(1015, "earth");
+//         let bank = BankMsg::Send { to_address, amount };
+//         let msg: CosmosMsg = bank.clone().into();
+
+//         let task = Task {
+//             owner_id: Addr::unchecked("nobody".to_string()),
+//             interval: Interval::Immediate,
+//             boundary: Boundary {
+//                 start: None,
+//                 end: None,
+//             },
+//             stop_on_fail: false,
+//             total_deposit: Balance::default(),
+//             action: msg,
+//             rules: None,
+//         };
+
+//         TASKS.save(&mut store, (task.to_hash_vec(), task.owner_id), &task);
+
+//         // TODO: Test if i can do tasks + owners in same map with filtering
+//     }
+// }

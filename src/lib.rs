@@ -5,6 +5,8 @@ pub mod helpers;
 pub mod integration_tests;
 pub mod msg;
 pub mod owner;
+pub mod slots;
 pub mod state;
+pub mod tasks;
 
 pub use crate::error::ContractError;

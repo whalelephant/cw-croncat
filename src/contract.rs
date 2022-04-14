@@ -8,9 +8,13 @@ use crate::agent::{
     register_agent, unregister_agent, update_agent, withdraw_task_balance,
 };
 use crate::error::ContractError;
+use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::owner::{move_balances, query_balances, query_config, update_settings};
-use crate::state::{Config, GenericBalance, CONFIG};
+use crate::state::{Config, CONFIG};
+use crate::tasks::{
+    create_task, proxy_call, proxy_callback, query_get_task, refill_task, remove_task,
+};
 use cw20::Balance;
 
 // version info for migration info
@@ -106,6 +110,7 @@ pub fn execute(
             balances,
             account_id,
         } => move_balances(deps, info, env, balances, account_id),
+
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
@@ -115,6 +120,15 @@ pub fn execute(
         ExecuteMsg::UnregisterAgent {} => unregister_agent(deps, info, env),
         ExecuteMsg::WithdrawReward {} => withdraw_task_balance(deps, info, env),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
+
+        ExecuteMsg::CreateTask { task } => create_task(deps, info, env, task),
+        ExecuteMsg::RemoveTask { task_hash } => remove_task(deps, info, env, task_hash),
+        ExecuteMsg::RefillTaskBalance { task_hash } => refill_task(deps, info, env, task_hash),
+        ExecuteMsg::ProxyCall {} => proxy_call(deps, info, env),
+        ExecuteMsg::ProxyCallback {
+            task_hash,
+            current_slot,
+        } => proxy_callback(deps, info, env, task_hash, current_slot),
     }
 }
 
@@ -123,11 +137,21 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
         QueryMsg::GetBalances {} => to_binary(&query_balances(deps)?),
+
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
         QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, account_id)?)
         }
+
+        // slot,
+        // from_index,
+        // limit,
+        QueryMsg::GetTasks { .. } => Ok(Binary::default()),
+        QueryMsg::GetTasksByOwner { owner_id: _ } => Ok(Binary::default()),
+        QueryMsg::GetTask { task_hash } => to_binary(&query_get_task(deps, task_hash)?),
+        QueryMsg::GetTaskHash { task: _ } => Ok(Binary::default()),
+        QueryMsg::ValidateInterval { interval: _ } => Ok(Binary::default()),
     }
 }
 
