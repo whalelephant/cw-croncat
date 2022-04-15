@@ -237,9 +237,9 @@ pub fn move_balances(
 
 #[cfg(test)]
 mod tests {
-    use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
     use crate::msg::{BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+    use crate::state::STORE;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
     use cosmwasm_std::{coin, coins, from_binary, Addr};
     use cw20::Balance;
@@ -247,13 +247,16 @@ mod tests {
     #[test]
     fn update_settings() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
+        let store = STORE::default();
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
         };
         let info = mock_info("creator", &coins(1000, "meow"));
-        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let res_init = store
+            .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
+            .unwrap();
         assert_eq!(0, res_init.messages.len());
 
         let payload = ExecuteMsg::UpdateSettings {
@@ -270,18 +273,22 @@ mod tests {
 
         // non-owner fails
         let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
-        let res_fail = execute(deps.as_mut(), mock_env(), unauth_info, payload.clone());
+        let res_fail = store.execute(deps.as_mut(), mock_env(), unauth_info, payload.clone());
         match res_fail {
             Err(ContractError::Unauthorized {}) => {}
             _ => panic!("Must return unauthorized error"),
         }
 
         // do the right thing
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
+        let res_exec = store
+            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .unwrap();
         assert_eq!(0, res_exec.messages.len());
 
         // it worked, let's query the state
-        let res = query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {}).unwrap();
+        let res = store
+            .query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {})
+            .unwrap();
         let value: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!(true, value.paused);
         assert_eq!(info.sender, value.owner_id);
@@ -290,6 +297,7 @@ mod tests {
     #[test]
     fn move_balances_auth_checks() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
+        let store = STORE::default();
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
@@ -300,7 +308,9 @@ mod tests {
             denom: "atom".to_string(),
             owner_id: None,
         };
-        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let res_init = store
+            .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
+            .unwrap();
         assert!(res_init.messages.is_empty());
 
         let payload = ExecuteMsg::UpdateSettings {
@@ -314,7 +324,9 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
+        let res_exec = store
+            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .unwrap();
         assert!(res_exec.messages.is_empty());
 
         // try to move funds as non-owner
@@ -322,7 +334,7 @@ mod tests {
             balances: non_exist_bal,
             account_id: Addr::unchecked("scammer"),
         };
-        let res_fail_1 = execute(deps.as_mut(), mock_env(), unauth_info, msg_move_1);
+        let res_fail_1 = store.execute(deps.as_mut(), mock_env(), unauth_info, msg_move_1);
         match res_fail_1 {
             Err(ContractError::Unauthorized {}) => {}
             _ => panic!("Must return unauthorized error"),
@@ -333,7 +345,7 @@ mod tests {
             balances: exist_bal.clone(),
             account_id: Addr::unchecked("scammer"),
         };
-        let res_fail_2 = execute(deps.as_mut(), mock_env(), info.clone(), msg_move_2);
+        let res_fail_2 = store.execute(deps.as_mut(), mock_env(), info.clone(), msg_move_2);
         match res_fail_2 {
             Err(ContractError::CustomError { .. }) => {}
             _ => panic!("Must return unauthorized error"),
@@ -343,6 +355,7 @@ mod tests {
     #[test]
     fn move_balances_native() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
+        let store = STORE::default();
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
         let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
@@ -353,7 +366,9 @@ mod tests {
             denom: "atom".to_string(),
             owner_id: None,
         };
-        let res_init = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let res_init = store
+            .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
+            .unwrap();
         assert!(res_init.messages.is_empty());
 
         let payload = ExecuteMsg::UpdateSettings {
@@ -367,7 +382,9 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), payload).unwrap();
+        let res_exec = store
+            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .unwrap();
         assert!(res_exec.messages.is_empty());
 
         // try to move funds with greater amount than native available
@@ -375,7 +392,7 @@ mod tests {
             balances: spensive_bal,
             account_id: money_bags.clone(),
         };
-        let res_fail = execute(deps.as_mut(), mock_env(), info.clone(), msg_move_fail);
+        let res_fail = store.execute(deps.as_mut(), mock_env(), info.clone(), msg_move_fail);
         match res_fail {
             Err(ContractError::CustomError { .. }) => {}
             _ => panic!("Must return custom not enough funds error"),
@@ -386,11 +403,15 @@ mod tests {
             balances: exist_bal,
             account_id: money_bags,
         };
-        let res_exec = execute(deps.as_mut(), mock_env(), info.clone(), msg_move).unwrap();
+        let res_exec = store
+            .execute(deps.as_mut(), mock_env(), info.clone(), msg_move)
+            .unwrap();
         assert!(!res_exec.messages.is_empty());
 
         // it worked, let's query the state
-        let res_bal = query(deps.as_ref(), mock_env(), QueryMsg::GetBalances {}).unwrap();
+        let res_bal = store
+            .query(deps.as_ref(), mock_env(), QueryMsg::GetBalances {})
+            .unwrap();
         let balances: BalancesResponse = from_binary(&res_bal).unwrap();
         assert_eq!(
             vec![coin(199999998, "atom"), coin(1000, "meow")],
