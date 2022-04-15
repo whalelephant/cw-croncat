@@ -89,18 +89,12 @@ pub struct STORE<'a> {
 
 impl Default for STORE<'static> {
     fn default() -> Self {
-        Self::new(
-            "tasks",
-            "tasks__owner",
-        )
+        Self::new("tasks", "tasks__owner")
     }
 }
 
 impl<'a> STORE<'a> {
-    fn new(
-        tasks_key: &'a str,
-        tasks_owner_key: &'a str,
-    ) -> Self {
+    fn new(tasks_key: &'a str, tasks_owner_key: &'a str) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
         };
