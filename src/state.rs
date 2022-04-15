@@ -89,18 +89,12 @@ pub struct STORE<'a> {
 
 impl Default for STORE<'static> {
     fn default() -> Self {
-        Self::new(
-            "tasks",
-            "tasks__owner",
-        )
+        Self::new("tasks", "tasks__owner")
     }
 }
 
 impl<'a> STORE<'a> {
-    fn new(
-        tasks_key: &'a str,
-        tasks_owner_key: &'a str,
-    ) -> Self {
+    fn new(tasks_key: &'a str, tasks_owner_key: &'a str) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
         };
@@ -139,9 +133,9 @@ mod tests {
     use crate::error::ContractError;
     use crate::slots::{Boundary, Interval};
     use cosmwasm_std::testing::MockStorage;
-    use cosmwasm_std::Order;
-    use cosmwasm_std::{coins, BankMsg, CosmosMsg, StdResult};
+    use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
     use cw20::Balance;
+    use cw_storage_plus::Bound;
 
     #[test]
     fn check_task_storage_structure() -> StdResult<()> {
@@ -165,20 +159,21 @@ mod tests {
             action: msg,
             rules: None,
         };
+        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id = task_id_str.to_string().into_bytes();
 
-        // -------------------------
-
-        // create the task
+        // create a task
         let res = store
             .tasks
             .update(&mut storage, task.to_hash_vec(), |old| match old {
-                Some(_) => Err(ContractError::Unauthorized {}),
-                None => Ok(task),
+                Some(_) => Err(ContractError::CustomError {
+                    val: "Already exists".to_string(),
+                }),
+                None => Ok(task.clone()),
             });
-        println!("resssssss {:?}", res);
+        assert_eq!(res.unwrap(), task.clone());
 
-        // -------------------------
-
+        // get task ids by owner
         let task_ids_by_owner: Vec<String> = store
             .tasks
             .idx
@@ -188,29 +183,70 @@ mod tests {
             .take(5)
             .map(|x| x.map(|addr| addr.to_string()))
             .collect::<StdResult<Vec<_>>>()?;
-        println!("task_ids_by_ownertask_ids_by_owner {:?}", task_ids_by_owner);
+        assert_eq!(task_ids_by_owner, vec![task_id_str.clone()]);
 
-        // -------------------------
-
-        let all_tasks: StdResult<Vec<String>> = store
+        // get all task ids
+        let all_task_ids: StdResult<Vec<String>> = store
             .tasks
             .range(&mut storage, None, None, Order::Ascending)
             .take(10)
             .map(|x| x.map(|(_, task)| task.to_hash()))
             .collect();
-        println!("all_tasks {:?}", all_tasks);
+        assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 
-        // -------------------------
+        // get single task
+        let get_task = store.tasks.load(&mut storage, task_id)?;
+        assert_eq!(get_task, task);
 
-        let task_id = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc"
-            .to_string()
-            .into_bytes();
-        let task = store.tasks.load(&mut storage, task_id)?;
-        println!("tasktasktasktasktask {:?}", task);
-
-        // assert!(false);
         Ok(())
     }
 
-    // TODO: Setup test for range / Ordered time slots
+    // test for range / Ordered time slots
+    #[test]
+    fn check_slots_storage_structure() -> StdResult<()> {
+        let mut storage = MockStorage::new();
+        let store = STORE::default();
+
+        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id = task_id_str.to_string().into_bytes();
+        let tasks_vec = vec![task_id];
+
+        store
+            .time_slots
+            .save(&mut storage, 12345 as u64, &tasks_vec.clone())?;
+        store
+            .time_slots
+            .save(&mut storage, 12346 as u64, &tasks_vec.clone())?;
+        store
+            .time_slots
+            .save(&mut storage, 22345 as u64, &tasks_vec.clone())?;
+
+        // get all under one key
+        let all_slots_res: StdResult<Vec<_>> = store
+            .time_slots
+            .range(&mut storage, None, None, Order::Ascending)
+            .take(5)
+            .collect();
+        let all_slots = all_slots_res?;
+        assert_eq!(all_slots[0].0, 12345);
+        assert_eq!(all_slots[1].0, 12346);
+        assert_eq!(all_slots[2].0, 22345);
+
+        // Range test
+        let range_slots: StdResult<Vec<_>> = store
+            .time_slots
+            .range(
+                &mut storage,
+                Some(Bound::exclusive(12345 as u64)),
+                Some(Bound::inclusive(22346 as u64)),
+                Order::Descending,
+            )
+            .collect();
+        let slots = range_slots?;
+        assert_eq!(slots.len(), 2);
+        assert_eq!(slots[0].0, 22345);
+        assert_eq!(slots[1].0, 12346);
+
+        Ok(())
+    }
 }
