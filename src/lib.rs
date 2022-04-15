@@ -11,7 +11,7 @@ pub mod tasks;
 
 pub use crate::error::ContractError;
 pub use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-pub use crate::state::STORE;
+pub use crate::state::CwCroncat;
 use cosmwasm_std::Empty;
 
 // This is a simple type to let us handle empty extensions
@@ -32,7 +32,7 @@ pub mod entry {
         info: MessageInfo,
         msg: InstantiateMsg,
     ) -> StdResult<Response> {
-        let s = STORE::default();
+        let s = CwCroncat::default();
         s.instantiate(deps, env, info, msg)
     }
 
@@ -43,13 +43,13 @@ pub mod entry {
         info: MessageInfo,
         msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        let s = STORE::default();
+        let s = CwCroncat::default();
         s.execute(deps, env, info, msg)
     }
 
     #[entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-        let s = STORE::default();
+        let s = CwCroncat::default();
         s.query(deps, env, msg)
     }
 }

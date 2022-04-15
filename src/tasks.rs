@@ -1,6 +1,6 @@
 use crate::error::ContractError;
 use crate::slots::{Boundary, Interval, SlotType};
-use crate::state::{Config, BLOCK_SLOTS, CONFIG, TASKS, TASK_OWNERS, TIME_SLOTS};
+use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
@@ -97,307 +97,322 @@ pub struct TaskResponse {
     pub rules: Option<Vec<Rule>>,
 }
 
-// TODO:
-// /// Returns task data
-// /// Used by the frontend for viewing tasks
-// pub(crate) fn query_get_tasks(
-//     _deps: Deps,
-//     _slot: Option<u128>,
-//     _from_index: Option<u64>,
-//     _limit: Option<u64>,
-// ) -> StdResult<Vec<TaskResponse>> {
-//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+impl<'a> CwCroncat<'a> {
+    // TODO:
+    // /// Returns task data
+    // /// Used by the frontend for viewing tasks
+    // pub(crate) fn query_get_tasks(
+    //     &self,
+    //     _deps: Deps,
+    //     _slot: Option<u128>,
+    //     _from_index: Option<u64>,
+    //     _limit: Option<u64>,
+    // ) -> StdResult<Vec<TaskResponse>> {
+    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
 
-//     Ok(vec![TaskResponse {}])
-// }
+    //     Ok(vec![TaskResponse {}])
+    // }
 
-// TODO:
-// /// Returns task data for a specific owner
-// pub(crate) fn query_get_tasks_by_owner(
-//     _deps: Deps,
-//     _owner_id: Addr,
-// ) -> StdResult<Vec<TaskResponse>> {
-//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    // TODO:
+    // /// Returns task data for a specific owner
+    // pub(crate) fn query_get_tasks_by_owner(
+    //     &self,
+    //     _deps: Deps,
+    //     _owner_id: Addr,
+    // ) -> StdResult<Vec<TaskResponse>> {
+    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
 
-//     Ok(vec![TaskResponse {}])
-// }
+    //     Ok(vec![TaskResponse {}])
+    // }
 
-// TODO:
-/// Returns single task data
-pub(crate) fn query_get_task(deps: Deps, task_hash: String) -> StdResult<Option<TaskResponse>> {
-    let res = TASKS.may_load(deps.storage, task_hash.as_bytes().to_vec())?;
-    if res.is_none() {
-        return Ok(None);
+    // TODO:
+    /// Returns single task data
+    pub(crate) fn query_get_task(
+        &self,
+        deps: Deps,
+        task_hash: String,
+    ) -> StdResult<Option<TaskResponse>> {
+        let res = self
+            .tasks
+            .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
+        if res.is_none() {
+            return Ok(None);
+        }
+
+        let task: Task = res.unwrap();
+
+        Ok(Some(TaskResponse {
+            task_hash: task.to_hash(),
+            owner_id: task.owner_id,
+            interval: task.interval,
+            boundary: task.boundary,
+            stop_on_fail: task.stop_on_fail,
+            total_deposit: task.total_deposit,
+            action: task.action,
+            rules: task.rules,
+        }))
     }
 
-    let task: Task = res.unwrap();
+    // TODO:
+    // /// Returns a hash computed by the input task data
+    // pub(crate) fn query_get_task_hash(
+    //     &self,
+    //     _deps: Deps,
+    //     _task: Task,
+    // ) -> StdResult<String> {
+    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
 
-    Ok(Some(TaskResponse {
-        task_hash: task.to_hash(),
-        owner_id: task.owner_id,
-        interval: task.interval,
-        boundary: task.boundary,
-        stop_on_fail: task.stop_on_fail,
-        total_deposit: task.total_deposit,
-        action: task.action,
-        rules: task.rules,
-    }))
-}
+    //     Ok("")
+    // }
 
-// TODO:
-// /// Returns a hash computed by the input task data
-// pub(crate) fn query_get_task_hash(
-//     _deps: Deps,
-//     _task: Task,
-// ) -> StdResult<String> {
-//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    // TODO:
+    // /// Returns task data
+    // /// Used by the frontend for viewing tasks
+    // pub(crate) fn query_validate_interval(
+    //     &self,
+    //     _deps: Deps,
+    //     _interval: Interval,
+    // ) -> StdResult<bool> {
+    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
 
-//     Ok("")
-// }
+    //     Ok(false)
+    // }
 
-// TODO:
-// /// Returns task data
-// /// Used by the frontend for viewing tasks
-// pub(crate) fn query_validate_interval(
-//     _deps: Deps,
-//     _interval: Interval,
-// ) -> StdResult<bool> {
-//     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    /// Allows any user or contract to pay for future txns based on a specific schedule
+    /// contract, function id & other settings. When the task runs out of balance
+    /// the task is no longer executed, any additional funds will be returned to task owner.
+    pub fn create_task(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        env: Env,
+        task: TaskRequest,
+    ) -> Result<Response, ContractError> {
+        if info.funds.is_empty() {
+            return Err(ContractError::CustomError {
+                val: "Must attach funds".to_string(),
+            });
+        }
+        let c: Config = self.config.load(deps.storage)?;
+        if c.paused {
+            return Err(ContractError::CustomError {
+                val: "Create task paused".to_string(),
+            });
+        }
 
-//     Ok(false)
-// }
-
-/// Allows any user or contract to pay for future txns based on a specific schedule
-/// contract, function id & other settings. When the task runs out of balance
-/// the task is no longer executed, any additional funds will be returned to task owner.
-pub fn create_task(
-    deps: DepsMut,
-    info: MessageInfo,
-    env: Env,
-    task: TaskRequest,
-) -> Result<Response, ContractError> {
-    if info.funds.is_empty() {
-        return Err(ContractError::CustomError {
-            val: "Must attach funds".to_string(),
-        });
-    }
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
-        return Err(ContractError::CustomError {
-            val: "Create task paused".to_string(),
-        });
-    }
-
-    // TODO: What other msg types are needed to validate against
-    // Additional checks - needs to protect against scripting owner / self situations
-    match task.action.clone() {
-        CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr,
-            funds: _,
-            msg: _,
-        }) => {
-            if contract_addr == env.contract.address {
-                // TODO: How to guard this??
-                // check that the method is NOT the callback of this contract
-                // assert!(
-                //     function_id != "proxy_callback",
-                //     "Function id invalid"
-                // );
-                // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                if info.sender == c.owner_id {
-                    return Err(ContractError::CustomError {
-                        val: "Creator invalid".to_string(),
-                    });
+        // TODO: What other msg types are needed to validate against
+        // Additional checks - needs to protect against scripting owner / self situations
+        match task.action.clone() {
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr,
+                funds: _,
+                msg: _,
+            }) => {
+                if contract_addr == env.contract.address {
+                    // TODO: How to guard this??
+                    // check that the method is NOT the callback of this contract
+                    // assert!(
+                    //     function_id != "proxy_callback",
+                    //     "Function id invalid"
+                    // );
+                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
+                    if info.sender == c.owner_id {
+                        return Err(ContractError::CustomError {
+                            val: "Creator invalid".to_string(),
+                        });
+                    }
                 }
             }
+            _ => unreachable!(),
         }
-        _ => unreachable!(),
-    }
 
-    let item = Task {
-        owner_id: info.sender,
-        interval: task.interval,
-        boundary: task.boundary,
-        stop_on_fail: task.stop_on_fail,
-        total_deposit: Balance::from(info.funds),
-        action: task.action,
-        rules: task.rules,
-    };
+        let item = Task {
+            owner_id: info.sender,
+            interval: task.interval,
+            boundary: task.boundary,
+            stop_on_fail: task.stop_on_fail,
+            total_deposit: Balance::from(info.funds),
+            action: task.action,
+            rules: task.rules,
+        };
 
-    if !item.interval.is_valid() {
-        return Err(ContractError::CustomError {
-            val: "Interval invalid".to_string(),
-        });
-    }
+        if !item.interval.is_valid() {
+            return Err(ContractError::CustomError {
+                val: "Interval invalid".to_string(),
+            });
+        }
 
-    // TODO:
-    // // Check that balance is sufficient for 1 execution minimum
-    // let call_balance_used = self.task_balance_uses(&item);
-    // let min_balance_needed: u128 = if recurring == Some(true) {
-    //     call_balance_used * 2
-    // } else {
-    //     call_balance_used
-    // };
-    // assert!(
-    //     min_balance_needed <= item.total_deposit.0,
-    //     "Not enough task balance to execute job, need at least {}",
-    //     min_balance_needed
-    // );
+        // TODO:
+        // // Check that balance is sufficient for 1 execution minimum
+        // let call_balance_used = self.task_balance_uses(&item);
+        // let min_balance_needed: u128 = if recurring == Some(true) {
+        //     call_balance_used * 2
+        // } else {
+        //     call_balance_used
+        // };
+        // assert!(
+        //     min_balance_needed <= item.total_deposit.0,
+        //     "Not enough task balance to execute job, need at least {}",
+        //     min_balance_needed
+        // );
 
-    let hash = item.to_hash();
+        let hash = item.to_hash();
 
-    // Add task to catalog
-    let has_task = TASKS.may_load(deps.storage, item.to_hash_vec())?;
-    if has_task.is_some() {
-        return Err(ContractError::CustomError {
-            val: "Task already exists".to_string(),
-        });
-    }
+        // Add task to catalog
+        let has_task = self.tasks.may_load(deps.storage, item.to_hash_vec())?;
+        if has_task.is_some() {
+            return Err(ContractError::CustomError {
+                val: "Task already exists".to_string(),
+            });
+        }
 
-    // Parse interval into a future timestamp, then convert to a slot
-    let (next_id, slot_kind) = item.interval.next(env, item.boundary);
+        // Parse interval into a future timestamp, then convert to a slot
+        let (next_id, slot_kind) = item.interval.next(env, item.boundary);
 
-    // If the next interval comes back 0, then this task should not schedule again
-    if next_id == 0 {
-        return Err(ContractError::CustomError {
-            val: "Task ended".to_string(),
-        });
-    }
+        // If the next interval comes back 0, then this task should not schedule again
+        if next_id == 0 {
+            return Err(ContractError::CustomError {
+                val: "Task ended".to_string(),
+            });
+        }
 
-    // Get previous task hashes in slot, add as needed
-    let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
-        match d {
-            // has some data, simply push new hash
-            Some(data) => {
-                let mut s = data;
-                s.push(item.to_hash_vec());
-                Ok(s)
+        // Get previous task hashes in slot, add as needed
+        let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+            match d {
+                // has some data, simply push new hash
+                Some(data) => {
+                    let mut s = data;
+                    s.push(item.to_hash_vec());
+                    Ok(s)
+                }
+                // No data, push new vec & hash
+                None => Ok(vec![item.to_hash_vec()]),
             }
-            // No data, push new vec & hash
-            None => Ok(vec![item.to_hash_vec()]),
+        };
+
+        // Based on slot kind, put into block or cron slots
+        match slot_kind {
+            SlotType::Block => {
+                self.block_slots
+                    .update(deps.storage, next_id, update_vec_data)?;
+            }
+            SlotType::Cron => {
+                self.time_slots
+                    .update(deps.storage, next_id, update_vec_data)?;
+            }
         }
-    };
 
-    // Based on slot kind, put into block or cron slots
-    match slot_kind {
-        SlotType::Block => {
-            BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+        // TODO:
+        // // Keep track of which tasks are owned by whom
+        // let mut owner_tasks = self.task_owners.get(&item.owner_id).unwrap_or(Vec::new());
+        // owner_tasks.push(hash.0.clone());
+        // log!("Task owner list: {}", item.owner_id);
+        // self.task_owners.insert(&item.owner_id, &owner_tasks);
+
+        // TODO:
+        // // Add the attached balance into available_balance
+        // self.available_balance = self
+        //     .available_balance
+        //     .saturating_add(env::attached_deposit());
+
+        // TODO:
+        Ok(Response::new()
+            .add_attribute("method", "create_task")
+            .add_attribute("task_hash", hash))
+    }
+
+    // TODO:
+    /// Deletes a task in its entirety, returning any remaining balance to task owner.
+    pub fn remove_task(
+        &self,
+        deps: DepsMut,
+        _info: MessageInfo,
+        _env: Env,
+        task_hash: String,
+    ) -> Result<Response, ContractError> {
+        let hash_vec = task_hash.into_bytes();
+        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
+        if task_raw.is_none() {
+            return Err(ContractError::CustomError {
+                val: "No task found by hash".to_string(),
+            });
         }
-        SlotType::Cron => {
-            TIME_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+        // let task = task_raw.unwrap();
+        // let owner_id = task.owner_id;
+
+        // Remove all the thangs
+        self.tasks.remove(deps.storage, hash_vec)?;
+
+        // TODO:
+        // find any scheduled things and remove them!
+
+        Ok(Response::new().add_attribute("method", "remove_task"))
+    }
+
+    // TODO: FINISH
+    /// Refill a task with more balance to continue its execution
+    /// NOTE: Sending balance here for a task that doesnt exist will result in loss of funds, or you could just use this as an opportunity for donations :D
+    /// NOTE: Currently restricting this to owner only, so owner can make sure the task ends
+    pub fn refill_task(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        _env: Env,
+        task_hash: String,
+    ) -> Result<Response, ContractError> {
+        let hash_vec = task_hash.into_bytes();
+        let task_raw = self.tasks.may_load(deps.storage, hash_vec)?;
+        if task_raw.is_none() {
+            return Err(ContractError::CustomError {
+                val: "Task already exists".to_string(),
+            });
         }
-    }
+        let task = task_raw.unwrap();
+        if task.owner_id != info.sender {
+            return Err(ContractError::CustomError {
+                val: "Only owner can refill their task".to_string(),
+            });
+        }
 
-    // update the owners list while at it:
-    TASK_OWNERS.update(deps.storage, item.clone().owner_id, update_vec_data)?;
+        // TODO:
+        // // Add the attached balance into available_balance
+        // self.available_balance = self
+        //     .available_balance
+        //     .saturating_add(env::attached_deposit());
 
-    // TODO:
-    // // Keep track of which tasks are owned by whom
-    // let mut owner_tasks = self.task_owners.get(&item.owner_id).unwrap_or(Vec::new());
-    // owner_tasks.push(hash.0.clone());
-    // log!("Task owner list: {}", item.owner_id);
-    // self.task_owners.insert(&item.owner_id, &owner_tasks);
-
-    // TODO:
-    // // Add the attached balance into available_balance
-    // self.available_balance = self
-    //     .available_balance
-    //     .saturating_add(env::attached_deposit());
-
-    // TODO:
-    Ok(Response::new()
-        .add_attribute("method", "create_task")
-        .add_attribute("task_hash", hash))
-}
-
-// TODO:
-/// Deletes a task in its entirety, returning any remaining balance to task owner.
-pub fn remove_task(
-    deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
-    task_hash: String,
-) -> Result<Response, ContractError> {
-    let hash_vec = task_hash.into_bytes();
-    let task_raw = TASKS.may_load(deps.storage, hash_vec.clone())?;
-    if task_raw.is_none() {
-        return Err(ContractError::CustomError {
-            val: "No task found by hash".to_string(),
-        });
-    }
-    let task = task_raw.unwrap();
-    let owner_id = task.owner_id;
-
-    // Remove all the thangs
-    TASKS.remove(deps.storage, hash_vec);
-    TASK_OWNERS.remove(deps.storage, owner_id);
-
-    // TODO:
-    // find any scheduled things and remove them!
-
-    Ok(Response::new().add_attribute("method", "remove_task"))
-}
-
-// TODO: FINISH
-/// Refill a task with more balance to continue its execution
-/// NOTE: Sending balance here for a task that doesnt exist will result in loss of funds, or you could just use this as an opportunity for donations :D
-/// NOTE: Currently restricting this to owner only, so owner can make sure the task ends
-pub fn refill_task(
-    deps: DepsMut,
-    info: MessageInfo,
-    _env: Env,
-    task_hash: String,
-) -> Result<Response, ContractError> {
-    let hash_vec = task_hash.into_bytes();
-    let task_raw = TASKS.may_load(deps.storage, hash_vec)?;
-    if task_raw.is_none() {
-        return Err(ContractError::CustomError {
-            val: "Task already exists".to_string(),
-        });
-    }
-    let task = task_raw.unwrap();
-    if task.owner_id != info.sender {
-        return Err(ContractError::CustomError {
-            val: "Only owner can refill their task".to_string(),
-        });
+        // TODO: report how full the task is total
+        Ok(Response::new().add_attribute("method", "refill_task"))
     }
 
     // TODO:
-    // // Add the attached balance into available_balance
-    // self.available_balance = self
-    //     .available_balance
-    //     .saturating_add(env::attached_deposit());
+    /// Executes a task based on the current task slot
+    /// Computes whether a task should continue further or not
+    /// Makes a cross-contract call with the task configuration
+    /// Called directly by a registered agent
+    pub fn proxy_call(
+        &self,
+        _deps: DepsMut,
+        _info: MessageInfo,
+        _env: Env,
+    ) -> Result<Response, ContractError> {
+        // TODO:
+        Ok(Response::new().add_attribute("method", "proxy_call"))
+    }
 
-    // TODO: report how full the task is total
-    Ok(Response::new().add_attribute("method", "refill_task"))
-}
-
-// TODO:
-/// Executes a task based on the current task slot
-/// Computes whether a task should continue further or not
-/// Makes a cross-contract call with the task configuration
-/// Called directly by a registered agent
-pub fn proxy_call(
-    _deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
-) -> Result<Response, ContractError> {
     // TODO:
-    Ok(Response::new().add_attribute("method", "proxy_call"))
-}
-
-// TODO:
-/// Logic executed on the completion of a proxy call
-/// Reschedule next task
-pub fn proxy_callback(
-    _deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
-    _task_hash: String,
-    _current_slot: u64,
-) -> Result<Response, ContractError> {
-    // TODO:
-    Ok(Response::new().add_attribute("method", "proxy_callback"))
+    /// Logic executed on the completion of a proxy call
+    /// Reschedule next task
+    pub fn proxy_callback(
+        &self,
+        _deps: DepsMut,
+        _info: MessageInfo,
+        _env: Env,
+        _task_hash: String,
+        _current_slot: u64,
+    ) -> Result<Response, ContractError> {
+        // TODO:
+        Ok(Response::new().add_attribute("method", "proxy_callback"))
+    }
 }
 
 #[cfg(test)]

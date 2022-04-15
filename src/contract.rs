@@ -1,19 +1,10 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use cw2::set_contract_version;
-
-use crate::agent::{
-    accept_nomination_agent, query_get_agent, query_get_agent_ids, query_get_agent_tasks,
-    register_agent, unregister_agent, update_agent, withdraw_task_balance,
-};
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::owner::{move_balances, query_balances, query_config, update_settings};
-use crate::state::{Config, CONFIG, STORE};
-use crate::tasks::{
-    create_task, proxy_call, proxy_callback, query_get_task, refill_task, remove_task,
-};
+use crate::state::{Config, CwCroncat};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cw2::set_contract_version;
 use cw20::Balance;
 
 // version info for migration info
@@ -21,7 +12,7 @@ const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(not(feature = "library"))]
-impl<'a> STORE<'a> {
+impl<'a> CwCroncat<'a> {
     pub fn instantiate(
         &self,
         deps: DepsMut,
@@ -63,7 +54,7 @@ impl<'a> STORE<'a> {
             // cw20_fees: vec![],
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-        CONFIG.save(deps.storage, &config)?;
+        self.config.save(deps.storage, &config)?;
 
         // all instantiated data
         Ok(Response::new()
@@ -106,42 +97,46 @@ impl<'a> STORE<'a> {
         msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
         match msg {
-            ExecuteMsg::UpdateSettings { .. } => update_settings(deps, info, msg),
+            ExecuteMsg::UpdateSettings { .. } => self.update_settings(deps, info, msg),
             ExecuteMsg::MoveBalances {
                 balances,
                 account_id,
-            } => move_balances(deps, info, env, balances, account_id),
+            } => self.move_balances(deps, info, env, balances, account_id),
 
             ExecuteMsg::RegisterAgent { payable_account_id } => {
-                register_agent(deps, info, env, payable_account_id)
+                self.register_agent(deps, info, env, payable_account_id)
             }
             ExecuteMsg::UpdateAgent { payable_account_id } => {
-                update_agent(deps, info, env, payable_account_id)
+                self.update_agent(deps, info, env, payable_account_id)
             }
-            ExecuteMsg::UnregisterAgent {} => unregister_agent(deps, info, env),
-            ExecuteMsg::WithdrawReward {} => withdraw_task_balance(deps, info, env),
-            ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
+            ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
+            ExecuteMsg::WithdrawReward {} => self.withdraw_task_balance(deps, info, env),
+            ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
-            ExecuteMsg::CreateTask { task } => create_task(deps, info, env, task),
-            ExecuteMsg::RemoveTask { task_hash } => remove_task(deps, info, env, task_hash),
-            ExecuteMsg::RefillTaskBalance { task_hash } => refill_task(deps, info, env, task_hash),
-            ExecuteMsg::ProxyCall {} => proxy_call(deps, info, env),
+            ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
+            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, info, env, task_hash),
+            ExecuteMsg::RefillTaskBalance { task_hash } => {
+                self.refill_task(deps, info, env, task_hash)
+            }
+            ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
             ExecuteMsg::ProxyCallback {
                 task_hash,
                 current_slot,
-            } => proxy_callback(deps, info, env, task_hash, current_slot),
+            } => self.proxy_callback(deps, info, env, task_hash, current_slot),
         }
     }
 
     pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
-            QueryMsg::GetConfig {} => to_binary(&query_config(deps)?),
-            QueryMsg::GetBalances {} => to_binary(&query_balances(deps)?),
+            QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
+            QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
 
-            QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
-            QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
+            QueryMsg::GetAgent { account_id } => {
+                to_binary(&self.query_get_agent(deps, account_id)?)
+            }
+            QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
             QueryMsg::GetAgentTasks { account_id } => {
-                to_binary(&query_get_agent_tasks(deps, account_id)?)
+                to_binary(&self.query_get_agent_tasks(deps, account_id)?)
             }
 
             // slot,
@@ -149,7 +144,7 @@ impl<'a> STORE<'a> {
             // limit,
             QueryMsg::GetTasks { .. } => Ok(Binary::default()),
             QueryMsg::GetTasksByOwner { owner_id: _ } => Ok(Binary::default()),
-            QueryMsg::GetTask { task_hash } => to_binary(&query_get_task(deps, task_hash)?),
+            QueryMsg::GetTask { task_hash } => to_binary(&self.query_get_task(deps, task_hash)?),
             QueryMsg::GetTaskHash { task: _ } => Ok(Binary::default()),
             QueryMsg::ValidateInterval { interval: _ } => Ok(Binary::default()),
         }
@@ -166,7 +161,7 @@ mod tests {
     #[test]
     fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
-        let store = STORE::default();
+        let store = CwCroncat::default();
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),

@@ -1,6 +1,6 @@
 use crate::error::ContractError;
 use crate::helpers::{send_tokens, GenericBalance};
-use crate::state::{Config, AGENTS, AGENTS_ACTIVE_QUEUE, AGENTS_PENDING_QUEUE, CONFIG};
+use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
 };
@@ -55,263 +55,278 @@ pub struct GetAgentIdsResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentTasksResponse(u64, u128);
 
-/// Get a single agent details
-/// Check's status as well, in case this agent needs to be considered for election
-pub(crate) fn query_get_agent(deps: Deps, account_id: Addr) -> StdResult<Option<Agent>> {
-    let agent = AGENTS.may_load(deps.storage, account_id.clone())?;
-    if agent.is_none() {
-        return Ok(None);
-    }
-    let a = agent.unwrap();
-
-    let pending: Vec<Addr> = AGENTS_PENDING_QUEUE
-        .may_load(deps.storage)?
-        .unwrap_or_default();
-
-    // If agent is pending, Check if they should get nominated to checkin to become active
-    let agent_status: AgentStatus = if a.status == AgentStatus::Pending {
-        // TODO: change to check total tasks + task ratio
-        if pending.contains(&account_id) {
-            AgentStatus::Nominated
-        } else {
-            a.status
+impl<'a> CwCroncat<'a> {
+    /// Get a single agent details
+    /// Check's status as well, in case this agent needs to be considered for election
+    pub(crate) fn query_get_agent(&self, deps: Deps, account_id: Addr) -> StdResult<Option<Agent>> {
+        let agent = self.agents.may_load(deps.storage, account_id.clone())?;
+        if agent.is_none() {
+            return Ok(None);
         }
-    } else {
-        a.status
-    };
+        let a = agent.unwrap();
 
-    Ok(Some(Agent {
-        status: agent_status,
-        payable_account_id: a.payable_account_id,
-        balance: a.balance,
-        total_tasks_executed: a.total_tasks_executed,
-        last_missed_slot: a.last_missed_slot,
-        register_start: a.register_start,
-    }))
-}
-
-/// Get a list of agent addresses
-pub(crate) fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> {
-    // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
-    // let pending = AGENTS_PENDING_QUEUE.load(deps.storage)?;
-    let active: Vec<Addr> = AGENTS_ACTIVE_QUEUE
-        .may_load(deps.storage)?
-        .unwrap_or_default();
-    let pending: Vec<Addr> = AGENTS_PENDING_QUEUE
-        .may_load(deps.storage)?
-        .unwrap_or_default();
-
-    Ok(GetAgentIdsResponse { active, pending })
-    // Ok(GetAgentIdsResponse(active, pending))
-}
-
-// TODO:
-/// Check how many tasks an agent can execute
-pub(crate) fn query_get_agent_tasks(
-    _deps: Deps,
-    _account_id: Addr,
-) -> StdResult<GetAgentTasksResponse> {
-    // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
-
-    Ok(GetAgentTasksResponse(0, 0))
-}
-
-/// Add any account as an agent that will be able to execute tasks.
-/// Registering allows for rewards accruing with micro-payments which will accumulate to more long-term.
-///
-/// Optional Parameters:
-/// "payable_account_id" - Allows a different account id to be specified, so a user can receive funds at a different account than the agent account.
-pub fn register_agent(
-    deps: DepsMut,
-    info: MessageInfo,
-    env: Env,
-    payable_account_id: Option<Addr>,
-) -> Result<Response, ContractError> {
-    if !info.funds.is_empty() {
-        return Err(ContractError::CustomError {
-            val: "Do not attach funds".to_string(),
-        });
-    }
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
-        return Err(ContractError::CustomError {
-            val: "Register agent paused".to_string(),
-        });
-    }
-
-    let account = info.sender;
-
-    // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
-    // Check if native token balance is sufficient for a few txns, in this case 4 txns
-    // TODO: Adjust gas & costs based on real usage cost
-    let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-    let unit_cost = c.gas_price * 4;
-    if !has_coins(
-        &agent_wallet_balances,
-        &Coin::new(u128::from(unit_cost), c.native_denom),
-    ) || agent_wallet_balances.is_empty()
-    {
-        return Err(ContractError::CustomError {
-            val: "Insufficient funds".to_string(),
-        });
-    }
-
-    let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
-
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE_QUEUE
-        .may_load(deps.storage)?
-        .unwrap_or_default();
-    let total_agents = active_agents.len();
-    let agent_status = if total_agents == 0 {
-        active_agents.push(account.clone());
-        AGENTS_ACTIVE_QUEUE.save(deps.storage, &active_agents)?;
-        AgentStatus::Active
-    } else {
-        let mut pending_agents = AGENTS_PENDING_QUEUE
+        let pending: Vec<Addr> = self
+            .agent_pending_queue
             .may_load(deps.storage)?
             .unwrap_or_default();
-        pending_agents.push(account.clone());
-        AGENTS_PENDING_QUEUE.save(deps.storage, &pending_agents)?;
-        AgentStatus::Pending
-    };
 
-    AGENTS.update(
-        deps.storage,
-        account,
-        |a: Option<Agent>| -> Result<_, ContractError> {
-            match a {
-                // make sure that account isn't already added
-                Some(_) => Err(ContractError::CustomError {
-                    val: "Agent already exists".to_string(),
-                }),
-                None => {
-                    Ok(Agent {
-                        status: agent_status.clone(),
-                        payable_account_id: payable_id,
-                        balance: GenericBalance::default(),
-                        total_tasks_executed: 0,
-                        last_missed_slot: 0,
-                        // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
-                        register_start: env.block.time.nanos(),
-                    })
-                }
+        // If agent is pending, Check if they should get nominated to checkin to become active
+        let agent_status: AgentStatus = if a.status == AgentStatus::Pending {
+            // TODO: change to check total tasks + task ratio
+            if pending.contains(&account_id) {
+                AgentStatus::Nominated
+            } else {
+                a.status
             }
-        },
-    )?;
+        } else {
+            a.status
+        };
 
-    Ok(Response::new()
-        .add_attribute("method", "register_agent")
-        .add_attribute("agent_status", format!("{:?}", agent_status))
-        .add_attribute("register_start", env.block.time.nanos().to_string()))
-}
-
-/// Update agent details, specifically the payable account id for an agent.
-pub fn update_agent(
-    deps: DepsMut,
-    info: MessageInfo,
-    _env: Env,
-    payable_account_id: Addr,
-) -> Result<Response, ContractError> {
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
-        return Err(ContractError::CustomError {
-            val: "Register agent paused".to_string(),
-        });
+        Ok(Some(Agent {
+            status: agent_status,
+            payable_account_id: a.payable_account_id,
+            balance: a.balance,
+            total_tasks_executed: a.total_tasks_executed,
+            last_missed_slot: a.last_missed_slot,
+            register_start: a.register_start,
+        }))
     }
 
-    AGENTS.update(
-        deps.storage,
-        info.sender,
-        |a: Option<Agent>| -> Result<_, ContractError> {
-            match a {
-                Some(agent) => {
-                    let mut ag = agent;
-                    ag.payable_account_id = payable_account_id;
-                    Ok(ag)
-                }
-                None => Err(ContractError::CustomError {
-                    val: "Agent doesnt exist".to_string(),
-                }),
-            }
-        },
-    )?;
+    /// Get a list of agent addresses
+    pub(crate) fn query_get_agent_ids(&self, deps: Deps) -> StdResult<GetAgentIdsResponse> {
+        // let active = self.agent_active_queue.load(deps.storage)?;
+        // let pending = self.agent_pending_queue.load(deps.storage)?;
+        let active: Vec<Addr> = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
+        let pending: Vec<Addr> = self
+            .agent_pending_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
 
-    Ok(Response::new().add_attribute("method", "update_agent"))
-}
-
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-pub(crate) fn withdraw_balances(
-    storage: &mut dyn Storage,
-    info: MessageInfo,
-) -> Result<Vec<SubMsg>, ContractError> {
-    let a = AGENTS.may_load(storage, info.sender)?;
-    if a.is_none() {
-        return Err(ContractError::CustomError {
-            val: "Agent doesnt exist".to_string(),
-        });
+        Ok(GetAgentIdsResponse { active, pending })
+        // Ok(GetAgentIdsResponse(active, pending))
     }
-    let agent = a.unwrap();
 
-    // This will send all token balances to Agent
-    let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
-    println!("balancesbalances {:?}", balances);
-    let mut config = CONFIG.load(storage)?;
-    config
-        .available_balance
-        .minus_tokens(Balance::from(balances.native));
-    // TODO: Finish:
-    // config
-    //     .available_balance
-    //     .minus_tokens(Balance::from(balances.cw20));
-    CONFIG.save(storage, &config)?;
+    // TODO:
+    /// Check how many tasks an agent can execute
+    pub(crate) fn query_get_agent_tasks(
+        &self,
+        _deps: Deps,
+        _account_id: Addr,
+    ) -> StdResult<GetAgentTasksResponse> {
+        // let active = self.agent_active_queue.load(deps.storage)?;
 
-    Ok(messages)
-}
+        Ok(GetAgentTasksResponse(0, 0))
+    }
 
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-pub fn withdraw_task_balance(
-    deps: DepsMut,
-    info: MessageInfo,
-    _env: Env,
-) -> Result<Response, ContractError> {
-    let messages = withdraw_balances(deps.storage, info.clone())?;
+    /// Add any account as an agent that will be able to execute tasks.
+    /// Registering allows for rewards accruing with micro-payments which will accumulate to more long-term.
+    ///
+    /// Optional Parameters:
+    /// "payable_account_id" - Allows a different account id to be specified, so a user can receive funds at a different account than the agent account.
+    pub fn register_agent(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        env: Env,
+        payable_account_id: Option<Addr>,
+    ) -> Result<Response, ContractError> {
+        if !info.funds.is_empty() {
+            return Err(ContractError::CustomError {
+                val: "Do not attach funds".to_string(),
+            });
+        }
+        let c: Config = self.config.load(deps.storage)?;
+        if c.paused {
+            return Err(ContractError::CustomError {
+                val: "Register agent paused".to_string(),
+            });
+        }
 
-    Ok(Response::new()
-        .add_attribute("method", "withdraw_task_balance")
-        .add_attribute("account_id", info.sender)
-        .add_submessages(messages))
-}
+        let account = info.sender;
 
-/// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
-pub fn accept_nomination_agent(
-    _deps: DepsMut,
-    _info: MessageInfo,
-    _env: Env,
-) -> Result<Response, ContractError> {
-    Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
-}
+        // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
+        // Check if native token balance is sufficient for a few txns, in this case 4 txns
+        // TODO: Adjust gas & costs based on real usage cost
+        let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
+        let unit_cost = c.gas_price * 4;
+        if !has_coins(
+            &agent_wallet_balances,
+            &Coin::new(u128::from(unit_cost), c.native_denom),
+        ) || agent_wallet_balances.is_empty()
+        {
+            return Err(ContractError::CustomError {
+                val: "Insufficient funds".to_string(),
+            });
+        }
 
-/// Removes the agent from the active set of agents.
-/// Withdraws all reward balances to the agent payable account id.
-pub fn unregister_agent(
-    deps: DepsMut,
-    info: MessageInfo,
-    _env: Env,
-) -> Result<Response, ContractError> {
-    // Get withdraw messages, if any
-    // NOTE: Since this also checks if agent exists, safe to not have redundant logic
-    let messages = withdraw_balances(deps.storage, info.clone())?;
-    let agent_id = info.sender;
-    AGENTS.remove(deps.storage, agent_id.clone());
+        let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
 
-    let responses = Response::new()
-        .add_attribute("method", "unregister_agent")
-        .add_attribute("account_id", agent_id);
+        let mut active_agents: Vec<Addr> = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
+        let total_agents = active_agents.len();
+        let agent_status = if total_agents == 0 {
+            active_agents.push(account.clone());
+            self.agent_active_queue.save(deps.storage, &active_agents)?;
+            AgentStatus::Active
+        } else {
+            let mut pending_agents = self
+                .agent_pending_queue
+                .may_load(deps.storage)?
+                .unwrap_or_default();
+            pending_agents.push(account.clone());
+            self.agent_pending_queue
+                .save(deps.storage, &pending_agents)?;
+            AgentStatus::Pending
+        };
 
-    if messages.is_empty() {
-        Ok(responses)
-    } else {
-        Ok(responses.add_submessages(messages))
+        self.agents.update(
+            deps.storage,
+            account,
+            |a: Option<Agent>| -> Result<_, ContractError> {
+                match a {
+                    // make sure that account isn't already added
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Agent already exists".to_string(),
+                    }),
+                    None => {
+                        Ok(Agent {
+                            status: agent_status.clone(),
+                            payable_account_id: payable_id,
+                            balance: GenericBalance::default(),
+                            total_tasks_executed: 0,
+                            last_missed_slot: 0,
+                            // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
+                            register_start: env.block.time.nanos(),
+                        })
+                    }
+                }
+            },
+        )?;
+
+        Ok(Response::new()
+            .add_attribute("method", "register_agent")
+            .add_attribute("agent_status", format!("{:?}", agent_status))
+            .add_attribute("register_start", env.block.time.nanos().to_string()))
+    }
+
+    /// Update agent details, specifically the payable account id for an agent.
+    pub fn update_agent(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        _env: Env,
+        payable_account_id: Addr,
+    ) -> Result<Response, ContractError> {
+        let c: Config = self.config.load(deps.storage)?;
+        if c.paused {
+            return Err(ContractError::CustomError {
+                val: "Register agent paused".to_string(),
+            });
+        }
+
+        self.agents.update(
+            deps.storage,
+            info.sender,
+            |a: Option<Agent>| -> Result<_, ContractError> {
+                match a {
+                    Some(agent) => {
+                        let mut ag = agent;
+                        ag.payable_account_id = payable_account_id;
+                        Ok(ag)
+                    }
+                    None => Err(ContractError::CustomError {
+                        val: "Agent doesnt exist".to_string(),
+                    }),
+                }
+            },
+        )?;
+
+        Ok(Response::new().add_attribute("method", "update_agent"))
+    }
+
+    /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+    pub(crate) fn withdraw_balances(
+        &self,
+        storage: &mut dyn Storage,
+        info: MessageInfo,
+    ) -> Result<Vec<SubMsg>, ContractError> {
+        let a = self.agents.may_load(storage, info.sender)?;
+        if a.is_none() {
+            return Err(ContractError::CustomError {
+                val: "Agent doesnt exist".to_string(),
+            });
+        }
+        let agent = a.unwrap();
+
+        // This will send all token balances to Agent
+        let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
+        println!("balancesbalances {:?}", balances);
+        let mut config = self.config.load(storage)?;
+        config
+            .available_balance
+            .minus_tokens(Balance::from(balances.native));
+        // TODO: Finish:
+        // config
+        //     .available_balance
+        //     .minus_tokens(Balance::from(balances.cw20));
+        self.config.save(storage, &config)?;
+
+        Ok(messages)
+    }
+
+    /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+    pub fn withdraw_task_balance(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        _env: Env,
+    ) -> Result<Response, ContractError> {
+        let messages = self.withdraw_balances(deps.storage, info.clone())?;
+
+        Ok(Response::new()
+            .add_attribute("method", "withdraw_task_balance")
+            .add_attribute("account_id", info.sender)
+            .add_submessages(messages))
+    }
+
+    /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
+    pub fn accept_nomination_agent(
+        &self,
+        _deps: DepsMut,
+        _info: MessageInfo,
+        _env: Env,
+    ) -> Result<Response, ContractError> {
+        Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
+    }
+
+    /// Removes the agent from the active set of agents.
+    /// Withdraws all reward balances to the agent payable account id.
+    pub fn unregister_agent(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        _env: Env,
+    ) -> Result<Response, ContractError> {
+        // Get withdraw messages, if any
+        // NOTE: Since this also checks if agent exists, safe to not have redundant logic
+        let messages = self.withdraw_balances(deps.storage, info.clone())?;
+        let agent_id = info.sender;
+        self.agents.remove(deps.storage, agent_id.clone());
+
+        let responses = Response::new()
+            .add_attribute("method", "unregister_agent")
+            .add_attribute("account_id", agent_id);
+
+        if messages.is_empty() {
+            Ok(responses)
+        } else {
+            Ok(responses.add_submessages(messages))
+        }
     }
 }
 

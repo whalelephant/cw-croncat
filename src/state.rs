@@ -37,19 +37,6 @@ pub struct Config {
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
 
-// TODO: Deprecate all instances of USE - moving to declared lifetime
-/// ----------------------------------------------------------------
-pub const CONFIG: Item<Config> = Item::new("config");
-pub const AGENTS: Map<Addr, Agent> = Map::new("agents");
-pub const AGENTS_ACTIVE_QUEUE: Item<Vec<Addr>> = Item::new("agent_active_queue");
-pub const AGENTS_PENDING_QUEUE: Item<Vec<Addr>> = Item::new("agent_pending_queue");
-pub const TASKS: Map<Vec<u8>, Task> = Map::new("tasks");
-pub const TASK_OWNERS: Map<Addr, Vec<Vec<u8>>> = Map::new("task_owners");
-pub const TIME_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("time_slots");
-pub const BLOCK_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("block_slots");
-// END DEPRECATE SECTION
-/// ----------------------------------------------------------------
-
 pub struct TaskIndexes<'a> {
     pub owner: MultiIndex<'a, Addr, Task, Addr>,
 }
@@ -68,7 +55,7 @@ pub fn token_owner_idx(d: &Task) -> Addr {
 /// ----------------------------------------------------------------
 /// Tasks Storage
 /// ----------------------------------------------------------------
-pub struct STORE<'a> {
+pub struct CwCroncat<'a> {
     pub config: Item<'a, Config>,
 
     pub agents: Map<'a, Addr, Agent>,
@@ -87,13 +74,13 @@ pub struct STORE<'a> {
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
 }
 
-impl Default for STORE<'static> {
+impl Default for CwCroncat<'static> {
     fn default() -> Self {
         Self::new("tasks", "tasks__owner")
     }
 }
 
-impl<'a> STORE<'a> {
+impl<'a> CwCroncat<'a> {
     fn new(tasks_key: &'a str, tasks_owner_key: &'a str) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
@@ -140,7 +127,7 @@ mod tests {
     #[test]
     fn check_task_storage_structure() -> StdResult<()> {
         let mut storage = MockStorage::new();
-        let store = STORE::default();
+        let store = CwCroncat::default();
 
         let to_address = String::from("you");
         let amount = coins(1015, "earth");
@@ -205,7 +192,7 @@ mod tests {
     #[test]
     fn check_slots_storage_structure() -> StdResult<()> {
         let mut storage = MockStorage::new();
-        let store = STORE::default();
+        let store = CwCroncat::default();
 
         let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
         let task_id = task_id_str.to_string().into_bytes();
