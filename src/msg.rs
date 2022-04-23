@@ -73,7 +73,6 @@ pub enum QueryMsg {
         account_id: Addr,
     },
     GetTasks {
-        slot: Option<u128>,
         from_index: Option<u64>,
         limit: Option<u64>,
     },

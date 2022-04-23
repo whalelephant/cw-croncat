@@ -139,14 +139,11 @@ impl<'a> CwCroncat<'a> {
                 to_binary(&self.query_get_agent_tasks(deps, account_id)?)
             }
 
-            // slot,
-            // from_index,
-            // limit,
-            QueryMsg::GetTasks { .. } => Ok(Binary::default()),
-            QueryMsg::GetTasksByOwner { owner_id: _ } => Ok(Binary::default()),
+            QueryMsg::GetTasks { from_index, limit } => to_binary(&self.query_get_tasks(deps, from_index, limit)?),
+            QueryMsg::GetTasksByOwner { owner_id } => to_binary(&self.query_get_tasks_by_owner(deps, owner_id)?),
             QueryMsg::GetTask { task_hash } => to_binary(&self.query_get_task(deps, task_hash)?),
-            QueryMsg::GetTaskHash { task: _ } => Ok(Binary::default()),
-            QueryMsg::ValidateInterval { interval: _ } => Ok(Binary::default()),
+            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
+            QueryMsg::ValidateInterval { interval } => to_binary(&self.query_validate_interval(interval)?),
         }
     }
 }

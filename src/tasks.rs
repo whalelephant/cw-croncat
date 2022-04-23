@@ -2,8 +2,9 @@ use crate::error::ContractError;
 use crate::slots::{Boundary, Interval, SlotType};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, WasmMsg,
 };
+use cw_storage_plus::Bound;
 use cw20::Balance;
 use hex::encode;
 use schemars::JsonSchema;
@@ -98,34 +99,82 @@ pub struct TaskResponse {
 }
 
 impl<'a> CwCroncat<'a> {
-    // TODO:
-    // /// Returns task data
-    // /// Used by the frontend for viewing tasks
-    // pub(crate) fn query_get_tasks(
-    //     &self,
-    //     _deps: Deps,
-    //     _slot: Option<u128>,
-    //     _from_index: Option<u64>,
-    //     _limit: Option<u64>,
-    // ) -> StdResult<Vec<TaskResponse>> {
-    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    /// Returns task data
+    /// Used by the frontend for viewing tasks
+    pub(crate) fn query_get_tasks(
+        &self,
+        deps: Deps,
+        _from_index: Option<u64>,
+        _limit: Option<u64>,
+    ) -> StdResult<Vec<TaskResponse>> {
+        // let mut start = 0;
+        // let mut end = 100;
+        // let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(100);
+        // if let Some(index) = from_index {
+        //     start = index;
+        // }
+        // if let Some(l) = limit {
+        //     end = u64::min(start.saturating_add(l), size);
+        // }
 
-    //     Ok(vec![TaskResponse {}])
-    // }
+        // TODO: Change to use keys then index range
+        // Return all tasks within range
+        let tasks_by_range: Vec<TaskResponse> = self
+            .tasks
+            .range(
+                deps.storage,
+                // Some(Bound::inclusive(start)),
+                // Some(Bound::exclusive(end)),
+                None,
+                None,
+                Order::Ascending,
+            )
+            .map(|x| x.map(|(_, task)| {
+                TaskResponse {
+                    task_hash: task.to_hash(),
+                    owner_id: task.owner_id,
+                    interval: task.interval,
+                    boundary: task.boundary,
+                    stop_on_fail: task.stop_on_fail,
+                    total_deposit: task.total_deposit,
+                    action: task.action,
+                    rules: task.rules,
+                }
+            }))
+            .collect::<StdResult<Vec<_>>>()?;
 
-    // TODO:
-    // /// Returns task data for a specific owner
-    // pub(crate) fn query_get_tasks_by_owner(
-    //     &self,
-    //     _deps: Deps,
-    //     _owner_id: Addr,
-    // ) -> StdResult<Vec<TaskResponse>> {
-    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+        Ok(tasks_by_range)
+    }
 
-    //     Ok(vec![TaskResponse {}])
-    // }
+    /// Returns task data for a specific owner
+    pub(crate) fn query_get_tasks_by_owner(
+        &self,
+        deps: Deps,
+        owner_id: Addr,
+    ) -> StdResult<Vec<TaskResponse>> {
+        let tasks_by_owner: Vec<TaskResponse> = self
+            .tasks
+            .idx
+            .owner
+            .prefix(owner_id)
+            .range(deps.storage, None, None, Order::Ascending)
+            .map(|x| x.map(|(_, task)| {
+                TaskResponse {
+                    task_hash: task.to_hash(),
+                    owner_id: task.owner_id,
+                    interval: task.interval,
+                    boundary: task.boundary,
+                    stop_on_fail: task.stop_on_fail,
+                    total_deposit: task.total_deposit,
+                    action: task.action,
+                    rules: task.rules,
+                }
+            }))
+            .collect::<StdResult<Vec<_>>>()?;
 
-    // TODO:
+        Ok(tasks_by_owner)
+    }
+
     /// Returns single task data
     pub(crate) fn query_get_task(
         &self,
@@ -153,30 +202,23 @@ impl<'a> CwCroncat<'a> {
         }))
     }
 
-    // TODO:
-    // /// Returns a hash computed by the input task data
-    // pub(crate) fn query_get_task_hash(
-    //     &self,
-    //     _deps: Deps,
-    //     _task: Task,
-    // ) -> StdResult<String> {
-    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
+    // TODO: SLOT QUERIES
 
-    //     Ok("")
-    // }
+    /// Returns a hash computed by the input task data
+    pub(crate) fn query_get_task_hash(
+        &self,
+        task: Task,
+    ) -> StdResult<String> {
+        Ok(task.to_hash())
+    }
 
-    // TODO:
-    // /// Returns task data
-    // /// Used by the frontend for viewing tasks
-    // pub(crate) fn query_validate_interval(
-    //     &self,
-    //     _deps: Deps,
-    //     _interval: Interval,
-    // ) -> StdResult<bool> {
-    //     // let active = AGENTS_ACTIVE_QUEUE.load(deps.storage)?;
-
-    //     Ok(false)
-    // }
+    /// Check if interval params are valid by attempting to parse
+    pub(crate) fn query_validate_interval(
+        &self,
+        interval: Interval,
+    ) -> StdResult<bool> {
+        Ok(interval.is_valid())
+    }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
