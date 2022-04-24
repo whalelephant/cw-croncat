@@ -215,6 +215,52 @@ impl<'a> CwCroncat<'a> {
         Ok(interval.is_valid())
     }
 
+    // TODO:
+    // /// Gets a set of tasks.
+    // /// Default: Returns the next executable set of tasks hashes.
+    // ///
+    // /// Optional Parameters:
+    // /// "offset" - An unsigned integer specifying how far in the future to check for tasks that are slotted.
+    // ///
+    // /// ```bash
+    // /// near view manager_v1.croncat.testnet get_slot_tasks
+    // /// ```
+    // pub fn get_slot_tasks(&self, offset: Option<u64>) -> (Vec<Base64VecU8>, U128) {
+    //     let current_slot = self.get_slot_id(offset);
+    //     let empty = (vec![], U128::from(current_slot));
+
+    //     // Get tasks based on current slot.
+    //     // (Or closest past slot if there are leftovers.)
+    //     let slot_ballpark = self.slots.floor_key(&current_slot);
+    //     if let Some(k) = slot_ballpark {
+    //         let ret: Vec<Base64VecU8> = self
+    //             .slots
+    //             .get(&k)
+    //             .unwrap()
+    //             .into_iter()
+    //             .map(Base64VecU8::from)
+    //             .collect();
+
+    //         (ret, U128::from(current_slot))
+    //     } else {
+    //         empty
+    //     }
+    // }
+
+    // TODO:
+    // /// Gets list of active slot ids
+    // ///
+    // /// ```bash
+    // /// near view manager_v1.croncat.testnet get_slot_ids
+    // /// ```
+    // pub fn get_slot_ids(&self) -> Vec<U128> {
+    //     self.slots
+    //         .to_vec()
+    //         .iter()
+    //         .map(|i| U128::from(i.0))
+    //         .collect()
+    // }
+
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
     /// the task is no longer executed, any additional funds will be returned to task owner.
