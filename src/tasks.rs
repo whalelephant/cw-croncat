@@ -4,7 +4,6 @@ use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, WasmMsg,
 };
-use cw_storage_plus::Bound;
 use cw20::Balance;
 use hex::encode;
 use schemars::JsonSchema;
@@ -104,33 +103,31 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn query_get_tasks(
         &self,
         deps: Deps,
-        _from_index: Option<u64>,
-        _limit: Option<u64>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
     ) -> StdResult<Vec<TaskResponse>> {
-        // let mut start = 0;
-        // let mut end = 100;
-        // let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(100);
-        // if let Some(index) = from_index {
-        //     start = index;
-        // }
-        // if let Some(l) = limit {
-        //     end = u64::min(start.saturating_add(l), size);
-        // }
+        let mut ret: Vec<TaskResponse> = Vec::new();
+        let mut start = 0;
+        let mut end = 100;
+        let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(100).min(1000);
+        if let Some(index) = from_index {
+            start = index;
+        }
+        if let Some(l) = limit {
+            end = u64::min(start.saturating_add(l), size);
+        }
 
-        // TODO: Change to use keys then index range
-        // Return all tasks within range
-        let tasks_by_range: Vec<TaskResponse> = self
+        // NOTE: could setup another index to allow efficient paginated
+        let keys: Vec<Vec<u8>> = self
             .tasks
-            .range(
-                deps.storage,
-                // Some(Bound::inclusive(start)),
-                // Some(Bound::exclusive(end)),
-                None,
-                None,
-                Order::Ascending,
-            )
-            .map(|x| x.map(|(_, task)| {
-                TaskResponse {
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+
+        for i in start..end {
+            let task_hash = &keys[i as usize];
+            let res = self.tasks.may_load(deps.storage, task_hash.to_vec())?;
+            if let Some(task) = res {
+                ret.push(TaskResponse {
                     task_hash: task.to_hash(),
                     owner_id: task.owner_id,
                     interval: task.interval,
@@ -139,11 +136,11 @@ impl<'a> CwCroncat<'a> {
                     total_deposit: task.total_deposit,
                     action: task.action,
                     rules: task.rules,
-                }
-            }))
-            .collect::<StdResult<Vec<_>>>()?;
+                });
+            }
+        }
 
-        Ok(tasks_by_range)
+        Ok(ret)
     }
 
     /// Returns task data for a specific owner
@@ -158,8 +155,8 @@ impl<'a> CwCroncat<'a> {
             .owner
             .prefix(owner_id)
             .range(deps.storage, None, None, Order::Ascending)
-            .map(|x| x.map(|(_, task)| {
-                TaskResponse {
+            .map(|x| {
+                x.map(|(_, task)| TaskResponse {
                     task_hash: task.to_hash(),
                     owner_id: task.owner_id,
                     interval: task.interval,
@@ -168,8 +165,8 @@ impl<'a> CwCroncat<'a> {
                     total_deposit: task.total_deposit,
                     action: task.action,
                     rules: task.rules,
-                }
-            }))
+                })
+            })
             .collect::<StdResult<Vec<_>>>()?;
 
         Ok(tasks_by_owner)
@@ -205,18 +202,12 @@ impl<'a> CwCroncat<'a> {
     // TODO: SLOT QUERIES
 
     /// Returns a hash computed by the input task data
-    pub(crate) fn query_get_task_hash(
-        &self,
-        task: Task,
-    ) -> StdResult<String> {
+    pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<String> {
         Ok(task.to_hash())
     }
 
     /// Check if interval params are valid by attempting to parse
-    pub(crate) fn query_validate_interval(
-        &self,
-        interval: Interval,
-    ) -> StdResult<bool> {
+    pub(crate) fn query_validate_interval(&self, interval: Interval) -> StdResult<bool> {
         Ok(interval.is_valid())
     }
 
@@ -387,6 +378,7 @@ impl<'a> CwCroncat<'a> {
 
         // TODO:
         // find any scheduled things and remove them!
+        // check which type of slot it would be in, then iterate to remove
 
         Ok(Response::new().add_attribute("method", "remove_task"))
     }
@@ -426,7 +418,7 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new().add_attribute("method", "refill_task"))
     }
 
-    // TODO:
+    // TODO: MOVE THIS TO MANAGER FILE
     /// Executes a task based on the current task slot
     /// Computes whether a task should continue further or not
     /// Makes a cross-contract call with the task configuration
@@ -441,7 +433,7 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new().add_attribute("method", "proxy_call"))
     }
 
-    // TODO:
+    // TODO: MOVE THIS TO MANAGER FILE
     /// Logic executed on the completion of a proxy call
     /// Reschedule next task
     pub fn proxy_callback(

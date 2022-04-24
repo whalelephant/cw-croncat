@@ -102,14 +102,6 @@
               ],
               "format": "uint64",
               "minimum": 0.0
-            },
-            "slot": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint128",
-              "minimum": 0.0
             }
           }
         }
