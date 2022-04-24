@@ -109,7 +109,11 @@ impl<'a> CwCroncat<'a> {
         let mut ret: Vec<TaskResponse> = Vec::new();
         let mut start = 0;
         let mut end = 100;
-        let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(100).min(1000);
+        let size: u64 = self
+            .task_total
+            .may_load(deps.storage)?
+            .unwrap_or(100)
+            .min(1000);
         if let Some(index) = from_index {
             start = index;
         }
