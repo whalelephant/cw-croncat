@@ -255,7 +255,10 @@ impl<'a> CwCroncat<'a> {
                 .collect::<StdResult<Vec<(u64, _)>>>()?;
 
             if !time.is_empty() {
-                (time_id, time_hashes) = time[0].clone();
+                // (time_id, time_hashes) = time[0].clone();
+                let slot = time[0].clone();
+                time_id = slot.0;
+                time_hashes = slot.1;
             }
 
             let block: Vec<(u64, _)> = self
