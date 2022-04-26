@@ -83,7 +83,7 @@ pub enum QueryMsg {
         task_hash: String,
     },
     GetTaskHash {
-        task: Box<Task>,
+        task: Task,
     },
     ValidateInterval {
         interval: Interval,

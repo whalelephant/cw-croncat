@@ -185,6 +185,7 @@ impl<'a> CwCroncat<'a> {
         let res = self
             .tasks
             .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
+        println!("resresresres {:?} {:?}", &res, task_hash.as_bytes().to_vec());
         if res.is_none() {
             return Ok(None);
         }
@@ -268,7 +269,10 @@ impl<'a> CwCroncat<'a> {
                 .collect::<StdResult<Vec<(u64, _)>>>()?;
 
             if !block.is_empty() {
-                (block_id, block_hashes) = block[0].clone();
+                // (block_id, block_hashes) = block[0].clone();
+                let slot = block[0].clone();
+                block_id = slot.0;
+                block_hashes = slot.1;
             }
         }
 
@@ -344,7 +348,7 @@ impl<'a> CwCroncat<'a> {
                     }
                 }
             }
-            _ => unreachable!(),
+            _ => (),
         }
 
         let item = Task {
@@ -380,12 +384,19 @@ impl<'a> CwCroncat<'a> {
         let hash = item.to_hash();
 
         // Add task to catalog
-        let has_task = self.tasks.may_load(deps.storage, item.to_hash_vec())?;
-        if has_task.is_some() {
-            return Err(ContractError::CustomError {
+        self.tasks.update(deps.storage, item.to_hash_vec(), |old| match old {
+            Some(_) => Err(ContractError::CustomError {
                 val: "Task already exists".to_string(),
-            });
-        }
+            }),
+            None => Ok(item.clone()),
+        })?;
+
+        // Increment task totals
+        let size: u64 = self
+            .task_total
+            .may_load(deps.storage)?
+            .unwrap_or(0);
+        self.task_total.save(deps.storage, &(size + 1))?;
 
         // Parse interval into a future timestamp, then convert to a slot
         let (next_id, slot_kind) = item.interval.next(env, item.boundary);
@@ -510,11 +521,69 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::{coins, BankMsg, CosmosMsg};
+    // use cosmwasm_std::testing::MockStorage;
+    use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Empty};
     use cw20::Balance;
+    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+    // use crate::error::ContractError;
+    use crate::helpers::CwTemplateContract;
+    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+
+    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            crate::entry::execute,
+            crate::entry::instantiate,
+            crate::entry::query,
+        );
+        Box::new(contract)
+    }
+
+    const ADMIN: &str = "ADMIN";
+    const ANYONE: &str = "ANYONE";
+    const NATIVE_DENOM: &str = "atom";
+
+    fn mock_app() -> App {
+        AppBuilder::new().build(|router, _, storage| {
+            let accounts: Vec<(u128, String)> = vec![
+                (100, ADMIN.to_string()),
+                (100, ANYONE.to_string()),
+            ];
+            for (amt, address) in accounts.iter() {
+                router
+                    .bank
+                    .init_balance(
+                        storage,
+                        &Addr::unchecked(address),
+                        vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    )
+                    .unwrap();
+            }
+        })
+    }
+
+    fn proper_instantiate() -> (App, CwTemplateContract) {
+        let mut app = mock_app();
+        let cw_template_id = app.store_code(contract_template());
+        let owner_addr = Addr::unchecked(ADMIN);
+
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: Some(owner_addr.clone()),
+        };
+        let cw_template_contract_addr = app
+            .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
+            .unwrap();
+
+        let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
+
+        (app, cw_template_contract)
+    }
 
     #[test]
-    fn task_to_hash_success() {
+    fn query_task_hash_success() {
+        let (app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
         let to_address = String::from("you");
         let amount = coins(1015, "earth");
         let bank = BankMsg::Send { to_address, amount };
@@ -533,11 +602,124 @@ mod tests {
             rules: None,
         };
 
-        // HASH IT!
-        let hash = task.to_hash();
+        // HASH CHECK!
+        let task_hash: String = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTaskHash {
+                    task: task,
+                },
+            )
+            .unwrap();
         assert_eq!(
             "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc",
-            hash
+            task_hash
         );
+    }
+
+    #[test]
+    fn query_validate_interval_success() {
+        let (app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let intervals: Vec<Interval> = vec![
+            Interval::Once,
+            Interval::Immediate,
+            Interval::Block(12345),
+            Interval::Cron("0 0 * * * *".to_string()),
+        ];
+        for i in intervals.iter() {
+            let valid: bool = app
+                .wrap()
+                .query_wasm_smart(
+                    &contract_addr.clone(),
+                    &QueryMsg::ValidateInterval {
+                        interval: i.to_owned(),
+                    },
+                )
+                .unwrap();
+            assert!(valid);
+        }
+    }
+
+    #[test]
+    fn check_task_create_success() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let to_address = String::from("you");
+        let amount = coins(3, "atom");
+        let bank = BankMsg::Send { to_address, amount };
+        let msg: CosmosMsg = bank.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg,
+                rules: None,
+            }
+        };
+        let task_id_str = "59738c8ecdfecd17453980a7878cdbce8e32302188fe9d682a1df7af899987b7".to_string();
+        // let task_id = task_id_str.clone().into_bytes();
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(37, "atom"),
+            )
+            .unwrap();
+        // TODO: Assert task hash is returned as part of event attributes
+        println!("resresresresresres {:?}", res);
+
+        // check storage has the task
+        let new_task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: task_id_str.clone(),
+                },
+            )
+            .unwrap();
+        println!("new_tasknew_tasknew_tasknew_tasknew_task {:?}", new_task);
+        // assert_eq!(
+        //     Addr::unchecked(AGENT1_BENEFICIARY),
+        //     agent_info.payable_account_id
+        // );
+
+        // get slot ids
+        let slot_ids: (Vec<u64>, Vec<u64>) = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetSlotIds {},
+            )
+            .unwrap();
+        println!("slotsslotsids {:?}", slot_ids);
+
+        // get slot hashs
+        let slot_info: (u64, Vec<String>, u64, Vec<String>) = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetSlotHashes {
+                    slot: None,
+                },
+            )
+            .unwrap();
+        println!("slot_infoslot_infoslot_info {:?}", slot_info);
+
+        assert!(false);
+
+        Ok(())
     }
 }
