@@ -2,7 +2,8 @@ use crate::error::ContractError;
 use crate::slots::{Boundary, Interval, SlotType};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    Addr, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, WasmMsg,
+    Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo, Order,
+    Response, StdResult, WasmMsg,
 };
 use cw20::Balance;
 use hex::encode;
@@ -185,7 +186,6 @@ impl<'a> CwCroncat<'a> {
         let res = self
             .tasks
             .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
-        println!("resresresres {:?} {:?}", &res, task_hash.as_bytes().to_vec());
         if res.is_none() {
             return Ok(None);
         }
@@ -325,7 +325,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // TODO: What other msg types are needed to validate against
+        // TODO: Finish checking other msg types needing validation
         // Additional checks - needs to protect against scripting owner / self situations
         match task.action.clone() {
             CosmosMsg::Wasm(WasmMsg::Execute {
@@ -341,13 +341,39 @@ impl<'a> CwCroncat<'a> {
                     //     "Function id invalid"
                     // );
                     // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                    if info.sender == c.owner_id {
+                    // TODO: Is there any way sender can be "self" creating a malicious task?
+                    if info.sender != c.owner_id {
                         return Err(ContractError::CustomError {
                             val: "Creator invalid".to_string(),
                         });
                     }
                 }
             }
+            CosmosMsg::Bank(BankMsg::Send { .. }) => {
+                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                return Err(ContractError::CustomError {
+                    val: "Bank send disabled".to_string(),
+                });
+            }
+            CosmosMsg::Bank(BankMsg::Burn { .. }) => {
+                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                return Err(ContractError::CustomError {
+                    val: "Bank burn disabled".to_string(),
+                });
+            }
+            CosmosMsg::Gov(GovMsg::Vote { .. }) => {
+                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                return Err(ContractError::CustomError {
+                    val: "Gov module disabled".to_string(),
+                });
+            }
+            CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
+                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                return Err(ContractError::CustomError {
+                    val: "Ibc transfer disabled".to_string(),
+                });
+            }
+            // TODO: Check authZ messages
             _ => (),
         }
 
@@ -383,21 +409,6 @@ impl<'a> CwCroncat<'a> {
 
         let hash = item.to_hash();
 
-        // Add task to catalog
-        self.tasks.update(deps.storage, item.to_hash_vec(), |old| match old {
-            Some(_) => Err(ContractError::CustomError {
-                val: "Task already exists".to_string(),
-            }),
-            None => Ok(item.clone()),
-        })?;
-
-        // Increment task totals
-        let size: u64 = self
-            .task_total
-            .may_load(deps.storage)?
-            .unwrap_or(0);
-        self.task_total.save(deps.storage, &(size + 1))?;
-
         // Parse interval into a future timestamp, then convert to a slot
         let (next_id, slot_kind) = item.interval.next(env, item.boundary);
 
@@ -407,6 +418,19 @@ impl<'a> CwCroncat<'a> {
                 val: "Task ended".to_string(),
             });
         }
+
+        // Add task to catalog
+        self.tasks
+            .update(deps.storage, item.to_hash_vec(), |old| match old {
+                Some(_) => Err(ContractError::CustomError {
+                    val: "Task already exists".to_string(),
+                }),
+                None => Ok(item.clone()),
+            })?;
+
+        // Increment task totals
+        let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(0);
+        self.task_total.save(deps.storage, &(size + 1))?;
 
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
@@ -522,12 +546,13 @@ impl<'a> CwCroncat<'a> {
 mod tests {
     use super::*;
     // use cosmwasm_std::testing::MockStorage;
-    use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Empty};
+    use cosmwasm_std::{coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg};
     use cw20::Balance;
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use crate::slots::BoundarySpec;
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -544,10 +569,8 @@ mod tests {
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
-            let accounts: Vec<(u128, String)> = vec![
-                (100, ADMIN.to_string()),
-                (100, ANYONE.to_string()),
-            ];
+            let accounts: Vec<(u128, String)> =
+                vec![(100, ADMIN.to_string()), (100, ANYONE.to_string())];
             for (amt, address) in accounts.iter() {
                 router
                     .bank
@@ -608,7 +631,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetTaskHash {
-                    task: task,
+                    task: Box::new(task),
                 },
             )
             .unwrap();
@@ -644,14 +667,221 @@ mod tests {
     }
 
     #[test]
+    fn check_task_create_fail_cases() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg.clone(),
+                rules: None,
+            },
+        };
+        // let task_id_str = "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+        // let task_id = task_id_str.clone().into_bytes();
+
+        // Must attach funds
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &vec![],
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Must attach funds".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+
+        // Create task paused
+        let change_settings_msg = ExecuteMsg::UpdateSettings {
+            paused: Some(true),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            agent_task_ratio: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        };
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &change_settings_msg,
+            &vec![],
+        )
+        .unwrap();
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(13, "atom"),
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Create task paused".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+        // Set it back
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::UpdateSettings {
+                paused: Some(false),
+                owner_id: None,
+                // treasury_id: None,
+                agent_fee: None,
+                agent_task_ratio: None,
+                agents_eject_threshold: None,
+                gas_price: None,
+                proxy_callback_gas: None,
+                slot_granularity: None,
+            },
+            &vec![],
+        )
+        .unwrap();
+
+        // Creator invalid
+        let action_self = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: contract_addr.clone().into_string(),
+            funds: vec![],
+            msg: to_binary(&change_settings_msg.clone())?,
+        });
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &ExecuteMsg::CreateTask {
+                    task: TaskRequest {
+                        interval: Interval::Once,
+                        boundary: Boundary {
+                            start: None,
+                            end: None,
+                        },
+                        stop_on_fail: false,
+                        action: action_self.clone(),
+                        rules: None,
+                    },
+                },
+                &coins(13, "atom"),
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Creator invalid".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+
+        // Interval invalid
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &ExecuteMsg::CreateTask {
+                    task: TaskRequest {
+                        interval: Interval::Cron("faux_paw".to_string()),
+                        boundary: Boundary {
+                            start: None,
+                            end: None,
+                        },
+                        stop_on_fail: false,
+                        action: msg.clone(),
+                        rules: None,
+                    },
+                },
+                &coins(13, "atom"),
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Interval invalid".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+
+        // Task already exists
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(13, "atom"),
+        )
+        .unwrap();
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(13, "atom"),
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Task already exists".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+
+        // Task ended
+        let res_err = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &ExecuteMsg::CreateTask {
+                    task: TaskRequest {
+                        interval: Interval::Block(12346),
+                        boundary: Boundary {
+                            start: None,
+                            end: Some(BoundarySpec::Height(1)),
+                        },
+                        stop_on_fail: false,
+                        action: msg.clone(),
+                        rules: None,
+                    },
+                },
+                &coins(13, "atom"),
+            )
+            .unwrap_err();
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Task ended".to_string()
+            },
+            res_err.downcast().unwrap()
+        );
+
+        // TODO: (needs impl!) Not enough task balance to execute job
+
+        Ok(())
+    }
+
+    #[test]
     fn check_task_create_success() -> StdResult<()> {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
-        let to_address = String::from("you");
-        let amount = coins(3, "atom");
-        let bank = BankMsg::Send { to_address, amount };
-        let msg: CosmosMsg = bank.clone().into();
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
 
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
@@ -663,10 +893,10 @@ mod tests {
                 stop_on_fail: false,
                 action: msg,
                 rules: None,
-            }
+            },
         };
-        let task_id_str = "59738c8ecdfecd17453980a7878cdbce8e32302188fe9d682a1df7af899987b7".to_string();
-        // let task_id = task_id_str.clone().into_bytes();
+        let task_id_str =
+            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
 
         // create a task
         let res = app
@@ -677,8 +907,16 @@ mod tests {
                 &coins(37, "atom"),
             )
             .unwrap();
-        // TODO: Assert task hash is returned as part of event attributes
-        println!("resresresresresres {:?}", res);
+        // Assert task hash is returned as part of event attributes
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "task_hash" && a.value == task_id_str.clone() {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
 
         // check storage has the task
         let new_task: Option<TaskResponse> = app
@@ -690,35 +928,44 @@ mod tests {
                 },
             )
             .unwrap();
-        println!("new_tasknew_tasknew_tasknew_tasknew_task {:?}", new_task);
-        // assert_eq!(
-        //     Addr::unchecked(AGENT1_BENEFICIARY),
-        //     agent_info.payable_account_id
-        // );
+        assert!(new_task.is_some());
+        if let Some(t) = new_task {
+            assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
+            assert_eq!(Interval::Immediate, t.interval);
+            assert_eq!(
+                Boundary {
+                    start: None,
+                    end: None,
+                },
+                t.boundary
+            );
+            assert_eq!(false, t.stop_on_fail);
+            assert_eq!(Balance::from(coins(37, "atom")), t.total_deposit);
+            assert_eq!(task_id_str.clone(), t.task_hash);
+        }
 
         // get slot ids
         let slot_ids: (Vec<u64>, Vec<u64>) = app
             .wrap()
-            .query_wasm_smart(
-                &contract_addr.clone(),
-                &QueryMsg::GetSlotIds {},
-            )
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
-        println!("slotsslotsids {:?}", slot_ids);
+        let s_1: Vec<u64> = Vec::new();
+        assert_eq!(s_1, slot_ids.0);
+        assert_eq!(vec![12346], slot_ids.1);
 
         // get slot hashs
         let slot_info: (u64, Vec<String>, u64, Vec<String>) = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),
-                &QueryMsg::GetSlotHashes {
-                    slot: None,
-                },
+                &QueryMsg::GetSlotHashes { slot: None },
             )
             .unwrap();
-        println!("slot_infoslot_infoslot_info {:?}", slot_info);
-
-        assert!(false);
+        let s_3: Vec<String> = Vec::new();
+        assert_eq!(12346, slot_info.0);
+        assert_eq!(vec![task_id_str.clone()], slot_info.1);
+        assert_eq!(0, slot_info.2);
+        assert_eq!(s_3, slot_info.3);
 
         Ok(())
     }

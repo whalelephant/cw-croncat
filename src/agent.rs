@@ -265,7 +265,6 @@ impl<'a> CwCroncat<'a> {
 
         // This will send all token balances to Agent
         let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
-        println!("balancesbalances {:?}", balances);
         let mut config = self.config.load(storage)?;
         config
             .available_balance
@@ -414,7 +413,6 @@ mod tests {
                 &coins(37, "atom"),
             )
             .unwrap_err();
-        println!("rereg_errrereg_err {:?}", rereg_err);
         assert_eq!(
             ContractError::CustomError {
                 val: "Do not attach funds".to_string()
