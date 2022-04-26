@@ -203,8 +203,6 @@ impl<'a> CwCroncat<'a> {
         }))
     }
 
-    // TODO: SLOT QUERIES
-
     /// Returns a hash computed by the input task data
     pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<String> {
         Ok(task.to_hash())
@@ -215,51 +213,88 @@ impl<'a> CwCroncat<'a> {
         Ok(interval.is_valid())
     }
 
-    // TODO:
-    // /// Gets a set of tasks.
-    // /// Default: Returns the next executable set of tasks hashes.
-    // ///
-    // /// Optional Parameters:
-    // /// "offset" - An unsigned integer specifying how far in the future to check for tasks that are slotted.
-    // ///
-    // /// ```bash
-    // /// near view manager_v1.croncat.testnet get_slot_tasks
-    // /// ```
-    // pub fn get_slot_tasks(&self, offset: Option<u64>) -> (Vec<Base64VecU8>, U128) {
-    //     let current_slot = self.get_slot_id(offset);
-    //     let empty = (vec![], U128::from(current_slot));
+    /// Gets a set of tasks.
+    /// Default: Returns the next executable set of tasks hashes.
+    ///
+    /// Optional Parameters:
+    /// "offset" - An unsigned integer specifying how far in the future to check for tasks that are slotted.
+    ///
+    /// Result:
+    /// (block id, block task hash's, time id, time task hash's)
+    pub(crate) fn query_slot_tasks(
+        &self,
+        deps: Deps,
+        slot: Option<u64>,
+    ) -> StdResult<(u64, Vec<String>, u64, Vec<String>)> {
+        let mut block_id: u64 = 0;
+        let mut block_hashes: Vec<Vec<u8>> = Vec::new();
+        let mut time_id: u64 = 0;
+        let mut time_hashes: Vec<Vec<u8>> = Vec::new();
 
-    //     // Get tasks based on current slot.
-    //     // (Or closest past slot if there are leftovers.)
-    //     let slot_ballpark = self.slots.floor_key(&current_slot);
-    //     if let Some(k) = slot_ballpark {
-    //         let ret: Vec<Base64VecU8> = self
-    //             .slots
-    //             .get(&k)
-    //             .unwrap()
-    //             .into_iter()
-    //             .map(Base64VecU8::from)
-    //             .collect();
+        // Check if slot was supplied, otherwise get the next slots for block and time
+        if let Some(id) = slot {
+            block_hashes = self
+                .block_slots
+                .may_load(deps.storage, id)?
+                .unwrap_or_default();
+            if !block_hashes.is_empty() {
+                block_id = id;
+            }
+            time_hashes = self
+                .block_slots
+                .may_load(deps.storage, id)?
+                .unwrap_or_default();
+            if !time_hashes.is_empty() {
+                time_id = id;
+            }
+        } else {
+            let time: Vec<(u64, _)> = self
+                .time_slots
+                .range(deps.storage, None, None, Order::Ascending)
+                .take(1)
+                .collect::<StdResult<Vec<(u64, _)>>>()?;
 
-    //         (ret, U128::from(current_slot))
-    //     } else {
-    //         empty
-    //     }
-    // }
+            if !time.is_empty() {
+                (time_id, time_hashes) = time[0].clone();
+            }
 
-    // TODO:
-    // /// Gets list of active slot ids
-    // ///
-    // /// ```bash
-    // /// near view manager_v1.croncat.testnet get_slot_ids
-    // /// ```
-    // pub fn get_slot_ids(&self) -> Vec<U128> {
-    //     self.slots
-    //         .to_vec()
-    //         .iter()
-    //         .map(|i| U128::from(i.0))
-    //         .collect()
-    // }
+            let block: Vec<(u64, _)> = self
+                .block_slots
+                .range(deps.storage, None, None, Order::Ascending)
+                .take(1)
+                .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+            if !block.is_empty() {
+                (block_id, block_hashes) = block[0].clone();
+            }
+        }
+
+        // Generate strings for all hashes
+        let b_hashes: Vec<_> = block_hashes
+            .iter()
+            .map(|b| String::from_utf8(b.to_vec()).unwrap_or_else(|_| "".to_string()))
+            .collect();
+        let t_hashes: Vec<_> = time_hashes
+            .iter()
+            .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
+            .collect();
+
+        Ok((block_id, b_hashes, time_id, t_hashes))
+    }
+
+    /// Gets list of active slot ids, for both time & block slots
+    /// (time, block)
+    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<(Vec<u64>, Vec<u64>)> {
+        let time: Vec<u64> = self
+            .time_slots
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        let block: Vec<u64> = self
+            .block_slots
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        Ok((time, block))
+    }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
@@ -466,36 +501,6 @@ impl<'a> CwCroncat<'a> {
 
         // TODO: report how full the task is total
         Ok(Response::new().add_attribute("method", "refill_task"))
-    }
-
-    // TODO: MOVE THIS TO MANAGER FILE
-    /// Executes a task based on the current task slot
-    /// Computes whether a task should continue further or not
-    /// Makes a cross-contract call with the task configuration
-    /// Called directly by a registered agent
-    pub fn proxy_call(
-        &self,
-        _deps: DepsMut,
-        _info: MessageInfo,
-        _env: Env,
-    ) -> Result<Response, ContractError> {
-        // TODO:
-        Ok(Response::new().add_attribute("method", "proxy_call"))
-    }
-
-    // TODO: MOVE THIS TO MANAGER FILE
-    /// Logic executed on the completion of a proxy call
-    /// Reschedule next task
-    pub fn proxy_callback(
-        &self,
-        _deps: DepsMut,
-        _info: MessageInfo,
-        _env: Env,
-        _task_hash: String,
-        _current_slot: u64,
-    ) -> Result<Response, ContractError> {
-        // TODO:
-        Ok(Response::new().add_attribute("method", "proxy_callback"))
     }
 }
 

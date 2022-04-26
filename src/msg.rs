@@ -88,6 +88,10 @@ pub enum QueryMsg {
     ValidateInterval {
         interval: Interval,
     },
+    GetSlotHashes {
+        slot: Option<u64>,
+    },
+    GetSlotIds {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

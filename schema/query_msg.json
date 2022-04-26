@@ -187,6 +187,40 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_slot_hashes"
+      ],
+      "properties": {
+        "get_slot_hashes": {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_slot_ids"
+      ],
+      "properties": {
+        "get_slot_ids": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {

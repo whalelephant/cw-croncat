@@ -150,6 +150,8 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::ValidateInterval { interval } => {
                 to_binary(&self.query_validate_interval(interval)?)
             }
+            QueryMsg::GetSlotHashes { slot } => to_binary(&self.query_slot_tasks(deps, slot)?),
+            QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
         }
     }
 }
