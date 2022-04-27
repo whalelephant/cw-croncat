@@ -3,7 +3,7 @@ use crate::slots::{Boundary, Interval, SlotType};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     coin, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo,
-    Order, Response, StdResult, WasmMsg,
+    Order, Response, StdResult, SubMsg, WasmMsg,
 };
 use cw20::Balance;
 use hex::encode;
@@ -382,7 +382,7 @@ impl<'a> CwCroncat<'a> {
             interval: task.interval,
             boundary: task.boundary,
             stop_on_fail: task.stop_on_fail,
-            total_deposit: info.funds,
+            total_deposit: info.funds.clone(),
             action: task.action,
             rules: task.rules,
         };
@@ -458,26 +458,16 @@ impl<'a> CwCroncat<'a> {
             }
         }
 
-        // TODO:
-        // // Keep track of which tasks are owned by whom
-        // let mut owner_tasks = self.task_owners.get(&item.owner_id).unwrap_or(Vec::new());
-        // owner_tasks.push(hash.0.clone());
-        // log!("Task owner list: {}", item.owner_id);
-        // self.task_owners.insert(&item.owner_id, &owner_tasks);
+        // Add the attached balance into available_balance
+        let mut c: Config = self.config.load(deps.storage)?;
+        c.available_balance.add_tokens(Balance::from(info.funds));
+        self.config.save(deps.storage, &c)?;
 
-        // TODO:
-        // // Add the attached balance into available_balance
-        // self.available_balance = self
-        //     .available_balance
-        //     .saturating_add(env::attached_deposit());
-
-        // TODO:
         Ok(Response::new()
             .add_attribute("method", "create_task")
             .add_attribute("task_hash", hash))
     }
 
-    // TODO:
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
     pub fn remove_task(
         &self,
@@ -486,27 +476,66 @@ impl<'a> CwCroncat<'a> {
         _env: Env,
         task_hash: String,
     ) -> Result<Response, ContractError> {
-        let hash_vec = task_hash.into_bytes();
+        let hash_vec = task_hash.clone().into_bytes();
         let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
         if task_raw.is_none() {
             return Err(ContractError::CustomError {
                 val: "No task found by hash".to_string(),
             });
         }
-        // let task = task_raw.unwrap();
-        // let owner_id = task.owner_id;
 
         // Remove all the thangs
         self.tasks.remove(deps.storage, hash_vec)?;
 
-        // TODO:
         // find any scheduled things and remove them!
         // check which type of slot it would be in, then iterate to remove
+        // NOTE: def could use some spiffy refactor here
+        let time_ids: Vec<u64> = self
+            .time_slots
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
 
-        // TODO:
+        for tid in time_ids {
+            let mut time_hashes = self
+                .time_slots
+                .may_load(deps.storage, tid)?
+                .unwrap_or_default();
+            if !time_hashes.is_empty() {
+                time_hashes.retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+            }
+        }
+        let block_ids: Vec<u64> = self
+            .block_slots
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+
+        for bid in block_ids {
+            let mut block_hashes = self
+                .block_slots
+                .may_load(deps.storage, bid)?
+                .unwrap_or_default();
+            if !block_hashes.is_empty() {
+                block_hashes
+                    .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+            }
+        }
+
         // setup sub-msgs for returning any remaining total_deposit to the owner
+        let task = task_raw.unwrap();
+        let submsgs = SubMsg::new(BankMsg::Send {
+            to_address: task.clone().owner_id.into(),
+            amount: task.clone().total_deposit,
+        });
 
-        Ok(Response::new().add_attribute("method", "remove_task"))
+        // remove from the total available_balance
+        let mut c: Config = self.config.load(deps.storage)?;
+        c.available_balance
+            .minus_tokens(Balance::from(task.total_deposit));
+        self.config.save(deps.storage, &c)?;
+
+        Ok(Response::new()
+            .add_attribute("method", "remove_task")
+            .add_submessage(submsgs))
     }
 
     /// Refill a task with more balance to continue its execution

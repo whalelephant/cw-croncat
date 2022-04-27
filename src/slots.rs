@@ -202,33 +202,6 @@ pub enum SlotType {
     Cron,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct Slot {
-    tasks: Vec<Vec<u8>>,
-}
-
-// TODO: Add/remove
-impl Slot {
-    pub fn new(&self, tasks: Option<Vec<Vec<u8>>>) -> Self {
-        Self {
-            tasks: tasks.unwrap_or_default(),
-        }
-    }
-    // pub fn from_timestamp(ts: Timestamp, slot_granularity: u64) -> u64 {
-    //     // Round down to slot granularity
-    //     // let slot_remainder = block % slot_granularity;
-    //     // block.saturating_sub(slot_remainder)
-    // let schedule = Schedule::from_str(&crontab).unwrap();
-    // let next_ts = schedule.next_after(&current_ts).unwrap();
-    // }
-    // pub fn push(&mut self, task_hash: String) {
-    //     self.tasks.push(task_hash);
-    // }
-    // pub fn remove(&mut self, task_hash: String) {
-    //     self.tasks.push(task_hash);
-    // }
-}
-
 #[rustfmt::skip]
 #[cfg(test)]
 mod tests {
