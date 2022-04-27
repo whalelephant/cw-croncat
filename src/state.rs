@@ -121,7 +121,6 @@ mod tests {
     use crate::slots::{Boundary, Interval};
     use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
-    use cw20::Balance;
     use cw_storage_plus::Bound;
 
     #[test]
@@ -142,7 +141,7 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: Balance::default(),
+            total_deposit: vec![],
             action: msg,
             rules: None,
         };

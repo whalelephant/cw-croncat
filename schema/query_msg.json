@@ -228,34 +228,6 @@
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
     },
-    "Balance": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "native"
-          ],
-          "properties": {
-            "native": {
-              "$ref": "#/definitions/NativeBalance"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "cw20"
-          ],
-          "properties": {
-            "cw20": {
-              "$ref": "#/definitions/Cw20CoinVerified"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
       "anyOf": [
@@ -501,21 +473,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "Cw20CoinVerified": {
-      "type": "object",
-      "required": [
-        "address",
-        "amount"
-      ],
-      "properties": {
-        "address": {
-          "$ref": "#/definitions/Addr"
-        },
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        }
-      }
     },
     "DistributionMsg": {
       "description": "The message types of the distribution module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto",
@@ -794,12 +751,6 @@
         }
       ]
     },
-    "NativeBalance": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
-    },
     "Rule": {
       "type": "object",
       "required": [
@@ -965,11 +916,10 @@
         },
         "total_deposit": {
           "description": "NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Balance"
-            }
-          ]
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
         }
       }
     },

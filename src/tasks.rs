@@ -2,8 +2,8 @@ use crate::error::ContractError;
 use crate::slots::{Boundary, Interval, SlotType};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo, Order,
-    Response, StdResult, WasmMsg,
+    coin, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo,
+    Order, Response, StdResult, WasmMsg,
 };
 use cw20::Balance;
 use hex::encode;
@@ -39,7 +39,7 @@ pub struct Task {
     pub stop_on_fail: bool,
 
     /// NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks
-    pub total_deposit: Balance,
+    pub total_deposit: Vec<Coin>,
 
     /// The cosmos message to call, if time or rules are met
     pub action: CosmosMsg,
@@ -93,7 +93,7 @@ pub struct TaskResponse {
     pub interval: Interval,
     pub boundary: Boundary,
     pub stop_on_fail: bool,
-    pub total_deposit: Balance,
+    pub total_deposit: Vec<Coin>,
     pub action: CosmosMsg,
     pub rules: Option<Vec<Rule>>,
 }
@@ -382,7 +382,7 @@ impl<'a> CwCroncat<'a> {
             interval: task.interval,
             boundary: task.boundary,
             stop_on_fail: task.stop_on_fail,
-            total_deposit: Balance::from(info.funds),
+            total_deposit: info.funds,
             action: task.action,
             rules: task.rules,
         };
@@ -503,13 +503,14 @@ impl<'a> CwCroncat<'a> {
         // find any scheduled things and remove them!
         // check which type of slot it would be in, then iterate to remove
 
+        // TODO:
+        // setup sub-msgs for returning any remaining total_deposit to the owner
+
         Ok(Response::new().add_attribute("method", "remove_task"))
     }
 
-    // TODO: FINISH
     /// Refill a task with more balance to continue its execution
-    /// NOTE: Sending balance here for a task that doesnt exist will result in loss of funds, or you could just use this as an opportunity for donations :D
-    /// NOTE: Currently restricting this to owner only, so owner can make sure the task ends
+    /// NOTE: Restricting this to owner only, so owner can make sure the task ends
     pub fn refill_task(
         &self,
         deps: DepsMut,
@@ -518,27 +519,51 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.into_bytes();
-        let task_raw = self.tasks.may_load(deps.storage, hash_vec)?;
+        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
         if task_raw.is_none() {
             return Err(ContractError::CustomError {
-                val: "Task already exists".to_string(),
+                val: "Task doesnt exist".to_string(),
             });
         }
-        let task = task_raw.unwrap();
+        let mut task: Task = task_raw.unwrap();
         if task.owner_id != info.sender {
             return Err(ContractError::CustomError {
                 val: "Only owner can refill their task".to_string(),
             });
         }
 
-        // TODO:
-        // // Add the attached balance into available_balance
-        // self.available_balance = self
-        //     .available_balance
-        //     .saturating_add(env::attached_deposit());
+        // Add the attached balance into available_balance
+        let mut c: Config = self.config.load(deps.storage)?;
+        c.available_balance
+            .add_tokens(Balance::from(info.funds.clone()));
+        self.config.save(deps.storage, &c)?;
 
-        // TODO: report how full the task is total
-        Ok(Response::new().add_attribute("method", "refill_task"))
+        let mut total_balance: Vec<Coin> = vec![];
+        for t in task.total_deposit.iter() {
+            for f in info.funds.clone() {
+                if f.denom == t.denom {
+                    let amt = t.clone().amount.saturating_add(f.amount);
+                    total_balance.push(coin(amt.into(), t.clone().denom));
+                } else {
+                    total_balance.push(t.clone());
+                }
+            }
+        }
+        task.total_deposit = total_balance;
+
+        // update the task
+        self.tasks.update(deps.storage, hash_vec, |old| match old {
+            Some(_) => Ok(task.clone()),
+            None => Err(ContractError::CustomError {
+                val: "Task doesnt exist".to_string(),
+            }),
+        })?;
+
+        // return the task total
+        let coins_total: String = task.total_deposit.iter().map(|a| a.to_string()).collect();
+        Ok(Response::new()
+            .add_attribute("method", "refill_task")
+            .add_attribute("total_deposit", coins_total))
     }
 }
 
@@ -547,7 +572,6 @@ mod tests {
     use super::*;
     // use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg};
-    use cw20::Balance;
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
@@ -620,7 +644,7 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: Balance::default(),
+            total_deposit: coins(37, "atom"),
             action: msg,
             rules: None,
         };
@@ -997,7 +1021,7 @@ mod tests {
                 t.boundary
             );
             assert_eq!(false, t.stop_on_fail);
-            assert_eq!(Balance::from(coins(37, "atom")), t.total_deposit);
+            assert_eq!(coins(37, "atom"), t.total_deposit);
             assert_eq!(task_id_str.clone(), t.task_hash);
         }
 

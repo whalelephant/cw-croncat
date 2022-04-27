@@ -113,34 +113,6 @@
         "Nominated"
       ]
     },
-    "Balance": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "native"
-          ],
-          "properties": {
-            "native": {
-              "$ref": "#/definitions/NativeBalance"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "cw20"
-          ],
-          "properties": {
-            "cw20": {
-              "$ref": "#/definitions/Cw20CoinVerified"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "BalancesResponse": {
       "type": "object",
       "required": [
@@ -869,12 +841,6 @@
         }
       ]
     },
-    "NativeBalance": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
-    },
     "Rule": {
       "type": "object",
       "required": [
@@ -1040,11 +1006,10 @@
         },
         "total_deposit": {
           "description": "NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Balance"
-            }
-          ]
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
         }
       }
     },
