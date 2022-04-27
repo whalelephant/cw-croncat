@@ -109,7 +109,6 @@ impl<'a> CwCroncat<'a> {
     ) -> StdResult<Vec<TaskResponse>> {
         let mut ret: Vec<TaskResponse> = Vec::new();
         let mut start = 0;
-        let mut end = 100;
         let size: u64 = self
             .task_total
             .may_load(deps.storage)?
@@ -118,6 +117,7 @@ impl<'a> CwCroncat<'a> {
         if let Some(index) = from_index {
             start = index;
         }
+        let mut end = u64::min(start.saturating_add(100), size);
         if let Some(l) = limit {
             end = u64::min(start.saturating_add(l), size);
         }
@@ -664,6 +664,63 @@ mod tests {
                 .unwrap();
             assert!(valid);
         }
+    }
+
+    #[test]
+    fn query_get_tasks() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg,
+                rules: None,
+            },
+        };
+
+        // create a task
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(37, "atom"),
+        )
+        .unwrap();
+
+        // check storage has the task
+        let all_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(all_tasks.len(), 1);
+
+        let owner_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasksByOwner {
+                    owner_id: Addr::unchecked(ANYONE),
+                },
+            )
+            .unwrap();
+        assert_eq!(owner_tasks.len(), 1);
     }
 
     #[test]
