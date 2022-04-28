@@ -503,6 +503,13 @@ impl<'a> CwCroncat<'a> {
             if !time_hashes.is_empty() {
                 time_hashes.retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
             }
+
+            // save the updates, remove if slot no longer has hashes
+            if time_hashes.is_empty() {
+                self.time_slots.remove(deps.storage, tid);
+            } else {
+                self.time_slots.save(deps.storage, tid, &time_hashes)?;
+            }
         }
         let block_ids: Vec<u64> = self
             .block_slots
@@ -517,6 +524,13 @@ impl<'a> CwCroncat<'a> {
             if !block_hashes.is_empty() {
                 block_hashes
                     .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+            }
+
+            // save the updates, remove if slot no longer has hashes
+            if block_hashes.is_empty() {
+                self.block_slots.remove(deps.storage, bid);
+            } else {
+                self.block_slots.save(deps.storage, bid, &block_hashes)?;
             }
         }
 
@@ -604,7 +618,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+    use crate::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
     use crate::slots::BoundarySpec;
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -1076,6 +1090,185 @@ mod tests {
         assert_eq!(vec![task_id_str.clone()], slot_info.1);
         assert_eq!(0, slot_info.2);
         assert_eq!(s_3, slot_info.3);
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_remove_create() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg,
+                rules: None,
+            },
+        };
+        let task_id_str =
+            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+
+        // create a task
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(37, "atom"),
+        )
+        .unwrap();
+
+        // check storage DOES have the task
+        let new_task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: task_id_str.clone(),
+                },
+            )
+            .unwrap();
+        assert!(new_task.is_some());
+
+        // Confirm slot exists, proving task was scheduled
+        let slot_ids: (Vec<u64>, Vec<u64>) = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
+            .unwrap();
+        let s_1: Vec<u64> = Vec::new();
+        assert_eq!(s_1, slot_ids.0);
+        assert_eq!(vec![12346], slot_ids.1);
+
+        // Remove the Task
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_id_str.clone(),
+            },
+            &vec![],
+        )
+        .unwrap();
+
+        // check storage DOESNT have the task
+        let rem_task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: task_id_str.clone(),
+                },
+            )
+            .unwrap();
+        assert!(rem_task.is_none());
+
+        // Check the contract total balance has decreased from the removed task
+        let balances: BalancesResponse = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
+            .unwrap();
+        assert_eq!(coins(0, "atom"), balances.available_balance.native);
+
+        // Check the slots correctly removed the task
+        let slot_ids: (Vec<u64>, Vec<u64>) = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
+            .unwrap();
+        let s: Vec<u64> = Vec::new();
+        assert_eq!(s.clone(), slot_ids.0);
+        assert_eq!(s, slot_ids.1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn check_refill_create() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg,
+                rules: None,
+            },
+        };
+        let task_id_str =
+            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+
+        // create a task
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(37, "atom"),
+        )
+        .unwrap();
+        // refill task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &ExecuteMsg::RefillTaskBalance {
+                    task_hash: task_id_str.clone(),
+                },
+                &coins(3, "atom"),
+            )
+            .unwrap();
+        // Assert returned event attributes include total
+        let mut matches_new_totals: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "total_deposit" && a.value == "40atom".to_string() {
+                    matches_new_totals = true;
+                }
+            }
+        }
+        assert!(matches_new_totals);
+
+        // check the task totals
+        let new_task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: task_id_str.clone(),
+                },
+            )
+            .unwrap();
+        assert!(new_task.is_some());
+
+        if let Some(t) = new_task {
+            assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
+            assert_eq!(coins(40, "atom"), t.total_deposit);
+        }
+
+        // Check the balance has increased to include the new refilled total
+        let balances: BalancesResponse = app
+            .wrap()
+            .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
+            .unwrap();
+        assert_eq!(coins(40, "atom"), balances.available_balance.native);
 
         Ok(())
     }
