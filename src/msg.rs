@@ -73,7 +73,6 @@ pub enum QueryMsg {
         account_id: Addr,
     },
     GetTasks {
-        slot: Option<u128>,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
@@ -89,6 +88,10 @@ pub enum QueryMsg {
     ValidateInterval {
         interval: Interval,
     },
+    GetSlotHashes {
+        slot: Option<u64>,
+    },
+    GetSlotIds {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

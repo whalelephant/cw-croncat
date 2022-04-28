@@ -3,6 +3,7 @@ pub mod contract;
 mod error;
 pub mod helpers;
 pub mod integration_tests;
+pub mod manager;
 pub mod msg;
 pub mod owner;
 pub mod slots;
