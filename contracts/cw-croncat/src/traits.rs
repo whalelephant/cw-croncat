@@ -7,7 +7,7 @@ pub trait GenericBalances {
     fn minus_tokens(&mut self, minus: Balance);
 }
 
-pub trait Intervals {
+pub trait IntervalExt {
     fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType);
     fn is_valid(&self) -> bool;
 }

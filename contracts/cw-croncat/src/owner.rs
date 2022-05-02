@@ -244,12 +244,13 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use crate::error::ContractError;
-    use crate::msg::InstantiateMsg;
     use crate::state::CwCroncat;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
     use cosmwasm_std::{coin, coins, from_binary, Addr};
     use cw20::Balance;
-    use cw_croncat_core::msg::{BalancesResponse, ConfigResponse, ExecuteMsg, QueryMsg};
+    use cw_croncat_core::msg::{
+        BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    };
 
     #[test]
     fn update_settings() {

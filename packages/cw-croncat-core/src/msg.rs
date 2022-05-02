@@ -1,8 +1,37 @@
+use crate::types::Agent;
 use crate::types::{Boundary, GenericBalance, Interval, Rule, Task};
 use cosmwasm_std::{Addr, Coin, CosmosMsg};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+// NOTE: Which version is more practical?
+// // Exporting a nice schema
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+// pub enum Croncat {
+//     Agent(Agent),
+//     // Config(Config),
+//     Task(Task),
+//     ConfigResponse(ConfigResponse),
+//     BalancesResponse(BalancesResponse),
+//     GetAgentIdsResponse(GetAgentIdsResponse),
+//     GetAgentTasksResponse(GetAgentTasksResponse),
+//     TaskRequest(TaskRequest),
+//     TaskResponse(TaskResponse),
+// }
+
+// Exporting a nice schema
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Croncat {
+    agent: Option<Agent>,
+    task: Option<Task>,
+    config_response: Option<ConfigResponse>,
+    balance_response: Option<BalancesResponse>,
+    get_agent_ids_response: Option<GetAgentIdsResponse>,
+    get_agent_tasks_response: Option<GetAgentTasksResponse>,
+    task_request: Option<TaskRequest>,
+    task_response: Option<TaskResponse>,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {

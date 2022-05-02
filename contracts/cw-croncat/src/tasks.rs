@@ -1,7 +1,6 @@
 use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
-use crate::traits::TaskHash;
 use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo, Order,
     Response, StdResult, SubMsg, WasmMsg,
@@ -9,34 +8,6 @@ use cosmwasm_std::{
 use cw20::Balance;
 use cw_croncat_core::msg::{TaskRequest, TaskResponse};
 use cw_croncat_core::types::{SlotType, Task};
-use hex::encode;
-use sha2::{Digest, Sha256};
-
-impl TaskHash for Task {
-    /// Get the hash of a task based on parameters
-    fn to_hash(&self) -> String {
-        let message = format!(
-            "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id,
-            self.interval,
-            self.clone().boundary,
-            self.action,
-            self.rules
-        );
-
-        let hash = Sha256::digest(message.as_bytes());
-        encode(hash)
-    }
-    /// Get the hash of a task based on parameters
-    fn to_hash_vec(&self) -> Vec<u8> {
-        self.to_hash().into_bytes()
-    }
-    // /// Returns the base amount required to execute 1 task
-    // /// NOTE: this is not the final used amount, just the user-specified amount total needed
-    // pub fn task_balance_uses(&self, task: &Task) -> u128 {
-    //     task.deposit.0 + (u128::from(task.gas) * self.gas_price) + self.agent_fee
-    // }
-}
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -558,8 +529,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use crate::msg::InstantiateMsg;
-    use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, QueryMsg};
+    use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
     use cw_croncat_core::types::{Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {

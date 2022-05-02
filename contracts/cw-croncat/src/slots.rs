@@ -1,4 +1,4 @@
-use crate::traits::Intervals;
+use crate::traits::IntervalExt;
 use cosmwasm_std::Env;
 use cron_schedule::Schedule;
 pub use cw_croncat_core::types::Interval;
@@ -98,7 +98,7 @@ fn get_next_block_by_offset(env: Env, boundary: Boundary, block: u64) -> (u64, S
     (next_block_height, SlotType::Block)
 }
 
-impl Intervals for Interval {
+impl IntervalExt for Interval {
     fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType) {
         match self {
             // return the first block within a specific range that can be triggered 1 time.

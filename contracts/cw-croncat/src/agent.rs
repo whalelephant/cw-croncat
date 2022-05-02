@@ -334,9 +334,8 @@ mod tests {
     use super::*;
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use crate::msg::InstantiateMsg;
     use cosmwasm_std::{coin, coins, Addr, Empty, Timestamp};
-    use cw_croncat_core::msg::{ExecuteMsg, QueryMsg};
+    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {

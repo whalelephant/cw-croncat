@@ -1,12 +1,11 @@
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
-use crate::msg::InstantiateMsg;
 use crate::state::{Config, CwCroncat};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw20::Balance;
-use cw_croncat_core::msg;
+use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -95,68 +94,64 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
-        msg: msg::ExecuteMsg,
+        msg: ExecuteMsg,
     ) -> Result<Response, ContractError> {
         match msg {
-            msg::ExecuteMsg::UpdateSettings { .. } => self.update_settings(deps, info, msg),
-            msg::ExecuteMsg::MoveBalances {
+            ExecuteMsg::UpdateSettings { .. } => self.update_settings(deps, info, msg),
+            ExecuteMsg::MoveBalances {
                 balances,
                 account_id,
             } => self.move_balances(deps, info, env, balances, account_id),
 
-            msg::ExecuteMsg::RegisterAgent { payable_account_id } => {
+            ExecuteMsg::RegisterAgent { payable_account_id } => {
                 self.register_agent(deps, info, env, payable_account_id)
             }
-            msg::ExecuteMsg::UpdateAgent { payable_account_id } => {
+            ExecuteMsg::UpdateAgent { payable_account_id } => {
                 self.update_agent(deps, info, env, payable_account_id)
             }
-            msg::ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
-            msg::ExecuteMsg::WithdrawReward {} => self.withdraw_task_balance(deps, info, env),
-            msg::ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
+            ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
+            ExecuteMsg::WithdrawReward {} => self.withdraw_task_balance(deps, info, env),
+            ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
-            msg::ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
-            msg::ExecuteMsg::RemoveTask { task_hash } => {
-                self.remove_task(deps, info, env, task_hash)
-            }
-            msg::ExecuteMsg::RefillTaskBalance { task_hash } => {
+            ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
+            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, info, env, task_hash),
+            ExecuteMsg::RefillTaskBalance { task_hash } => {
                 self.refill_task(deps, info, env, task_hash)
             }
-            msg::ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
-            msg::ExecuteMsg::ProxyCallback {
+            ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
+            ExecuteMsg::ProxyCallback {
                 task_hash,
                 current_slot,
             } => self.proxy_callback(deps, info, env, task_hash, current_slot),
         }
     }
 
-    pub fn query(&self, deps: Deps, _env: Env, msg: msg::QueryMsg) -> StdResult<Binary> {
+    pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
-            msg::QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
-            msg::QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
+            QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
+            QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
 
-            msg::QueryMsg::GetAgent { account_id } => {
+            QueryMsg::GetAgent { account_id } => {
                 to_binary(&self.query_get_agent(deps, account_id)?)
             }
-            msg::QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
-            msg::QueryMsg::GetAgentTasks { account_id } => {
+            QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
+            QueryMsg::GetAgentTasks { account_id } => {
                 to_binary(&self.query_get_agent_tasks(deps, account_id)?)
             }
 
-            msg::QueryMsg::GetTasks { from_index, limit } => {
+            QueryMsg::GetTasks { from_index, limit } => {
                 to_binary(&self.query_get_tasks(deps, from_index, limit)?)
             }
-            msg::QueryMsg::GetTasksByOwner { owner_id } => {
+            QueryMsg::GetTasksByOwner { owner_id } => {
                 to_binary(&self.query_get_tasks_by_owner(deps, owner_id)?)
             }
-            msg::QueryMsg::GetTask { task_hash } => {
-                to_binary(&self.query_get_task(deps, task_hash)?)
-            }
-            msg::QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
-            msg::QueryMsg::ValidateInterval { interval } => {
+            QueryMsg::GetTask { task_hash } => to_binary(&self.query_get_task(deps, task_hash)?),
+            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
+            QueryMsg::ValidateInterval { interval } => {
                 to_binary(&self.query_validate_interval(interval)?)
             }
-            msg::QueryMsg::GetSlotHashes { slot } => to_binary(&self.query_slot_tasks(deps, slot)?),
-            msg::QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
+            QueryMsg::GetSlotHashes { slot } => to_binary(&self.query_slot_tasks(deps, slot)?),
+            QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
         }
     }
 }
