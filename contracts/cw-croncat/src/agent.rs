@@ -347,11 +347,11 @@ mod tests {
         Box::new(contract)
     }
 
-    const AGENT0: &str = "AGENT000";
-    const AGENT1: &str = "AGENT001";
-    const AGENT2: &str = "AGENT002";
-    const AGENT1_BENEFICIARY: &str = "AGENT001_BENEFICIARY";
-    const ADMIN: &str = "ADMIN";
+    const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+    const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
+    const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
+    const AGENT1_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {

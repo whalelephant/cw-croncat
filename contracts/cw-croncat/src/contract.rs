@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::state::{Config, CwCroncat};
-#[cfg(not(feature = "library"))]
+// #[cfg(not(feature = "library"))]
 use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw20::Balance;
@@ -11,7 +11,7 @@ use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[cfg(not(feature = "library"))]
+// #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
     pub fn instantiate(
         &self,
@@ -28,8 +28,6 @@ impl<'a> CwCroncat<'a> {
         available_balance.add_tokens(Balance::from(info.funds.clone()));
 
         let owner_acct = msg.owner_id.unwrap_or_else(|| info.sender.clone());
-        // let owner_valid = deps.api.addr_validate(owner_acct.as_str())?;
-        // println!("owner_valid {:?}", owner_valid);
         assert!(
             deps.api.addr_validate(owner_acct.as_str()).is_ok(),
             "Invalid address"

@@ -541,8 +541,8 @@ mod tests {
         Box::new(contract)
     }
 
-    const ADMIN: &str = "ADMIN";
-    const ANYONE: &str = "ANYONE";
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+    const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {
@@ -723,7 +723,7 @@ mod tests {
                 rules: None,
             },
         };
-        // let task_id_str = "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+        // let task_id_str = "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
         // let task_id = task_id_str.clone().into_bytes();
 
         // Must attach funds
@@ -931,7 +931,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         let res = app
@@ -1028,7 +1028,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         app.execute_contract(
@@ -1125,7 +1125,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         app.execute_contract(
