@@ -1,0 +1,12 @@
+/Users/trevorclarke/code/cron/cw-croncat/target/debug/deps/sha2-b92733cd8003d64e.rmeta: /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/lib.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/consts.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256/soft.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512/soft.rs
+
+/Users/trevorclarke/code/cron/cw-croncat/target/debug/deps/libsha2-b92733cd8003d64e.rlib: /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/lib.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/consts.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256/soft.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512/soft.rs
+
+/Users/trevorclarke/code/cron/cw-croncat/target/debug/deps/sha2-b92733cd8003d64e.d: /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/lib.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/consts.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256/soft.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512/soft.rs
+
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/lib.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/consts.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha256/soft.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/sha2-0.9.5/src/sha512/soft.rs:

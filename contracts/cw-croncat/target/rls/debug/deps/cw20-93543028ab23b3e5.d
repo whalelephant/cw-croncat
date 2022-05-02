@@ -1,0 +1,13 @@
+/Users/trevorclarke/code/cron/cw-croncat/target/rls/debug/deps/cw20-93543028ab23b3e5.rmeta: /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/lib.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/balance.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/coin.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/denom.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/helpers.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/logo.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/msg.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/query.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/receiver.rs
+
+/Users/trevorclarke/code/cron/cw-croncat/target/rls/debug/deps/cw20-93543028ab23b3e5.d: /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/lib.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/balance.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/coin.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/denom.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/helpers.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/logo.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/msg.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/query.rs /Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/receiver.rs
+
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/lib.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/balance.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/coin.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/denom.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/helpers.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/logo.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/msg.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/query.rs:
+/Users/trevorclarke/.cargo/registry/src/github.com-1ecc6299db9ec823/cw20-0.12.1/src/receiver.rs:
