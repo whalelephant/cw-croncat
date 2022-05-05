@@ -1,102 +1,13 @@
 use crate::error::ContractError;
-use crate::slots::{Boundary, Interval, SlotType};
+use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo,
-    Order, Response, StdResult, SubMsg, WasmMsg,
+    coin, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo, Order,
+    Response, StdResult, SubMsg, WasmMsg,
 };
 use cw20::Balance;
-use hex::encode;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Rule {
-    /// TBD: Interchain query support (See ibc::IbcMsg)
-    pub chain_id: Option<String>,
-
-    /// Account to direct all view calls against
-    pub contract_id: Addr,
-
-    // NOTE: Only allow static pre-defined query msg
-    pub msg: Binary,
-}
-
-/// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
-pub type RuleResponse<T> = (bool, T);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Task {
-    /// Entity responsible for this task, can change task details
-    pub owner_id: Addr,
-
-    /// Scheduling definitions
-    pub interval: Interval,
-    pub boundary: Boundary,
-
-    /// Defines if this task can continue until balance runs out
-    pub stop_on_fail: bool,
-
-    /// NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks
-    pub total_deposit: Vec<Coin>,
-
-    /// The cosmos message to call, if time or rules are met
-    pub action: CosmosMsg,
-    // TODO: Decide if batch should be supported? Does that break gas limits ESP when rules are applied?
-    // pub action: Vec<CosmosMsg>,
-    /// A prioritized list of messages that can be chained decision matrix
-    /// required to complete before task action
-    /// Rules MUST return the ResolverResponse type
-    pub rules: Option<Vec<Rule>>,
-}
-
-impl Task {
-    /// Get the hash of a task based on parameters
-    pub fn to_hash(&self) -> String {
-        let message = format!(
-            "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id,
-            self.interval,
-            self.clone().boundary,
-            self.action,
-            self.rules
-        );
-
-        let hash = Sha256::digest(message.as_bytes());
-        encode(hash)
-    }
-    /// Get the hash of a task based on parameters
-    pub fn to_hash_vec(&self) -> Vec<u8> {
-        self.to_hash().into_bytes()
-    }
-    // /// Returns the base amount required to execute 1 task
-    // /// NOTE: this is not the final used amount, just the user-specified amount total needed
-    // pub fn task_balance_uses(&self, task: &Task) -> u128 {
-    //     task.deposit.0 + (u128::from(task.gas) * self.gas_price) + self.agent_fee
-    // }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct TaskRequest {
-    pub interval: Interval,
-    pub boundary: Boundary,
-    pub stop_on_fail: bool,
-    pub action: CosmosMsg,
-    pub rules: Option<Vec<Rule>>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct TaskResponse {
-    pub task_hash: String,
-    pub owner_id: Addr,
-    pub interval: Interval,
-    pub boundary: Boundary,
-    pub stop_on_fail: bool,
-    pub total_deposit: Vec<Coin>,
-    pub action: CosmosMsg,
-    pub rules: Option<Vec<Rule>>,
-}
+use cw_croncat_core::msg::{TaskRequest, TaskResponse};
+use cw_croncat_core::types::{SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -618,8 +529,8 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use crate::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-    use crate::slots::BoundarySpec;
+    use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cw_croncat_core::types::{Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -630,8 +541,8 @@ mod tests {
         Box::new(contract)
     }
 
-    const ADMIN: &str = "ADMIN";
-    const ANYONE: &str = "ANYONE";
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+    const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {
@@ -812,7 +723,7 @@ mod tests {
                 rules: None,
             },
         };
-        // let task_id_str = "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+        // let task_id_str = "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
         // let task_id = task_id_str.clone().into_bytes();
 
         // Must attach funds
@@ -1020,7 +931,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         let res = app
@@ -1117,7 +1028,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         app.execute_contract(
@@ -1214,7 +1125,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "be93bba6f619350950985f6e3498d1aa54e276b7db8f7c5bfbfe2998f5fbce3f".to_string();
+            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
 
         // create a task
         app.execute_contract(

@@ -1,15 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Croncat",
-  "anyOf": [
+  "title": "QueryMsg",
+  "oneOf": [
     {
       "type": "object",
       "required": [
-        "Agent"
+        "get_config"
       ],
       "properties": {
-        "Agent": {
-          "$ref": "#/definitions/Agent"
+        "get_config": {
+          "type": "object"
         }
       },
       "additionalProperties": false
@@ -17,11 +17,11 @@
     {
       "type": "object",
       "required": [
-        "Config"
+        "get_balances"
       ],
       "properties": {
-        "Config": {
-          "$ref": "#/definitions/Config"
+        "get_balances": {
+          "type": "object"
         }
       },
       "additionalProperties": false
@@ -29,11 +29,19 @@
     {
       "type": "object",
       "required": [
-        "Task"
+        "get_agent"
       ],
       "properties": {
-        "Task": {
-          "$ref": "#/definitions/Task"
+        "get_agent": {
+          "type": "object",
+          "required": [
+            "account_id"
+          ],
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/Addr"
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -41,11 +49,11 @@
     {
       "type": "object",
       "required": [
-        "ConfigResponse"
+        "get_agent_ids"
       ],
       "properties": {
-        "ConfigResponse": {
-          "$ref": "#/definitions/ConfigResponse"
+        "get_agent_ids": {
+          "type": "object"
         }
       },
       "additionalProperties": false
@@ -53,11 +61,163 @@
     {
       "type": "object",
       "required": [
-        "BalancesResponse"
+        "get_agent_tasks"
       ],
       "properties": {
-        "BalancesResponse": {
-          "$ref": "#/definitions/BalancesResponse"
+        "get_agent_tasks": {
+          "type": "object",
+          "required": [
+            "account_id"
+          ],
+          "properties": {
+            "account_id": {
+              "$ref": "#/definitions/Addr"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_tasks"
+      ],
+      "properties": {
+        "get_tasks": {
+          "type": "object",
+          "properties": {
+            "from_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_tasks_by_owner"
+      ],
+      "properties": {
+        "get_tasks_by_owner": {
+          "type": "object",
+          "required": [
+            "owner_id"
+          ],
+          "properties": {
+            "owner_id": {
+              "$ref": "#/definitions/Addr"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_task"
+      ],
+      "properties": {
+        "get_task": {
+          "type": "object",
+          "required": [
+            "task_hash"
+          ],
+          "properties": {
+            "task_hash": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_task_hash"
+      ],
+      "properties": {
+        "get_task_hash": {
+          "type": "object",
+          "required": [
+            "task"
+          ],
+          "properties": {
+            "task": {
+              "$ref": "#/definitions/Task"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "validate_interval"
+      ],
+      "properties": {
+        "validate_interval": {
+          "type": "object",
+          "required": [
+            "interval"
+          ],
+          "properties": {
+            "interval": {
+              "$ref": "#/definitions/Interval"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_slot_hashes"
+      ],
+      "properties": {
+        "get_slot_hashes": {
+          "type": "object",
+          "properties": {
+            "slot": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_slot_ids"
+      ],
+      "properties": {
+        "get_slot_ids": {
+          "type": "object"
         }
       },
       "additionalProperties": false
@@ -68,80 +228,9 @@
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
     },
-    "Agent": {
-      "type": "object",
-      "required": [
-        "balance",
-        "last_missed_slot",
-        "payable_account_id",
-        "register_start",
-        "status",
-        "total_tasks_executed"
-      ],
-      "properties": {
-        "balance": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "last_missed_slot": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "payable_account_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "register_start": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "status": {
-          "$ref": "#/definitions/AgentStatus"
-        },
-        "total_tasks_executed": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
-    "AgentStatus": {
-      "type": "string",
-      "enum": [
-        "Active",
-        "Pending",
-        "Nominated"
-      ]
-    },
-    "BalancesResponse": {
-      "type": "object",
-      "required": [
-        "available_balance",
-        "cw20_whitelist",
-        "native_denom",
-        "staked_balance"
-      ],
-      "properties": {
-        "available_balance": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "cw20_whitelist": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Addr"
-          }
-        },
-        "native_denom": {
-          "type": "string"
-        },
-        "staked_balance": {
-          "$ref": "#/definitions/GenericBalance"
-        }
-      }
-    },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
-      "anyOf": [
+      "oneOf": [
         {
           "description": "Sends native tokens from the contract to the given address.\n\nThis is translated to a [MsgSend](https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto#L19-L28). `from_address` is automatically filled with the current contract's address.",
           "type": "object",
@@ -226,7 +315,7 @@
       }
     },
     "BoundarySpec": {
-      "anyOf": [
+      "oneOf": [
         {
           "description": "Represents the block height",
           "type": "object",
@@ -272,151 +361,8 @@
         }
       }
     },
-    "Config": {
-      "type": "object",
-      "required": [
-        "agent_active_index",
-        "agent_fee",
-        "agent_task_ratio",
-        "agents_eject_threshold",
-        "available_balance",
-        "cw20_whitelist",
-        "gas_price",
-        "native_denom",
-        "owner_id",
-        "paused",
-        "proxy_callback_gas",
-        "slot_granularity",
-        "staked_balance"
-      ],
-      "properties": {
-        "agent_active_index": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "agent_fee": {
-          "$ref": "#/definitions/Coin"
-        },
-        "agent_task_ratio": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          "maxItems": 2,
-          "minItems": 2
-        },
-        "agents_eject_threshold": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "available_balance": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "cw20_whitelist": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Addr"
-          }
-        },
-        "gas_price": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "native_denom": {
-          "type": "string"
-        },
-        "owner_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "paused": {
-          "type": "boolean"
-        },
-        "proxy_callback_gas": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "slot_granularity": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "staked_balance": {
-          "$ref": "#/definitions/GenericBalance"
-        }
-      }
-    },
-    "ConfigResponse": {
-      "type": "object",
-      "required": [
-        "agent_active_index",
-        "agent_fee",
-        "agent_task_ratio",
-        "agents_eject_threshold",
-        "gas_price",
-        "native_denom",
-        "owner_id",
-        "paused",
-        "proxy_callback_gas",
-        "slot_granularity"
-      ],
-      "properties": {
-        "agent_active_index": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "agent_fee": {
-          "$ref": "#/definitions/Coin"
-        },
-        "agent_task_ratio": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          "maxItems": 2,
-          "minItems": 2
-        },
-        "agents_eject_threshold": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "gas_price": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "native_denom": {
-          "type": "string"
-        },
-        "owner_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "paused": {
-          "type": "boolean"
-        },
-        "proxy_callback_gas": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "slot_granularity": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
     "CosmosMsg_for_Empty": {
-      "anyOf": [
+      "oneOf": [
         {
           "type": "object",
           "required": [
@@ -528,24 +474,9 @@
         }
       ]
     },
-    "Cw20CoinVerified": {
-      "type": "object",
-      "required": [
-        "address",
-        "amount"
-      ],
-      "properties": {
-        "address": {
-          "$ref": "#/definitions/Addr"
-        },
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        }
-      }
-    },
     "DistributionMsg": {
       "description": "The message types of the distribution module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto",
-      "anyOf": [
+      "oneOf": [
         {
           "description": "This is translated to a [MsgSetWithdrawAddress](https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto#L29-L37). `delegator_address` is automatically filled with the current contract's address.",
           "type": "object",
@@ -596,29 +527,8 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GenericBalance": {
-      "type": "object",
-      "required": [
-        "cw20",
-        "native"
-      ],
-      "properties": {
-        "cw20": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Cw20CoinVerified"
-          }
-        },
-        "native": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        }
-      }
-    },
     "GovMsg": {
-      "anyOf": [
+      "oneOf": [
         {
           "description": "This maps directly to [MsgVote](https://github.com/cosmos/cosmos-sdk/blob/v0.42.5/proto/cosmos/gov/v1beta1/tx.proto#L46-L56) in the Cosmos SDK with voter set to the contract address.",
           "type": "object",
@@ -650,7 +560,7 @@
     },
     "IbcMsg": {
       "description": "These are messages in the IBC lifecycle. Only usable by IBC-enabled contracts (contracts that directly speak the IBC protocol via 6 entry points)",
-      "anyOf": [
+      "oneOf": [
         {
           "description": "Sends bank tokens owned by the contract to the given address on another chain. The channel must already be established between the ibctransfer module on this chain and a matching module on the remote chain. We cannot select the port_id, this is whatever the local chain has bound the ibctransfer module to.",
           "type": "object",
@@ -803,7 +713,7 @@
     },
     "Interval": {
       "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
-      "anyOf": [
+      "oneOf": [
         {
           "type": "string",
           "enum": [
@@ -870,7 +780,7 @@
     },
     "StakingMsg": {
       "description": "The message types of the staking module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto",
-      "anyOf": [
+      "oneOf": [
         {
           "description": "This is translated to a [MsgDelegate](https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto#L81-L90). `delegator_address` is automatically filled with the current contract's address.",
           "type": "object",
@@ -1040,7 +950,7 @@
     },
     "WasmMsg": {
       "description": "The message types of the wasm module.\n\nSee https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto",
-      "anyOf": [
+      "oneOf": [
         {
           "description": "Dispatches a call to another contract at a known address (with known ABI).\n\nThis is translated to a [MsgExecuteContract](https://github.com/CosmWasm/wasmd/blob/v0.14.0/x/wasm/internal/types/tx.proto#L68-L78). `sender` is automatically filled with the current contract's address.",
           "type": "object",

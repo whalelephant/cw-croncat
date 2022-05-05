@@ -1,45 +1,9 @@
-use cosmwasm_std::{Env, Timestamp};
+use crate::traits::IntervalExt;
+use cosmwasm_std::Env;
 use cron_schedule::Schedule;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+pub use cw_croncat_core::types::Interval;
+use cw_croncat_core::types::{Boundary, BoundarySpec, SlotType};
 use std::str::FromStr;
-
-/// Defines the spacing of execution
-/// NOTE:S
-/// - Block Height Based: Once, Immediate, Block
-/// - Timestamp Based: Cron
-/// - No Epoch support directly, advised to use block heights instead
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub enum Interval {
-    /// For when this is a non-recurring future scheduled TXN
-    Once,
-
-    /// The ugly batch schedule type, in case you need to exceed single TXN gas limits, within fewest block(s)
-    Immediate,
-
-    /// Allows timing based on block intervals rather than timestamps
-    Block(u64),
-
-    /// Crontab Spec String
-    Cron(String),
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
-pub enum BoundarySpec {
-    /// Represents the block height
-    Height(u64),
-
-    /// Represents the block timestamp
-    Time(Timestamp),
-}
-
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Boundary {
-    ///
-    pub start: Option<BoundarySpec>,
-    ///
-    pub end: Option<BoundarySpec>,
-}
 
 fn get_next_block_limited(env: Env, boundary: Boundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
@@ -134,9 +98,8 @@ fn get_next_block_by_offset(env: Env, boundary: Boundary, block: u64) -> (u64, S
     (next_block_height, SlotType::Block)
 }
 
-// TODO: Change this to ext pkg
-impl Interval {
-    pub fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType) {
+impl IntervalExt for Interval {
+    fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType) {
         match self {
             // return the first block within a specific range that can be triggered 1 time.
             Interval::Once => get_next_block_limited(env, boundary),
@@ -178,7 +141,7 @@ impl Interval {
             Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
         }
     }
-    pub fn is_valid(&self) -> bool {
+    fn is_valid(&self) -> bool {
         match self {
             Interval::Once => true,
             Interval::Immediate => true,
@@ -189,17 +152,6 @@ impl Interval {
             }
         }
     }
-    pub fn slot_id_from(&self, time: u64) -> u64 {
-        // TODO: need config param for the slot size
-        // round the timestamp down to slot granularity
-        time
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum SlotType {
-    Block,
-    Cron,
 }
 
 #[rustfmt::skip]

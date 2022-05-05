@@ -1,12 +1,12 @@
 use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
-use crate::msg::{BalancesResponse, ConfigResponse, ExecuteMsg};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     has_coins, to_binary, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Response,
     StdResult, SubMsg, WasmMsg,
 };
 use cw20::{Balance, Cw20ExecuteMsg};
+use cw_croncat_core::msg::{BalancesResponse, ConfigResponse, ExecuteMsg};
 
 impl<'a> CwCroncat<'a> {
     pub(crate) fn query_config(&self, deps: Deps) -> StdResult<ConfigResponse> {
@@ -244,11 +244,13 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use crate::error::ContractError;
-    use crate::msg::{BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
     use crate::state::CwCroncat;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
     use cosmwasm_std::{coin, coins, from_binary, Addr};
     use cw20::Balance;
+    use cw_croncat_core::msg::{
+        BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    };
 
     #[test]
     fn update_settings() {
