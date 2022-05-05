@@ -37,6 +37,13 @@ pub struct Config {
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueueItem {
+    pub contract_addr: Option<Addr>,
+    pub prev_idx: Option<u64>,
+    pub task_hash: Option<Vec<u8>>,
+}
+
 pub struct TaskIndexes<'a> {
     pub owner: MultiIndex<'a, Addr, Task, Addr>,
 }
@@ -72,6 +79,11 @@ pub struct CwCroncat<'a> {
     /// Block slots allow for grouping of tasks at a specific block height,
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
+
+    /// Reply Queue
+    /// Keeping ordered sub messages & reply id's
+    pub reply_queue: Map<'a, u64, QueueItem>,
+    pub reply_index: Item<'a, u64>,
 }
 
 impl Default for CwCroncat<'static> {
@@ -94,6 +106,8 @@ impl<'a> CwCroncat<'a> {
             task_total: Item::new("task_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
+            reply_queue: Map::new("reply_queue"),
+            reply_index: Item::new("reply_index"),
         }
     }
 
@@ -111,6 +125,22 @@ impl<'a> CwCroncat<'a> {
         let val = self.task_total(storage)? - 1;
         self.task_total.save(storage, &val)?;
         Ok(val)
+    }
+
+    pub(crate) fn rq_next_id(&self, storage: &dyn Storage) -> StdResult<u64> {
+        Ok(self.reply_index.may_load(storage)?.unwrap_or_default() + 1)
+    }
+
+    pub(crate) fn rq_push(&self, storage: &mut dyn Storage, item: QueueItem) -> StdResult<u64> {
+        let idx = self.reply_index.may_load(storage)?.unwrap_or_default() + 1;
+        self.reply_index.save(storage, &idx)?;
+        self.reply_queue
+            .update(storage, idx, |_d| -> StdResult<QueueItem> { Ok(item) })?;
+        Ok(idx)
+    }
+
+    pub(crate) fn rq_remove(&self, storage: &mut dyn Storage, idx: u64) {
+        self.reply_queue.remove(storage, idx);
     }
 }
 

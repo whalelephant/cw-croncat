@@ -3,7 +3,9 @@ use crate::helpers::GenericBalance;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CwCroncat};
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+};
 use cw2::set_contract_version;
 use cw20::Balance;
 
@@ -90,7 +92,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn execute(
-        &self,
+        &mut self,
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
@@ -119,10 +121,6 @@ impl<'a> CwCroncat<'a> {
                 self.refill_task(deps, info, env, task_hash)
             }
             ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
-            ExecuteMsg::ProxyCallback {
-                task_hash,
-                current_slot,
-            } => self.proxy_callback(deps, info, env, task_hash, current_slot),
         }
     }
 
@@ -153,6 +151,27 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetSlotHashes { slot } => to_binary(&self.query_slot_tasks(deps, slot)?),
             QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
         }
+    }
+
+    pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+        // Route the next fns with the reply queue id meta
+        let queue_item = self.reply_queue.may_load(deps.storage, msg.id)?;
+
+        if queue_item.is_none() {
+            return Err(ContractError::UnknownReplyID {});
+        }
+        let item = queue_item.unwrap();
+
+        // Clean up the reply queue
+        self.rq_remove(deps.storage, msg.id);
+
+        // If contract_addr matches THIS contract, it is the proxy callback
+        if item.contract_addr.is_some() && item.contract_addr.unwrap() == env.contract.address {
+            return self.proxy_callback(deps, env, msg, item.task_hash.unwrap());
+        }
+
+        // NOTE: Currently only handling proxy callbacks
+        Ok(Response::default())
     }
 }
 

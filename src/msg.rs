@@ -54,10 +54,6 @@ pub enum ExecuteMsg {
         task_hash: String,
     },
     ProxyCall {},
-    ProxyCallback {
-        task_hash: String,
-        current_slot: u64,
-    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
