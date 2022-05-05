@@ -144,12 +144,12 @@ pub struct BalancesResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentIdsResponse {
-    active: Vec<Addr>,
-    pending: Vec<Addr>,
+    pub active: Vec<Addr>,
+    pub pending: Vec<Addr>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(u64, u128);
+pub struct GetAgentTasksResponse(pub u64, pub u128);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
