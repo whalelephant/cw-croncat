@@ -3,9 +3,9 @@ use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::agent::Agent;
-use crate::helpers::GenericBalance;
-use crate::tasks::Task;
+use crate::helpers::Task;
+use cw_croncat_core::types::Agent;
+use cw_croncat_core::types::GenericBalance;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -148,9 +148,10 @@ impl<'a> CwCroncat<'a> {
 mod tests {
     use super::*;
     use crate::error::ContractError;
-    use crate::slots::{Boundary, Interval};
+    use crate::helpers::Task;
     use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
+    use cw_croncat_core::types::{Boundary, Interval};
     use cw_storage_plus::Bound;
 
     #[test]

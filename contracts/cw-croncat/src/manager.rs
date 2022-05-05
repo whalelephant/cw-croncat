@@ -1,7 +1,7 @@
-use crate::agent::Agent;
 use crate::error::ContractError;
 use crate::state::{Config, CwCroncat, QueueItem};
 use cosmwasm_std::{Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, Storage, SubMsg};
+use cw_croncat_core::types::Agent;
 
 impl<'a> CwCroncat<'a> {
     // TODO:
@@ -146,7 +146,7 @@ impl<'a> CwCroncat<'a> {
     // TODO: this will get triggered by reply handler
     /// Logic executed on the completion of a proxy call
     /// Reschedule next task
-    pub fn proxy_callback(
+    pub(crate) fn proxy_callback(
         &self,
         _deps: DepsMut,
         _env: Env,

@@ -3,17 +3,17 @@ pub mod contract;
 mod error;
 pub mod helpers;
 pub mod manager;
-pub mod msg;
 pub mod owner;
 pub mod slots;
 pub mod state;
 pub mod tasks;
+pub mod traits;
 
 pub use crate::error::ContractError;
-pub use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 pub use crate::state::CwCroncat;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult};
+pub use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 #[cfg(not(feature = "library"))]
 pub mod entry {
