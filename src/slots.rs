@@ -220,10 +220,9 @@ impl<'a> CwCroncat<'a> {
             .take(1)
             .collect();
 
-        if block_slot.is_ok() {
-            let block_id = block_slot.unwrap()[0];
-            if block_height >= block_id {
-                return Some((block_id, SlotType::Block));
+        if let Ok(block_id) = block_slot {
+            if block_height >= block_id[0] {
+                return Some((block_id[0], SlotType::Block));
             }
         }
 
@@ -234,10 +233,9 @@ impl<'a> CwCroncat<'a> {
             .take(1)
             .collect();
 
-        if time_slot.is_ok() {
-            let time_id = time_slot.unwrap()[0];
-            if timestamp >= time_id {
-                return Some((time_id, SlotType::Cron));
+        if let Ok(time_id) = time_slot {
+            if timestamp >= time_id[0] {
+                return Some((time_id[0], SlotType::Cron));
             }
         }
 

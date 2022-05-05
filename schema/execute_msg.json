@@ -263,32 +263,6 @@
         }
       },
       "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "proxy_callback"
-      ],
-      "properties": {
-        "proxy_callback": {
-          "type": "object",
-          "required": [
-            "current_slot",
-            "task_hash"
-          ],
-          "properties": {
-            "current_slot": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "task_hash": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
     }
   ],
   "definitions": {

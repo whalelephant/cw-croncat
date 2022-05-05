@@ -33,7 +33,7 @@ impl<'a> CwCroncat<'a> {
             .unwrap_or_default();
 
         // make sure agent is active
-        if !active_agents.contains(&info.sender.clone()) {
+        if !active_agents.contains(&info.sender) {
             return Err(ContractError::AgentNotRegistered {});
         }
         let agent = agent_opt.unwrap();
@@ -129,7 +129,7 @@ impl<'a> CwCroncat<'a> {
             deps.storage,
             QueueItem {
                 prev_idx: None,
-                task_hash: Some(hash.clone()),
+                task_hash: Some(hash),
                 contract_addr: None,
             },
         )?;
