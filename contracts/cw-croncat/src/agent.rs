@@ -129,7 +129,7 @@ impl<'a> CwCroncat<'a> {
         }
         let c: Config = self.config.load(deps.storage)?;
         if c.paused {
-            return Err(ContractError::CustomError {
+            return Err(ContractError::ContractPaused {
                 val: "Register agent paused".to_string(),
             });
         }
@@ -212,7 +212,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Response, ContractError> {
         let c: Config = self.config.load(deps.storage)?;
         if c.paused {
-            return Err(ContractError::CustomError {
+            return Err(ContractError::ContractPaused {
                 val: "Register agent paused".to_string(),
             });
         }
@@ -369,9 +369,7 @@ impl<'a> CwCroncat<'a> {
             }
         } else {
             // Sender's address does not exist in the agent pending queue
-            return Err(ContractError::CustomError {
-                val: "Sender is not a pending agent".to_string(),
-            });
+            return Err(ContractError::Unauthorized {});
         }
         // Find difference
         Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
@@ -624,7 +622,7 @@ mod tests {
             .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
+            ContractError::ContractPaused {
                 val: "Register agent paused".to_string()
             },
             rereg_err.downcast().unwrap()
