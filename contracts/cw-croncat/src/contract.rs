@@ -50,6 +50,8 @@ impl<'a> CwCroncat<'a> {
             cw20_whitelist: vec![],
             // TODO: ????
             // cw20_fees: vec![],
+            agent_nomination_begin_time: None,
+            agent_nomination_duration: msg.agent_nomination_duration,
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
@@ -169,6 +171,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            agent_nomination_duration: 360,
         };
         let info = mock_info("creator", &coins(1000, "meow"));
 

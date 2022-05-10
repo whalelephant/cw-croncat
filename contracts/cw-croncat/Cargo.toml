@@ -60,3 +60,4 @@ sha2 = "0.9"
 cosmwasm-schema = { version = "1.0.0-beta6" }
 cw-multi-test = { version = "0.13", features = ["staking"] }
 cw20-base = { version = "0.12.1", features = ["library"] }
+anyhow = "1"
