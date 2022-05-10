@@ -316,41 +316,18 @@ impl<'a> CwCroncat<'a> {
             // less than or equal to that integer, they get let in.
             let max_index = time_difference.div(c.agent_nomination_duration as u64);
             if agent_position as u64 <= max_index {
-                // They're allowed in, update state for agents map
-                // TODO: remove this and the idea of Agent having the status
-                self.agents.update(
-                    deps.storage,
-                    info.sender.clone(),
-                    |a: Option<Agent>| -> Result<_, ContractError> {
-                        match a {
-                            // make sure that account isn't already added
-                            Some(agent) => Ok(Agent {
-                                payable_account_id: agent.payable_account_id,
-                                balance: agent.balance,
-                                total_tasks_executed: agent.total_tasks_executed,
-                                last_missed_slot: agent.last_missed_slot,
-                                register_start: agent.register_start,
-                            }),
-                            None => Err(ContractError::CustomError {
-                                val: "Agent already exists".to_string(),
-                            }),
-                        }
-                    },
-                )?;
-                // Also update state removing from pending queue
+                // Update state removing from pending queue
                 let mut pending_agents: Vec<Addr> = self
                     .agent_pending_queue
                     .may_load(deps.storage)?
                     .unwrap_or_default();
-
                 // Remove this agent and all ahead of them in the queue (they missed out)
                 for idx_to_remove in (0..=agent_position).rev() {
-                    println!("Removing pending index {}", idx_to_remove);
                     pending_agents.remove(idx_to_remove);
                 }
-
                 self.agent_pending_queue
                     .save(deps.storage, &pending_agents)?;
+
                 // and adding to active queue
                 let mut active_agents: Vec<Addr> = self
                     .agent_active_queue
@@ -358,6 +335,7 @@ impl<'a> CwCroncat<'a> {
                     .unwrap_or_default();
                 active_agents.push(info.sender.clone());
                 self.agent_active_queue.save(deps.storage, &active_agents)?;
+
                 // and update the config, setting the nomination begin time to None,
                 // which indicates no one will be nominated until more tasks arrive
                 c.agent_nomination_begin_time = None;
