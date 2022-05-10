@@ -129,13 +129,13 @@ impl<'a> CwCroncat<'a> {
         }
     }
 
-    pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    pub fn query(&self, deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
             QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
 
             QueryMsg::GetAgent { account_id } => {
-                to_binary(&self.query_get_agent(deps, account_id)?)
+                to_binary(&self.query_get_agent(deps, env, account_id)?)
             }
             QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
             QueryMsg::GetAgentTasks { account_id } => {

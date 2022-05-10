@@ -17,6 +17,7 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn query_get_agent(
         &self,
         deps: Deps,
+        env: Env,
         account_id: Addr,
     ) -> StdResult<Option<AgentResponse>> {
         let agent = self.agents.may_load(deps.storage, account_id.clone())?;
@@ -39,6 +40,10 @@ impl<'a> CwCroncat<'a> {
         let agent_status: AgentStatus = if pending.contains(&account_id) {
             // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
             // Then determine if this agent is considered "Nominated" and should call CheckInAgent
+            let agent_position = pending
+                .iter()
+                .position(|address| address == &account_id)
+                .unwrap();
             let c: Config = self.config.load(deps.storage)?;
             let task_ratio = c.agent_task_ratio;
             // Get total tasks
@@ -55,7 +60,15 @@ impl<'a> CwCroncat<'a> {
             if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1]
                 && c.agent_nomination_begin_time.is_some()
             {
-                AgentStatus::Nominated
+                let time_difference =
+                    env.block.time.seconds() - c.agent_nomination_begin_time.unwrap().seconds();
+
+                let max_index = time_difference.div(c.agent_nomination_duration as u64);
+                if agent_position as u64 <= max_index {
+                    AgentStatus::Nominated
+                } else {
+                    AgentStatus::Pending
+                }
             } else {
                 // Not their time yet
                 AgentStatus::Pending
@@ -316,6 +329,7 @@ impl<'a> CwCroncat<'a> {
             // less than or equal to that integer, they get let in.
             let max_index = time_difference.div(c.agent_nomination_duration as u64);
             if agent_position as u64 <= max_index {
+                // Make this agent active
                 // Update state removing from pending queue
                 let mut pending_agents: Vec<Addr> = self
                     .agent_pending_queue
@@ -498,6 +512,19 @@ mod tests {
             send_funds.as_ref(),
         );
         hi.expect("Error adding task")
+    }
+
+    fn get_agent_status(app: &mut App, contract_addr: &Addr, agent: &str) -> AgentStatus {
+        let agent_info: AgentResponse = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetAgent {
+                    account_id: Addr::unchecked(agent),
+                },
+            )
+            .expect("Error getting agent status");
+        agent_info.status
     }
 
     fn register_agent_exec(
@@ -916,6 +943,11 @@ mod tests {
         // Fast forward time a little
         app.update_block(add_little_time);
 
+        let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        assert_eq!(AgentStatus::Pending, agent_status);
+        agent_status = get_agent_status(&mut app, &contract_addr, AGENT2);
+        assert_eq!(AgentStatus::Nominated, agent_status);
+
         // Attempt to accept nomination
         // First try with the agent second in line in the pending queue.
         // This should fail because it's not time for them yet.
@@ -956,6 +988,9 @@ mod tests {
             error_msg.downcast().unwrap()
         );
 
+        agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        assert_eq!(AgentStatus::Pending, agent_status);
+
         // Again, add two more tasks so we can nominate another agent
         add_task_exec(&mut app, &contract_addr, PARTICIPANT3);
 
@@ -966,6 +1001,12 @@ mod tests {
         // Fast forward time past the duration of the first pending agent,
         // allowing the second to nominate themselves
         app.update_block(add_one_duration_of_time);
+
+        // Now that enough time has passed, both agents should see they're nominated
+        agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        assert_eq!(AgentStatus::Nominated, agent_status);
+        agent_status = get_agent_status(&mut app, &contract_addr, AGENT4);
+        assert_eq!(AgentStatus::Nominated, agent_status);
 
         // Agent second in line nominates themself
         check_in_res = check_in_exec(&mut app, &contract_addr, AGENT4);
