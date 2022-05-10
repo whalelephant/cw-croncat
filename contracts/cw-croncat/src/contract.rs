@@ -10,6 +10,7 @@ use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -51,7 +52,9 @@ impl<'a> CwCroncat<'a> {
             // TODO: ????
             // cw20_fees: vec![],
             agent_nomination_begin_time: None,
-            agent_nomination_duration: msg.agent_nomination_duration,
+            agent_nomination_duration: msg
+                .agent_nomination_duration
+                .unwrap_or(DEFAULT_NOMINATION_DURATION),
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
@@ -171,7 +174,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
-            agent_nomination_duration: 360,
+            agent_nomination_duration: Some(360),
         };
         let info = mock_info("creator", &coins(1000, "meow"));
 

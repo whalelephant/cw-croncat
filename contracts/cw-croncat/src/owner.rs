@@ -261,7 +261,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
-            agent_nomination_duration: 360,
+            agent_nomination_duration: Some(360),
         };
         let info = mock_info("creator", &coins(1000, "meow"));
         let res_init = store
@@ -317,7 +317,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
-            agent_nomination_duration: 360,
+            agent_nomination_duration: Some(360),
         };
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
@@ -376,7 +376,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
-            agent_nomination_duration: 360,
+            agent_nomination_duration: Some(360),
         };
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)

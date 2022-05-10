@@ -446,7 +446,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: Some(owner_addr.clone()),
-            agent_nomination_duration: 360,
+            agent_nomination_duration: Some(360),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
