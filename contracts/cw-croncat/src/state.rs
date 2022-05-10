@@ -3,8 +3,8 @@ use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::agent::Agent;
 use crate::helpers::Task;
+use cw_croncat_core::types::Agent;
 use cw_croncat_core::types::GenericBalance;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -5,56 +5,10 @@ use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
 };
 use cw20::Balance;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 use std::ops::Div;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub enum AgentStatus {
-    // Default for any new agent, if tasks ratio allows
-    Active,
-
-    // Default for any new agent, until more tasks come online
-    Pending,
-
-    // More tasks are available, agent must checkin to become active
-    Nominated,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct Agent {
-    pub status: AgentStatus,
-
-    // Where rewards get transferred
-    pub payable_account_id: Addr,
-
-    // accrued reward balance
-    pub balance: GenericBalance,
-
-    // stats
-    pub total_tasks_executed: u64,
-
-    // Holds slot number of a missed slot.
-    // If other agents see an agent miss a slot, they store the missed slot number.
-    // If agent does a task later, this number is reset to zero.
-    // Example data: 1633890060000000000 or 0
-    pub last_missed_slot: u64,
-
-    // Timestamp of when agent first registered
-    // Useful for rewarding agents for their patience while they are pending and operating service
-    // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
-    // Example data: 1633890060000000000 or 0
-    pub register_start: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentIdsResponse {
-    active: Vec<Addr>,
-    pending: Vec<Addr>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(u64, u128);
+use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
+use cw_croncat_core::types::{Agent, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
     /// Get a single agent details
