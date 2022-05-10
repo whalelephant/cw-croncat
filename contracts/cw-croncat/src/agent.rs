@@ -2,42 +2,79 @@ use crate::error::ContractError;
 use crate::helpers::{send_tokens, GenericBalance};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, SubMsg,
+    has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
+    SubMsg,
 };
 use cw20::Balance;
 use std::ops::Div;
 
 use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
-use cw_croncat_core::types::{Agent, AgentStatus};
+use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
     /// Get a single agent details
     /// Check's status as well, in case this agent needs to be considered for election
-    pub(crate) fn query_get_agent(&self, deps: Deps, account_id: Addr) -> StdResult<Option<Agent>> {
+    pub(crate) fn query_get_agent(
+        &self,
+        deps: Deps,
+        account_id: Addr,
+    ) -> StdResult<Option<AgentResponse>> {
         let agent = self.agents.may_load(deps.storage, account_id.clone())?;
         if agent.is_none() {
             return Ok(None);
         }
+
         let a = agent.unwrap();
 
         let pending: Vec<Addr> = self
             .agent_pending_queue
             .may_load(deps.storage)?
             .unwrap_or_default();
+        let active: Vec<Addr> = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
 
         // If agent is pending, Check if they should get nominated to checkin to become active
-        let agent_status: AgentStatus = if a.status == AgentStatus::Pending {
-            // TODO: change to check total tasks + task ratio
-            if pending.contains(&account_id) {
+        let agent_status: AgentStatus = if pending.contains(&account_id) {
+            // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
+            // Then determine if this agent is considered "Nominated" and should call CheckInAgent
+            let c: Config = self.config.load(deps.storage)?;
+            let task_ratio = c.agent_task_ratio;
+            // Get total tasks
+            let total_tasks = self
+                .tasks
+                .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
+                .count();
+            let num_active_agents = self
+                .agent_active_queue
+                .may_load(deps.storage)?
+                .unwrap_or_default()
+                .len();
+            // If we should allow a new agent to take over
+            if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1]
+                && c.agent_nomination_begin_time.is_some()
+            {
                 AgentStatus::Nominated
             } else {
-                a.status
+                // Not their time yet
+                AgentStatus::Pending
             }
+        } else if active.contains(&account_id) {
+            AgentStatus::Active
         } else {
-            a.status
+            // This should not happen. It means the address is in self.agents
+            // but not in the pending or active queues
+            // Note: if your IDE highlights the below as problematic, you can ignore
+            return Err(StdError::GenericErr {
+                msg: ContractError::CustomError {
+                    val: "Address missing from pending and active queues".to_string(),
+                }
+                .to_string(),
+            });
         };
 
-        Ok(Some(Agent {
+        Ok(Some(AgentResponse {
             status: agent_status,
             payable_account_id: a.payable_account_id,
             balance: a.balance,
@@ -49,8 +86,6 @@ impl<'a> CwCroncat<'a> {
 
     /// Get a list of agent addresses
     pub(crate) fn query_get_agent_ids(&self, deps: Deps) -> StdResult<GetAgentIdsResponse> {
-        // let active = self.agent_active_queue.load(deps.storage)?;
-        // let pending = self.agent_pending_queue.load(deps.storage)?;
         let active: Vec<Addr> = self
             .agent_active_queue
             .may_load(deps.storage)?
@@ -61,7 +96,6 @@ impl<'a> CwCroncat<'a> {
             .unwrap_or_default();
 
         Ok(GetAgentIdsResponse { active, pending })
-        // Ok(GetAgentIdsResponse(active, pending))
     }
 
     // TODO:
@@ -150,7 +184,6 @@ impl<'a> CwCroncat<'a> {
                     }),
                     None => {
                         Ok(Agent {
-                            status: agent_status.clone(),
                             payable_account_id: payable_id,
                             balance: GenericBalance::default(),
                             total_tasks_executed: 0,
@@ -267,7 +300,10 @@ impl<'a> CwCroncat<'a> {
             });
         };
         // Agent must be in the pending queue
-        let pending_queue = self.agent_pending_queue.may_load(deps.storage)?.unwrap();
+        let pending_queue = self
+            .agent_pending_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
         // Get the position in the pending queue
         if let Some(agent_position) = pending_queue
             .iter()
@@ -289,7 +325,6 @@ impl<'a> CwCroncat<'a> {
                         match a {
                             // make sure that account isn't already added
                             Some(agent) => Ok(Agent {
-                                status: AgentStatus::Active,
                                 payable_account_id: agent.payable_account_id,
                                 balance: agent.balance,
                                 total_tasks_executed: agent.total_tasks_executed,
@@ -373,18 +408,10 @@ mod tests {
     use super::*;
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{
-        coin, coins, from_binary, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg, Timestamp,
-    };
-    use cw_croncat_core::msg::{
-        ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse,
-    };
+    use cosmwasm_std::{coin, coins, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg, Timestamp};
+    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Boundary, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
-    use schemars::_private::NoSerialize;
-    use std::convert::TryInto;
-    use std::error::Error;
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -648,13 +675,12 @@ mod tests {
             .unwrap();
 
         // check state to see if worked
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
+        let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &contract_addr);
         assert_eq!(1, num_active_agents);
         assert_eq!(0, num_pending_agents);
 
         // message response matches expectations (same block, all the defaults)
-        let agent_info: Agent = app
+        let agent_info: AgentResponse = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),
@@ -869,11 +895,10 @@ mod tests {
     fn accept_nomination_agent() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
-        let mut deps = cosmwasm_std::testing::mock_dependencies_with_balance(&coins(200, ""));
 
         // Register AGENT1, who immediately becomes active
         register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
-        let mut res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
+        let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
         let task_hash = res.events[1].attributes[2].clone().value;
         assert_eq!(
             "fb4839c3fb825b0927201d3966544b85b233b0f236fd073c78d861e10a39e475", task_hash,
@@ -889,13 +914,6 @@ mod tests {
             "Did not successfully find the newly added task"
         );
 
-        // Get config object, which has the agent to task ratio we want to get
-        let msg_query_config = QueryMsg::GetConfig {};
-        let mut query_config: StdResult<ConfigResponse> = app
-            .wrap()
-            .query_wasm_smart(contract_addr.clone(), &msg_query_config);
-        let task_ratio = query_config.unwrap().agent_task_ratio;
-
         let mut num_tasks = get_task_total(&app, &contract_addr);
         assert_eq!(num_tasks, 1);
 
@@ -908,8 +926,7 @@ mod tests {
         // Later, we'll have this agent try to nominate themselves before their time
         register_agent_exec(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
 
-        let (mut agent_ids_res, mut num_active_agents, mut num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
+        let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &contract_addr);
         assert_eq!(1, num_active_agents);
         assert_eq!(2, agent_ids_res.pending.len());
 
@@ -947,18 +964,15 @@ mod tests {
         );
 
         // Check that active and pending queues are correct
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
+        let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &contract_addr);
         assert_eq!(2, num_active_agents);
         assert_eq!(1, agent_ids_res.pending.len());
 
         // The agent that was second in the queue is now first,
         // tries again, but there aren't enough tasks
         check_in_res = check_in_exec(&mut app, &contract_addr, AGENT3);
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
 
-        let mut error_msg = check_in_res.unwrap_err();
+        let error_msg = check_in_res.unwrap_err();
         assert_eq!(
             ContractError::CustomError {
                 val: "Not accepting new agents".to_string()
@@ -968,8 +982,7 @@ mod tests {
 
         // Again, add two more tasks so we can nominate another agent
         add_task_exec(&mut app, &contract_addr, PARTICIPANT3);
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
+
         add_task_exec(&mut app, &contract_addr, PARTICIPANT4);
 
         // Add another agent, since there's now the need
@@ -978,10 +991,6 @@ mod tests {
         // allowing the second to nominate themselves
         app.update_block(add_one_duration_of_time);
 
-        // debugging
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
-
         // Agent second in line nominates themself
         check_in_res = check_in_exec(&mut app, &contract_addr, AGENT4);
         assert!(
@@ -989,8 +998,7 @@ mod tests {
             "Agent second in line should be able to nominate themselves"
         );
 
-        let (agent_ids_res, num_active_agents, num_pending_agents) =
-            get_agent_ids(&app, &contract_addr);
+        let (_, _, num_pending_agents) = get_agent_ids(&app, &contract_addr);
 
         // Ensure the pending list is empty, having the earlier index booted
         assert_eq!(
