@@ -122,7 +122,8 @@ impl<'a> CwCroncat<'a> {
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
         // TODO: Change the gas here?? .with_gas_limit(60_000)
-        let sub_msg: SubMsg = SubMsg::reply_always(task.clone().action, next_idx);
+        let sub_msg: SubMsg =
+            SubMsg::reply_always(task.clone().action, next_idx).with_gas_limit(130_000);
         sub_msgs.push(sub_msg);
 
         self.rq_push(
@@ -141,7 +142,10 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "proxy_call")
             .add_attribute("task_hash", task.to_hash())
-            .add_attribute("total_rules", task.rules.unwrap_or_default().len().to_string())
+            .add_attribute(
+                "total_rules",
+                task.rules.unwrap_or_default().len().to_string(),
+            )
             .add_submessages(sub_msgs))
     }
 
