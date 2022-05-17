@@ -1,7 +1,9 @@
 use crate::error::ContractError;
 use crate::state::{Config, CwCroncat, QueueItem};
-use cosmwasm_std::{Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, Storage, SubMsg};
-use cw_croncat_core::types::Agent;
+use cosmwasm_std::{
+    Addr, Attribute, Binary, DepsMut, Empty, Env, MessageInfo, Reply, Response, Storage, SubMsg,
+};
+use cw_croncat_core::types::{Agent, RuleResponse};
 
 impl<'a> CwCroncat<'a> {
     // TODO:
@@ -109,21 +111,40 @@ impl<'a> CwCroncat<'a> {
         // task.total_deposit = U128::from(task.total_deposit.0.saturating_sub(call_total_balance));
         // self.tasks.insert(&hash, &task);
 
-        // TODO:
         // Proceed to query loops if rules are found in the task
         // Each rule is chained into the next, then evaluated if response is true before proceeding
+        let mut rule_responses: Vec<Attribute> = vec![];
+        let mut rule_success: bool = false;
         if task.rules.is_some() {
-            println!("RULES TODO");
-            // deps.querier.query_wasm_smart(contract_addr, &msg)?;
+            // let mut previous_msg: Option<Binary>;
+            for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
+                let rule_res: RuleResponse<Option<Binary>> = deps
+                    .querier
+                    .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
+                println!("{:?}", rule_res);
+                rule_success = rule_res.0;
+
+                // TODO: needs better approach
+                rule_responses.push(Attribute::new(idx.to_string(), format!("{:?}", rule_res.1)));
+            }
+        }
+        if !rule_success {
+            return Err(ContractError::CustomError {
+                val: "Rule evaluated to false".to_string(),
+            });
         }
 
         // Setup submessages for actions for this task
         // Each submessage in storage, computes & stores the "next" reply to allow for chained message processing.
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
-        // TODO: Change the gas here?? .with_gas_limit(60_000)
+        let action = task.clone().action;
         let sub_msg: SubMsg =
-            SubMsg::reply_always(task.clone().action, next_idx).with_gas_limit(130_000);
+            SubMsg::reply_always(action.msg, next_idx).with_gas_limit(action.gas_limit.unwrap());
+        // if action.gas_limit.is_some() {
+        //     sub_msg.with_gas_limit(action.gas_limit.unwrap());
+        // }
+
         sub_msgs.push(sub_msg);
 
         self.rq_push(
@@ -131,22 +152,23 @@ impl<'a> CwCroncat<'a> {
             QueueItem {
                 prev_idx: None,
                 task_hash: Some(hash),
-                contract_addr: None,
+                contract_addr: Some(env.contract.address),
             },
         )?;
 
         // TODO: if out of balance or non-recurring, exit
 
-        // TODO: finish (Add data about task rules/action? agent? balances? slots?)
         // Add the messages, reply handler responsible for task rescheduling
-        Ok(Response::new()
+        let final_res = Response::new()
             .add_attribute("method", "proxy_call")
+            .add_attribute("agent", info.sender)
+            .add_attribute("slot_id", slot_id.to_string())
+            .add_attribute("slot_kind", slot_id.to_string())
             .add_attribute("task_hash", task.to_hash())
-            .add_attribute(
-                "total_rules",
-                task.rules.unwrap_or_default().len().to_string(),
-            )
-            .add_submessages(sub_msgs))
+            .add_attributes(rule_responses)
+            .add_submessages(sub_msgs);
+
+        Ok(final_res)
     }
 
     // TODO: this will get triggered by reply handler
@@ -160,7 +182,8 @@ impl<'a> CwCroncat<'a> {
         _task_hash: Vec<u8>,
     ) -> Result<Response, ContractError> {
         // TODO: Check this was ONLY called directly
-        // TODO:
+        // TODO: reschedule next!
+        // TODO: gas checks?
         Ok(Response::new().add_attribute("method", "proxy_callback"))
     }
 

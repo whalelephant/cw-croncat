@@ -169,7 +169,8 @@ impl<'a> CwCroncat<'a> {
         }
 
         // NOTE: Currently only handling proxy callbacks
-        Ok(Response::default())
+        // Responds with the reply ID if nothing was found in queue
+        Ok(Response::new().add_attribute("reply_id", msg.id.to_string()))
     }
 }
 

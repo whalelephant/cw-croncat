@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Env, Timestamp};
+use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp};
 use cron_schedule::Schedule;
 use cw20::{Balance, Cw20CoinVerified};
 use hex::encode;
@@ -97,13 +97,23 @@ pub enum SlotType {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Rule {
     /// TBD: Interchain query support (See ibc::IbcMsg)
-    pub chain_id: Option<String>,
+    // pub chain_id: Option<String>,
 
     /// Account to direct all view calls against
-    pub contract_id: Addr,
+    pub contract_addr: Addr,
 
     // NOTE: Only allow static pre-defined query msg
     pub msg: Binary,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Action<T = Empty> {
+    // NOTE: Only allow static pre-defined query msg
+    /// Supported CosmosMsgs only!
+    pub msg: CosmosMsg<T>,
+
+    /// The gas needed to safely process the execute msg
+    pub gas_limit: Option<u64>,
 }
 
 /// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
@@ -125,9 +135,9 @@ pub struct Task {
     pub total_deposit: Vec<Coin>,
 
     /// The cosmos message to call, if time or rules are met
-    pub action: CosmosMsg,
+    pub action: Action,
     // TODO: Decide if batch should be supported? Does that break gas limits ESP when rules are applied?
-    // pub action: Vec<CosmosMsg>,
+    // pub action: Vec<Action>,
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type

@@ -4,8 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::Agent;
-use cw_croncat_core::types::GenericBalance;
+use cw_croncat_core::types::{Agent, GenericBalance};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -151,7 +150,7 @@ mod tests {
     use crate::helpers::Task;
     use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
-    use cw_croncat_core::types::{Boundary, Interval};
+    use cw_croncat_core::types::{Action, Boundary, Interval};
     use cw_storage_plus::Bound;
 
     #[test]
@@ -173,10 +172,13 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: vec![],
-            action: msg,
+            action: Action {
+                msg,
+                gas_limit: Some(150_000),
+            },
             rules: None,
         };
-        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id_str = "d30a8eef8f82de707f97f6cfaa2235eb4bb7cf1891fd787e7cc38a89d7f532bd";
         let task_id = task_id_str.to_string().into_bytes();
 
         // create a task
@@ -224,7 +226,7 @@ mod tests {
         let mut storage = MockStorage::new();
         let store = CwCroncat::default();
 
-        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id_str = "d30a8eef8f82de707f97f6cfaa2235eb4bb7cf1891fd787e7cc38a89d7f532bd";
         let task_id = task_id_str.to_string().into_bytes();
         let tasks_vec = vec![task_id];
 

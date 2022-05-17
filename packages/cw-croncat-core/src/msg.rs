@@ -1,6 +1,6 @@
 use crate::types::Agent;
-use crate::types::{Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin, CosmosMsg};
+use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
+use cosmwasm_std::{Addr, Coin};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -152,7 +152,7 @@ pub struct TaskRequest {
     pub interval: Interval,
     pub boundary: Boundary,
     pub stop_on_fail: bool,
-    pub action: CosmosMsg,
+    pub action: Action,
     pub rules: Option<Vec<Rule>>,
 }
 
@@ -164,6 +164,6 @@ pub struct TaskResponse {
     pub boundary: Boundary,
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
-    pub action: CosmosMsg,
+    pub action: Action,
     pub rules: Option<Vec<Rule>>,
 }

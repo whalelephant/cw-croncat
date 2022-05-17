@@ -238,7 +238,7 @@ impl<'a> CwCroncat<'a> {
 
         // TODO: Finish checking other msg types needing validation
         // Additional checks - needs to protect against scripting owner / self situations
-        match task.action.clone() {
+        match task.action.clone().msg {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr,
                 funds: _,
@@ -530,7 +530,7 @@ mod tests {
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Boundary, BoundarySpec};
+    use cw_croncat_core::types::{Action, Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -599,7 +599,10 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: coins(37, "atom"),
-            action: msg,
+            action: Action {
+                msg,
+                gas_limit: Some(150_000),
+            },
             rules: None,
         };
 
@@ -614,7 +617,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc",
+            "d30a8eef8f82de707f97f6cfaa2235eb4bb7cf1891fd787e7cc38a89d7f532bd",
             task_hash
         );
     }
@@ -662,7 +665,10 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                action: Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                },
                 rules: None,
             },
         };
@@ -719,11 +725,14 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg.clone(),
+                action: Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                },
                 rules: None,
             },
         };
-        // let task_id_str = "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+        // let task_id_str = "30589ea183b993fb6c5c92e456da04e958ee1f33cd04e6a93e4e0bae728d2ed5".to_string();
         // let task_id = task_id_str.clone().into_bytes();
 
         // Must attach funds
@@ -812,7 +821,10 @@ mod tests {
                             end: None,
                         },
                         stop_on_fail: false,
-                        action: action_self.clone(),
+                        action: Action {
+                            msg: action_self.clone(),
+                            gas_limit: Some(150_000),
+                        },
                         rules: None,
                     },
                 },
@@ -839,7 +851,10 @@ mod tests {
                             end: None,
                         },
                         stop_on_fail: false,
-                        action: msg.clone(),
+                        action: Action {
+                            msg: msg.clone(),
+                            gas_limit: Some(150_000),
+                        },
                         rules: None,
                     },
                 },
@@ -889,7 +904,10 @@ mod tests {
                             end: Some(BoundarySpec::Height(1)),
                         },
                         stop_on_fail: false,
-                        action: msg.clone(),
+                        action: Action {
+                            msg: msg.clone(),
+                            gas_limit: Some(150_000),
+                        },
                         rules: None,
                     },
                 },
@@ -926,12 +944,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                action: Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                },
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "30589ea183b993fb6c5c92e456da04e958ee1f33cd04e6a93e4e0bae728d2ed5".to_string();
 
         // create a task
         let res = app
@@ -1023,12 +1044,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                action: Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                },
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "30589ea183b993fb6c5c92e456da04e958ee1f33cd04e6a93e4e0bae728d2ed5".to_string();
 
         // create a task
         app.execute_contract(
@@ -1120,12 +1144,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                action: Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                },
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "30589ea183b993fb6c5c92e456da04e958ee1f33cd04e6a93e4e0bae728d2ed5".to_string();
 
         // create a task
         app.execute_contract(
