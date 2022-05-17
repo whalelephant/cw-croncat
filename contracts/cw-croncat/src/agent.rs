@@ -202,7 +202,7 @@ impl<'a> CwCroncat<'a> {
                             total_tasks_executed: 0,
                             last_missed_slot: 0,
                             // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
-                            register_start: env.block.time.nanos(),
+                            register_start: env.block.time,
                         })
                     }
                 }
@@ -398,7 +398,7 @@ mod tests {
     use super::*;
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use cosmwasm_std::{coin, coins, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg, Timestamp};
+    use cosmwasm_std::{coin, coins, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Boundary, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
@@ -701,7 +701,7 @@ mod tests {
         assert_eq!(GenericBalance::default(), agent_info.balance);
         assert_eq!(0, agent_info.total_tasks_executed);
         assert_eq!(0, agent_info.last_missed_slot);
-        assert_eq!(blk_time, Timestamp::from_nanos(agent_info.register_start));
+        assert_eq!(blk_time, agent_info.register_start);
 
         // test fail if try to re-register
         let rereg_err = app
