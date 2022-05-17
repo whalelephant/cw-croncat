@@ -60,9 +60,8 @@ impl<'a> CwCroncat<'a> {
             let task_ratio = c.agent_task_ratio;
             // Get total tasks
             let total_tasks = self
-                .tasks
-                .keys(deps.storage, None, None, cosmwasm_std::Order::Ascending)
-                .count();
+                .task_total(deps.storage)
+                .expect("Unexpected issue getting task total");
             let num_active_agents = self
                 .agent_active_queue
                 .may_load(deps.storage)?
