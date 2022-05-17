@@ -90,10 +90,7 @@ impl<'a> CwCroncat<'a> {
             // but not in the pending or active queues
             // Note: if your IDE highlights the below as problematic, you can ignore
             return Err(StdError::GenericErr {
-                msg: ContractError::CustomError {
-                    val: "Address missing from pending and active queues".to_string(),
-                }
-                .to_string(),
+                msg: ContractError::AgentUnregistered {}.to_string(),
             });
         };
 
@@ -244,9 +241,7 @@ impl<'a> CwCroncat<'a> {
                         ag.payable_account_id = payable_account_id;
                         Ok(ag)
                     }
-                    None => Err(ContractError::CustomError {
-                        val: "Agent doesnt exist".to_string(),
-                    }),
+                    None => Err(ContractError::AgentUnregistered {}),
                 }
             },
         )?;
@@ -262,9 +257,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Vec<SubMsg>, ContractError> {
         let a = self.agents.may_load(storage, info.sender)?;
         if a.is_none() {
-            return Err(ContractError::CustomError {
-                val: "Agent doesnt exist".to_string(),
-            });
+            return Err(ContractError::AgentUnregistered {});
         }
         let agent = a.unwrap();
 
@@ -752,9 +745,7 @@ mod tests {
             .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
-                val: "Agent doesnt exist".to_string()
-            },
+            ContractError::AgentUnregistered {},
             update_err.downcast().unwrap()
         );
 
@@ -797,9 +788,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
-                val: "Agent doesnt exist".to_string()
-            },
+            ContractError::AgentUnregistered {},
             update_err.downcast().unwrap()
         );
 
@@ -829,9 +818,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
-                val: "Agent doesnt exist".to_string()
-            },
+            ContractError::AgentUnregistered {},
             update_err.downcast().unwrap()
         );
 
@@ -867,9 +854,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
-                val: "Agent doesnt exist".to_string()
-            },
+            ContractError::AgentUnregistered {},
             update_err.downcast().unwrap()
         );
 
