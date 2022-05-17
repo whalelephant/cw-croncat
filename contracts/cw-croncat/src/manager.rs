@@ -114,8 +114,8 @@ impl<'a> CwCroncat<'a> {
         // Proceed to query loops if rules are found in the task
         // Each rule is chained into the next, then evaluated if response is true before proceeding
         let mut rule_responses: Vec<Attribute> = vec![];
-        let mut rule_success: bool = false;
         if task.rules.is_some() {
+            let mut rule_success: bool = false;
             // let mut previous_msg: Option<Binary>;
             for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
                 let rule_res: RuleResponse<Option<Binary>> = deps
@@ -127,11 +127,11 @@ impl<'a> CwCroncat<'a> {
                 // TODO: needs better approach
                 rule_responses.push(Attribute::new(idx.to_string(), format!("{:?}", rule_res.1)));
             }
-        }
-        if !rule_success {
-            return Err(ContractError::CustomError {
-                val: "Rule evaluated to false".to_string(),
-            });
+            if !rule_success {
+                return Err(ContractError::CustomError {
+                    val: "Rule evaluated to false".to_string(),
+                });
+            }
         }
 
         // Setup submessages for actions for this task
