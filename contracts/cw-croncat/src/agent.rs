@@ -24,15 +24,27 @@ impl<'a> CwCroncat<'a> {
         if agent.is_none() {
             return Ok(None);
         }
-
+        let active: Vec<Addr> = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
         let a = agent.unwrap();
+        let mut agent_response = AgentResponse {
+            status: AgentStatus::Pending, // Simple default
+            payable_account_id: a.payable_account_id,
+            balance: a.balance,
+            total_tasks_executed: a.total_tasks_executed,
+            last_missed_slot: a.last_missed_slot,
+            register_start: a.register_start,
+        };
+
+        if active.contains(&account_id) {
+            agent_response.status = AgentStatus::Active;
+            return Ok(Some(agent_response));
+        }
 
         let pending: Vec<Addr> = self
             .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
-        let active: Vec<Addr> = self
-            .agent_active_queue
             .may_load(deps.storage)?
             .unwrap_or_default();
 
@@ -73,8 +85,6 @@ impl<'a> CwCroncat<'a> {
                 // Not their time yet
                 AgentStatus::Pending
             }
-        } else if active.contains(&account_id) {
-            AgentStatus::Active
         } else {
             // This should not happen. It means the address is in self.agents
             // but not in the pending or active queues
@@ -87,14 +97,8 @@ impl<'a> CwCroncat<'a> {
             });
         };
 
-        Ok(Some(AgentResponse {
-            status: agent_status,
-            payable_account_id: a.payable_account_id,
-            balance: a.balance,
-            total_tasks_executed: a.total_tasks_executed,
-            last_missed_slot: a.last_missed_slot,
-            register_start: a.register_start,
-        }))
+        agent_response.status = agent_status;
+        Ok(Some(agent_response))
     }
 
     /// Get a list of agent addresses
