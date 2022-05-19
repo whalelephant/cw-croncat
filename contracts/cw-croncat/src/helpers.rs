@@ -8,6 +8,7 @@ use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::cmp;
 use std::ops::Div;
 
 // Helper to distribute funds/tokens
@@ -83,7 +84,7 @@ impl<'a> CwCroncat<'a> {
         let agent_status: AgentStatus = if pending.contains(&account_id) {
             // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
             // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-            let task_ratio = c.agent_task_ratio;
+            let max_tasks_per_agent = c.max_tasks_per_agent;
             let total_tasks = self
                 .task_total(storage)
                 .expect("Unexpected issue getting task total");
@@ -92,19 +93,22 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage)
                 .unwrap()
                 .unwrap_or_default()
-                .len();
+                .len() as u64;
             let agent_position = pending
                 .iter()
                 .position(|address| address == &account_id)
                 .unwrap();
 
             // If we should allow a new agent to take over
-            if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1]
-                && c.agent_nomination_begin_time.is_some()
-            {
+            let num_agents_to_accept =
+                self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &total_tasks);
+            if num_agents_to_accept != 0 && c.agent_nomination_begin_time.is_some() {
                 let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
 
-                let max_index = time_difference.div(c.agent_nomination_duration as u64);
+                let max_index = cmp::max(
+                    time_difference.div(c.agent_nomination_duration as u64),
+                    num_agents_to_accept - 1,
+                );
                 if agent_position as u64 <= max_index {
                     AgentStatus::Nominated
                 } else {
@@ -121,6 +125,28 @@ impl<'a> CwCroncat<'a> {
             return Err(AgentUnregistered {});
         };
         Ok(agent_status)
+    }
+
+    pub fn agents_to_let_in(
+        &self,
+        max_tasks: &u64,
+        num_active_agents: &u64,
+        total_tasks: &u64,
+    ) -> u64 {
+        let num_tasks_covered = num_active_agents * max_tasks;
+        if total_tasks > &num_tasks_covered {
+            // It's possible there are more "covered tasks" than total tasks,
+            // so use saturating subtraction to hit zero and not go below
+            let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
+            let remainder = if total_tasks_needing_agents % max_tasks == 0 {
+                0
+            } else {
+                1
+            };
+            total_tasks_needing_agents / max_tasks + remainder
+        } else {
+            0
+        }
     }
 }
 

@@ -374,19 +374,21 @@ impl<'a> CwCroncat<'a> {
         c.available_balance.add_tokens(Balance::from(info.funds));
 
         // If the creation of this task means we'd like another agent, update config
-        let task_ratio = c.agent_task_ratio;
+        let max_tasks_per_agent = c.max_tasks_per_agent;
         // Get total tasks
         let total_tasks = self
             .tasks
             .keys(deps.storage, None, None, Order::Ascending)
-            .count();
+            .count() as u64;
         let num_active_agents = self
             .agent_active_queue
             .may_load(deps.storage)?
             .unwrap_or_default()
-            .len();
+            .len() as u64;
+        let num_agents_to_accept =
+            self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &total_tasks);
         // If we should allow a new agent to take over
-        if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1] {
+        if num_agents_to_accept != 0 {
             // Don't wipe out an older timestamp
             if c.agent_nomination_begin_time.is_none() {
                 c.agent_nomination_begin_time = Some(env.block.time)
@@ -770,11 +772,11 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            agent_task_ratio: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
             slot_granularity: None,
+            max_tasks_per_agent: None,
         };
         app.execute_contract(
             Addr::unchecked(ADMIN),
@@ -806,11 +808,11 @@ mod tests {
                 owner_id: None,
                 // treasury_id: None,
                 agent_fee: None,
-                agent_task_ratio: None,
                 agents_eject_threshold: None,
                 gas_price: None,
                 proxy_callback_gas: None,
                 slot_granularity: None,
+                max_tasks_per_agent: None,
             },
             &vec![],
         )

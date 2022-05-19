@@ -380,6 +380,8 @@ mod tests {
     const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
     const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
     const PARTICIPANT4: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const PARTICIPANT5: &str = "cosmos1k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
+    const PARTICIPANT6: &str = "cosmos14a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {
@@ -396,6 +398,8 @@ mod tests {
                 (20, PARTICIPANT2.to_string()),
                 (20, PARTICIPANT3.to_string()),
                 (20, PARTICIPANT4.to_string()),
+                (20, PARTICIPANT5.to_string()),
+                (20, PARTICIPANT6.to_string()),
                 (1, AGENT_BENEFICIARY.to_string()),
             ];
             for (amt, address) in accounts.iter() {
@@ -612,7 +616,7 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            agent_task_ratio: None,
+            max_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
@@ -642,7 +646,7 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            agent_task_ratio: None,
+            max_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
@@ -928,12 +932,13 @@ mod tests {
         assert_eq!(1, num_active_agents);
         assert_eq!(2, agent_ids_res.pending.len());
 
-        // Add two more tasks, so we can nominate another agent
+        // Add three more tasks, so we can nominate another agent
         add_task_exec(&mut app, &contract_addr, PARTICIPANT1);
         add_task_exec(&mut app, &contract_addr, PARTICIPANT2);
+        add_task_exec(&mut app, &contract_addr, PARTICIPANT3);
 
         num_tasks = get_task_total(&app, &contract_addr);
-        assert_eq!(num_tasks, 3);
+        assert_eq!(num_tasks, 4);
 
         // Fast forward time a little
         app.update_block(add_little_time);
@@ -986,10 +991,13 @@ mod tests {
         agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT3);
         assert_eq!(AgentStatus::Pending, agent_status);
 
-        // Again, add two more tasks so we can nominate another agent
-        add_task_exec(&mut app, &contract_addr, PARTICIPANT3);
-
+        // Again, add three more tasks so we can nominate another agent
         add_task_exec(&mut app, &contract_addr, PARTICIPANT4);
+        add_task_exec(&mut app, &contract_addr, PARTICIPANT5);
+        add_task_exec(&mut app, &contract_addr, PARTICIPANT6);
+
+        num_tasks = get_task_total(&app, &contract_addr);
+        assert_eq!(num_tasks, 7);
 
         // Add another agent, since there's now the need
         register_agent_exec(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY);
@@ -1024,9 +1032,8 @@ mod tests {
         // Give the contract and the agents balances
         let mut deps = cosmwasm_std::testing::mock_dependencies_with_balances(&[
             (&MOCK_CONTRACT_ADDR, &[coin(6000, "atom")]),
+            (&AGENT0, &[coin(600, "atom")]),
             (&AGENT1, &[coin(600, "atom")]),
-            (&AGENT2, &[coin(600, "atom")]),
-            (&AGENT3, &[coin(600, "atom")]),
         ]);
         let contract = CwCroncat::default();
 
@@ -1036,14 +1043,14 @@ mod tests {
             owner_id: None,
             agent_nomination_duration: Some(360),
         };
-        let mut info = mock_info(AGENT1, &coins(6000, "atom"));
+        let mut info = mock_info(AGENT0, &coins(6000, "atom"));
         let res_init = contract
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
             .unwrap();
         assert_eq!(0, res_init.messages.len());
 
         let mut agent_status_res =
-            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT0));
         assert_eq!(Err(ContractError::AgentUnregistered {}), agent_status_res);
 
         let agent_active_queue_opt: Option<Vec<Addr>> = match deps
@@ -1059,19 +1066,18 @@ mod tests {
         );
 
         // First registered agent becomes active
-        let mut register_agent_res = contract_register_agent(AGENT1, &contract, deps.as_mut());
+        let mut register_agent_res = contract_register_agent(AGENT0, &contract, deps.as_mut());
         assert!(
             register_agent_res.is_ok(),
             "Registering agent should succeed"
         );
 
         agent_status_res =
-            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT0));
         assert_eq!(AgentStatus::Active, agent_status_res.unwrap());
 
         // Add two tasks
         let mut res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
-
         assert!(res_add_task.is_ok(), "Adding task should succeed.");
         // Change sender so it's not a duplicate task
         info.sender = Addr::unchecked(PARTICIPANT0);
@@ -1079,27 +1085,30 @@ mod tests {
         assert!(res_add_task.is_ok(), "Adding task should succeed.");
 
         // Register an agent and make sure the status comes back as pending
-        register_agent_res = contract_register_agent(AGENT2, &contract, deps.as_mut());
+        register_agent_res = contract_register_agent(AGENT1, &contract, deps.as_mut());
         assert!(
             register_agent_res.is_ok(),
             "Registering agent should succeed"
         );
         agent_status_res =
-            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT2));
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
         assert_eq!(
             AgentStatus::Pending,
             agent_status_res.unwrap(),
             "New agent should be pending"
         );
 
-        // Another task is added
+        // Two more tasks are added
         info.sender = Addr::unchecked(PARTICIPANT1);
         res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
         assert!(res_add_task.is_ok(), "Adding task should succeed.");
+        info.sender = Addr::unchecked(PARTICIPANT2);
+        res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
+        assert!(res_add_task.is_ok(), "Adding task should succeed.");
 
-        // Agent nominates themselves (aka "checks in") and should be
+        // Agent status is nominated
         agent_status_res =
-            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT2));
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
         assert_eq!(
             AgentStatus::Nominated,
             agent_status_res.unwrap(),
