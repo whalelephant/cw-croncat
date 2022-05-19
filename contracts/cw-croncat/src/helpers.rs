@@ -1,9 +1,14 @@
-use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, StdResult, SubMsg, WasmMsg};
+use crate::state::Config;
+use crate::ContractError::AgentUnregistered;
+use crate::{ContractError, CwCroncat};
+use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
+use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::ops::Div;
 
 // Helper to distribute funds/tokens
 pub(crate) fn send_tokens(
@@ -50,6 +55,73 @@ pub(crate) fn has_cw_coins(coins: &[Cw20CoinVerified], required: &Cw20CoinVerifi
         .find(|c| c.address == required.address)
         .map(|m| m.amount >= required.amount)
         .unwrap_or(false)
+}
+
+impl<'a> CwCroncat<'a> {
+    pub fn get_agent_status(
+        &self,
+        storage: &dyn Storage,
+        // block_time: u64,
+        env: Env,
+        account_id: Addr,
+    ) -> Result<AgentStatus, ContractError> {
+        let c: Config = self.config.load(storage)?;
+        let block_time = env.block.time.seconds();
+        // Check for active
+        let active_opt = self.agent_active_queue.may_load(storage)?;
+        if let Some(active) = active_opt {
+            if active.contains(&account_id) {
+                return Ok(AgentStatus::Active);
+            }
+        }
+        // Pending
+        let pending: Vec<Addr> = self
+            .agent_pending_queue
+            .may_load(storage)?
+            .unwrap_or_default();
+        // If agent is pending, Check if they should get nominated to checkin to become active
+        let agent_status: AgentStatus = if pending.contains(&account_id) {
+            // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
+            // Then determine if this agent is considered "Nominated" and should call CheckInAgent
+            let task_ratio = c.agent_task_ratio;
+            let total_tasks = self
+                .task_total(storage)
+                .expect("Unexpected issue getting task total");
+            let num_active_agents = self
+                .agent_active_queue
+                .may_load(storage)
+                .unwrap()
+                .unwrap_or_default()
+                .len();
+            let agent_position = pending
+                .iter()
+                .position(|address| address == &account_id)
+                .unwrap();
+
+            // If we should allow a new agent to take over
+            if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1]
+                && c.agent_nomination_begin_time.is_some()
+            {
+                let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
+
+                let max_index = time_difference.div(c.agent_nomination_duration as u64);
+                if agent_position as u64 <= max_index {
+                    AgentStatus::Nominated
+                } else {
+                    AgentStatus::Pending
+                }
+            } else {
+                // Not their time yet
+                AgentStatus::Pending
+            }
+        } else {
+            // This should not happen. It means the address is in self.agents
+            // but not in the pending or active queues
+            // Note: if your IDE highlights the below as problematic, you can ignore
+            return Err(AgentUnregistered {});
+        };
+        Ok(agent_status)
+    }
 }
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers

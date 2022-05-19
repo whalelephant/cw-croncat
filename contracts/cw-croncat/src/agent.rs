@@ -43,57 +43,16 @@ impl<'a> CwCroncat<'a> {
             return Ok(Some(agent_response));
         }
 
-        let pending: Vec<Addr> = self
-            .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let agent_status = self.get_agent_status(deps.storage, env, account_id);
 
-        // If agent is pending, Check if they should get nominated to checkin to become active
-        let agent_status: AgentStatus = if pending.contains(&account_id) {
-            // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
-            // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-            let agent_position = pending
-                .iter()
-                .position(|address| address == &account_id)
-                .unwrap();
-            let c: Config = self.config.load(deps.storage)?;
-            let task_ratio = c.agent_task_ratio;
-            // Get total tasks
-            let total_tasks = self
-                .task_total(deps.storage)
-                .expect("Unexpected issue getting task total");
-            let num_active_agents = self
-                .agent_active_queue
-                .may_load(deps.storage)?
-                .unwrap_or_default()
-                .len();
-            // If we should allow a new agent to take over
-            if total_tasks as u64 > num_active_agents as u64 * task_ratio[0] * task_ratio[1]
-                && c.agent_nomination_begin_time.is_some()
-            {
-                let time_difference =
-                    env.block.time.seconds() - c.agent_nomination_begin_time.unwrap().seconds();
-
-                let max_index = time_difference.div(c.agent_nomination_duration as u64);
-                if agent_position as u64 <= max_index {
-                    AgentStatus::Nominated
-                } else {
-                    AgentStatus::Pending
-                }
-            } else {
-                // Not their time yet
-                AgentStatus::Pending
-            }
-        } else {
-            // This should not happen. It means the address is in self.agents
-            // but not in the pending or active queues
-            // Note: if your IDE highlights the below as problematic, you can ignore
+        // Return wrapped error if there was a problem
+        if agent_status.is_err() {
             return Err(StdError::GenericErr {
-                msg: ContractError::AgentUnregistered {}.to_string(),
+                msg: agent_status.err().unwrap().to_string(),
             });
-        };
+        }
 
-        agent_response.status = agent_status;
+        agent_response.status = agent_status.expect("Should have valid agent status");
         Ok(Some(agent_response))
     }
 
@@ -394,7 +353,8 @@ mod tests {
     use super::*;
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use cosmwasm_std::{coin, coins, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
+    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::{coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Boundary, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
@@ -490,7 +450,7 @@ mod tests {
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
         let send_funds = coins(1, NATIVE_DENOM);
-        let hi = app.execute_contract(
+        app.execute_contract(
             Addr::unchecked(sender),
             contract_addr.clone(),
             &ExecuteMsg::CreateTask {
@@ -506,11 +466,58 @@ mod tests {
                 },
             },
             send_funds.as_ref(),
-        );
-        hi.expect("Error adding task")
+        )
+        .expect("Error adding task")
     }
 
-    fn get_agent_status(app: &mut App, contract_addr: &Addr, agent: &str) -> AgentStatus {
+    fn contract_create_task(
+        contract: &CwCroncat,
+        deps: DepsMut,
+        info: &MessageInfo,
+    ) -> Result<Response, ContractError> {
+        // try adding task without app
+        let validator = String::from("you");
+        let amount = coin(3, NATIVE_DENOM);
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+        // let send_funds = coins(1, NATIVE_DENOM);
+
+        contract.create_task(
+            deps,
+            info.clone(),
+            mock_env(),
+            TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                action: msg.clone(),
+                rules: None,
+            },
+        )
+    }
+
+    fn contract_register_agent(
+        sender: &str,
+        contract: &CwCroncat,
+        deps: DepsMut,
+    ) -> Result<Response, ContractError> {
+        contract.execute(
+            deps,
+            mock_env(),
+            MessageInfo {
+                sender: Addr::unchecked(sender),
+                funds: vec![],
+            },
+            ExecuteMsg::RegisterAgent {
+                payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            },
+        )
+    }
+
+    fn get_stored_agent_status(app: &mut App, contract_addr: &Addr, agent: &str) -> AgentStatus {
         let agent_info: AgentResponse = app
             .wrap()
             .query_wasm_smart(
@@ -931,9 +938,9 @@ mod tests {
         // Fast forward time a little
         app.update_block(add_little_time);
 
-        let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        let mut agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT3);
         assert_eq!(AgentStatus::Pending, agent_status);
-        agent_status = get_agent_status(&mut app, &contract_addr, AGENT2);
+        agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT2);
         assert_eq!(AgentStatus::Nominated, agent_status);
 
         // Attempt to accept nomination
@@ -976,7 +983,7 @@ mod tests {
             error_msg.downcast().unwrap()
         );
 
-        agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT3);
         assert_eq!(AgentStatus::Pending, agent_status);
 
         // Again, add two more tasks so we can nominate another agent
@@ -991,9 +998,9 @@ mod tests {
         app.update_block(add_one_duration_of_time);
 
         // Now that enough time has passed, both agents should see they're nominated
-        agent_status = get_agent_status(&mut app, &contract_addr, AGENT3);
+        agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT3);
         assert_eq!(AgentStatus::Nominated, agent_status);
-        agent_status = get_agent_status(&mut app, &contract_addr, AGENT4);
+        agent_status = get_stored_agent_status(&mut app, &contract_addr, AGENT4);
         assert_eq!(AgentStatus::Nominated, agent_status);
 
         // Agent second in line nominates themself
@@ -1009,6 +1016,94 @@ mod tests {
         assert_eq!(
             num_pending_agents, 0,
             "Expect the pending queue to be empty"
+        );
+    }
+
+    #[test]
+    fn test_get_agent_status() {
+        // Give the contract and the agents balances
+        let mut deps = cosmwasm_std::testing::mock_dependencies_with_balances(&[
+            (&MOCK_CONTRACT_ADDR, &[coin(6000, "atom")]),
+            (&AGENT1, &[coin(600, "atom")]),
+            (&AGENT2, &[coin(600, "atom")]),
+            (&AGENT3, &[coin(600, "atom")]),
+        ]);
+        let contract = CwCroncat::default();
+
+        // Instantiate
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+            agent_nomination_duration: Some(360),
+        };
+        let mut info = mock_info(AGENT1, &coins(6000, "atom"));
+        let res_init = contract
+            .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
+            .unwrap();
+        assert_eq!(0, res_init.messages.len());
+
+        let mut agent_status_res =
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
+        assert_eq!(Err(ContractError::AgentUnregistered {}), agent_status_res);
+
+        let agent_active_queue_opt: Option<Vec<Addr>> = match deps
+            .storage
+            .get("agent_active_queue".as_bytes())
+        {
+            Some(vec) => Some(from_slice(vec.as_ref()).expect("Could not load agent active queue")),
+            None => None,
+        };
+        assert!(
+            agent_active_queue_opt.is_none(),
+            "Should not have an active queue yet"
+        );
+
+        // First registered agent becomes active
+        let mut register_agent_res = contract_register_agent(AGENT1, &contract, deps.as_mut());
+        assert!(
+            register_agent_res.is_ok(),
+            "Registering agent should succeed"
+        );
+
+        agent_status_res =
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT1));
+        assert_eq!(AgentStatus::Active, agent_status_res.unwrap());
+
+        // Add two tasks
+        let mut res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
+
+        assert!(res_add_task.is_ok(), "Adding task should succeed.");
+        // Change sender so it's not a duplicate task
+        info.sender = Addr::unchecked(PARTICIPANT0);
+        res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
+        assert!(res_add_task.is_ok(), "Adding task should succeed.");
+
+        // Register an agent and make sure the status comes back as pending
+        register_agent_res = contract_register_agent(AGENT2, &contract, deps.as_mut());
+        assert!(
+            register_agent_res.is_ok(),
+            "Registering agent should succeed"
+        );
+        agent_status_res =
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT2));
+        assert_eq!(
+            AgentStatus::Pending,
+            agent_status_res.unwrap(),
+            "New agent should be pending"
+        );
+
+        // Another task is added
+        info.sender = Addr::unchecked(PARTICIPANT1);
+        res_add_task = contract_create_task(&contract, deps.as_mut(), &info);
+        assert!(res_add_task.is_ok(), "Adding task should succeed.");
+
+        // Agent nominates themselves (aka "checks in") and should be
+        agent_status_res =
+            contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT2));
+        assert_eq!(
+            AgentStatus::Nominated,
+            agent_status_res.unwrap(),
+            "New agent should have nominated status"
         );
     }
 }
