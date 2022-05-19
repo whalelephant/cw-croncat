@@ -316,7 +316,7 @@ impl<'a> CwCroncat<'a> {
             }
         } else {
             // Sender's address does not exist in the agent pending queue
-            return Err(ContractError::Unauthorized {});
+            return Err(ContractError::AgentUnregistered {});
         }
         // Find difference
         Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
