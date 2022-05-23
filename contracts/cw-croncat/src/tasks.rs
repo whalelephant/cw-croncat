@@ -340,8 +340,9 @@ impl<'a> CwCroncat<'a> {
             })?;
 
         // Increment task totals
-        let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(0);
-        self.task_total.save(deps.storage, &(size + 1))?;
+        let mut size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(0);
+        size += 1;
+        self.task_total.save(deps.storage, &(size.clone()))?;
 
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
@@ -375,18 +376,13 @@ impl<'a> CwCroncat<'a> {
 
         // If the creation of this task means we'd like another agent, update config
         let max_tasks_per_agent = c.max_tasks_per_agent;
-        // Get total tasks
-        let total_tasks = self
-            .tasks
-            .keys(deps.storage, None, None, Order::Ascending)
-            .count() as u64;
         let num_active_agents = self
             .agent_active_queue
             .may_load(deps.storage)?
             .unwrap_or_default()
             .len() as u64;
         let num_agents_to_accept =
-            self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &total_tasks);
+            self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &size);
         // If we should allow a new agent to take over
         if num_agents_to_accept != 0 {
             // Don't wipe out an older timestamp
