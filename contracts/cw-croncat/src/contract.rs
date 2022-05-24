@@ -114,10 +114,8 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
-            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, info, env, task_hash),
-            ExecuteMsg::RefillTaskBalance { task_hash } => {
-                self.refill_task(deps, info, env, task_hash)
-            }
+            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, task_hash),
+            ExecuteMsg::RefillTaskBalance { task_hash } => self.refill_task(deps, info, task_hash),
             ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
         }
     }

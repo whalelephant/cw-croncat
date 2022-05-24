@@ -1,4 +1,6 @@
-use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp};
+use cosmwasm_std::{
+    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, Timestamp, WasmMsg,
+};
 use cron_schedule::Schedule;
 use cw20::{Balance, Cw20CoinVerified};
 use hex::encode;
@@ -135,9 +137,7 @@ pub struct Task {
     pub total_deposit: Vec<Coin>,
 
     /// The cosmos message to call, if time or rules are met
-    pub action: Action,
-    // TODO: Decide if batch should be supported? Does that break gas limits ESP when rules are applied?
-    // pub action: Vec<Action>,
+    pub actions: Vec<Action>,
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
@@ -152,7 +152,7 @@ impl Task {
             self.owner_id,
             self.interval,
             self.clone().boundary,
-            self.action,
+            self.actions,
             self.rules
         );
 
@@ -168,6 +168,63 @@ impl Task {
     // pub fn task_balance_uses(&self, task: &Task) -> u128 {
     //     task.deposit.0 + (u128::from(task.gas) * self.gas_price) + self.agent_fee
     // }
+
+    /// Validate the task actions only use the supported messages
+    pub fn is_valid_msg(&self, self_addr: &Addr, sender: &Addr, owner_id: &Addr) -> bool {
+        // TODO: Chagne to default FALSE, once all messages are covered in tests
+        let mut valid = true;
+
+        for action in self.actions.iter() {
+            match action.clone().msg {
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr,
+                    funds: _,
+                    msg: _,
+                }) => {
+                    // TODO: Is there any way sender can be "self" creating a malicious task?
+                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
+                    if &contract_addr == self_addr && sender != owner_id {
+                        valid = false;
+                    }
+                }
+                // TODO: Allow send, as long as coverage of assets is correctly handled
+                CosmosMsg::Bank(BankMsg::Send { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    valid = false;
+                }
+                CosmosMsg::Bank(BankMsg::Burn { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    valid = false;
+                }
+                CosmosMsg::Gov(GovMsg::Vote { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    valid = false;
+                }
+                // TODO: Setup better support for IBC
+                CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    valid = false;
+                }
+                // TODO: Check authZ messages
+                _ => (),
+            }
+        }
+
+        valid
+    }
+
+    /// Get task gas total
+    /// helper for getting total configured gas for this tasks actions
+    pub fn to_gas_total(&self) -> u64 {
+        let mut gas: u64 = 0;
+
+        // tally all the gases
+        for action in self.actions.iter() {
+            gas = gas.saturating_add(action.gas_limit.unwrap_or(0));
+        }
+
+        gas
+    }
 }
 
 impl GenericBalance {

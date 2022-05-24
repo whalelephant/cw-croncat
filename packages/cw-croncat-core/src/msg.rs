@@ -152,7 +152,7 @@ pub struct TaskRequest {
     pub interval: Interval,
     pub boundary: Boundary,
     pub stop_on_fail: bool,
-    pub action: Action,
+    pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }
 
@@ -164,6 +164,6 @@ pub struct TaskResponse {
     pub boundary: Boundary,
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
-    pub action: Action,
+    pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }

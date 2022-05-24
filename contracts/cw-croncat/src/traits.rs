@@ -1,4 +1,4 @@
-use cosmwasm_std::Env;
+use cosmwasm_std::{Addr, Env};
 use cw20::Balance;
 use cw_croncat_core::types::{Boundary, SlotType};
 
@@ -15,4 +15,6 @@ pub trait IntervalExt {
 pub trait TaskHash {
     fn to_hash(&self) -> String;
     fn to_hash_vec(&self) -> Vec<u8>;
+    fn is_valid_msg(&self, self_addr: &Addr, sender: &Addr, owner_id: &Addr) -> bool;
+    fn to_gas_total(&self) -> u64;
 }

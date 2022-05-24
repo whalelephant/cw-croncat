@@ -39,6 +39,9 @@ pub struct Config {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueueItem {
     pub contract_addr: Option<Addr>,
+    // This is used to track disjointed callbacks
+    // could help scheduling multiple calls across txns
+    // could help for IBC non-block bound txns
     pub prev_idx: Option<u64>,
     pub task_hash: Option<Vec<u8>>,
 }
@@ -172,13 +175,13 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: vec![],
-            action: Action {
+            actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
-            },
+            }],
             rules: None,
         };
-        let task_id_str = "d30a8eef8f82de707f97f6cfaa2235eb4bb7cf1891fd787e7cc38a89d7f532bd";
+        let task_id_str = "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee";
         let task_id = task_id_str.to_string().into_bytes();
 
         // create a task
@@ -226,7 +229,7 @@ mod tests {
         let mut storage = MockStorage::new();
         let store = CwCroncat::default();
 
-        let task_id_str = "d30a8eef8f82de707f97f6cfaa2235eb4bb7cf1891fd787e7cc38a89d7f532bd";
+        let task_id_str = "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee";
         let task_id = task_id_str.to_string().into_bytes();
         let tasks_vec = vec![task_id];
 

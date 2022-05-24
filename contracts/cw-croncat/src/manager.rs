@@ -1,9 +1,9 @@
 use crate::error::ContractError;
 use crate::state::{Config, CwCroncat, QueueItem};
 use cosmwasm_std::{
-    Addr, Attribute, Binary, DepsMut, Empty, Env, MessageInfo, Reply, Response, Storage, SubMsg,
+    Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
-use cw_croncat_core::types::{Agent, RuleResponse};
+use cw_croncat_core::types::{Agent, SlotType};
 
 impl<'a> CwCroncat<'a> {
     // TODO:
@@ -111,52 +111,54 @@ impl<'a> CwCroncat<'a> {
         // task.total_deposit = U128::from(task.total_deposit.0.saturating_sub(call_total_balance));
         // self.tasks.insert(&hash, &task);
 
+        // TODO: Move to external rule query handler
         // Proceed to query loops if rules are found in the task
         // Each rule is chained into the next, then evaluated if response is true before proceeding
-        let mut rule_responses: Vec<Attribute> = vec![];
-        if task.rules.is_some() {
-            let mut rule_success: bool = false;
-            // let mut previous_msg: Option<Binary>;
-            for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
-                let rule_res: RuleResponse<Option<Binary>> = deps
-                    .querier
-                    .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
-                println!("{:?}", rule_res);
-                rule_success = rule_res.0;
+        // let mut rule_responses: Vec<Attribute> = vec![];
+        // if task.rules.is_some() {
+        //     let mut rule_success: bool = false;
+        //     // let mut previous_msg: Option<Binary>;
+        //     for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
+        //         let rule_res: RuleResponse<Option<Binary>> = deps
+        //             .querier
+        //             .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
+        //         println!("{:?}", rule_res);
+        //         rule_success = rule_res.0;
 
-                // TODO: needs better approach
-                rule_responses.push(Attribute::new(idx.to_string(), format!("{:?}", rule_res.1)));
-            }
-            if !rule_success {
-                return Err(ContractError::CustomError {
-                    val: "Rule evaluated to false".to_string(),
-                });
-            }
-        }
+        //         // TODO: needs better approach
+        //         d.push(Attribute::new(idx.to_string(), format!("{:?}", rule_res.1)));
+        //     }
+        //     if !rule_success {
+        //         return Err(ContractError::CustomError {
+        //             val: "Rule evaluated to false".to_string(),
+        //         });
+        //     }
+        // }
 
         // Setup submessages for actions for this task
         // Each submessage in storage, computes & stores the "next" reply to allow for chained message processing.
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
-        let action = task.clone().action;
-        let sub_msg: SubMsg =
-            SubMsg::reply_always(action.msg, next_idx).with_gas_limit(action.gas_limit.unwrap());
-        // if action.gas_limit.is_some() {
-        //     sub_msg.with_gas_limit(action.gas_limit.unwrap());
-        // }
+        let actions = task.clone().actions;
+        let self_addr = env.contract.address;
 
-        sub_msgs.push(sub_msg);
+        // Add submessages for all actions
+        for action in actions {
+            let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx)
+                .with_gas_limit(action.gas_limit.unwrap());
 
+            sub_msgs.push(sub_msg);
+        }
+
+        // Keep track for later scheduling
         self.rq_push(
             deps.storage,
             QueueItem {
                 prev_idx: None,
                 task_hash: Some(hash),
-                contract_addr: Some(env.contract.address),
+                contract_addr: Some(self_addr),
             },
         )?;
-
-        // TODO: if out of balance or non-recurring, exit
 
         // Add the messages, reply handler responsible for task rescheduling
         let final_res = Response::new()
@@ -165,26 +167,77 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("slot_id", slot_id.to_string())
             .add_attribute("slot_kind", slot_id.to_string())
             .add_attribute("task_hash", task.to_hash())
-            .add_attributes(rule_responses)
+            // .add_attributes(rule_responses)
             .add_submessages(sub_msgs);
 
         Ok(final_res)
     }
 
-    // TODO: this will get triggered by reply handler
     /// Logic executed on the completion of a proxy call
     /// Reschedule next task
     pub(crate) fn proxy_callback(
         &self,
-        _deps: DepsMut,
-        _env: Env,
+        deps: DepsMut,
+        env: Env,
         _msg: Reply,
-        _task_hash: Vec<u8>,
+        task_hash: Vec<u8>,
     ) -> Result<Response, ContractError> {
-        // TODO: Check this was ONLY called directly
-        // TODO: reschedule next!
-        // TODO: gas checks?
-        Ok(Response::new().add_attribute("method", "proxy_callback"))
+        let mut response = Response::new().add_attribute("method", "proxy_callback");
+
+        // reschedule next!
+        if let Some(task) = self.tasks.may_load(deps.storage, task_hash)? {
+            // TODO: How can we compute gas & fees paid on this txn?
+            // let out_of_funds = call_total_balance > task.total_deposit;
+            //  || out_of_funds
+            // if out of balance or non-recurring, exit
+            if !task.stop_on_fail {
+                // Process task exit, if no future task can execute
+                return self.remove_task(deps, task.to_hash());
+            }
+
+            // Parse interval into a future timestamp, then convert to a slot
+            let (next_id, slot_kind) = task.interval.next(env, task.boundary);
+
+            // If the next interval comes back 0, then this task should not schedule again
+            if next_id == 0 {
+                self.remove_task(deps, task.to_hash())?;
+                return Err(ContractError::CustomError {
+                    val: "Task ended".to_string(),
+                });
+            }
+
+            response = response.add_attribute("next_slot", next_id.to_string());
+
+            // Get previous task hashes in slot, add as needed
+            let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+                match d {
+                    // has some data, simply push new hash
+                    Some(data) => {
+                        let mut s = data;
+                        s.push(task.to_hash_vec());
+                        Ok(s)
+                    }
+                    // No data, push new vec & hash
+                    None => Ok(vec![task.to_hash_vec()]),
+                }
+            };
+
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+                SlotType::Cron => {
+                    self.time_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+            }
+        } else {
+            return Err(ContractError::NoTaskFound {});
+        }
+
+        Ok(response)
     }
 
     /// Internal management of agent reward
