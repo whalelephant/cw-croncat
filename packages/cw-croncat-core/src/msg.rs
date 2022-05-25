@@ -145,7 +145,7 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub u64, pub u128);
+pub struct GetAgentTasksResponse(pub u64, pub u64);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {

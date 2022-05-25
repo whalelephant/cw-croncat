@@ -120,7 +120,7 @@ impl<'a> CwCroncat<'a> {
         }
     }
 
-    pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    pub fn query(&mut self, deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
             QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
@@ -130,7 +130,7 @@ impl<'a> CwCroncat<'a> {
             }
             QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
             QueryMsg::GetAgentTasks { account_id } => {
-                to_binary(&self.query_get_agent_tasks(deps, account_id)?)
+                to_binary(&self.query_get_agent_tasks(deps, env, account_id)?)
             }
 
             QueryMsg::GetTasks { from_index, limit } => {
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
-        let store = CwCroncat::default();
+        let mut store = CwCroncat::default();
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),

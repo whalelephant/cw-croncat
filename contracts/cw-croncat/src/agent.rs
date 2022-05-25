@@ -62,16 +62,26 @@ impl<'a> CwCroncat<'a> {
         // Ok(GetAgentIdsResponse(active, pending))
     }
 
-    // TODO:
-    /// Check how many tasks an agent can execute
+    // TODO: Change this to solid round-table implementation. Setup this simple version for PoC
+    /// Get how many tasks an agent can execute
     pub(crate) fn query_get_agent_tasks(
-        &self,
-        _deps: Deps,
-        _account_id: Addr,
+        &mut self,
+        deps: Deps,
+        env: Env,
+        account_id: Addr,
     ) -> StdResult<GetAgentTasksResponse> {
-        // let active = self.agent_active_queue.load(deps.storage)?;
+        let empty = GetAgentTasksResponse(0, 0);
+        let active = self.agent_active_queue.load(deps.storage)?;
+        let slot = self.get_current_slot_items(&env.block, deps.storage);
 
-        Ok(GetAgentTasksResponse(0, 0))
+        if active.contains(&account_id) {
+            if let Some(slot) = slot {
+                return Ok(GetAgentTasksResponse(1, slot.0));
+            }
+            return Ok(GetAgentTasksResponse(1, 0));
+        }
+
+        Ok(empty)
     }
 
     /// Add any account as an agent that will be able to execute tasks.

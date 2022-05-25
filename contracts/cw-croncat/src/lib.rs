@@ -44,7 +44,7 @@ pub mod entry {
 
     #[entry_point]
     pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
-        let s = CwCroncat::default();
+        let mut s = CwCroncat::default();
         s.query(deps, env, msg)
     }
 
