@@ -340,9 +340,13 @@ impl<'a> CwCroncat<'a> {
             })?;
 
         // Increment task totals
-        let mut size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(0);
-        size += 1;
-        self.task_total.save(deps.storage, &(size.clone()))?;
+        let size_res = self.increment_tasks(deps.storage);
+        if size_res.is_err() {
+            return Err(ContractError::CustomError {
+                val: "Problem incrementing task total".to_string(),
+            });
+        }
+        let size = size_res.unwrap();
 
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
