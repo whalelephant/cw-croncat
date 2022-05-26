@@ -142,6 +142,7 @@ pub struct Task {
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
     pub rules: Option<Vec<Rule>>,
+    // TODO: funds! should we support funds being attached?
 }
 
 impl Task {

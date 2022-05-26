@@ -173,7 +173,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         if let Ok(block_id) = block_slot {
-            if block_height >= block_id[0] {
+            if !block_id.is_empty() && block_height >= block_id[0] {
                 return Some((block_id[0], SlotType::Block));
             }
         }
@@ -186,7 +186,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         if let Ok(time_id) = time_slot {
-            if timestamp >= time_id[0] {
+            if !time_id.is_empty() && timestamp >= time_id[0] {
                 return Some((time_id[0], SlotType::Cron));
             }
         }

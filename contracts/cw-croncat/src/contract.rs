@@ -110,7 +110,7 @@ impl<'a> CwCroncat<'a> {
                 self.update_agent(deps, info, env, payable_account_id)
             }
             ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
-            ExecuteMsg::WithdrawReward {} => self.withdraw_task_balance(deps, info, env),
+            ExecuteMsg::WithdrawReward {} => self.withdraw_agent_balance(deps, info, env),
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
@@ -150,6 +150,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+        // TODO: Handle msg.events, where Attribute { key: "mode", value: "handle_failure" }
         // Route the next fns with the reply queue id meta
         let queue_item = self.reply_queue.may_load(deps.storage, msg.id)?;
 
@@ -296,5 +297,10 @@ mod tests {
             .reply(deps.as_mut(), mock_env(), msg.clone())
             .unwrap_err();
         assert_eq!(ContractError::NoTaskFound {}, res_err2);
+        let queue_item4 = store
+            .reply_queue
+            .may_load(deps.as_mut().storage, msg.id)
+            .unwrap();
+        assert!(queue_item4.is_none());
     }
 }

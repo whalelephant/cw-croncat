@@ -242,7 +242,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-    pub fn withdraw_task_balance(
+    pub fn withdraw_agent_balance(
         &self,
         deps: DepsMut,
         info: MessageInfo,
@@ -251,7 +251,7 @@ impl<'a> CwCroncat<'a> {
         let messages = self.withdraw_balances(deps.storage, info.clone())?;
 
         Ok(Response::new()
-            .add_attribute("method", "withdraw_task_balance")
+            .add_attribute("method", "withdraw_agent_balance")
             .add_attribute("account_id", info.sender)
             .add_submessages(messages))
     }
@@ -626,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn withdraw_task_balance() {
+    fn withdraw_agent_balance() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
