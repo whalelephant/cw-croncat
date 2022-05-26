@@ -27,8 +27,6 @@ pub enum AgentStatus {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Agent {
-    pub status: AgentStatus,
-
     // Where rewards get transferred
     pub payable_account_id: Addr,
 
@@ -48,7 +46,18 @@ pub struct Agent {
     // Useful for rewarding agents for their patience while they are pending and operating service
     // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
     // Example data: 1633890060000000000 or 0
-    pub register_start: u64,
+    pub register_start: Timestamp,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AgentResponse {
+    // This field doesn't exist in the Agent struct and is the only one that differs
+    pub status: AgentStatus,
+    pub payable_account_id: Addr,
+    pub balance: GenericBalance,
+    pub total_tasks_executed: u64,
+    pub last_missed_slot: u64,
+    pub register_start: Timestamp,
 }
 
 /// Defines the spacing of execution

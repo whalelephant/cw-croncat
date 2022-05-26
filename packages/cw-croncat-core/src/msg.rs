@@ -1,6 +1,6 @@
 use crate::types::Agent;
 use crate::types::{Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin, CosmosMsg};
+use cosmwasm_std::{Addr, Coin, CosmosMsg, Timestamp};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,7 @@ pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
     pub owner_id: Option<Addr>,
+    pub agent_nomination_duration: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -50,7 +51,7 @@ pub enum ExecuteMsg {
         agent_fee: Option<Coin>,
         gas_price: Option<u32>,
         proxy_callback_gas: Option<u32>,
-        agent_task_ratio: Option<Vec<u64>>,
+        min_tasks_per_agent: Option<u64>,
         agents_eject_threshold: Option<u64>,
         // treasury_id: Option<Addr>,
     },
@@ -124,7 +125,7 @@ pub struct ConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
-    pub agent_task_ratio: [u64; 2],
+    pub min_tasks_per_agent: u64,
     pub agent_active_index: u64,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
@@ -132,6 +133,7 @@ pub struct ConfigResponse {
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
+    pub agent_nomination_begin_time: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

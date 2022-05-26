@@ -321,7 +321,7 @@ impl<'a> CwCroncat<'a> {
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = item.interval.next(env, item.boundary);
+        let (next_id, slot_kind) = item.interval.next(env.clone(), item.boundary);
 
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
@@ -340,8 +340,13 @@ impl<'a> CwCroncat<'a> {
             })?;
 
         // Increment task totals
-        let size: u64 = self.task_total.may_load(deps.storage)?.unwrap_or(0);
-        self.task_total.save(deps.storage, &(size + 1))?;
+        let size_res = self.increment_tasks(deps.storage);
+        if size_res.is_err() {
+            return Err(ContractError::CustomError {
+                val: "Problem incrementing task total".to_string(),
+            });
+        }
+        let size = size_res.unwrap();
 
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
@@ -372,6 +377,24 @@ impl<'a> CwCroncat<'a> {
         // Add the attached balance into available_balance
         let mut c: Config = self.config.load(deps.storage)?;
         c.available_balance.add_tokens(Balance::from(info.funds));
+
+        // If the creation of this task means we'd like another agent, update config
+        let min_tasks_per_agent = c.min_tasks_per_agent;
+        let num_active_agents = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default()
+            .len() as u64;
+        let num_agents_to_accept =
+            self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
+        // If we should allow a new agent to take over
+        if num_agents_to_accept != 0 {
+            // Don't wipe out an older timestamp
+            if c.agent_nomination_begin_time.is_none() {
+                c.agent_nomination_begin_time = Some(env.block.time)
+            }
+        }
+
         self.config.save(deps.storage, &c)?;
 
         Ok(Response::new()
@@ -570,6 +593,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: Some(owner_addr.clone()),
+            agent_nomination_duration: Some(360),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
@@ -748,11 +772,11 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            agent_task_ratio: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
             slot_granularity: None,
+            min_tasks_per_agent: None,
         };
         app.execute_contract(
             Addr::unchecked(ADMIN),
@@ -784,11 +808,11 @@ mod tests {
                 owner_id: None,
                 // treasury_id: None,
                 agent_fee: None,
-                agent_task_ratio: None,
                 agents_eject_threshold: None,
                 gas_price: None,
                 proxy_callback_gas: None,
                 slot_granularity: None,
+                min_tasks_per_agent: None,
             },
             &vec![],
         )

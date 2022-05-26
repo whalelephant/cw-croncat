@@ -10,6 +10,7 @@ use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -37,7 +38,7 @@ impl<'a> CwCroncat<'a> {
             paused: false,
             owner_id: owner_acct,
             // treasury_id: None,
-            agent_task_ratio: [1, 2],
+            min_tasks_per_agent: 3,
             agent_active_index: 0,
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance,
@@ -50,6 +51,10 @@ impl<'a> CwCroncat<'a> {
             cw20_whitelist: vec![],
             // TODO: ????
             // cw20_fees: vec![],
+            agent_nomination_begin_time: None,
+            agent_nomination_duration: msg
+                .agent_nomination_duration
+                .unwrap_or(DEFAULT_NOMINATION_DURATION),
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
@@ -67,13 +72,8 @@ impl<'a> CwCroncat<'a> {
             //         .to_string(),
             // )
             .add_attribute(
-                "agent_task_ratio",
-                config
-                    .agent_task_ratio
-                    .iter()
-                    .copied()
-                    .map(|i| i.to_string())
-                    .collect::<String>(),
+                "min_tasks_per_agent",
+                config.min_tasks_per_agent.to_string(),
             )
             .add_attribute("agent_active_index", config.agent_active_index.to_string())
             .add_attribute(
@@ -124,13 +124,13 @@ impl<'a> CwCroncat<'a> {
         }
     }
 
-    pub fn query(&self, deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    pub fn query(&self, deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
             QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
 
             QueryMsg::GetAgent { account_id } => {
-                to_binary(&self.query_get_agent(deps, account_id)?)
+                to_binary(&self.query_get_agent(deps, env, account_id)?)
             }
             QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
             QueryMsg::GetAgentTasks { account_id } => {
@@ -169,6 +169,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            agent_nomination_duration: Some(360),
         };
         let info = mock_info("creator", &coins(1000, "meow"));
 
@@ -186,7 +187,7 @@ mod tests {
         assert_eq!(false, value.paused);
         assert_eq!(info.sender, value.owner_id);
         // assert_eq!(None, value.treasury_id);
-        assert_eq!([1, 2], value.agent_task_ratio);
+        assert_eq!(3, value.min_tasks_per_agent);
         assert_eq!(0, value.agent_active_index);
         assert_eq!(600, value.agents_eject_threshold);
         assert_eq!("atom", value.native_denom);

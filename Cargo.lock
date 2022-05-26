@@ -190,6 +190,7 @@ dependencies = [
 name = "cw-croncat"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",

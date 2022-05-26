@@ -1,9 +1,15 @@
-use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, StdResult, SubMsg, WasmMsg};
+use crate::state::Config;
+use crate::ContractError::AgentUnregistered;
+use crate::{ContractError, CwCroncat};
+use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
+use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::cmp;
+use std::ops::Div;
 
 // Helper to distribute funds/tokens
 pub(crate) fn send_tokens(
@@ -50,6 +56,97 @@ pub(crate) fn has_cw_coins(coins: &[Cw20CoinVerified], required: &Cw20CoinVerifi
         .find(|c| c.address == required.address)
         .map(|m| m.amount >= required.amount)
         .unwrap_or(false)
+}
+
+impl<'a> CwCroncat<'a> {
+    pub fn get_agent_status(
+        &self,
+        storage: &dyn Storage,
+        env: Env,
+        account_id: Addr,
+    ) -> Result<AgentStatus, ContractError> {
+        let c: Config = self.config.load(storage)?;
+        let block_time = env.block.time.seconds();
+        // Check for active
+        let active_opt = self.agent_active_queue.may_load(storage)?;
+        if let Some(active) = active_opt {
+            if active.contains(&account_id) {
+                return Ok(AgentStatus::Active);
+            }
+        }
+        // Pending
+        let pending: Vec<Addr> = self
+            .agent_pending_queue
+            .may_load(storage)?
+            .unwrap_or_default();
+        // If agent is pending, Check if they should get nominated to checkin to become active
+        let agent_status: AgentStatus = if pending.contains(&account_id) {
+            // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
+            // Then determine if this agent is considered "Nominated" and should call CheckInAgent
+            let min_tasks_per_agent = c.min_tasks_per_agent;
+            let total_tasks = self
+                .task_total(storage)
+                .expect("Unexpected issue getting task total");
+            let num_active_agents = self
+                .agent_active_queue
+                .may_load(storage)
+                .unwrap()
+                .unwrap_or_default()
+                .len() as u64;
+            let agent_position = pending
+                .iter()
+                .position(|address| address == &account_id)
+                .unwrap();
+
+            // If we should allow a new agent to take over
+            let num_agents_to_accept =
+                self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
+            if num_agents_to_accept != 0 && c.agent_nomination_begin_time.is_some() {
+                let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
+
+                let max_index = cmp::max(
+                    time_difference.div(c.agent_nomination_duration as u64),
+                    num_agents_to_accept - 1,
+                );
+                if agent_position as u64 <= max_index {
+                    AgentStatus::Nominated
+                } else {
+                    AgentStatus::Pending
+                }
+            } else {
+                // Not their time yet
+                AgentStatus::Pending
+            }
+        } else {
+            // This should not happen. It means the address is in self.agents
+            // but not in the pending or active queues
+            // Note: if your IDE highlights the below as problematic, you can ignore
+            return Err(AgentUnregistered {});
+        };
+        Ok(agent_status)
+    }
+
+    pub fn agents_to_let_in(
+        &self,
+        max_tasks: &u64,
+        num_active_agents: &u64,
+        total_tasks: &u64,
+    ) -> u64 {
+        let num_tasks_covered = num_active_agents * max_tasks;
+        if total_tasks > &num_tasks_covered {
+            // It's possible there are more "covered tasks" than total tasks,
+            // so use saturating subtraction to hit zero and not go below
+            let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
+            let remainder = if total_tasks_needing_agents % max_tasks == 0 {
+                0
+            } else {
+                1
+            };
+            total_tasks_needing_agents / max_tasks + remainder
+        } else {
+            0
+        }
+    }
 }
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
