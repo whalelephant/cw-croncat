@@ -62,7 +62,6 @@ impl<'a> CwCroncat<'a> {
     pub fn get_agent_status(
         &self,
         storage: &dyn Storage,
-        // block_time: u64,
         env: Env,
         account_id: Addr,
     ) -> Result<AgentStatus, ContractError> {
