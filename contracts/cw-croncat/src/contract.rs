@@ -150,7 +150,6 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
-        // TODO: Handle msg.events, where Attribute { key: "mode", value: "handle_failure" }
         // Route the next fns with the reply queue id meta
         let queue_item = self.reply_queue.may_load(deps.storage, msg.id)?;
 
@@ -163,6 +162,7 @@ impl<'a> CwCroncat<'a> {
         self.rq_remove(deps.storage, msg.id);
 
         // If contract_addr matches THIS contract, it is the proxy callback
+        // proxy_callback is also responsible for handling reply modes: "handle_failure", "handle_success"
         if item.contract_addr.is_some() && item.contract_addr.unwrap() == env.contract.address {
             return self.proxy_callback(deps, env, msg, item.task_hash.unwrap());
         }

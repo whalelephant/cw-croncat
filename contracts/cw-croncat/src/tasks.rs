@@ -330,6 +330,8 @@ impl<'a> CwCroncat<'a> {
 
         Ok(Response::new()
             .add_attribute("method", "create_task")
+            .add_attribute("slot_id", next_id.to_string())
+            .add_attribute("slot_kind", format!("{:?}", slot_kind))
             .add_attribute("task_hash", hash))
     }
 
@@ -912,7 +914,6 @@ mod tests {
                 &coins(37, "atom"),
             )
             .unwrap();
-        println!("res {:?}", res);
         // Assert task hash is returned as part of event attributes
         let mut has_created_hash: bool = false;
         for e in res.events {

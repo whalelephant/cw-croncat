@@ -193,20 +193,46 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: DepsMut,
         env: Env,
-        _msg: Reply,
+        msg: Reply,
         task_hash: Vec<u8>,
     ) -> Result<Response, ContractError> {
         let mut response = Response::new().add_attribute("method", "proxy_callback");
 
+        // check if reply had failure
+        let mut reply_submsg_failed = false;
+        if msg.result.is_ok() {
+            for e in msg.result.unwrap().events {
+                for a in e.attributes {
+                    if e.ty == "reply"
+                        && a.clone().key == "mode"
+                        && a.clone().value == "handle_failure"
+                    {
+                        reply_submsg_failed = true;
+                    }
+                }
+            }
+        } else if msg.result.is_err() {
+            reply_submsg_failed = true;
+        }
+
         // reschedule next!
         if let Some(task) = self.tasks.may_load(deps.storage, task_hash)? {
+            let task_hash = task.to_hash();
             // TODO: How can we compute gas & fees paid on this txn?
             // let out_of_funds = call_total_balance > task.total_deposit;
-            //  || out_of_funds
-            // if out of balance or non-recurring, exit
-            if !task.stop_on_fail {
+
+            // if non-recurring, exit
+            if task.stop_on_fail && reply_submsg_failed {
                 // Process task exit, if no future task can execute
-                return self.remove_task(deps, task.to_hash());
+                let rt = self.remove_task(deps, task_hash);
+                if let Ok(..) = rt {
+                    let resp = rt.unwrap();
+                    response = response
+                        .add_attributes(resp.attributes)
+                        .add_submessages(resp.messages)
+                        .add_events(resp.events);
+                }
+                return Ok(response);
             }
 
             // Parse interval into a future timestamp, then convert to a slot
@@ -214,13 +240,20 @@ impl<'a> CwCroncat<'a> {
 
             // If the next interval comes back 0, then this task should not schedule again
             if next_id == 0 {
-                self.remove_task(deps, task.to_hash())?;
-                return Err(ContractError::CustomError {
-                    val: "Task ended".to_string(),
-                });
+                let rt = self.remove_task(deps, task_hash.clone());
+                if let Ok(..) = rt {
+                    let resp = rt.unwrap();
+                    response = response
+                        .add_attributes(resp.attributes)
+                        .add_submessages(resp.messages)
+                        .add_events(resp.events);
+                }
+                response = response.add_attribute("ended_task", task_hash);
+                return Ok(response);
             }
 
-            response = response.add_attribute("next_slot", next_id.to_string());
+            response = response.add_attribute("slot_id", next_id.to_string());
+            response = response.add_attribute("slot_kind", format!("{:?}", slot_kind));
 
             // Get previous task hashes in slot, add as needed
             let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
@@ -284,7 +317,7 @@ mod tests {
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, TaskRequest};
-    use cw_croncat_core::types::{Action, Boundary, Interval};
+    use cw_croncat_core::types::{Action, Boundary, BoundarySpec, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -344,6 +377,12 @@ mod tests {
     pub fn add_little_time(block: &mut BlockInfo) {
         // block.time = block.time.plus_seconds(360);
         block.time = block.time.plus_seconds(19);
+        block.height += 1;
+    }
+
+    pub fn add_one_duration_of_time(block: &mut BlockInfo) {
+        // block.time = block.time.plus_seconds(360);
+        block.time = block.time.plus_seconds(420);
         block.height += 1;
     }
 
@@ -575,7 +614,6 @@ mod tests {
                 &coins(10, NATIVE_DENOM),
             )
             .unwrap();
-        println!("res {:?}", res);
         // Assert task hash is returned as part of event attributes
         let mut has_created_hash: bool = false;
         for e in res.events {
@@ -613,7 +651,6 @@ mod tests {
                 &vec![],
             )
             .unwrap();
-        println!("res {:?}", res);
         let mut has_required_attributes: bool = true;
         let mut has_submsg_method: bool = false;
         let mut has_reply_success: bool = false;
@@ -632,6 +669,498 @@ mod tests {
             for e in res.clone().events {
                 for a in e.attributes {
                     if e.ty == "wasm" && a.clone().key == k.to_string() && attr_key.is_none() {
+                        attr_key = Some(a.clone().key);
+                        attr_value = Some(a.clone().value);
+                    }
+                    if e.ty == "wasm"
+                        && a.clone().key == "method"
+                        && a.clone().value == "withdraw_agent_balance"
+                    {
+                        has_submsg_method = true;
+                    }
+                    if e.ty == "reply"
+                        && a.clone().key == "mode"
+                        && a.clone().value == "handle_success"
+                    {
+                        has_reply_success = true;
+                    }
+                }
+            }
+
+            // flip bool if none found, or value doesnt match
+            if let Some(_key) = attr_key {
+                if let Some(value) = attr_value {
+                    if v.to_string() != value {
+                        has_required_attributes = false;
+                    }
+                } else {
+                    has_required_attributes = false;
+                }
+            } else {
+                has_required_attributes = false;
+            }
+        }
+        assert!(has_required_attributes);
+        assert!(has_submsg_method);
+        assert!(has_reply_success);
+
+        Ok(())
+    }
+
+    #[test]
+    fn proxy_callback_fail_cases() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let task_id_str =
+            "ce7f88df7816b4cf2d0cd882f189eb81ad66e4a9aabfc1eb5ba2189d73f9929b".to_string();
+
+        // Doing this msg since its the easiest to guarantee success in reply
+        let validator = String::from("you");
+        let amount = coin(3, NATIVE_DENOM);
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: Some(BoundarySpec::Height(12347)),
+                },
+                stop_on_fail: true,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(250_000),
+                }],
+                rules: None,
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ADMIN),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(10, NATIVE_DENOM),
+            )
+            .unwrap();
+        // Assert task hash is returned as part of event attributes
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "task_hash" && a.value == task_id_str.clone() {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+        app.execute_contract(
+            Addr::unchecked(contract_addr.clone()),
+            contract_addr.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+        // might need block advancement?!
+        app.update_block(add_little_time);
+
+        // execute proxy_call - STOP ON FAIL
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        let mut has_required_attributes: bool = true;
+        let mut has_submsg_method: bool = false;
+        let mut has_reply_success: bool = false;
+        let attributes = vec![
+            ("method", "remove_task"), // the last method
+            ("slot_id", "12346"),
+            ("slot_kind", "Block"),
+            ("task_hash", task_id_str.as_str().clone()),
+        ];
+
+        // check all attributes are covered in response, and match the expected values
+        for (k, v) in attributes.iter() {
+            let mut attr_key: Option<String> = None;
+            let mut attr_value: Option<String> = None;
+            for e in res.clone().events {
+                for a in e.attributes {
+                    if e.ty == "wasm" && a.clone().key == k.to_string() {
+                        attr_key = Some(a.clone().key);
+                        attr_value = Some(a.clone().value);
+                    }
+                    if e.ty == "transfer"
+                        && a.clone().key == "amount"
+                        && a.clone().value == "10atom"
+                    {
+                        has_submsg_method = true;
+                    }
+                    if e.ty == "reply"
+                        && a.clone().key == "mode"
+                        && a.clone().value == "handle_failure"
+                    {
+                        has_reply_success = true;
+                    }
+                }
+            }
+
+            // flip bool if none found, or value doesnt match
+            if let Some(_key) = attr_key {
+                if let Some(value) = attr_value {
+                    if v.to_string() != value {
+                        has_required_attributes = false;
+                    }
+                } else {
+                    has_required_attributes = false;
+                }
+            } else {
+                has_required_attributes = false;
+            }
+        }
+        assert!(has_required_attributes);
+        assert!(has_submsg_method);
+        assert!(has_reply_success);
+
+        // let task_id_str =
+        //     "ce7f88df7816b4cf2d0cd882f189eb81ad66e4a9aabfc1eb5ba2189d73f9929b".to_string();
+
+        // Doing this msg since its the easiest to guarantee success in reply
+        let validator = String::from("you");
+        let amount = coin(3, NATIVE_DENOM);
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: Some(BoundarySpec::Height(12347)),
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(250_000),
+                }],
+                rules: None,
+            },
+        };
+
+        // create the task again
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(10, NATIVE_DENOM),
+        )
+        .unwrap();
+
+        // might need block advancement?!
+        app.update_block(add_little_time);
+        app.update_block(add_little_time);
+
+        // execute proxy_call - TASK ENDED
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        let mut has_required_attributes: bool = true;
+        let mut has_submsg_method: bool = false;
+        let mut has_reply_success: bool = false;
+        let attributes = vec![
+            ("method", "remove_task"), // the last method
+            ("ended_task", task_id_str.as_str().clone()),
+        ];
+
+        // check all attributes are covered in response, and match the expected values
+        for (k, v) in attributes.iter() {
+            let mut attr_key: Option<String> = None;
+            let mut attr_value: Option<String> = None;
+            for e in res.clone().events {
+                for a in e.attributes {
+                    if e.ty == "wasm" && a.clone().key == k.to_string() {
+                        attr_key = Some(a.clone().key);
+                        attr_value = Some(a.clone().value);
+                    }
+                    if e.ty == "transfer"
+                        && a.clone().key == "amount"
+                        && a.clone().value == "10atom"
+                    {
+                        has_submsg_method = true;
+                    }
+                    if e.ty == "reply"
+                        && a.clone().key == "mode"
+                        && a.clone().value == "handle_failure"
+                    {
+                        has_reply_success = true;
+                    }
+                }
+            }
+
+            // flip bool if none found, or value doesnt match
+            if let Some(_key) = attr_key {
+                if let Some(value) = attr_value {
+                    if v.to_string() != value {
+                        has_required_attributes = false;
+                    }
+                } else {
+                    has_required_attributes = false;
+                }
+            } else {
+                has_required_attributes = false;
+            }
+        }
+        assert!(has_required_attributes);
+        assert!(has_submsg_method);
+        assert!(has_reply_success);
+
+        Ok(())
+    }
+
+    #[test]
+    fn proxy_callback_block_slots() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let task_id_str =
+            "9c1b6c9d91a5960b9c8580f3606bca18a9ceb8ed628f68a1c7022ef130c5c2d6".to_string();
+
+        // Doing this msg since its the easiest to guarantee success in reply
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&ExecuteMsg::WithdrawReward {})?,
+            funds: coins(1, NATIVE_DENOM),
+        });
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(250_000),
+                }],
+                rules: None,
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ADMIN),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(10, NATIVE_DENOM),
+            )
+            .unwrap();
+        // Assert task hash is returned as part of event attributes
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "task_hash" && a.value == task_id_str.clone() {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+        app.execute_contract(
+            Addr::unchecked(contract_addr.clone()),
+            contract_addr.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+        // might need block advancement?!
+        app.update_block(add_little_time);
+
+        // execute proxy_call
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        let mut has_required_attributes: bool = true;
+        let mut has_submsg_method: bool = false;
+        let mut has_reply_success: bool = false;
+        let attributes = vec![
+            ("method", "proxy_callback"),
+            ("slot_id", "12347"),
+            ("slot_kind", "Block"),
+            ("task_hash", task_id_str.as_str().clone()),
+        ];
+
+        // check all attributes are covered in response, and match the expected values
+        for (k, v) in attributes.iter() {
+            let mut attr_key: Option<String> = None;
+            let mut attr_value: Option<String> = None;
+            for e in res.clone().events {
+                for a in e.attributes {
+                    if e.ty == "wasm" && a.clone().key == k.to_string() {
+                        attr_key = Some(a.clone().key);
+                        attr_value = Some(a.clone().value);
+                    }
+                    if e.ty == "wasm"
+                        && a.clone().key == "method"
+                        && a.clone().value == "withdraw_agent_balance"
+                    {
+                        has_submsg_method = true;
+                    }
+                    if e.ty == "reply"
+                        && a.clone().key == "mode"
+                        && a.clone().value == "handle_success"
+                    {
+                        has_reply_success = true;
+                    }
+                }
+            }
+
+            // flip bool if none found, or value doesnt match
+            if let Some(_key) = attr_key {
+                if let Some(value) = attr_value {
+                    if v.to_string() != value {
+                        has_required_attributes = false;
+                    }
+                } else {
+                    has_required_attributes = false;
+                }
+            } else {
+                has_required_attributes = false;
+            }
+        }
+        assert!(has_required_attributes);
+        assert!(has_submsg_method);
+        assert!(has_reply_success);
+
+        Ok(())
+    }
+
+    #[test]
+    fn proxy_callback_time_slots() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let task_id_str =
+            "0309be13444499606658e996ed79c3334bf258bbea573ca880f2e8d70bb536b3".to_string();
+
+        // Doing this msg since its the easiest to guarantee success in reply
+        let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&ExecuteMsg::WithdrawReward {})?,
+            funds: coins(1, NATIVE_DENOM),
+        });
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Cron("0 * * * * *".to_string()),
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(250_000),
+                }],
+                rules: None,
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ADMIN),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(10, NATIVE_DENOM),
+            )
+            .unwrap();
+        // Assert task hash is returned as part of event attributes
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "task_hash" && a.value == task_id_str.clone() {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+        app.execute_contract(
+            Addr::unchecked(contract_addr.clone()),
+            contract_addr.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+        // might need block advancement?!
+        app.update_block(add_one_duration_of_time);
+
+        // execute proxy_call
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        let mut has_required_attributes: bool = true;
+        let mut has_submsg_method: bool = false;
+        let mut has_reply_success: bool = false;
+        let attributes = vec![
+            ("method", "proxy_callback"),
+            ("slot_id", "1571797860000000000"),
+            ("slot_kind", "Cron"),
+            ("task_hash", task_id_str.as_str().clone()),
+        ];
+
+        // check all attributes are covered in response, and match the expected values
+        for (k, v) in attributes.iter() {
+            let mut attr_key: Option<String> = None;
+            let mut attr_value: Option<String> = None;
+            for e in res.clone().events {
+                for a in e.attributes {
+                    if e.ty == "wasm" && a.clone().key == k.to_string() {
                         attr_key = Some(a.clone().key);
                         attr_value = Some(a.clone().value);
                     }
