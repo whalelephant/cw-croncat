@@ -364,6 +364,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: NATIVE_DENOM.to_string(),
             owner_id: Some(owner_addr.clone()),
+            agent_nomination_duration: None,
         };
         let cw_template_contract_addr = app
             .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
@@ -436,7 +437,7 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            agent_task_ratio: None,
+            min_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
@@ -472,7 +473,7 @@ mod tests {
                 owner_id: None,
                 // treasury_id: None,
                 agent_fee: None,
-                agent_task_ratio: None,
+                min_tasks_per_agent: None,
                 agents_eject_threshold: None,
                 gas_price: None,
                 proxy_callback_gas: None,
