@@ -6,7 +6,6 @@ use cosmwasm_std::{
 use cw_croncat_core::types::{Agent, SlotType};
 
 impl<'a> CwCroncat<'a> {
-    // TODO:
     /// Executes a task based on the current task slot
     /// Computes whether a task should continue further or not
     /// Makes a cross-contract call with the task configuration
