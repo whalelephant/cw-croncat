@@ -375,14 +375,14 @@ impl<'a> CwCroncat<'a> {
         c.available_balance.add_tokens(Balance::from(info.funds));
 
         // If the creation of this task means we'd like another agent, update config
-        let max_tasks_per_agent = c.max_tasks_per_agent;
+        let min_tasks_per_agent = c.min_tasks_per_agent;
         let num_active_agents = self
             .agent_active_queue
             .may_load(deps.storage)?
             .unwrap_or_default()
             .len() as u64;
         let num_agents_to_accept =
-            self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &size);
+            self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
         // If we should allow a new agent to take over
         if num_agents_to_accept != 0 {
             // Don't wipe out an older timestamp
@@ -772,7 +772,7 @@ mod tests {
             gas_price: None,
             proxy_callback_gas: None,
             slot_granularity: None,
-            max_tasks_per_agent: None,
+            min_tasks_per_agent: None,
         };
         app.execute_contract(
             Addr::unchecked(ADMIN),
@@ -808,7 +808,7 @@ mod tests {
                 gas_price: None,
                 proxy_callback_gas: None,
                 slot_granularity: None,
-                max_tasks_per_agent: None,
+                min_tasks_per_agent: None,
             },
             &vec![],
         )

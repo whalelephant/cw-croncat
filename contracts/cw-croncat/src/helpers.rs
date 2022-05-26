@@ -84,7 +84,7 @@ impl<'a> CwCroncat<'a> {
         let agent_status: AgentStatus = if pending.contains(&account_id) {
             // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
             // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-            let max_tasks_per_agent = c.max_tasks_per_agent;
+            let min_tasks_per_agent = c.min_tasks_per_agent;
             let total_tasks = self
                 .task_total(storage)
                 .expect("Unexpected issue getting task total");
@@ -101,7 +101,7 @@ impl<'a> CwCroncat<'a> {
 
             // If we should allow a new agent to take over
             let num_agents_to_accept =
-                self.agents_to_let_in(&max_tasks_per_agent, &num_active_agents, &total_tasks);
+                self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
             if num_agents_to_accept != 0 && c.agent_nomination_begin_time.is_some() {
                 let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
 

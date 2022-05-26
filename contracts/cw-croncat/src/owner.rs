@@ -15,7 +15,7 @@ impl<'a> CwCroncat<'a> {
             paused: c.paused,
             owner_id: c.owner_id,
             // treasury_id: c.treasury_id,
-            max_tasks_per_agent: c.max_tasks_per_agent,
+            min_tasks_per_agent: c.min_tasks_per_agent,
             agent_active_index: c.agent_active_index,
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
@@ -54,7 +54,7 @@ impl<'a> CwCroncat<'a> {
                 agent_fee,
                 gas_price,
                 proxy_callback_gas,
-                max_tasks_per_agent,
+                min_tasks_per_agent,
                 agents_eject_threshold,
                 // treasury_id,
             } => {
@@ -86,8 +86,8 @@ impl<'a> CwCroncat<'a> {
                         if let Some(agent_fee) = agent_fee {
                             config.agent_fee = agent_fee;
                         }
-                        if let Some(max_tasks_per_agent) = max_tasks_per_agent {
-                            config.max_tasks_per_agent = max_tasks_per_agent;
+                        if let Some(min_tasks_per_agent) = min_tasks_per_agent {
+                            config.min_tasks_per_agent = min_tasks_per_agent;
                         }
                         if let Some(agents_eject_threshold) = agents_eject_threshold {
                             config.agents_eject_threshold = agents_eject_threshold;
@@ -108,7 +108,7 @@ impl<'a> CwCroncat<'a> {
             //         .unwrap_or_else(|| Addr::unchecked(""))
             //         .to_string(),
             // )
-            .add_attribute("max_tasks_per_agent", c.max_tasks_per_agent.to_string())
+            .add_attribute("min_tasks_per_agent", c.min_tasks_per_agent.to_string())
             .add_attribute("agent_active_index", c.agent_active_index.to_string())
             .add_attribute(
                 "agents_eject_threshold",
@@ -267,7 +267,7 @@ mod tests {
             owner_id: None,
             // treasury_id: None,
             agent_fee: None,
-            max_tasks_per_agent: None,
+            min_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
@@ -322,7 +322,7 @@ mod tests {
             owner_id: None,
             // treasury_id: Some(Addr::unchecked("money_bags")),
             agent_fee: None,
-            max_tasks_per_agent: None,
+            min_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
@@ -381,7 +381,7 @@ mod tests {
             owner_id: None,
             // treasury_id: Some(money_bags.clone()),
             agent_fee: None,
-            max_tasks_per_agent: None,
+            min_tasks_per_agent: None,
             agents_eject_threshold: None,
             gas_price: None,
             proxy_callback_gas: None,
