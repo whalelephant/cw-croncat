@@ -1,8 +1,10 @@
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::state::{Config, CwCroncat};
-// #[cfg(not(feature = "library"))]
-use cosmwasm_std::{to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::{
+    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+};
 use cw2::set_contract_version;
 use cw20::Balance;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -88,7 +90,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn execute(
-        &self,
+        &mut self,
         deps: DepsMut,
         env: Env,
         info: MessageInfo,
@@ -108,23 +110,17 @@ impl<'a> CwCroncat<'a> {
                 self.update_agent(deps, info, env, payable_account_id)
             }
             ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
-            ExecuteMsg::WithdrawReward {} => self.withdraw_task_balance(deps, info, env),
+            ExecuteMsg::WithdrawReward {} => self.withdraw_agent_balance(deps, info, env),
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
-            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, info, env, task_hash),
-            ExecuteMsg::RefillTaskBalance { task_hash } => {
-                self.refill_task(deps, info, env, task_hash)
-            }
+            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, task_hash),
+            ExecuteMsg::RefillTaskBalance { task_hash } => self.refill_task(deps, info, task_hash),
             ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
-            ExecuteMsg::ProxyCallback {
-                task_hash,
-                current_slot,
-            } => self.proxy_callback(deps, info, env, task_hash, current_slot),
         }
     }
 
-    pub fn query(&self, deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    pub fn query(&mut self, deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         match msg {
             QueryMsg::GetConfig {} => to_binary(&self.query_config(deps)?),
             QueryMsg::GetBalances {} => to_binary(&self.query_balances(deps)?),
@@ -134,7 +130,7 @@ impl<'a> CwCroncat<'a> {
             }
             QueryMsg::GetAgentIds {} => to_binary(&self.query_get_agent_ids(deps)?),
             QueryMsg::GetAgentTasks { account_id } => {
-                to_binary(&self.query_get_agent_tasks(deps, account_id)?)
+                to_binary(&self.query_get_agent_tasks(deps, env, account_id)?)
             }
 
             QueryMsg::GetTasks { from_index, limit } => {
@@ -152,19 +148,47 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
         }
     }
+
+    pub fn reply(&self, deps: DepsMut, env: Env, msg: Reply) -> Result<Response, ContractError> {
+        // Route the next fns with the reply queue id meta
+        let queue_item = self.reply_queue.may_load(deps.storage, msg.id)?;
+
+        if queue_item.is_none() {
+            return Err(ContractError::UnknownReplyID {});
+        }
+        let item = queue_item.unwrap();
+
+        // Clean up the reply queue
+        self.rq_remove(deps.storage, msg.id);
+
+        // If contract_addr matches THIS contract, it is the proxy callback
+        // proxy_callback is also responsible for handling reply modes: "handle_failure", "handle_success"
+        if item.contract_addr.is_some() && item.contract_addr.unwrap() == env.contract.address {
+            return self.proxy_callback(deps, env, msg, item.task_hash.unwrap());
+        }
+
+        // NOTE: Currently only handling proxy callbacks
+        // Responds with the reply ID if nothing was found in queue
+        Ok(Response::new().add_attribute("reply_id", msg.id.to_string()))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, from_binary};
+    use crate::state::QueueItem;
+    use cosmwasm_std::testing::{
+        mock_dependencies_with_balance, mock_env, mock_info, MOCK_CONTRACT_ADDR,
+    };
+    use cosmwasm_std::{
+        coin, coins, from_binary, Addr, Binary, Event, SubMsgResponse, SubMsgResult,
+    };
     use cw_croncat_core::msg::{ConfigResponse, QueryMsg};
 
     #[test]
     fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
-        let store = CwCroncat::default();
+        let mut store = CwCroncat::default();
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
@@ -195,5 +219,89 @@ mod tests {
         assert_eq!(1, value.gas_price);
         assert_eq!(3, value.proxy_callback_gas);
         assert_eq!(60_000_000_000, value.slot_granularity);
+    }
+
+    #[test]
+    fn replies() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
+        let store = CwCroncat::default();
+        let task_hash = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705"
+            .as_bytes()
+            .to_vec();
+        let response = SubMsgResponse {
+            data: Some(Binary::from_base64("MTMzNw==").unwrap()),
+            events: vec![Event::new("wasm").add_attribute("cat", "meow")],
+        };
+
+        let mut msg = Reply {
+            id: 1,
+            result: SubMsgResult::Ok(response),
+        };
+
+        // Check there wasn't any known reply
+        let res_err1 = store
+            .reply(deps.as_mut(), mock_env(), msg.clone())
+            .unwrap_err();
+        assert_eq!(ContractError::UnknownReplyID {}, res_err1);
+
+        // Create fake Queue item, check that it gets removed, returns default reply_id
+        store
+            .rq_push(
+                deps.as_mut().storage,
+                QueueItem {
+                    prev_idx: None,
+                    task_hash: Some(task_hash.clone()),
+                    contract_addr: None,
+                },
+            )
+            .unwrap();
+        let queue_item1 = store
+            .reply_queue
+            .may_load(deps.as_mut().storage, msg.id)
+            .unwrap();
+        assert!(queue_item1.is_some());
+
+        let res1 = store.reply(deps.as_mut(), mock_env(), msg.clone()).unwrap();
+        let mut has_reply_id: bool = false;
+        for a in res1.attributes {
+            if a.key == "reply_id" && a.value == "1" {
+                has_reply_id = true;
+            }
+        }
+        assert!(has_reply_id);
+        let queue_item2 = store
+            .reply_queue
+            .may_load(deps.as_mut().storage, msg.id)
+            .unwrap();
+        assert!(queue_item2.is_none());
+
+        // Create fake Queue item with known contract address,
+        // check that it gets removed, the rest is covered in proxy_callback tests
+        store
+            .rq_push(
+                deps.as_mut().storage,
+                QueueItem {
+                    prev_idx: None,
+                    task_hash: Some(task_hash),
+                    contract_addr: Some(Addr::unchecked(MOCK_CONTRACT_ADDR)),
+                },
+            )
+            .unwrap();
+        msg.id = 2;
+        let queue_item3 = store
+            .reply_queue
+            .may_load(deps.as_mut().storage, msg.id)
+            .unwrap();
+        assert!(queue_item3.is_some());
+
+        let res_err2 = store
+            .reply(deps.as_mut(), mock_env(), msg.clone())
+            .unwrap_err();
+        assert_eq!(ContractError::NoTaskFound {}, res_err2);
+        let queue_item4 = store
+            .reply_queue
+            .may_load(deps.as_mut().storage, msg.id)
+            .unwrap();
+        assert!(queue_item4.is_none());
     }
 }

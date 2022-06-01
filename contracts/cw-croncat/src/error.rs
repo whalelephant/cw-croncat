@@ -9,11 +9,20 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("An unknown reply ID was received.")]
+    UnknownReplyID {},
+
     #[error("No coin balance found")]
     EmptyBalance {},
 
+    #[error("No task found by hash")]
+    NoTaskFound {},
+
     #[error("Only accepts tokens in the cw20_whitelist")]
     NotInWhitelist {},
+
+    #[error("Agent not registered")]
+    AgentNotRegistered {},
 
     #[error("{val:?} is paused")]
     ContractPaused { val: String },

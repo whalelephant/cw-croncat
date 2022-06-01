@@ -2,8 +2,7 @@ use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, GovMsg, IbcMsg, MessageInfo, Order,
-    Response, StdResult, SubMsg, WasmMsg,
+    coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
 };
 use cw20::Balance;
 use cw_croncat_core::msg::{TaskRequest, TaskResponse};
@@ -50,7 +49,7 @@ impl<'a> CwCroncat<'a> {
                     boundary: task.boundary,
                     stop_on_fail: task.stop_on_fail,
                     total_deposit: task.total_deposit,
-                    action: task.action,
+                    actions: task.actions,
                     rules: task.rules,
                 });
             }
@@ -79,7 +78,7 @@ impl<'a> CwCroncat<'a> {
                     boundary: task.boundary,
                     stop_on_fail: task.stop_on_fail,
                     total_deposit: task.total_deposit,
-                    action: task.action,
+                    actions: task.actions,
                     rules: task.rules,
                 })
             })
@@ -110,7 +109,7 @@ impl<'a> CwCroncat<'a> {
             boundary: task.boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: task.total_deposit,
-            action: task.action,
+            actions: task.actions,
             rules: task.rules,
         }))
     }
@@ -236,67 +235,22 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // TODO: Finish checking other msg types needing validation
-        // Additional checks - needs to protect against scripting owner / self situations
-        match task.action.clone() {
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr,
-                funds: _,
-                msg: _,
-            }) => {
-                if contract_addr == env.contract.address {
-                    // TODO: How to guard this??
-                    // check that the method is NOT the callback of this contract
-                    // assert!(
-                    //     function_id != "proxy_callback",
-                    //     "Function id invalid"
-                    // );
-                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                    // TODO: Is there any way sender can be "self" creating a malicious task?
-                    if info.sender != c.owner_id {
-                        return Err(ContractError::CustomError {
-                            val: "Creator invalid".to_string(),
-                        });
-                    }
-                }
-            }
-            CosmosMsg::Bank(BankMsg::Send { .. }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                return Err(ContractError::CustomError {
-                    val: "Bank send disabled".to_string(),
-                });
-            }
-            CosmosMsg::Bank(BankMsg::Burn { .. }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                return Err(ContractError::CustomError {
-                    val: "Bank burn disabled".to_string(),
-                });
-            }
-            CosmosMsg::Gov(GovMsg::Vote { .. }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                return Err(ContractError::CustomError {
-                    val: "Gov module disabled".to_string(),
-                });
-            }
-            CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                return Err(ContractError::CustomError {
-                    val: "Ibc transfer disabled".to_string(),
-                });
-            }
-            // TODO: Check authZ messages
-            _ => (),
-        }
-
+        let owner_id = info.sender;
         let item = Task {
-            owner_id: info.sender,
+            owner_id: owner_id.clone(),
             interval: task.interval,
             boundary: task.boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: info.funds.clone(),
-            action: task.action,
+            actions: task.actions,
             rules: task.rules,
         };
+
+        if !item.is_valid_msg(&env.contract.address, &owner_id, &c.owner_id) {
+            return Err(ContractError::CustomError {
+                val: "Actions Message Unsupported".to_string(),
+            });
+        }
 
         if !item.interval.is_valid() {
             return Err(ContractError::CustomError {
@@ -399,17 +353,13 @@ impl<'a> CwCroncat<'a> {
 
         Ok(Response::new()
             .add_attribute("method", "create_task")
+            .add_attribute("slot_id", next_id.to_string())
+            .add_attribute("slot_kind", format!("{:?}", slot_kind))
             .add_attribute("task_hash", hash))
     }
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
-    pub fn remove_task(
-        &self,
-        deps: DepsMut,
-        _info: MessageInfo,
-        _env: Env,
-        task_hash: String,
-    ) -> Result<Response, ContractError> {
+    pub fn remove_task(&self, deps: DepsMut, task_hash: String) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
         let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
         if task_raw.is_none() {
@@ -492,7 +442,6 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: DepsMut,
         info: MessageInfo,
-        _env: Env,
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.into_bytes();
@@ -548,12 +497,14 @@ impl<'a> CwCroncat<'a> {
 mod tests {
     use super::*;
     // use cosmwasm_std::testing::MockStorage;
-    use cosmwasm_std::{coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg};
+    use cosmwasm_std::{
+        coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
+    };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Boundary, BoundarySpec};
+    use cw_croncat_core::types::{Action, Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -623,7 +574,10 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: coins(37, "atom"),
-            action: msg,
+            actions: vec![Action {
+                msg,
+                gas_limit: Some(150_000),
+            }],
             rules: None,
         };
 
@@ -638,7 +592,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc",
+            "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee",
             task_hash
         );
     }
@@ -686,7 +640,10 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         };
@@ -743,11 +700,14 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg.clone(),
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         };
-        // let task_id_str = "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+        // let task_id_str = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
         // let task_id = task_id_str.clone().into_bytes();
 
         // Must attach funds
@@ -836,7 +796,10 @@ mod tests {
                             end: None,
                         },
                         stop_on_fail: false,
-                        action: action_self.clone(),
+                        actions: vec![Action {
+                            msg: action_self.clone(),
+                            gas_limit: Some(150_000),
+                        }],
                         rules: None,
                     },
                 },
@@ -845,7 +808,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
-                val: "Creator invalid".to_string()
+                val: "Actions Message Unsupported".to_string()
             },
             res_err.downcast().unwrap()
         );
@@ -863,7 +826,10 @@ mod tests {
                             end: None,
                         },
                         stop_on_fail: false,
-                        action: msg.clone(),
+                        actions: vec![Action {
+                            msg: msg.clone(),
+                            gas_limit: Some(150_000),
+                        }],
                         rules: None,
                     },
                 },
@@ -913,7 +879,10 @@ mod tests {
                             end: Some(BoundarySpec::Height(1)),
                         },
                         stop_on_fail: false,
-                        action: msg.clone(),
+                        actions: vec![Action {
+                            msg,
+                            gas_limit: Some(150_000),
+                        }],
                         rules: None,
                     },
                 },
@@ -950,12 +919,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
 
         // create a task
         let res = app
@@ -1047,12 +1019,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
 
         // create a task
         app.execute_contract(
@@ -1144,12 +1119,15 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         };
         let task_id_str =
-            "24c7012496afb0af16e4c1e248a2a7b29b8a68a0b0271f048561d4eae73e852f".to_string();
+            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
 
         // create a task
         app.execute_contract(

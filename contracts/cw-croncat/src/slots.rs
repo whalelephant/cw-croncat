@@ -1,5 +1,6 @@
 use crate::traits::IntervalExt;
-use cosmwasm_std::Env;
+use crate::CwCroncat;
+use cosmwasm_std::{BlockInfo, Env, Order, StdResult, Storage};
 use cron_schedule::Schedule;
 pub use cw_croncat_core::types::Interval;
 use cw_croncat_core::types::{Boundary, BoundarySpec, SlotType};
@@ -151,6 +152,91 @@ impl IntervalExt for Interval {
                 s.is_ok()
             }
         }
+    }
+}
+
+impl<'a> CwCroncat<'a> {
+    // TODO: TestCov
+    /// Get the slot with lowest height/timestamp
+    /// Returns (block slot, time slot)
+    /// NOTE: This prioritizes blocks over timestamps.
+    pub(crate) fn get_current_slot_items(
+        &mut self,
+        block: &BlockInfo,
+        storage: &dyn Storage,
+    ) -> Option<(u64, SlotType)> {
+        let block_height = block.height;
+        let block_slot: StdResult<Vec<u64>> = self
+            .block_slots
+            .keys(storage, None, None, Order::Ascending)
+            .take(1)
+            .collect();
+
+        if let Ok(block_id) = block_slot {
+            if !block_id.is_empty() && block_height >= block_id[0] {
+                return Some((block_id[0], SlotType::Block));
+            }
+        }
+
+        let timestamp: u64 = block.time.nanos();
+        let time_slot: StdResult<Vec<u64>> = self
+            .time_slots
+            .keys(storage, None, None, Order::Ascending)
+            .take(1)
+            .collect();
+
+        if let Ok(time_id) = time_slot {
+            if !time_id.is_empty() && timestamp >= time_id[0] {
+                return Some((time_id[0], SlotType::Cron));
+            }
+        }
+
+        None
+    }
+
+    // TODO: TestCov
+    /// Gets 1 slot hash item, and removes the hash from storage
+    /// Cleans up a slot if empty
+    pub(crate) fn pop_slot_item(
+        &mut self,
+        storage: &mut dyn Storage,
+        slot: &u64,
+        kind: &SlotType,
+    ) -> Option<Vec<u8>> {
+        let store = match kind {
+            SlotType::Block => self.block_slots.clone(),
+            SlotType::Cron => self.time_slots.clone(),
+        };
+
+        let mut slot_data = store.may_load(storage, *slot).unwrap()?;
+
+        // Get a single task hash, then retrieve task details
+        let hash = slot_data.pop();
+
+        // Need to remove this slot if no hash's left
+        if slot_data.is_empty() {
+            self.clean_slot(storage, slot, kind);
+        }
+
+        if hash.is_some() {
+            store
+                .update(storage, *slot, |_d| -> StdResult<Vec<_>> { Ok(slot_data) })
+                .ok();
+            return hash;
+        }
+
+        None
+    }
+
+    // TODO: TestCov
+    /// Used in cases where there are empty slots or failed txns
+    fn clean_slot(&mut self, storage: &mut dyn Storage, slot: &u64, kind: &SlotType) {
+        let store = match kind {
+            SlotType::Block => self.block_slots.clone(),
+            SlotType::Cron => self.time_slots.clone(),
+        };
+
+        store.remove(storage, *slot);
     }
 }
 

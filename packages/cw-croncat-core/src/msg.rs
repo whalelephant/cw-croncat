@@ -1,6 +1,6 @@
 use crate::types::Agent;
-use crate::types::{Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin, CosmosMsg, Timestamp};
+use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
+use cosmwasm_std::{Addr, Coin, Timestamp};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -80,10 +80,6 @@ pub enum ExecuteMsg {
         task_hash: String,
     },
     ProxyCall {},
-    ProxyCallback {
-        task_hash: String,
-        current_slot: u64,
-    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -151,14 +147,14 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub u64, pub u128);
+pub struct GetAgentTasksResponse(pub u64, pub u64);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
     pub interval: Interval,
     pub boundary: Boundary,
     pub stop_on_fail: bool,
-    pub action: CosmosMsg,
+    pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }
 
@@ -170,6 +166,6 @@ pub struct TaskResponse {
     pub boundary: Boundary,
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
-    pub action: CosmosMsg,
+    pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }

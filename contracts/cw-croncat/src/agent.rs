@@ -70,16 +70,26 @@ impl<'a> CwCroncat<'a> {
         Ok(GetAgentIdsResponse { active, pending })
     }
 
-    // TODO:
-    /// Check how many tasks an agent can execute
+    // TODO: Change this to solid round-table implementation. Setup this simple version for PoC
+    /// Get how many tasks an agent can execute
     pub(crate) fn query_get_agent_tasks(
-        &self,
-        _deps: Deps,
-        _account_id: Addr,
+        &mut self,
+        deps: Deps,
+        env: Env,
+        account_id: Addr,
     ) -> StdResult<GetAgentTasksResponse> {
-        // let active = self.agent_active_queue.load(deps.storage)?;
+        let empty = GetAgentTasksResponse(0, 0);
+        let active = self.agent_active_queue.load(deps.storage)?;
+        let slot = self.get_current_slot_items(&env.block, deps.storage);
 
-        Ok(GetAgentTasksResponse(0, 0))
+        if active.contains(&account_id) {
+            if let Some(slot) = slot {
+                return Ok(GetAgentTasksResponse(1, slot.0));
+            }
+            return Ok(GetAgentTasksResponse(1, 0));
+        }
+
+        Ok(empty)
     }
 
     /// Add any account as an agent that will be able to execute tasks.
@@ -235,7 +245,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-    pub fn withdraw_task_balance(
+    pub fn withdraw_agent_balance(
         &self,
         deps: DepsMut,
         info: MessageInfo,
@@ -244,7 +254,7 @@ impl<'a> CwCroncat<'a> {
         let messages = self.withdraw_balances(deps.storage, info.clone())?;
 
         Ok(Response::new()
-            .add_attribute("method", "withdraw_task_balance")
+            .add_attribute("method", "withdraw_agent_balance")
             .add_attribute("account_id", info.sender)
             .add_submessages(messages))
     }
@@ -356,7 +366,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
-    use cw_croncat_core::types::{Boundary, Interval};
+    use cw_croncat_core::types::{Action, Boundary, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -465,7 +475,10 @@ mod tests {
                         end: None,
                     },
                     stop_on_fail: false,
-                    action: msg,
+                    actions: vec![Action {
+                        msg,
+                        gas_limit: Some(150_000),
+                    }],
                     rules: None,
                 },
             },
@@ -497,7 +510,10 @@ mod tests {
                     end: None,
                 },
                 stop_on_fail: false,
-                action: msg.clone(),
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
                 rules: None,
             },
         )
@@ -505,7 +521,7 @@ mod tests {
 
     fn contract_register_agent(
         sender: &str,
-        contract: &CwCroncat,
+        contract: &mut CwCroncat,
         deps: DepsMut,
     ) -> Result<Response, ContractError> {
         contract.execute(
@@ -842,7 +858,7 @@ mod tests {
     }
 
     #[test]
-    fn withdraw_task_balance() {
+    fn withdraw_agent_balance() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
@@ -901,9 +917,9 @@ mod tests {
         // Register AGENT1, who immediately becomes active
         register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
         let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
-        let task_hash = res.events[1].attributes[2].clone().value;
+        let task_hash = res.events[1].attributes[4].clone().value;
         assert_eq!(
-            "fb4839c3fb825b0927201d3966544b85b233b0f236fd073c78d861e10a39e475", task_hash,
+            "9b576b9c37c7a1774713f3383217953a074178ab7b044832c097f22d1ca0d3a6", task_hash,
             "Unexpected task hash"
         );
 
@@ -1035,7 +1051,7 @@ mod tests {
             (&AGENT0, &[coin(600, "atom")]),
             (&AGENT1, &[coin(600, "atom")]),
         ]);
-        let contract = CwCroncat::default();
+        let mut contract = CwCroncat::default();
 
         // Instantiate
         let msg = InstantiateMsg {
@@ -1066,7 +1082,7 @@ mod tests {
         );
 
         // First registered agent becomes active
-        let mut register_agent_res = contract_register_agent(AGENT0, &contract, deps.as_mut());
+        let mut register_agent_res = contract_register_agent(AGENT0, &mut contract, deps.as_mut());
         assert!(
             register_agent_res.is_ok(),
             "Registering agent should succeed"
@@ -1085,7 +1101,7 @@ mod tests {
         assert!(res_add_task.is_ok(), "Adding task should succeed.");
 
         // Register an agent and make sure the status comes back as pending
-        register_agent_res = contract_register_agent(AGENT1, &contract, deps.as_mut());
+        register_agent_res = contract_register_agent(AGENT1, &mut contract, deps.as_mut());
         assert!(
             register_agent_res.is_ok(),
             "Registering agent should succeed"

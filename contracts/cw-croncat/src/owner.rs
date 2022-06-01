@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn update_settings() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
-        let store = CwCroncat::default();
+        let mut store = CwCroncat::default();
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
@@ -300,7 +300,7 @@ mod tests {
     #[test]
     fn move_balances_auth_checks() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
-        let store = CwCroncat::default();
+        let mut store = CwCroncat::default();
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
@@ -359,7 +359,7 @@ mod tests {
     #[test]
     fn move_balances_native() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
-        let store = CwCroncat::default();
+        let mut store = CwCroncat::default();
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
         let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];

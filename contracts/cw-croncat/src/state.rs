@@ -4,8 +4,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::Agent;
-use cw_croncat_core::types::GenericBalance;
+use cw_croncat_core::types::{Agent, GenericBalance};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -47,6 +46,16 @@ pub struct Config {
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueueItem {
+    pub contract_addr: Option<Addr>,
+    // This is used to track disjointed callbacks
+    // could help scheduling multiple calls across txns
+    // could help for IBC non-block bound txns
+    pub prev_idx: Option<u64>,
+    pub task_hash: Option<Vec<u8>>,
+}
+
 pub struct TaskIndexes<'a> {
     pub owner: MultiIndex<'a, Addr, Task, Addr>,
 }
@@ -82,6 +91,11 @@ pub struct CwCroncat<'a> {
     /// Block slots allow for grouping of tasks at a specific block height,
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
+
+    /// Reply Queue
+    /// Keeping ordered sub messages & reply id's
+    pub reply_queue: Map<'a, u64, QueueItem>,
+    pub reply_index: Item<'a, u64>,
 }
 
 impl Default for CwCroncat<'static> {
@@ -104,6 +118,8 @@ impl<'a> CwCroncat<'a> {
             task_total: Item::new("task_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
+            reply_queue: Map::new("reply_queue"),
+            reply_index: Item::new("reply_index"),
         }
     }
 
@@ -122,6 +138,22 @@ impl<'a> CwCroncat<'a> {
         self.task_total.save(storage, &val)?;
         Ok(val)
     }
+
+    pub(crate) fn rq_next_id(&self, storage: &dyn Storage) -> StdResult<u64> {
+        Ok(self.reply_index.may_load(storage)?.unwrap_or_default() + 1)
+    }
+
+    pub(crate) fn rq_push(&self, storage: &mut dyn Storage, item: QueueItem) -> StdResult<u64> {
+        let idx = self.reply_index.may_load(storage)?.unwrap_or_default() + 1;
+        self.reply_index.save(storage, &idx)?;
+        self.reply_queue
+            .update(storage, idx, |_d| -> StdResult<QueueItem> { Ok(item) })?;
+        Ok(idx)
+    }
+
+    pub(crate) fn rq_remove(&self, storage: &mut dyn Storage, idx: u64) {
+        self.reply_queue.remove(storage, idx);
+    }
 }
 
 #[cfg(test)]
@@ -131,7 +163,7 @@ mod tests {
     use crate::helpers::Task;
     use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
-    use cw_croncat_core::types::{Boundary, Interval};
+    use cw_croncat_core::types::{Action, Boundary, Interval};
     use cw_storage_plus::Bound;
 
     #[test]
@@ -153,10 +185,13 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: vec![],
-            action: msg,
+            actions: vec![Action {
+                msg,
+                gas_limit: Some(150_000),
+            }],
             rules: None,
         };
-        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id_str = "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee";
         let task_id = task_id_str.to_string().into_bytes();
 
         // create a task
@@ -204,7 +239,7 @@ mod tests {
         let mut storage = MockStorage::new();
         let store = CwCroncat::default();
 
-        let task_id_str = "2e87eb9d9dd92e5a903eacb23ce270676e80727bea1a38b40646be08026d05bc";
+        let task_id_str = "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee";
         let task_id = task_id_str.to_string().into_bytes();
         let tasks_vec = vec![task_id];
 
