@@ -156,7 +156,6 @@ impl IntervalExt for Interval {
 }
 
 impl<'a> CwCroncat<'a> {
-    // TODO: TestCov
     /// Get the slot with lowest height/timestamp
     /// Returns (block slot, time slot)
     /// NOTE: This prioritizes blocks over timestamps.
@@ -194,7 +193,6 @@ impl<'a> CwCroncat<'a> {
         None
     }
 
-    // TODO: TestCov
     /// Gets 1 slot hash item, and removes the hash from storage
     /// Cleans up a slot if empty
     pub(crate) fn pop_slot_item(
