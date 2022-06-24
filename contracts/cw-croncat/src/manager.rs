@@ -33,10 +33,7 @@ impl<'a> CwCroncat<'a> {
         if agent_opt.is_none() {
             return Err(ContractError::AgentNotRegistered {});
         }
-        let active_agents: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
 
         // make sure agent is active
         if !active_agents.contains(&info.sender) {

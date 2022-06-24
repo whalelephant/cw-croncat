@@ -60,6 +60,12 @@ impl<'a> CwCroncat<'a> {
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
+        self.agent_active_queue
+            .save(deps.storage, &Default::default())?;
+        self.agent_pending_queue
+            .save(deps.storage, &Default::default())?;
+        self.task_total.save(deps.storage, &Default::default())?;
+        self.reply_index.save(deps.storage, &Default::default())?;
 
         // all instantiated data
         Ok(Response::new()
@@ -176,6 +182,7 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::helpers::test_helpers::mock_init;
     use crate::state::QueueItem;
     use cosmwasm_std::testing::{
         mock_dependencies_with_balance, mock_env, mock_info, MOCK_CONTRACT_ADDR,
@@ -225,6 +232,7 @@ mod tests {
     fn replies() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
         let store = CwCroncat::default();
+        mock_init(&store, deps.as_mut()).unwrap();
         let task_hash = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705"
             .as_bytes()
             .to_vec();
