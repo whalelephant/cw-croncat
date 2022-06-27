@@ -314,9 +314,11 @@ mod tests {
         // Check for empty store
         assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
 
-        // Empty if not time/block yet
+        // Setup of block and cron slots
         store.time_slots.save(&mut deps.storage, current_time + 1, &vec![task_hash.clone()]).unwrap();
         store.block_slots.save(&mut deps.storage, current_block + 1, &vec![task_hash.clone()]).unwrap();
+
+        // Empty if not time/block yet
         assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
 
         // And returns task when it's time
@@ -324,7 +326,15 @@ mod tests {
         mock_env.block.time = mock_env.block.time.plus_nanos(1);
         assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
 
-        // Check, that Block is preferred over cron
+        // Or later
+        mock_env.block.time = mock_env.block.time.plus_nanos(1);
+        assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Check, that Block is preferred over cron and block height reached 
+        mock_env.block.height += 1;
+        assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Or block(s) ahead
         mock_env.block.height += 1;
         assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
     }
