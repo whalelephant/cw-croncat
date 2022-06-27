@@ -451,7 +451,6 @@ impl Interval {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -485,7 +484,7 @@ mod tests {
         // Check that we can add a coin for the first time
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (1000 as u128).into(), 
+            amount: (1000 as u128).into(),
         };
         let add_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.add_tokens(add_cw20);
@@ -497,7 +496,7 @@ mod tests {
         // Check that we can add the same coin again
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (2000 as u128).into(), 
+            amount: (2000 as u128).into(),
         };
         let add: Balance = Balance::Cw20(cw20);
         coins.add_tokens(add);
@@ -506,7 +505,7 @@ mod tests {
         assert_eq!(coins.cw20.len(), 1);
         let cw20_result = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (3000 as u128).into(), 
+            amount: (3000 as u128).into(),
         };
         assert_eq!(coins.cw20[0], cw20_result);
     }
@@ -533,7 +532,7 @@ mod tests {
         // Adding one coin
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (1 as u128).into(), 
+            amount: (1 as u128).into(),
         };
         let add_cw20: Balance = Balance::Cw20(cw20);
         coins.add_tokens(add_cw20);
@@ -541,7 +540,7 @@ mod tests {
         // Adding u128::MAX amount should fail
         let cw20_max = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: u128::MAX.into(), 
+            amount: u128::MAX.into(),
         };
         let add_max: Balance = Balance::Cw20(cw20_max);
         coins.add_tokens(add_max);
@@ -558,7 +557,7 @@ mod tests {
 
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (100 as u128).into(), 
+            amount: (100 as u128).into(),
         };
         let add_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.add_tokens(add_cw20);
@@ -572,13 +571,13 @@ mod tests {
         // Check subtraction of cw20
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (20 as u128).into(), 
+            amount: (20 as u128).into(),
         };
         let minus_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.minus_tokens(minus_cw20);
         let cw20_result = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (80 as u128).into(), 
+            amount: (80 as u128).into(),
         };
         assert_eq!(coins.cw20[0], cw20_result);
     }
@@ -607,7 +606,7 @@ mod tests {
         // Adding some cw20 tokens
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (100 as u128).into(), 
+            amount: (100 as u128).into(),
         };
         let add_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.add_tokens(add_cw20);
@@ -615,10 +614,9 @@ mod tests {
         // Substracting more than added should fail
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (101 as u128).into(), 
+            amount: (101 as u128).into(),
         };
         let minus_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.minus_tokens(minus_cw20);
-
     }
 }
