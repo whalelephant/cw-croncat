@@ -449,3 +449,260 @@ impl Interval {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use cosmwasm_std::{IbcTimeout, VoteOption};
+
+    use super::*;
+
+    #[test]
+    fn is_valid_msg_once_block_based() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Once,
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: Some(BoundarySpec::Height(8)),
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_once_time_based() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Once,
+            boundary: Boundary {
+                start: Some(BoundarySpec::Time(Timestamp::from_nanos(1_000_000_000))),
+                end: Some(BoundarySpec::Time(Timestamp::from_nanos(2_000_000_000))),
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_recurring() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(10),
+            boundary: Boundary {
+                start: None,
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_wrong_account() {
+        // A task with CosmosMsg::Gov Vote should return false
+        let task = Task {
+            owner_id: Addr::unchecked("alice"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_vote() {
+        // A task with CosmosMsg::Gov Vote should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Gov(GovMsg::Vote {
+                    proposal_id: 0,
+                    vote: VoteOption::Yes,
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_transfer() {
+        // A task with CosmosMsg::Ibc Transfer should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Ibc(IbcMsg::Transfer {
+                    channel_id: "id".to_string(),
+                    to_address: "address".to_string(),
+                    amount: Coin::new(10, "coin"),
+                    timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(1_000_000_000)),
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_burn() {
+        // A task with CosmosMsg::Bank Burn should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Burn {
+                    amount: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_send() {
+        // A task with CosmosMsg::Bank Send should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "address".to_string(),
+                    amount: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+}
