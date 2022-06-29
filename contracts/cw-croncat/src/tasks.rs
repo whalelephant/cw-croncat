@@ -202,7 +202,7 @@ impl<'a> CwCroncat<'a> {
             .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
 
-        Ok(GetSlotHashesResponse(block_id, b_hashes, time_id, t_hashes))
+        Ok(GetSlotHashesResponse((block_id, b_hashes, time_id, t_hashes)))
     }
 
     /// Gets list of active slot ids, for both time & block slots
@@ -216,7 +216,7 @@ impl<'a> CwCroncat<'a> {
             .block_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        Ok(GetSlotIdsResponse(time, block))
+        Ok(GetSlotIdsResponse((time, block)))
     }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
