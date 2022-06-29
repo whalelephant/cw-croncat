@@ -1,5 +1,5 @@
 use crate::state::Config;
-use crate::ContractError::AgentUnregistered;
+use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -121,7 +121,7 @@ impl<'a> CwCroncat<'a> {
             // This should not happen. It means the address is in self.agents
             // but not in the pending or active queues
             // Note: if your IDE highlights the below as problematic, you can ignore
-            return Err(AgentUnregistered {});
+            return Err(AgentNotRegistered {});
         };
         Ok(agent_status)
     }
