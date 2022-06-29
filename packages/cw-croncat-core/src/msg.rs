@@ -1,5 +1,5 @@
-use crate::types::Agent;
 use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
+use crate::types::{Agent, AgentResponse};
 use cosmwasm_std::{Addr, Coin, Timestamp};
 use cw20::Balance;
 use schemars::JsonSchema;
@@ -10,14 +10,21 @@ use serde::{Deserialize, Serialize};
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 // pub enum Croncat {
 //     Agent(Agent),
-//     // Config(Config),
 //     Task(Task),
-//     ConfigResponse(ConfigResponse),
-//     BalancesResponse(BalancesResponse),
+//     ConfigResponse(GetConfigResponse),
+//     BalancesResponse(GetBalancesResponse),
 //     GetAgentIdsResponse(GetAgentIdsResponse),
 //     GetAgentTasksResponse(GetAgentTasksResponse),
 //     TaskRequest(TaskRequest),
 //     TaskResponse(TaskResponse),
+//     ValidateIntervalResponse(ValidateIntervalResponse),
+//     GetAgentResponse(GetAgentResponse),
+//     GetTasksResponse(GetTasksResponse),
+//     GetTasksByOwnerResponse(GetTasksByOwnerResponse),
+//     GetTaskResponse(GetTaskResponse),
+//     GetTaskHashResponse(GetTaskHashResponse),
+//     GetSlotHashesResponse(GetSlotHashesResponse),
+//     GetSlotIdsResponse(GetSlotIdsResponse),
 // }
 
 // Exporting a nice schema
@@ -25,14 +32,21 @@ use serde::{Deserialize, Serialize};
 pub struct Croncat {
     agent: Option<Agent>,
     task: Option<Task>,
-    config_response: Option<ConfigResponse>,
-    balance_response: Option<BalancesResponse>,
+    config_response: Option<GetConfigResponse>,
+    balance_response: Option<GetBalancesResponse>,
     get_agent_ids_response: Option<GetAgentIdsResponse>,
     get_agent_tasks_response: Option<GetAgentTasksResponse>,
     task_request: Option<TaskRequest>,
     task_response: Option<TaskResponse>,
+    validate_interval_response: Option<ValidateIntervalResponse>,
+    get_agent_response: Option<GetAgentResponse>,
+    get_tasks_response: Option<GetTasksResponse>,
+    get_tasks_by_owner_response: Option<GetTasksByOwnerResponse>,
+    get_task_response: Option<GetTaskResponse>,
+    get_task_hash_response: Option<GetTaskHashResponse>,
+    get_slot_hashes_response: Option<GetSlotHashesResponse>,
+    get_slot_ids_response: Option<GetSlotIdsResponse>,
 }
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
@@ -117,7 +131,7 @@ pub enum QueryMsg {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ConfigResponse {
+pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
@@ -133,7 +147,7 @@ pub struct ConfigResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct BalancesResponse {
+pub struct GetBalancesResponse {
     pub native_denom: String,
     pub available_balance: GenericBalance,
     pub staked_balance: GenericBalance,
@@ -148,6 +162,30 @@ pub struct GetAgentIdsResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetAgentTasksResponse(pub u64, pub u64);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotHashesResponse(pub u64, pub Vec<String>, pub u64, pub Vec<String>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotIdsResponse(pub Vec<u64>, pub Vec<u64>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetTasksResponse(pub Vec<TaskResponse>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetAgentResponse(pub Option<AgentResponse>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetTasksByOwnerResponse(pub Vec<TaskResponse>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetTaskResponse(pub Option<TaskResponse>);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ValidateIntervalResponse(pub bool);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetTaskHashResponse(pub String);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {

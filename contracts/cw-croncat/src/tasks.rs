@@ -5,7 +5,10 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
 };
 use cw20::Balance;
-use cw_croncat_core::msg::{TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{
+    GetSlotHashesResponse, GetSlotIdsResponse, GetTaskHashResponse, GetTaskResponse,
+    GetTasksByOwnerResponse, GetTasksResponse, TaskRequest, TaskResponse, ValidateIntervalResponse,
+};
 use cw_croncat_core::types::{SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
@@ -16,8 +19,8 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> StdResult<Vec<TaskResponse>> {
-        let mut ret: Vec<TaskResponse> = Vec::new();
+    ) -> StdResult<GetTasksResponse> {
+        let mut ret: GetTasksResponse = GetTasksResponse(Vec::new());
         let mut start = 0;
         let size: u64 = self
             .task_total
@@ -42,7 +45,7 @@ impl<'a> CwCroncat<'a> {
             let task_hash = &keys[i as usize];
             let res = self.tasks.may_load(deps.storage, task_hash.to_vec())?;
             if let Some(task) = res {
-                ret.push(TaskResponse {
+                ret.0.push(TaskResponse {
                     task_hash: task.to_hash(),
                     owner_id: task.owner_id,
                     interval: task.interval,
@@ -63,7 +66,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         owner_id: Addr,
-    ) -> StdResult<Vec<TaskResponse>> {
+    ) -> StdResult<GetTasksByOwnerResponse> {
         let tasks_by_owner: Vec<TaskResponse> = self
             .tasks
             .idx
@@ -84,7 +87,7 @@ impl<'a> CwCroncat<'a> {
             })
             .collect::<StdResult<Vec<_>>>()?;
 
-        Ok(tasks_by_owner)
+        Ok(GetTasksByOwnerResponse(tasks_by_owner))
     }
 
     /// Returns single task data
@@ -92,17 +95,17 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         task_hash: String,
-    ) -> StdResult<Option<TaskResponse>> {
+    ) -> StdResult<GetTaskResponse> {
         let res = self
             .tasks
             .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
         if res.is_none() {
-            return Ok(None);
+            return Ok(GetTaskResponse(None));
         }
 
         let task: Task = res.unwrap();
 
-        Ok(Some(TaskResponse {
+        Ok(GetTaskResponse(Some(TaskResponse {
             task_hash: task.to_hash(),
             owner_id: task.owner_id,
             interval: task.interval,
@@ -111,17 +114,20 @@ impl<'a> CwCroncat<'a> {
             total_deposit: task.total_deposit,
             actions: task.actions,
             rules: task.rules,
-        }))
+        })))
     }
 
     /// Returns a hash computed by the input task data
-    pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<String> {
-        Ok(task.to_hash())
+    pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<GetTaskHashResponse> {
+        Ok(GetTaskHashResponse(task.to_hash()))
     }
 
     /// Check if interval params are valid by attempting to parse
-    pub(crate) fn query_validate_interval(&self, interval: Interval) -> StdResult<bool> {
-        Ok(interval.is_valid())
+    pub(crate) fn query_validate_interval(
+        &self,
+        interval: Interval,
+    ) -> StdResult<ValidateIntervalResponse> {
+        Ok(ValidateIntervalResponse(interval.is_valid()))
     }
 
     /// Gets a set of tasks.
@@ -136,7 +142,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         slot: Option<u64>,
-    ) -> StdResult<(u64, Vec<String>, u64, Vec<String>)> {
+    ) -> StdResult<GetSlotHashesResponse> {
         let mut block_id: u64 = 0;
         let mut block_hashes: Vec<Vec<u8>> = Vec::new();
         let mut time_id: u64 = 0;
@@ -196,12 +202,12 @@ impl<'a> CwCroncat<'a> {
             .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
 
-        Ok((block_id, b_hashes, time_id, t_hashes))
+        Ok(GetSlotHashesResponse(block_id, b_hashes, time_id, t_hashes))
     }
 
     /// Gets list of active slot ids, for both time & block slots
     /// (time, block)
-    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<(Vec<u64>, Vec<u64>)> {
+    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<GetSlotIdsResponse> {
         let time: Vec<u64> = self
             .time_slots
             .keys(deps.storage, None, None, Order::Ascending)
@@ -210,7 +216,7 @@ impl<'a> CwCroncat<'a> {
             .block_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        Ok((time, block))
+        Ok(GetSlotIdsResponse(time, block))
     }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
@@ -503,7 +509,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
     use cw_croncat_core::types::{Action, Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -1083,7 +1089,7 @@ mod tests {
         assert!(rem_task.is_none());
 
         // Check the contract total balance has decreased from the removed task
-        let balances: BalancesResponse = app
+        let balances: GetBalancesResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();
@@ -1177,7 +1183,7 @@ mod tests {
         }
 
         // Check the balance has increased to include the new refilled total
-        let balances: BalancesResponse = app
+        let balances: GetBalancesResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();

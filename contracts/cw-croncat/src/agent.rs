@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use cw20::Balance;
 use std::ops::Div;
 
-use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
+use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentResponse, GetAgentTasksResponse};
 use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
@@ -19,10 +19,10 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         env: Env,
         account_id: Addr,
-    ) -> StdResult<Option<AgentResponse>> {
+    ) -> StdResult<GetAgentResponse> {
         let agent = self.agents.may_load(deps.storage, account_id.clone())?;
         if agent.is_none() {
-            return Ok(None);
+            return Ok(GetAgentResponse(None));
         }
         let active: Vec<Addr> = self
             .agent_active_queue
@@ -40,7 +40,7 @@ impl<'a> CwCroncat<'a> {
 
         if active.contains(&account_id) {
             agent_response.status = AgentStatus::Active;
-            return Ok(Some(agent_response));
+            return Ok(GetAgentResponse(Some(agent_response)));
         }
 
         let agent_status = self.get_agent_status(deps.storage, env, account_id);
@@ -53,7 +53,7 @@ impl<'a> CwCroncat<'a> {
         }
 
         agent_response.status = agent_status.expect("Should have valid agent status");
-        Ok(Some(agent_response))
+        Ok(GetAgentResponse(Some(agent_response)))
     }
 
     /// Get a list of agent addresses

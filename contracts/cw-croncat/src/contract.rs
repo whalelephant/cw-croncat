@@ -183,7 +183,7 @@ mod tests {
     use cosmwasm_std::{
         coin, coins, from_binary, Addr, Binary, Event, SubMsgResponse, SubMsgResult,
     };
-    use cw_croncat_core::msg::{ConfigResponse, QueryMsg};
+    use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
 
     #[test]
     fn configure() {
@@ -207,7 +207,7 @@ mod tests {
         let res = store
             .query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {})
             .unwrap();
-        let value: ConfigResponse = from_binary(&res).unwrap();
+        let value: GetConfigResponse = from_binary(&res).unwrap();
         assert_eq!(false, value.paused);
         assert_eq!(info.sender, value.owner_id);
         // assert_eq!(None, value.treasury_id);
