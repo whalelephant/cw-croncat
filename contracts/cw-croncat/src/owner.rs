@@ -45,7 +45,9 @@ impl<'a> CwCroncat<'a> {
         info: MessageInfo,
         payload: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        // TODO: Panic on attach funds
+        if !info.funds.is_empty() {
+            return Err(ContractError::AttachedDeposit {});
+        }
         match payload {
             ExecuteMsg::UpdateSettings {
                 owner_id,
