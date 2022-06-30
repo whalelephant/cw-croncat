@@ -45,8 +45,10 @@ impl<'a> CwCroncat<'a> {
         info: MessageInfo,
         payload: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        if !info.funds.is_empty() {
-            return Err(ContractError::AttachedDeposit {});
+        for coin in info.funds.iter() {
+            if coin.amount.u128() > 0 {
+                return Err(ContractError::AttachedDeposit {});
+            }
         }
         match payload {
             ExecuteMsg::UpdateSettings {
@@ -262,6 +264,7 @@ mod tests {
             sender: Addr::unchecked("creator"),
             funds: vec![],
         };
+        mock_info("creator", &coins(0, "meow"));
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
             .unwrap();
@@ -292,7 +295,12 @@ mod tests {
 
         // non-zero deposit fails
         let with_deposit_info = mock_info("owner_id", &coins(1000, "meow"));
-        let res_fail = store.execute(deps.as_mut(), mock_env(), with_deposit_info, payload.clone());
+        let res_fail = store.execute(
+            deps.as_mut(),
+            mock_env(),
+            with_deposit_info,
+            payload.clone(),
+        );
         match res_fail {
             Err(ContractError::AttachedDeposit {}) => {}
             _ => panic!("Must return deposit error"),
@@ -344,10 +352,7 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let info_setting = MessageInfo {
-            sender: Addr::unchecked("owner_id"),
-            funds: vec![],
-        };
+        let info_setting = mock_info("owner_id", &coins(0, "meow"));
         let res_exec = store
             .execute(deps.as_mut(), mock_env(), info_setting, payload)
             .unwrap();
@@ -407,10 +412,7 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
-        let info_settings = MessageInfo {
-            sender: Addr::unchecked("owner_id"),
-            funds: vec![],
-        };
+        let info_settings = mock_info("owner_id", &coins(0, "meow"));
         let res_exec = store
             .execute(deps.as_mut(), mock_env(), info_settings, payload)
             .unwrap();
