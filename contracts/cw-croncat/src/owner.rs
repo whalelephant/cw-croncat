@@ -290,6 +290,14 @@ mod tests {
             _ => panic!("Must return unauthorized error"),
         }
 
+        // non-zero deposit fails
+        let with_deposit_info = mock_info("owner_id", &coins(1000, "meow"));
+        let res_fail = store.execute(deps.as_mut(), mock_env(), with_deposit_info, payload.clone());
+        match res_fail {
+            Err(ContractError::AttachedDeposit {}) => {}
+            _ => panic!("Must return deposit error"),
+        }
+
         // do the right thing
         let res_exec = store
             .execute(deps.as_mut(), mock_env(), info.clone(), payload)
