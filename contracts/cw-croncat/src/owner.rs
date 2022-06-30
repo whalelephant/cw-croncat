@@ -242,7 +242,7 @@ mod tests {
     use crate::error::ContractError;
     use crate::state::CwCroncat;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, from_binary, Addr};
+    use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
     use cw20::Balance;
     use cw_croncat_core::msg::{
         BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
@@ -258,7 +258,10 @@ mod tests {
             owner_id: None,
             agent_nomination_duration: Some(360),
         };
-        let info = mock_info("creator", &coins(1000, "meow"));
+        let info = MessageInfo {
+            sender: Addr::unchecked("creator"),
+            funds: vec![],
+        };
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
             .unwrap();
@@ -277,7 +280,10 @@ mod tests {
         };
 
         // non-owner fails
-        let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
+        let unauth_info = MessageInfo {
+            sender: Addr::unchecked("michael_scott"),
+            funds: vec![],
+        };
         let res_fail = store.execute(deps.as_mut(), mock_env(), unauth_info, payload.clone());
         match res_fail {
             Err(ContractError::Unauthorized {}) => {}
@@ -330,8 +336,12 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
+        let info_setting = MessageInfo {
+            sender: Addr::unchecked("owner_id"),
+            funds: vec![],
+        };
         let res_exec = store
-            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .execute(deps.as_mut(), mock_env(), info_setting, payload)
             .unwrap();
         assert!(res_exec.messages.is_empty());
 
@@ -389,8 +399,12 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
+        let info_settings = MessageInfo {
+            sender: Addr::unchecked("owner_id"),
+            funds: vec![],
+        };
         let res_exec = store
-            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .execute(deps.as_mut(), mock_env(), info_settings, payload)
             .unwrap();
         assert!(res_exec.messages.is_empty());
 
