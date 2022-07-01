@@ -984,16 +984,16 @@ mod tests {
         }
 
         // get slot ids
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s_1: Vec<u64> = Vec::new();
-        assert_eq!(s_1, slot_ids.0);
-        assert_eq!(vec![12346], slot_ids.1);
+        assert_eq!(s_1, slot_ids.time_ids);
+        assert_eq!(vec![12346], slot_ids.block_ids);
 
         // get slot hashs
-        let slot_info: (u64, Vec<String>, u64, Vec<String>) = app
+        let slot_info: GetSlotHashesResponse = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),
@@ -1001,10 +1001,10 @@ mod tests {
             )
             .unwrap();
         let s_3: Vec<String> = Vec::new();
-        assert_eq!(12346, slot_info.0);
-        assert_eq!(vec![task_id_str.clone()], slot_info.1);
-        assert_eq!(0, slot_info.2);
-        assert_eq!(s_3, slot_info.3);
+        assert_eq!(12346, slot_info.block_id);
+        assert_eq!(vec![task_id_str.clone()], slot_info.block_task_hash);
+        assert_eq!(0, slot_info.time_id);
+        assert_eq!(s_3, slot_info.time_task_hash);
 
         Ok(())
     }
@@ -1059,13 +1059,13 @@ mod tests {
         assert!(new_task.is_some());
 
         // Confirm slot exists, proving task was scheduled
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s_1: Vec<u64> = Vec::new();
-        assert_eq!(s_1, slot_ids.0);
-        assert_eq!(vec![12346], slot_ids.1);
+        assert_eq!(s_1, slot_ids.time_ids);
+        assert_eq!(vec![12346], slot_ids.block_ids);
 
         // Remove the Task
         app.execute_contract(
@@ -1098,13 +1098,13 @@ mod tests {
         assert_eq!(coins(0, "atom"), balances.available_balance.native);
 
         // Check the slots correctly removed the task
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s: Vec<u64> = Vec::new();
-        assert_eq!(s.clone(), slot_ids.0);
-        assert_eq!(s, slot_ids.1);
+        assert_eq!(s.clone(), slot_ids.time_ids);
+        assert_eq!(s, slot_ids.block_ids);
 
         Ok(())
     }
