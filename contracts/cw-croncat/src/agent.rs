@@ -78,15 +78,15 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         account_id: Addr,
     ) -> StdResult<GetAgentTasksResponse> {
-        let empty = GetAgentTasksResponse(0, 0);
+        let empty = GetAgentTasksResponse::new(0, 0);
         let active = self.agent_active_queue.load(deps.storage)?;
         let slot = self.get_current_slot_items(&env.block, deps.storage);
 
         if active.contains(&account_id) {
             if let Some(slot) = slot {
-                return Ok(GetAgentTasksResponse(1, slot.0));
+                return Ok(GetAgentTasksResponse::new(1, slot.0));
             }
-            return Ok(GetAgentTasksResponse(1, 0));
+            return Ok(GetAgentTasksResponse::new(1, 0));
         }
 
         Ok(empty)

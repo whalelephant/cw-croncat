@@ -147,7 +147,19 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub u64, pub u64);
+pub struct GetAgentTasksResponse {
+    pub availible_tasks: u64,
+    pub next_slot: u64,
+}
+
+impl GetAgentTasksResponse {
+    pub fn new(availible_tasks: u64, next_slot: u64) -> Self {
+        Self {
+            availible_tasks,
+            next_slot,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
@@ -168,4 +180,18 @@ pub struct TaskResponse {
     pub total_deposit: Vec<Coin>,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotHashesResponse {
+    pub block_id: u64,
+    pub block_task_hash: Vec<String>,
+    pub time_id: u64,
+    pub time_task_hash: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotIdsResponse {
+    pub time_ids: Vec<u64>,
+    pub block_ids: Vec<u64>,
 }

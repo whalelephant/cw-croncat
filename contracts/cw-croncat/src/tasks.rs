@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
 };
 use cw20::Balance;
-use cw_croncat_core::msg::{TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::types::{SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
@@ -136,7 +136,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         slot: Option<u64>,
-    ) -> StdResult<(u64, Vec<String>, u64, Vec<String>)> {
+    ) -> StdResult<GetSlotHashesResponse> {
         let mut block_id: u64 = 0;
         let mut block_hashes: Vec<Vec<u8>> = Vec::new();
         let mut time_id: u64 = 0;
@@ -187,30 +187,38 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Generate strings for all hashes
-        let b_hashes: Vec<_> = block_hashes
+        let block_task_hash: Vec<_> = block_hashes
             .iter()
             .map(|b| String::from_utf8(b.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
-        let t_hashes: Vec<_> = time_hashes
+        let time_task_hash: Vec<_> = time_hashes
             .iter()
             .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
 
-        Ok((block_id, b_hashes, time_id, t_hashes))
+        Ok(GetSlotHashesResponse {
+            block_id,
+            block_task_hash,
+            time_id,
+            time_task_hash,
+        })
     }
 
     /// Gets list of active slot ids, for both time & block slots
     /// (time, block)
-    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<(Vec<u64>, Vec<u64>)> {
-        let time: Vec<u64> = self
+    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<GetSlotIdsResponse> {
+        let time_ids: Vec<u64> = self
             .time_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        let block: Vec<u64> = self
+        let block_ids: Vec<u64> = self
             .block_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        Ok((time, block))
+        Ok(GetSlotIdsResponse {
+            time_ids,
+            block_ids,
+        })
     }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
