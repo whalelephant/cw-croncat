@@ -27,9 +27,6 @@ pub enum ContractError {
     #[error("{val:?} is paused")]
     ContractPaused { val: String },
 
-    #[error("Not a registered agent")]
-    AgentUnregistered {},
-
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.

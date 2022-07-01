@@ -209,7 +209,7 @@ impl<'a> CwCroncat<'a> {
                         ag.payable_account_id = payable_account_id;
                         Ok(ag)
                     }
-                    None => Err(ContractError::AgentUnregistered {}),
+                    None => Err(ContractError::AgentNotRegistered {}),
                 }
             },
         )?;
@@ -225,7 +225,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Vec<SubMsg>, ContractError> {
         let a = self.agents.may_load(storage, info.sender)?;
         if a.is_none() {
-            return Err(ContractError::AgentUnregistered {});
+            return Err(ContractError::AgentNotRegistered {});
         }
         let agent = a.unwrap();
 
@@ -326,7 +326,7 @@ impl<'a> CwCroncat<'a> {
             }
         } else {
             // Sender's address does not exist in the agent pending queue
-            return Err(ContractError::AgentUnregistered {});
+            return Err(ContractError::AgentNotRegistered {});
         }
         // Find difference
         Ok(Response::new().add_attribute("method", "accept_nomination_agent"))
@@ -771,7 +771,7 @@ mod tests {
             .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap_err();
         assert_eq!(
-            ContractError::AgentUnregistered {},
+            ContractError::AgentNotRegistered {},
             update_err.downcast().unwrap()
         );
 
@@ -814,7 +814,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::AgentUnregistered {},
+            ContractError::AgentNotRegistered {},
             update_err.downcast().unwrap()
         );
 
@@ -844,7 +844,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::AgentUnregistered {},
+            ContractError::AgentNotRegistered {},
             update_err.downcast().unwrap()
         );
 
@@ -880,7 +880,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::AgentUnregistered {},
+            ContractError::AgentNotRegistered {},
             update_err.downcast().unwrap()
         );
 
@@ -1067,7 +1067,7 @@ mod tests {
 
         let mut agent_status_res =
             contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT0));
-        assert_eq!(Err(ContractError::AgentUnregistered {}), agent_status_res);
+        assert_eq!(Err(ContractError::AgentNotRegistered {}), agent_status_res);
 
         let agent_active_queue_opt: Option<Vec<Addr>> = match deps
             .storage
