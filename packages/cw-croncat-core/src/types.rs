@@ -453,9 +453,9 @@ impl Interval {
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{IbcTimeout, VoteOption};
-
     use super::*;
+    use cosmwasm_std::{IbcTimeout, VoteOption};
+    use hex::ToHex;
 
     #[test]
     fn is_valid_msg_once_block_based() {
@@ -870,5 +870,43 @@ mod tests {
         };
         let minus_cw20: Balance = Balance::Cw20(cw20.clone());
         coins.minus_tokens(minus_cw20);
+    }
+
+    #[test]
+    fn hashing() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {
+                    contract_addr: "alice".to_string(),
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+
+        let message = format!(
+            "{:?}{:?}{:?}{:?}{:?}",
+            task.owner_id, task.interval, task.boundary, task.actions, task.rules
+        );
+
+        let hash = Sha256::digest(message.as_bytes());
+
+        let encoded: String = hash.encode_hex();
+        let bytes = encoded.as_bytes();
+
+        // Tests
+        assert_eq!(encoded, task.to_hash());
+        assert_eq!(bytes, task.to_hash_vec());
     }
 }
