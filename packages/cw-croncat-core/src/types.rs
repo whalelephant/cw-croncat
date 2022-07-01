@@ -552,7 +552,7 @@ mod tests {
 
     #[test]
     fn is_valid_msg_wrong_account() {
-        // A task with CosmosMsg::Gov Vote should return false
+        // Cannot create a task to execute on the cron manager when not the owner
         let task = Task {
             owner_id: Addr::unchecked("alice"),
             interval: Interval::Block(5),
