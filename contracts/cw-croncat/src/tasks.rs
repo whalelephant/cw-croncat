@@ -202,7 +202,9 @@ impl<'a> CwCroncat<'a> {
             .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
 
-        Ok(GetSlotHashesResponse((block_id, b_hashes, time_id, t_hashes)))
+        Ok(GetSlotHashesResponse((
+            block_id, b_hashes, time_id, t_hashes,
+        )))
     }
 
     /// Gets list of active slot ids, for both time & block slots

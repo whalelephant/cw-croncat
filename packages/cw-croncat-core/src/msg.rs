@@ -351,7 +351,7 @@ mod tests {
 
         let ser = serde_json_wasm::to_string(&croncat);
         assert!(ser.is_ok());
-        
+
         let deser: Result<Croncat, _> = serde_json_wasm::from_str(&ser.unwrap());
         assert!(deser.is_ok());
     }
