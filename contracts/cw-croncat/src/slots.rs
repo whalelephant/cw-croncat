@@ -156,12 +156,11 @@ impl IntervalExt for Interval {
 }
 
 impl<'a> CwCroncat<'a> {
-    // TODO: TestCov
     /// Get the slot with lowest height/timestamp
     /// Returns (block slot, time slot)
     /// NOTE: This prioritizes blocks over timestamps.
     pub(crate) fn get_current_slot_items(
-        &mut self,
+        &self,
         block: &BlockInfo,
         storage: &dyn Storage,
     ) -> Option<(u64, SlotType)> {
@@ -172,9 +171,9 @@ impl<'a> CwCroncat<'a> {
             .take(1)
             .collect();
 
-        if let Ok(block_id) = block_slot {
-            if !block_id.is_empty() && block_height >= block_id[0] {
-                return Some((block_id[0], SlotType::Block));
+        if let Ok(Some(block_id)) = block_slot.map(|v| v.first().copied()) {
+            if block_height >= block_id {
+                return Some((block_id, SlotType::Block));
             }
         }
 
@@ -185,16 +184,15 @@ impl<'a> CwCroncat<'a> {
             .take(1)
             .collect();
 
-        if let Ok(time_id) = time_slot {
-            if !time_id.is_empty() && timestamp >= time_id[0] {
-                return Some((time_id[0], SlotType::Cron));
+        if let Ok(Some(time_id)) = time_slot.map(|v| v.first().copied()) {
+            if timestamp >= time_id {
+                return Some((time_id, SlotType::Cron));
             }
         }
 
         None
     }
 
-    // TODO: TestCov
     /// Gets 1 slot hash item, and removes the hash from storage
     /// Cleans up a slot if empty
     pub(crate) fn pop_slot_item(
@@ -244,7 +242,7 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::mock_env;
+    use cosmwasm_std::{testing::{mock_env, mock_dependencies_with_balance}, coins};
 
     #[test]
     fn interval_get_next_block_limited() {
@@ -300,5 +298,73 @@ mod tests {
             assert_eq!(outcome_block, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }
+    }
+
+    #[test]
+    fn slot_items_get_current() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
+        let store = CwCroncat::default();
+        let mock_env = mock_env();
+        let current_block = mock_env.block.height;
+        let current_time = mock_env.block.time.nanos();
+        let task_hash = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705"
+            .as_bytes()
+            .to_vec();
+
+        // Check for empty store
+        assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Setup of block and cron slots
+        store.time_slots.save(&mut deps.storage, current_time + 1, &vec![task_hash.clone()]).unwrap();
+        store.block_slots.save(&mut deps.storage, current_block + 1, &vec![task_hash.clone()]).unwrap();
+
+        // Empty if not time/block yet
+        assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // And returns task when it's time
+        let mut mock_env = mock_env;
+        mock_env.block.time = mock_env.block.time.plus_nanos(1);
+        assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Or later
+        mock_env.block.time = mock_env.block.time.plus_nanos(1);
+        assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Check, that Block is preferred over cron and block height reached 
+        mock_env.block.height += 1;
+        assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+
+        // Or block(s) ahead
+        mock_env.block.height += 1;
+        assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+    }
+
+    #[test]
+    fn slot_items_pop() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
+        let mut store = CwCroncat::default();
+
+        // Empty slots
+        store.time_slots.save(&mut deps.storage, 0, &vec![]).unwrap();
+        store.block_slots.save(&mut deps.storage, 0, &vec![]).unwrap();
+        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &0, &SlotType::Cron));
+        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &0, &SlotType::Block));
+
+        // Just checking mutiple tasks
+        let multiple_tasks = vec![
+            "task_1".as_bytes().to_vec(),
+            "task_2".as_bytes().to_vec(),
+            "task_3".as_bytes().to_vec()
+        ];
+        store.time_slots.save(&mut deps.storage, 1, &multiple_tasks).unwrap();
+        store.block_slots.save(&mut deps.storage, 1, &multiple_tasks).unwrap();
+        for task in multiple_tasks.iter().rev() {
+            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Cron).unwrap());
+            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Block).unwrap());
+        }
+
+        // Slot removed if no hash left
+        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Cron));
+        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Block));
     }
 }

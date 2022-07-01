@@ -27,9 +27,6 @@ pub enum ContractError {
     #[error("{val:?} is paused")]
     ContractPaused { val: String },
 
-    #[error("Not a registered agent")]
-    AgentUnregistered {},
-
     #[error("Can't attach deposit")]
     AttachedDeposit {},
 
