@@ -301,6 +301,7 @@ impl GenericBalance {
         };
     }
 }
+
 fn get_next_block_limited(env: Env, boundary: Boundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
@@ -704,5 +705,170 @@ mod tests {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob")
         ));
+    }
+
+    #[test]
+    fn test_add_tokens() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding zero doesn't change the state
+        let add_zero: Balance = Balance::default();
+        coins.add_tokens(add_zero);
+        assert!(coins.native.is_empty());
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add native coin for the first time
+        let coin = vec![Coin::new(10, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, coin);
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add the same native coin again
+        let coin = vec![Coin::new(20, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add a coin for the first time
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (1000 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert_eq!(coins.cw20.len(), 1);
+        assert_eq!(coins.cw20[0], cw20);
+
+        // Check that we can add the same coin again
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (2000 as u128).into(),
+        };
+        let add: Balance = Balance::Cw20(cw20);
+        coins.add_tokens(add);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert_eq!(coins.cw20.len(), 1);
+        let cw20_result = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (3000 as u128).into(),
+        };
+        assert_eq!(coins.cw20[0], cw20_result);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn test_add_tokens_overflow_native() {
+        let mut coins: GenericBalance = GenericBalance::default();
+        // Adding one coin
+        let coin = vec![Coin::new(1, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        // Adding u128::MAX amount should fail
+        let coin = vec![Coin::new(u128::MAX, "native")];
+        let add_max: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_max);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn test_add_tokens_overflow_cw20() {
+        let mut coins: GenericBalance = GenericBalance::default();
+        // Adding one coin
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (1 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20);
+        coins.add_tokens(add_cw20);
+
+        // Adding u128::MAX amount should fail
+        let cw20_max = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: u128::MAX.into(),
+        };
+        let add_max: Balance = Balance::Cw20(cw20_max);
+        coins.add_tokens(add_max);
+    }
+
+    #[test]
+    fn test_minus_tokens() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some native and cw20 tokens
+        let coin = vec![Coin::new(100, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (100 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+
+        // Check subtraction of native token
+        let coin = vec![Coin::new(10, "native")];
+        let minus_native: Balance = Balance::from(coin.clone());
+        coins.minus_tokens(minus_native);
+        assert_eq!(coins.native, vec![Coin::new(90, "native")]);
+
+        // Check subtraction of cw20
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (20 as u128).into(),
+        };
+        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.minus_tokens(minus_cw20);
+        let cw20_result = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (80 as u128).into(),
+        };
+        assert_eq!(coins.cw20[0], cw20_result);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_minus_tokens_overflow_native() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some native tokens
+        let coin = vec![Coin::new(100, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        // Substracting more than added should fail
+        let coin = vec![Coin::new(101, "native")];
+        let minus_native: Balance = Balance::from(coin.clone());
+        coins.minus_tokens(minus_native);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_minus_tokens_overflow_cw20() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some cw20 tokens
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (100 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+
+        // Substracting more than added should fail
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (101 as u128).into(),
+        };
+        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.minus_tokens(minus_cw20);
     }
 }
