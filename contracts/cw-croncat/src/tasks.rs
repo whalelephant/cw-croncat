@@ -22,27 +22,16 @@ impl<'a> CwCroncat<'a> {
         let size: u64 = self
             .task_total
             .may_load(deps.storage)?
-            .unwrap_or(100)
+            .unwrap_or(0)
             .min(1000);
-        if let Some(index) = from_index {
-            start = index;
-        }
-        let mut end = u64::min(start.saturating_add(100), size);
-        if let Some(l) = limit {
-            end = u64::min(start.saturating_add(l), size);
-        }
-
-        // NOTE: could setup another index to allow efficient paginated
-        let keys: Vec<Vec<u8>> = self
-            .tasks
-            .keys(deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
-
-        for i in start..end {
-            let task_hash = &keys[i as usize];
-            let res = self.tasks.may_load(deps.storage, task_hash.to_vec())?;
-            if let Some(task) = res {
-                ret.push(TaskResponse {
+        let from_index = from_index.unwrap_or_default();
+        let limit = limit.unwrap_or(100).min(size);
+        self.tasks
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .map(|res| {
+                res.map(|(_k, task)| TaskResponse {
                     task_hash: task.to_hash(),
                     owner_id: task.owner_id,
                     interval: task.interval,
@@ -51,11 +40,9 @@ impl<'a> CwCroncat<'a> {
                     total_deposit: task.total_deposit,
                     actions: task.actions,
                     rules: task.rules,
-                });
-            }
-        }
-
-        Ok(ret)
+                })
+            })
+            .collect()
     }
 
     /// Returns task data for a specific owner
