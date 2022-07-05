@@ -1,8 +1,10 @@
 use crate::error::ContractError;
 use crate::state::{Config, CwCroncat, QueueItem};
+use cosmwasm_std::Coin;
 use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
+use cw20::Balance;
 use cw_croncat_core::types::{Agent, SlotType};
 
 impl<'a> CwCroncat<'a> {
@@ -48,7 +50,7 @@ impl<'a> CwCroncat<'a> {
         // if empty slot found, let agent get paid for helping keep house clean
         let slot = self.get_current_slot_items(&env.block, deps.storage);
         if slot.is_none() {
-            self.send_base_agent_reward(deps.storage, agent);
+            self.send_base_agent_reward(deps.storage, agent,info);
             return Err(ContractError::CustomError {
                 val: "No Tasks For Slot".to_string(),
             });
@@ -56,7 +58,7 @@ impl<'a> CwCroncat<'a> {
         let (slot_id, slot_kind) = slot.unwrap();
         let some_hash = self.pop_slot_item(deps.storage, &slot_id, &slot_kind);
         if some_hash.is_none() {
-            self.send_base_agent_reward(deps.storage, agent);
+            self.send_base_agent_reward(deps.storage, agent,info);
             return Err(ContractError::CustomError {
                 val: "No Tasks For Slot".to_string(),
             });
@@ -68,7 +70,7 @@ impl<'a> CwCroncat<'a> {
         let some_task = self.tasks.may_load(deps.storage, hash.clone())?;
         if some_task.is_none() {
             // NOTE: This could should never get reached, however we cover just in case
-            self.send_base_agent_reward(deps.storage, agent);
+            self.send_base_agent_reward(deps.storage, agent, info);
             return Err(ContractError::NoTaskFound {});
         }
 
@@ -290,19 +292,26 @@ impl<'a> CwCroncat<'a> {
     /// Internal management of agent reward
     /// Used in cases where there are empty slots or failed txns
     /// Keep the agent profitable, as this will be a business expense
-    pub(crate) fn send_base_agent_reward(&self, _storage: &dyn Storage, _agent: Agent) {
-        // let mut a = agent;
-        // // reward agent for diligence
-        // let agent_base_fee = self.agent_fee;
-        // agent.balance = U128::from(agent.balance.0.saturating_add(agent_base_fee));
-        // agent.total_tasks_executed = U128::from(agent.total_tasks_executed.0.saturating_add(1));
-        // self.available_balance = self.available_balance.saturating_sub(agent_base_fee);
+    pub(crate) fn send_base_agent_reward(&self, _storage: &mut dyn  Storage, mut _agent: Agent, message:MessageInfo) {
+        let mut config: Config = self.config.load(_storage).unwrap();
 
-        // // Reset missed slot, if any
-        // if agent.last_missed_slot != 0 {
-        //     agent.last_missed_slot = 0;
-        // }
-        // self.agents.save(&env::signer_account_id(), &agent);
+        let agent_base_fee = config.agent_fee.clone();
+        let coin = vec![agent_base_fee];
+        let add_native: Balance = Balance::from(coin.clone());
+        
+        _agent.balance.add_tokens(add_native.clone());
+        _agent.total_tasks_executed = _agent.total_tasks_executed.saturating_add(1);
+        config
+            .available_balance
+            .minus_tokens(Balance::from(add_native));
+
+        self.config.save(_storage, &config).expect("Could not save config");
+       
+        // Reset missed slot, if any
+        if _agent.last_missed_slot != 0 {
+            _agent.last_missed_slot = 0;
+        }
+        self.agents.save(_storage, message.sender,&_agent).unwrap();
     }
 }
 
