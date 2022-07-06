@@ -46,15 +46,27 @@ impl<'a> CwCroncat<'a> {
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
-        let slot = self.get_current_slot_items(&env.block, deps.storage);
-        if slot.is_none() {
-            self.send_base_agent_reward(deps.storage, agent);
-            return Err(ContractError::CustomError {
-                val: "No Tasks For Slot".to_string(),
-            });
+        let slot = self.get_current_slot_items(&env.block, deps.storage, Some(1));
+        // Give preference for block-based slots
+        let slot_id: u64;
+        let some_hash: Option<Vec<u8>>;
+        if slot.0.is_none() {
+            // See if there are cron (time-based) tasks to execute
+            if slot.1.is_none() {
+                self.send_base_agent_reward(deps.storage, agent);
+                return Err(ContractError::CustomError {
+                    val: "No Tasks For Slot".to_string(),
+                });
+            } else {
+                slot_id = slot.1.unwrap();
+                // There aren't block tasks but there are cron tasks
+                some_hash = self.pop_slot_item(deps.storage, &slot_id, &SlotType::Cron);
+            }
+        } else {
+            // There are block tasks (which we prefer to execute before time-based ones at this point)
+            slot_id = slot.0.unwrap();
+            some_hash = self.pop_slot_item(deps.storage, &slot.0.unwrap(), &SlotType::Block);
         }
-        let (slot_id, slot_kind) = slot.unwrap();
-        let some_hash = self.pop_slot_item(deps.storage, &slot_id, &slot_kind);
         if some_hash.is_none() {
             self.send_base_agent_reward(deps.storage, agent);
             return Err(ContractError::CustomError {
@@ -179,7 +191,7 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
             .add_attribute("slot_id", slot_id.to_string())
-            .add_attribute("slot_kind", format!("{:?}", slot_kind))
+            .add_attribute("slot_kind", format!("{:?}", SlotType::Block))
             .add_attribute("task_hash", task.to_hash())
             // .add_attributes(rule_responses)
             .add_submessages(sub_msgs);
@@ -309,7 +321,6 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{
         coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };

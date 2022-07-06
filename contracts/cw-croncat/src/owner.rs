@@ -16,7 +16,7 @@ impl<'a> CwCroncat<'a> {
             owner_id: c.owner_id,
             // treasury_id: c.treasury_id,
             min_tasks_per_agent: c.min_tasks_per_agent,
-            agent_active_index: c.agent_active_index,
+            agent_active_indices: c.agent_active_indices,
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
             agent_fee: c.agent_fee,
@@ -113,7 +113,13 @@ impl<'a> CwCroncat<'a> {
             //         .to_string(),
             // )
             .add_attribute("min_tasks_per_agent", c.min_tasks_per_agent.to_string())
-            .add_attribute("agent_active_index", c.agent_active_index.to_string())
+            .add_attribute(
+                "agent_active_indices",
+                c.agent_active_indices
+                    .iter()
+                    .map(|a| format!("{:?}.{}", a.0, a.1))
+                    .collect::<String>(),
+            )
             .add_attribute(
                 "agents_eject_threshold",
                 c.agents_eject_threshold.to_string(),
