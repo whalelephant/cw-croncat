@@ -1,6 +1,6 @@
 use crate::types::Agent;
 use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin, Timestamp};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -147,17 +147,17 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse {
-    pub availible_tasks: u64,
-    pub next_slot: u64,
+pub struct GetAgentTasksResponseRaw {
+    pub num_block_tasks: Uint64,
+    pub num_cron_tasks: Uint64,
 }
 
-impl GetAgentTasksResponse {
-    pub fn new(availible_tasks: u64, next_slot: u64) -> Self {
-        Self {
-            availible_tasks,
-            next_slot,
-        }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetAgentTasksResponse(Option<GetAgentTasksResponseRaw>);
+
+impl From<Option<GetAgentTasksResponseRaw>> for GetAgentTasksResponse {
+    fn from(res: Option<GetAgentTasksResponseRaw>) -> Self {
+        Self(res)
     }
 }
 

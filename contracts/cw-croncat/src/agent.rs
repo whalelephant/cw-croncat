@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use cw20::Balance;
 use std::ops::Div;
 
-use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
+use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse, GetAgentTasksResponseRaw};
 use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
@@ -78,18 +78,26 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         account_id: Addr,
     ) -> StdResult<GetAgentTasksResponse> {
-        let empty = GetAgentTasksResponse::new(0, 0);
+        let empty = None;
         let active = self.agent_active_queue.load(deps.storage)?;
         let slot = self.get_current_slot_items(&env.block, deps.storage);
 
         if active.contains(&account_id) {
             if let Some(slot) = slot {
-                return Ok(GetAgentTasksResponse::new(1, slot.0));
+                return Ok(Some(GetAgentTasksResponseRaw {
+                    num_block_tasks: 1u64.into(),
+                    num_cron_tasks: slot.0.into(),
+                })
+                .into());
             }
-            return Ok(GetAgentTasksResponse::new(1, 0));
+            return Ok(Some(GetAgentTasksResponseRaw {
+                num_block_tasks: 1u64.into(),
+                num_cron_tasks: 0u64.into(),
+            })
+            .into());
         }
 
-        Ok(empty)
+        Ok(empty.into())
     }
 
     /// Add any account as an agent that will be able to execute tasks.
