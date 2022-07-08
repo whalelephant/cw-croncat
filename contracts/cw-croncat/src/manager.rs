@@ -305,9 +305,7 @@ impl<'a> CwCroncat<'a> {
 
         _agent.balance.add_tokens(add_native.clone());
         _agent.total_tasks_executed = _agent.total_tasks_executed.saturating_add(1);
-        config
-            .available_balance
-            .minus_tokens(add_native);
+        config.available_balance.minus_tokens(add_native);
 
         self.config
             .save(_storage, &config)
