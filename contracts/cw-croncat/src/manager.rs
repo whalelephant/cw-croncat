@@ -301,13 +301,13 @@ impl<'a> CwCroncat<'a> {
 
         let agent_base_fee = config.agent_fee.clone();
         let coin = vec![agent_base_fee];
-        let add_native: Balance = Balance::from(coin.clone());
+        let add_native: Balance = Balance::from(coin);
 
         _agent.balance.add_tokens(add_native.clone());
         _agent.total_tasks_executed = _agent.total_tasks_executed.saturating_add(1);
         config
             .available_balance
-            .minus_tokens(Balance::from(add_native));
+            .minus_tokens(add_native);
 
         self.config
             .save(_storage, &config)
