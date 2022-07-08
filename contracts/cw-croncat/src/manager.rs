@@ -300,12 +300,21 @@ impl<'a> CwCroncat<'a> {
         let mut config: Config = self.config.load(_storage).unwrap();
 
         let agent_base_fee = config.agent_fee.clone();
-        let coin = vec![agent_base_fee];
+        let coin = vec![agent_base_fee.clone()];
         let add_native: Balance = Balance::from(coin);
 
         _agent.balance.add_tokens(add_native.clone());
         _agent.total_tasks_executed = _agent.total_tasks_executed.saturating_add(1);
-        config.available_balance.minus_tokens(add_native);
+        println!("{:?}", add_native);
+        println!("{:?}", config.available_balance.native);
+
+        if !config.available_balance.native.is_empty()
+            && config.available_balance.native.first().unwrap().amount >= agent_base_fee.amount
+        {
+            config.available_balance.minus_tokens(add_native);
+        } else {
+            panic!("Not enough available balance for sending agent reward");
+        }
 
         self.config
             .save(_storage, &config)
@@ -380,7 +389,15 @@ mod tests {
             agent_nomination_duration: None,
         };
         let cw_template_contract_addr = app
-            .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
+            //Must send some available balance for rewards
+            .instantiate_contract(
+                cw_template_id,
+                owner_addr,
+                &msg,
+                &coins(6, NATIVE_DENOM),
+                "Manager",
+                None,
+            )
             .unwrap();
 
         let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
