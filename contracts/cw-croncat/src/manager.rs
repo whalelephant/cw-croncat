@@ -157,10 +157,12 @@ impl<'a> CwCroncat<'a> {
 
         // Add submessages for all actions
         for action in actions {
-            let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx)
-                .with_gas_limit(action.gas_limit.unwrap());
-
-            sub_msgs.push(sub_msg);
+            let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
+            if let Some(gas_limit) = action.gas_limit {
+                sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
+            } else {
+                sub_msgs.push(sub_msg);
+            }
         }
 
         // Keep track for later scheduling
