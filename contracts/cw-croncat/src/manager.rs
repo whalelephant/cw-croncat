@@ -29,6 +29,11 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
+        if c.available_balance.native.is_empty(){
+            return Err(ContractError::CustomError {
+                val: "Not enough available balance for sending agent reward".to_string(),
+            });
+        }
         // only registered agent signed, because micropayments will benefit long term
         let agent_opt = self.agents.may_load(deps.storage, info.sender.clone())?;
         if agent_opt.is_none() {
@@ -293,18 +298,18 @@ impl<'a> CwCroncat<'a> {
     /// Keep the agent profitable, as this will be a business expense
     pub(crate) fn send_base_agent_reward(
         &self,
-        _storage: &mut dyn Storage,
-        mut _agent: Agent,
+        storage: &mut dyn Storage,
+        mut agent: Agent,
         message: MessageInfo,
     ) {
-        let mut config: Config = self.config.load(_storage).unwrap();
+        let mut config: Config = self.config.load(storage).unwrap();
 
         let agent_base_fee = config.agent_fee.clone();
         let coin = vec![agent_base_fee.clone()];
         let add_native: Balance = Balance::from(coin);
 
-        _agent.balance.add_tokens(add_native.clone());
-        _agent.total_tasks_executed = _agent.total_tasks_executed.saturating_add(1);
+        agent.balance.add_tokens(add_native.clone());
+        agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
         println!("{:?}", add_native);
         println!("{:?}", config.available_balance.native);
 
@@ -312,19 +317,17 @@ impl<'a> CwCroncat<'a> {
             && config.available_balance.native.first().unwrap().amount >= agent_base_fee.amount
         {
             config.available_balance.minus_tokens(add_native);
-        } else {
-            panic!("Not enough available balance for sending agent reward");
-        }
+        } 
 
         self.config
-            .save(_storage, &config)
+            .save(storage, &config)
             .expect("Could not save config");
 
         // Reset missed slot, if any
-        if _agent.last_missed_slot != 0 {
-            _agent.last_missed_slot = 0;
+        if agent.last_missed_slot != 0 {
+            agent.last_missed_slot = 0;
         }
-        self.agents.save(_storage, message.sender, &_agent).unwrap();
+        self.agents.save(storage, message.sender, &agent).unwrap();
     }
 }
 
