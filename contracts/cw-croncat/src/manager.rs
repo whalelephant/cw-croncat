@@ -29,7 +29,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        if c.available_balance.native.is_empty(){
+        if c.available_balance.native.is_empty() {
             return Err(ContractError::CustomError {
                 val: "Not enough available balance for sending agent reward".to_string(),
             });
@@ -317,7 +317,7 @@ impl<'a> CwCroncat<'a> {
             && config.available_balance.native.first().unwrap().amount >= agent_base_fee.amount
         {
             config.available_balance.minus_tokens(add_native);
-        } 
+        }
 
         self.config
             .save(storage, &config)
