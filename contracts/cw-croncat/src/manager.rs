@@ -1201,7 +1201,7 @@ mod tests {
     }
 
     #[test]
-    fn c() -> StdResult<()> {
+    fn proxy_call_several_tasks() -> StdResult<()> {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
