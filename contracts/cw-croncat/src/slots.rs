@@ -215,9 +215,7 @@ impl<'a> CwCroncat<'a> {
         if slot_data.is_empty() {
             self.clean_slot(storage, slot, kind);
         } else {
-            store
-                .update(storage, *slot, |_d| -> StdResult<Vec<_>> { Ok(slot_data) })
-                .ok();
+            store.save(storage, *slot, &slot_data).ok()?;
         }
 
         hash
