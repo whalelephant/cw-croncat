@@ -214,16 +214,13 @@ impl<'a> CwCroncat<'a> {
         // Need to remove this slot if no hash's left
         if slot_data.is_empty() {
             self.clean_slot(storage, slot, kind);
-        }
-
-        if hash.is_some() {
+        } else {
             store
                 .update(storage, *slot, |_d| -> StdResult<Vec<_>> { Ok(slot_data) })
                 .ok();
-            return hash;
         }
 
-        None
+        hash
     }
 
     // TODO: TestCov
