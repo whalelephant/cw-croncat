@@ -9,7 +9,7 @@ use cw20::Balance;
 use std::ops::Div;
 
 use crate::ContractError::AgentNotRegistered;
-use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
+use cw_croncat_core::msg::{GetAgentIdsResponse, AgentTaskResponse};
 use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
@@ -78,7 +78,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         env: Env,
         account_id: Addr,
-    ) -> StdResult<Option<GetAgentTasksResponse>> {
+    ) -> StdResult<Option<AgentTaskResponse>> {
         let active = self.agent_active_queue.load(deps.storage)?;
         if !active.contains(&account_id) {
             // TODO: unsure if we can return AgentNotRegistered
@@ -130,7 +130,7 @@ impl<'a> CwCroncat<'a> {
             num_cron_tasks = task_total_each_agent.into();
         }
 
-        Ok(Some(GetAgentTasksResponse {
+        Ok(Some(AgentTaskResponse {
             num_block_tasks,
             num_cron_tasks,
         }))
@@ -1316,7 +1316,7 @@ mod tests {
         let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
             account_id: Addr::unchecked(AGENT1),
         };
-        let mut query_task_res: StdResult<Option<GetAgentTasksResponse>> = app
+        let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
             .wrap()
             .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
         println!(

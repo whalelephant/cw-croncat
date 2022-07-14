@@ -28,7 +28,7 @@ pub struct Croncat {
     config_response: Option<ConfigResponse>,
     balance_response: Option<BalancesResponse>,
     get_agent_ids_response: Option<GetAgentIdsResponse>,
-    get_agent_tasks_response: Option<GetAgentTasksResponse>,
+    get_agent_tasks_response: Option<AgentTaskResponse>,
     task_request: Option<TaskRequest>,
     task_response: Option<TaskResponse>,
 }
@@ -147,7 +147,7 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse {
+pub struct AgentTaskResponse {
     pub num_block_tasks: Uint64,
     pub num_cron_tasks: Uint64,
 }

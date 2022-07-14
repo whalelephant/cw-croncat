@@ -8,7 +8,7 @@ pub mod slots;
 pub mod state;
 pub mod tasks;
 pub mod traits;
-
+pub mod balancer;
 pub use crate::error::ContractError;
 pub use crate::state::CwCroncat;
 use cosmwasm_std::entry_point;
