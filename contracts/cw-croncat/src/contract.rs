@@ -42,7 +42,7 @@ impl<'a> CwCroncat<'a> {
             owner_id: owner_acct,
             // treasury_id: None,
             min_tasks_per_agent: 3,
-            agent_active_indices: vec![(SlotType::Block, 0), (SlotType::Cron, 0)],
+            agent_active_indices: vec![(SlotType::Block, 0,0), (SlotType::Cron, 0,0)],
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance,
             staked_balance: GenericBalance::default(),
@@ -221,7 +221,7 @@ mod tests {
         // assert_eq!(None, value.treasury_id);
         assert_eq!(3, value.min_tasks_per_agent);
         assert_eq!(
-            vec![(SlotType::Block, 0), (SlotType::Cron, 0)],
+            vec![(SlotType::Block, 0,0), (SlotType::Cron, 0,0)],
             value.agent_active_indices
         );
         assert_eq!(600, value.agents_eject_threshold);

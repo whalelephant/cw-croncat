@@ -122,7 +122,7 @@ pub struct ConfigResponse {
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
-    pub agent_active_indices: Vec<(SlotType, u32)>,
+    pub agent_active_indices: Vec<(SlotType, u32,u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
     pub gas_price: u32,

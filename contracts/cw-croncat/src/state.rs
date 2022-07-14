@@ -19,7 +19,7 @@ pub struct Config {
     // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
     // NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub min_tasks_per_agent: u64,
-    pub agent_active_indices: Vec<(SlotType, u32)>,
+    pub agent_active_indices: Vec<(SlotType, u32,u32)>,
     // How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
     // This is a timestamp that's updated when a new task is added such that
