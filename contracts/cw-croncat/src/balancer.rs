@@ -86,10 +86,10 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 
         match self.mode {
             BalancerMode::ActivationOrder => {
-                let activation_orderer = |total_tasks: u64| -> Uint64 {
+                let activation_ordering = |total_tasks: u64| -> Uint64 {
                     if total_tasks <= active.len() as u64 {
-                        let agent_tasks_total = ((agent_count / total_tasks) as u64)
-                            .saturating_sub(agent_index - (total_tasks - 1));
+                        let agent_tasks_total = (1 as u64)
+                            .saturating_sub(agent_index.saturating_sub(total_tasks.saturating_sub(1)));
                         agent_tasks_total.into()
                     } else {
                         let leftover = total_tasks % agent_count;
@@ -106,17 +106,17 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             .expect("Agent not active or not registered!")
                             as u64;
 
-                        let agent_tasks_total = ((agent_count / leftover) as u64)
-                            .saturating_sub(agent_index - (leftover - 1));
+                        let agent_tasks_total =total_tasks.saturating_div(agent_count)+ (1 as u64)
+                            .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
                         agent_tasks_total.into()
                     }
                 };
 
                 if let Some(current_block_task_total) = slot_items.0 {
-                    num_block_tasks = activation_orderer(current_block_task_total);
+                    num_block_tasks = activation_ordering(current_block_task_total);
                 }
                 if let Some(current_cron_task_total) = slot_items.1 {
-                    num_cron_tasks = activation_orderer(current_cron_task_total);
+                    num_cron_tasks = activation_ordering(current_cron_task_total);
                 }
 
                 Ok(Some(AgentTaskResponse {
