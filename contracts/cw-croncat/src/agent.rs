@@ -9,7 +9,7 @@ use cw20::Balance;
 use std::ops::Div;
 
 use crate::ContractError::AgentNotRegistered;
-use cw_croncat_core::msg::{GetAgentIdsResponse, AgentTaskResponse};
+use cw_croncat_core::msg::{AgentTaskResponse, GetAgentIdsResponse};
 use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
