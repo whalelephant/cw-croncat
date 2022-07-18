@@ -8,7 +8,7 @@ Optimizing the binary size:
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer-arm64:0.12.6
+  cosmwasm/rust-optimizer:0.12.6
 ```
 > In case of M1 MacBook use `rust-optimizer-arm64` instead of `rust-optimizer`
 
@@ -30,7 +30,7 @@ Note, that `OWNER`'s balance must be enough for storing a wasm file.
 # Store the code
 Store the code to the uni-3 testnet:
 ```bash
-RES=$(junod tx wasm store artifacts/cw_croncat-aarch64.wasm --from $OWNER $TXFLAG -y --output json -b block)
+RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 ```
 > In case of M1 MacBook replace `cw_croncat.wasm` with `cw_croncat-aarch64.wasm` 
@@ -48,20 +48,17 @@ Here `USER` creates three tasks:
 STAKE='{"create_task":{"task":{"interval":"Immediate","boundary":{},"stop_on_fail":false,"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"10000"}}}},"gas_limit":150000}],"rules":null}}}'
 junod tx wasm execute $CONTRACT "$STAKE" --amount 100000ujunox --from $USER $TXFLAG -y
 
-STAKE2='{"create_task":{"task":{"interval":"Immediate","boundary":{},"stop_on_fail":false,"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"20000"}}}},"gas_limit":150000}],"rules":null}}}'
-junod tx wasm execute $CONTRACT "$STAKE2" --amount 100000ujunox --from $USER $TXFLAG -y
-
 STAKE3='{"create_task":{"task":{"interval":"Immediate","boundary":{},"stop_on_fail":false,"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"30000"}}}},"gas_limit":150000}],"rules":null}}}'
 junod tx wasm execute $CONTRACT "$STAKE3" --amount 100000ujunox --from $USER $TXFLAG -y
 ```
 `USER` can refill the third task:
 ```bash
-REFILL_TASK_BALANCE='{"refill_task_balance":{"task_hash":"6eee8090d92910378159e140b6b0bf38b75f500d80f0584388b50e7c8905ea14"}}'
+REFILL_TASK_BALANCE='{"refill_task_balance":{"task_hash":"435c84ef3c6df933645a3f9c85e53dbd561ea0c9cf24838053514b8858fdb933"}}'
 junod tx wasm execute $CONTRACT "$REFILL_TASK_BALANCE" --amount 200000ujunox --from $USER $TXFLAG -y
 ```
 He also may remove the task:
 ```bash
-REMOVE_TASK='{"remove_task":{"task_hash":"6eee8090d92910378159e140b6b0bf38b75f500d80f0584388b50e7c8905ea14"}}'
+REMOVE_TASK='{"remove_task":{"task_hash":"435c84ef3c6df933645a3f9c85e53dbd561ea0c9cf24838053514b8858fdb933"}}'
 junod tx wasm execute $CONTRACT "$REMOVE_TASK" --from $USER $TXFLAG -y
 ```
 
@@ -86,7 +83,7 @@ After executing tasks he can withdraw the tokens that he earned:
 WITHDRAW_REWARD='{"withdraw_reward":{}}'
 junod tx wasm execute $CONTRACT "$WITHDRAW_REWARD" --from $AGENT $TXFLAG -y
 ```
-To withdraw the reward and unregister call
+To withdraw the reward and unregister:
 ```bash
 UNREGISTER_AGENT='{"unregister_agent":{}}'
 junod tx wasm execute $CONTRACT "$UNREGISTER_AGENT" --from $AGENT $TXFLAG -y
@@ -155,12 +152,12 @@ junod query wasm contract-state smart $CONTRACT "$GET_TASKS_BY_OWNER" $NODE
 ```
 To get a task by the hash:
 ```bash
-GET_TASK='{"get_task":{"task_hash":"92088ee6436b52acfbe524f583973a1a0484b73100f41fd947f4ba906c77f914"}}'
+GET_TASK='{"get_task":{"task_hash":"4905bb310073e83af6cd9c4c19f9f5782db79e7f8b08b4035b664d8f39d31dd7"}}'
 junod query wasm contract-state smart $CONTRACT "$GET_TASK" $NODE
 ```
 To get a hash of the task:
 ```bash
-GET_TASK_HASH='{"get_task_hash":{"task":{"owner_id":"juno1qgdwpzngq8wtrd0xamfpr0fse7egrefye6ekuh","interval":"Immediate","boundary":{"start":null,"end":null},"stop_on_fail":false,"total_deposit":[{"denom":"ujunox","amount":"1"}],"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"2000000"}}}},"gas_limit":150000}],"rules":null}}}'
+GET_TASK_HASH='{"get_task_hash":{"task":{"owner_id":"juno1qgdwpzngq8wtrd0xamfpr0fse7egrefye6ekuh","interval":"Immediate","boundary":{"start":null,"end":null},"stop_on_fail":false,"total_deposit":[{"denom":"ujunox","amount":"1"}],"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"400000"}}}},"gas_limit":150000}],"rules":null}}}'
 junod query wasm contract-state smart $CONTRACT "$GET_TASK_HASH" $NODE
 ```
 Check if the interval is valid:
