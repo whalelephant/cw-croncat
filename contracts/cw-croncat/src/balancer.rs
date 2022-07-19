@@ -1,8 +1,8 @@
 use crate::helpers::*;
 use crate::state::Config;
 use crate::{slots, ContractError::AgentNotRegistered};
-use cosmwasm_std::Uint64;
 use cosmwasm_std::{Addr, Deps, Env, StdError, StdResult, Storage};
+use cosmwasm_std::{DepsMut, Uint64};
 use cw_croncat_core::msg::AgentTaskResponse;
 use cw_croncat_core::types::{Agent, SlotType, Task};
 use cw_storage_plus::Item;
@@ -15,7 +15,7 @@ pub enum BalancerMode {
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
-        deps: Deps,
+        deps: DepsMut,
         env: Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -56,7 +56,7 @@ impl<'a> RoundRobinBalancer {
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
         &mut self,
-        deps: Deps,
+        deps: DepsMut,
         env: Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -87,9 +87,14 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         match self.mode {
             BalancerMode::ActivationOrder => {
                 let activation_ordering = |total_tasks: u64| -> Uint64 {
+                    if total_tasks<1{
+                        return Uint64::from(total_tasks);
+                    }
+                    
                     if total_tasks <= active.len() as u64 {
-                        let agent_tasks_total = (1 as u64)
-                            .saturating_sub(agent_index.saturating_sub(total_tasks.saturating_sub(1)));
+                        let agent_tasks_total = (1 as u64).saturating_sub(
+                            agent_index.saturating_sub(total_tasks.saturating_sub(1)),
+                        );
                         agent_tasks_total.into()
                     } else {
                         let leftover = total_tasks % agent_count;
@@ -106,8 +111,10 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             .expect("Agent not active or not registered!")
                             as u64;
 
-                        let agent_tasks_total =total_tasks.saturating_div(agent_count)+ (1 as u64)
-                            .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
+                        let agent_tasks_total = total_tasks.saturating_div(agent_count)
+                            + (1 as u64).saturating_sub(
+                                agent_index.saturating_sub(leftover.saturating_sub(1)),
+                            );
                         agent_tasks_total.into()
                     }
                 };
@@ -127,4 +134,127 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             BalancerMode::Equalizer => todo!(),
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::ContractError;
+    use crate::helpers::CwTemplateContract;
+    use cosmwasm_std::testing::{
+        mock_dependencies_with_balance, mock_env, mock_info, MockStorage, MOCK_CONTRACT_ADDR,
+    };
+    use cosmwasm_std::{
+        coin, coins, from_slice, Addr, BlockInfo, Coin, CosmosMsg, Empty, StakingMsg,
+    };
+    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
+    use cw_croncat_core::types::{Action, Boundary, Interval};
+    use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
+
+    use crate::CwCroncat;
+    const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+    const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
+    const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
+    const AGENT3: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
+    const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";   
+    const NATIVE_DENOM: &str = "atom";
+
+    
+    fn mock_config() -> Config {
+        Config {
+            paused: false,
+            owner_id: Addr::unchecked(ADMIN),
+            // treasury_id: None,
+            min_tasks_per_agent: 3,
+            agent_active_indices: vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
+            agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
+            available_balance: GenericBalance::default(),
+            staked_balance: GenericBalance::default(),
+            agent_fee: Coin::new(5, NATIVE_DENOM.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
+            gas_price: 1,
+            proxy_callback_gas: 3,
+            slot_granularity: 60_000_000_000,
+            native_denom: NATIVE_DENOM.to_owned(),
+            cw20_whitelist: vec![],
+            agent_nomination_begin_time: None,
+            agent_nomination_duration: 9,
+        }
+    }
+    #[test]
+    fn test_agent_has_least_one_task() {
+        let store = CwCroncat::default();
+        let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+        let env = mock_env();
+        let mut balancer = RoundRobinBalancer::default();
+        let config = mock_config();
+
+        store.config.save(&mut deps.storage,&config).unwrap();
+
+        let mut active_agents: Vec<Addr> = store
+            .agent_active_queue
+            .may_load(&deps.storage)
+            .unwrap()
+            .unwrap_or_default();
+        active_agents.extend(vec![
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(AGENT1),
+            Addr::unchecked(AGENT2),
+            Addr::unchecked(AGENT3),
+            Addr::unchecked(AGENT4),
+        ]);
+
+        store
+            .agent_active_queue
+            .save(&mut deps.storage, &active_agents)
+            .unwrap();
+        let slot: (Option<u64>, Option<u64>) = (Some(1), Some(2));
+        let result = balancer
+            .get_agent_tasks(
+                deps.as_mut(),
+                env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT0),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.num_block_tasks.u64(), 1);
+        assert_eq!(result.num_cron_tasks.u64(), 1);
+
+        //Verify earch gents valid amount
+        let slot: (Option<u64>, Option<u64>) = (Some(100), Some(50));
+        let result = balancer
+            .get_agent_tasks(
+                deps.as_mut(),
+                env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT0),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+        assert!(result.num_block_tasks.u64()==20);
+        assert!(result.num_cron_tasks.u64()==10);
+
+        //Verify agents gets zero
+        let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
+        let result = balancer
+            .get_agent_tasks(
+                deps.as_mut(),
+                env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT0),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+        assert!(result.num_block_tasks.u64()==0);
+        assert!(result.num_cron_tasks.u64()==0);
+    }
+
+   
 }
