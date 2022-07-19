@@ -101,15 +101,14 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                     } else {
                         let leftover = total_tasks % agent_count;
 
-                        let mut rich_agents: Vec<(SlotType, u32, u32)> = vec![];
+                        let mut rich_agents: Vec<(SlotType, u32, u32)> =
+                            agent_active_indices_config
+                                .clone()
+                                .into_iter()
+                                .filter(|e| e.2 > 0)
+                                .collect::<_>();
 
-                        if let Some(entry) = agent_active_indices_config.first() {
-                            if entry.1 > 0 || entry.2 > 0 {
-                                //Not empty value
-                                rich_agents = agent_active_indices_config.clone();
-                                rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
-                            }
-                        }
+                        rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
                         let rich_indices: Vec<usize> =
                             rich_agents.iter().map(|v| v.1 as usize).collect();
 
