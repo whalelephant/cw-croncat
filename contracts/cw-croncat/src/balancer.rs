@@ -104,7 +104,8 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                         let mut rich_agents: Vec<(SlotType, u32, u32)> = vec![];
 
                         if let Some(entry) = agent_active_indices_config.first() {
-                            if entry.1>0 || entry.1>0 || entry.2 > 0 { //Not empty value
+                            if entry.1 > 0 || entry.2 > 0 {
+                                //Not empty value
                                 rich_agents = agent_active_indices_config.clone();
                                 rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
                             }
