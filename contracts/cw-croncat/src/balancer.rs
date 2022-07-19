@@ -82,20 +82,22 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             return Ok(None);
         }
         let mut num_block_tasks = Uint64::from(0u64);
+        let mut num_block_tasks_extra = Uint64::from(0u64);
+
         let mut num_cron_tasks = Uint64::from(0u64);
+        let mut num_cron_tasks_extra = Uint64::from(0u64);
 
         match self.mode {
             BalancerMode::ActivationOrder => {
-                let activation_ordering = |total_tasks: u64| -> Uint64 {
-                    if total_tasks<1{
-                        return Uint64::from(total_tasks);
+                let activation_ordering = |total_tasks: u64| -> (Uint64, Uint64) {
+                    if total_tasks < 1 {
+                        return (Uint64::from(0u64), Uint64::from(0u64));
                     }
-                    
                     if total_tasks <= active.len() as u64 {
                         let agent_tasks_total = (1 as u64).saturating_sub(
                             agent_index.saturating_sub(total_tasks.saturating_sub(1)),
                         );
-                        agent_tasks_total.into()
+                        (agent_tasks_total.into(), agent_tasks_total.into())
                     } else {
                         let leftover = total_tasks % agent_count;
                         let mut rich_agents = agent_active_indices_config.clone();
@@ -111,24 +113,27 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             .expect("Agent not active or not registered!")
                             as u64;
 
-                        let agent_tasks_total = total_tasks.saturating_div(agent_count)
-                            + (1 as u64).saturating_sub(
-                                agent_index.saturating_sub(leftover.saturating_sub(1)),
-                            );
-                        agent_tasks_total.into()
+                        let extra = (1 as u64)
+                            .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
+                        let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
+                        (agent_tasks_total.into(), extra.into())
                     }
                 };
 
                 if let Some(current_block_task_total) = slot_items.0 {
-                    num_block_tasks = activation_ordering(current_block_task_total);
+                    let (num_block_tasks, num_block_tasks_extra) =
+                        activation_ordering(current_block_task_total);
                 }
                 if let Some(current_cron_task_total) = slot_items.1 {
-                    num_cron_tasks = activation_ordering(current_cron_task_total);
+                    let (num_cron_tasks, num_cron_tasks_extra) =
+                        activation_ordering(current_cron_task_total);
                 }
 
                 Ok(Some(AgentTaskResponse {
                     num_block_tasks,
+                    num_block_tasks_extra,
                     num_cron_tasks,
+                    num_cron_tasks_extra,
                 }))
             }
             BalancerMode::Equalizer => todo!(),
@@ -157,10 +162,9 @@ mod tests {
     const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
     const AGENT3: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
     const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
-    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";   
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
     const NATIVE_DENOM: &str = "atom";
 
-    
     fn mock_config() -> Config {
         Config {
             paused: false,
@@ -189,7 +193,7 @@ mod tests {
         let mut balancer = RoundRobinBalancer::default();
         let config = mock_config();
 
-        store.config.save(&mut deps.storage,&config).unwrap();
+        store.config.save(&mut deps.storage, &config).unwrap();
 
         let mut active_agents: Vec<Addr> = store
             .agent_active_queue
@@ -236,8 +240,8 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert!(result.num_block_tasks.u64()==20);
-        assert!(result.num_cron_tasks.u64()==10);
+        assert!(result.num_block_tasks.u64() == 20);
+        assert!(result.num_cron_tasks.u64() == 10);
 
         //Verify agents gets zero
         let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
@@ -252,9 +256,10 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        assert!(result.num_block_tasks.u64()==0);
-        assert!(result.num_cron_tasks.u64()==0);
+        assert!(result.num_block_tasks.u64() == 0);
+        assert!(result.num_cron_tasks.u64() == 0);
     }
 
-   
+    fn test_rebalance_agent_removal() {}
+    fn test_rebalance_agent_gets_extra() {}
 }

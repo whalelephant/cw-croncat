@@ -149,7 +149,9 @@ pub struct GetAgentIdsResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AgentTaskResponse {
     pub num_block_tasks: Uint64,
+    pub num_block_tasks_extra:Uint64,
     pub num_cron_tasks: Uint64,
+    pub num_cron_tasks_extra:Uint64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
