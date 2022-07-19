@@ -346,6 +346,34 @@ impl<'a> CwCroncat<'a> {
         let agent_id = info.sender;
         self.agents.remove(deps.storage, agent_id.clone());
 
+        // Remove from the list of active agents if the agent in this list
+        let mut active_agents: Vec<Addr> = self
+            .agent_active_queue
+            .may_load(deps.storage)?
+            .unwrap_or_default();
+        if let Some(index) = active_agents
+            .iter()
+            .position(|addr| *addr == agent_id.clone())
+        {
+            active_agents.remove(index);
+            self.agent_active_queue.save(deps.storage, &active_agents)?;
+        } else {
+            // Agent can't be both in active and pending vector
+            // Remove from the pending queue
+            let mut pending_agents: Vec<Addr> = self
+                .agent_pending_queue
+                .may_load(deps.storage)?
+                .unwrap_or_default();
+            if let Some(index) = pending_agents
+                .iter()
+                .position(|addr| *addr == agent_id.clone())
+            {
+                pending_agents.remove(index);
+                self.agent_pending_queue
+                    .save(deps.storage, &pending_agents)?;
+            }
+        }
+
         let responses = Response::new()
             .add_attribute("method", "unregister_agent")
             .add_attribute("account_id", agent_id);
@@ -847,6 +875,11 @@ mod tests {
             ContractError::AgentNotRegistered {},
             update_err.downcast().unwrap()
         );
+
+        // Check that the agent was removed from the list of active or pending agents
+        let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &contract_addr);
+        assert_eq!(0, num_active_agents);
+        assert_eq!(0, num_pending_agents);
 
         // Agent should have appropriate balance change
         // NOTE: Needs further checks when tasks can be performed
