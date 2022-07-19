@@ -8,7 +8,6 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw20::Balance;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::types::SlotType;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";

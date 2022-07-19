@@ -105,7 +105,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             rich_agents.iter().map(|v| v.1 as usize).collect();
 
                         let mut diff = vect_difference(&agent_active_indices, &rich_indices);
-                        diff.extend(rich_indices.clone());
+                        diff.extend(rich_indices);
                         let agent_index = diff
                             .iter()
                             .position(|x| x == &(agent_index as usize))
@@ -114,7 +114,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 
                         let extra = 1u64
                             .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
-                        
+
                         // println!("rich_indices-{:?}", rich_indices);
 
                         // println!("leftover-{}", leftover);
