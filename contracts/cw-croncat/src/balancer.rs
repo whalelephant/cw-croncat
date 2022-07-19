@@ -4,6 +4,7 @@ use crate::ContractError::AgentNotRegistered;
 use cosmwasm_std::{Addr, Env, StdError, StdResult};
 use cosmwasm_std::{DepsMut, Uint64};
 use cw_croncat_core::msg::AgentTaskResponse;
+use cw_croncat_core::types::SlotType;
 use cw_storage_plus::Item;
 
 #[derive(PartialEq)]
@@ -99,8 +100,15 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                         (agent_tasks_total.into(), agent_tasks_total.into())
                     } else {
                         let leftover = total_tasks % agent_count;
-                        let mut rich_agents = agent_active_indices_config.clone();
-                        rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+
+                        let mut rich_agents: Vec<(SlotType, u32, u32)> = vec![];
+
+                        if let Some(entry) = agent_active_indices_config.first() {
+                            if entry.1>0 || entry.1>0 || entry.2 > 0 { //Not empty value
+                                rich_agents = agent_active_indices_config.clone();
+                                rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+                            }
+                        }
                         let rich_indices: Vec<usize> =
                             rich_agents.iter().map(|v| v.1 as usize).collect();
 
@@ -112,18 +120,14 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             .expect("Agent not active or not registered!")
                             as u64;
 
-                        let extra = 1u64
-                            .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
-
-                        // println!("rich_indices-{:?}", rich_indices);
-
-                        // println!("leftover-{}", leftover);
-                        // println!("agent_index-{}", leftover);
-                        // println!("agent_id-{}", agent_id);
-
-                        // println!("extra-{}", leftover);
-
+                        let mut extra = 0u64;
+                        if leftover > 0 {
+                            extra = 1u64.saturating_sub(
+                                agent_index.saturating_sub(leftover.saturating_sub(1)),
+                            );
+                        }
                         let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
+
                         (agent_tasks_total.into(), extra.into())
                     }
                 };
@@ -183,7 +187,7 @@ mod tests {
             owner_id: Addr::unchecked(ADMIN),
             // treasury_id: None,
             min_tasks_per_agent: 3,
-            agent_active_indices: vec![],
+            agent_active_indices: Vec::<(SlotType, u32, u32)>::with_capacity(0),
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance: GenericBalance::default(),
             staked_balance: GenericBalance::default(),
@@ -313,7 +317,6 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-        println!("{:?}", result);
 
         assert_eq!(result.num_block_tasks.u64(), 2);
         assert_eq!(result.num_cron_tasks.u64(), 2);

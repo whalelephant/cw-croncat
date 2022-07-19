@@ -8,6 +8,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw20::Balance;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use cw_croncat_core::types::SlotType;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -41,7 +42,7 @@ impl<'a> CwCroncat<'a> {
             owner_id: owner_acct,
             // treasury_id: None,
             min_tasks_per_agent: 3,
-            agent_active_indices: vec![],
+            agent_active_indices: vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance,
             staked_balance: GenericBalance::default(),
@@ -191,6 +192,7 @@ mod tests {
         coin, coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult,
     };
     use cw_croncat_core::msg::{ConfigResponse, QueryMsg};
+    use cw_croncat_core::types::SlotType;
 
     #[test]
     fn configure() {
