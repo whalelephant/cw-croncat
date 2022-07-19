@@ -95,6 +95,8 @@ impl<'a> CwCroncat<'a> {
         }
         let mut num_block_tasks = Uint64::from(0u64);
         let mut num_cron_tasks = Uint64::from(0u64);
+        let num_block_tasks_extra = Uint64::from(0u64);
+        let num_cron_tasks_extra = Uint64::from(0u64);
         // This below line is commented out and will be used with
         // the rotating index (see Config's agent_active_indices)
         // let agent_active_queue_indices: Vec<usize> = (0..active.len()).collect();
@@ -132,6 +134,8 @@ impl<'a> CwCroncat<'a> {
 
         Ok(Some(AgentTaskResponse {
             num_block_tasks,
+            num_block_tasks_extra,
+            num_cron_tasks_extra,
             num_cron_tasks,
         }))
     }

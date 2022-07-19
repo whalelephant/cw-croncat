@@ -1,10 +1,9 @@
 use crate::helpers::*;
 use crate::state::Config;
-use crate::{slots, ContractError::AgentNotRegistered};
-use cosmwasm_std::{Addr, Deps, Env, StdError, StdResult, Storage};
+use crate::ContractError::AgentNotRegistered;
+use cosmwasm_std::{Addr, Env, StdError, StdResult};
 use cosmwasm_std::{DepsMut, Uint64};
 use cw_croncat_core::msg::AgentTaskResponse;
-use cw_croncat_core::types::{Agent, SlotType, Task};
 use cw_storage_plus::Item;
 
 #[derive(PartialEq)]
@@ -30,34 +29,34 @@ pub struct RoundRobinBalancer {
 
 impl<'a> RoundRobinBalancer {
     pub fn default() -> RoundRobinBalancer {
-        return RoundRobinBalancer::new(BalancerMode::ActivationOrder);
+        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
     }
     pub fn new(mode: BalancerMode) -> RoundRobinBalancer {
-        return RoundRobinBalancer { mode };
+        RoundRobinBalancer { mode }
     }
-    fn update_or_append(
-        &self,
-        overflows: &mut Vec<(SlotType, u32, u32)>,
-        value: (SlotType, u32, u32),
-    ) {
-        match overflows
-            .iter_mut()
-            .find(|ref p| p.0 == value.0 && p.1 == value.1)
-        {
-            Some(found) => {
-                found.2 += value.2;
-            }
-            None => {
-                overflows.push(value);
-            }
-        }
-    }
+    // fn update_or_append(
+    //     &self,
+    //     overflows: &mut Vec<(SlotType, u32, u32)>,
+    //     value: (SlotType, u32, u32),
+    // ) {
+    //     match overflows
+    //         .iter_mut()
+    //         .find(|p| p.0 == value.0 && p.1 == value.1)
+    //     {
+    //         Some(found) => {
+    //             found.2 += value.2;
+    //         }
+    //         None => {
+    //             overflows.push(value);
+    //         }
+    //     }
+    // }
 }
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
         &mut self,
         deps: DepsMut,
-        env: Env,
+        _env: Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
         agent_id: Addr,
@@ -94,7 +93,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                         return (Uint64::from(0u64), Uint64::from(0u64));
                     }
                     if total_tasks <= active.len() as u64 {
-                        let agent_tasks_total = (1 as u64).saturating_sub(
+                        let agent_tasks_total = 1u64.saturating_sub(
                             agent_index.saturating_sub(total_tasks.saturating_sub(1)),
                         );
                         (agent_tasks_total.into(), agent_tasks_total.into())
@@ -113,7 +112,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                             .expect("Agent not active or not registered!")
                             as u64;
 
-                        let extra = (1 as u64)
+                        let extra = 1u64
                             .saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
                         let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
                         (agent_tasks_total.into(), extra.into())
@@ -121,12 +120,14 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                 };
 
                 if let Some(current_block_task_total) = slot_items.0 {
-                    let (num_block_tasks, num_block_tasks_extra) =
-                        activation_ordering(current_block_task_total);
+                    let (n, ne) = activation_ordering(current_block_task_total);
+                    num_block_tasks = n;
+                    num_block_tasks_extra = ne;
                 }
                 if let Some(current_cron_task_total) = slot_items.1 {
-                    let (num_cron_tasks, num_cron_tasks_extra) =
-                        activation_ordering(current_cron_task_total);
+                    let (n, ne) = activation_ordering(current_cron_task_total);
+                    num_cron_tasks = n;
+                    num_cron_tasks_extra = ne;
                 }
 
                 Ok(Some(AgentTaskResponse {
@@ -152,6 +153,8 @@ mod tests {
     use cosmwasm_std::{
         coin, coins, from_slice, Addr, BlockInfo, Coin, CosmosMsg, Empty, StakingMsg,
     };
+    use cw_croncat_core::types::{Agent, SlotType, Task};
+
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Action, Boundary, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};

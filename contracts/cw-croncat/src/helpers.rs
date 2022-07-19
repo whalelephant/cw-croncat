@@ -12,8 +12,8 @@ use std::cmp;
 use std::ops::Div;
 
 pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
-    v1: &Vec<T>,
-    v2: &Vec<T>,
+    v1: &[T],
+    v2: &[T],
 ) -> Vec<T> {
     v1.iter().filter(|&x| !v2.contains(x)).cloned().collect()
 }
