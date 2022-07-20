@@ -4,22 +4,23 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GenericBalance};
+use cw_croncat_core::types::{Agent, GenericBalance, SlotType};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
     // Runtime
     pub paused: bool,
     pub owner_id: Addr,
 
     // Agent management
-    // The maximum number of tasks per agent
+    // The minimum number of tasks per agent
     // Example: 10
     // Explanation: For every 1 agent, 10 tasks per slot are available.
-    // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
+    // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
     // NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub min_tasks_per_agent: u64,
-    pub agent_active_index: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
+    // How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
     // This is a timestamp that's updated when a new task is added such that
     // the agent/task ratio allows for another agent to join.
