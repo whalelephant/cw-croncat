@@ -99,7 +99,7 @@ pub struct Boundary {
     pub end: Option<BoundarySpec>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
 pub enum SlotType {
     Block,
     Cron,

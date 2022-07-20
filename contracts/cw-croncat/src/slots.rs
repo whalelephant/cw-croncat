@@ -157,40 +157,53 @@ impl IntervalExt for Interval {
 
 impl<'a> CwCroncat<'a> {
     /// Get the slot with lowest height/timestamp
-    /// Returns (block slot, time slot)
+    /// Returns a tuple of optionals: (Option<block height>, Option<timestamp>)
     /// NOTE: This prioritizes blocks over timestamps.
     pub(crate) fn get_current_slot_items(
         &self,
         block: &BlockInfo,
         storage: &dyn Storage,
-    ) -> Option<(u64, SlotType)> {
+        limit: Option<usize>,
+    ) -> (Option<u64>, Option<u64>) {
+        let mut ret: (Option<u64>, Option<u64>) = (None, None);
         let block_height = block.height;
-        let block_slot: StdResult<Vec<u64>> = self
-            .block_slots
-            .keys(storage, None, None, Order::Ascending)
-            .take(1)
-            .collect();
+
+        let block_slot: StdResult<Vec<u64>> = if let Some(l) = limit {
+            self.block_slots
+                .keys(storage, None, None, Order::Ascending)
+                .take(l)
+                .collect()
+        } else {
+            self.block_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect()
+        };
 
         if let Ok(Some(block_id)) = block_slot.map(|v| v.first().copied()) {
             if block_height >= block_id {
-                return Some((block_id, SlotType::Block));
+                ret.0 = Some(block_id);
             }
         }
 
         let timestamp: u64 = block.time.nanos();
-        let time_slot: StdResult<Vec<u64>> = self
-            .time_slots
-            .keys(storage, None, None, Order::Ascending)
-            .take(1)
-            .collect();
+        let time_slot: StdResult<Vec<u64>> = if let Some(l) = limit {
+            self.time_slots
+                .keys(storage, None, None, Order::Ascending)
+                .take(l)
+                .collect()
+        } else {
+            self.time_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect()
+        };
 
         if let Ok(Some(time_id)) = time_slot.map(|v| v.first().copied()) {
             if timestamp >= time_id {
-                return Some((time_id, SlotType::Cron));
+                ret.1 = Some(time_id);
             }
         }
 
-        None
+        ret
     }
 
     /// Gets 1 slot hash item, and removes the hash from storage
@@ -214,16 +227,11 @@ impl<'a> CwCroncat<'a> {
         // Need to remove this slot if no hash's left
         if slot_data.is_empty() {
             self.clean_slot(storage, slot, kind);
+        } else {
+            store.save(storage, *slot, &slot_data).ok()?;
         }
 
-        if hash.is_some() {
-            store
-                .update(storage, *slot, |_d| -> StdResult<Vec<_>> { Ok(slot_data) })
-                .ok();
-            return hash;
-        }
-
-        None
+        hash
     }
 
     // TODO: TestCov
@@ -312,31 +320,31 @@ mod tests {
             .to_vec();
 
         // Check for empty store
-        assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((None, None), store.get_current_slot_items(&mock_env.block, &deps.storage, None));
 
         // Setup of block and cron slots
         store.time_slots.save(&mut deps.storage, current_time + 1, &vec![task_hash.clone()]).unwrap();
         store.block_slots.save(&mut deps.storage, current_block + 1, &vec![task_hash.clone()]).unwrap();
 
         // Empty if not time/block yet
-        assert_eq!(None, store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((None, None), store.get_current_slot_items(&mock_env.block, &deps.storage, None));
 
         // And returns task when it's time
         let mut mock_env = mock_env;
         mock_env.block.time = mock_env.block.time.plus_nanos(1);
-        assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((None, Some(current_time + 1)),store.get_current_slot_items(&mock_env.block, &deps.storage, None));
 
         // Or later
         mock_env.block.time = mock_env.block.time.plus_nanos(1);
-        assert_eq!(Some((current_time + 1, SlotType::Cron)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((None, Some(current_time + 1)),store.get_current_slot_items(&mock_env.block, &deps.storage, None));
 
         // Check, that Block is preferred over cron and block height reached 
         mock_env.block.height += 1;
-        assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((Some(current_block + 1), Some(current_time + 1)),store.get_current_slot_items(&mock_env.block, &deps.storage, None));
 
         // Or block(s) ahead
         mock_env.block.height += 1;
-        assert_eq!(Some((current_block + 1, SlotType::Block)),store.get_current_slot_items(&mock_env.block, &deps.storage));
+        assert_eq!((Some(current_block + 1), Some(current_time + 1)), store.get_current_slot_items(&mock_env.block, &deps.storage, None));
     }
 
     #[test]
