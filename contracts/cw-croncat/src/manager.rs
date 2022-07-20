@@ -59,7 +59,7 @@ impl<'a> CwCroncat<'a> {
         if slot.0.is_none() {
             // See if there are cron (time-based) tasks to execute
             if slot.1.is_none() {
-                self.send_base_agent_reward(deps.storage, agent,info);
+                self.send_base_agent_reward(deps.storage, agent, info);
                 return Err(ContractError::CustomError {
                     val: "No Tasks For Slot".to_string(),
                 });
