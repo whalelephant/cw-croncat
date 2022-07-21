@@ -47,7 +47,7 @@ pub struct Config {
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct QueueItem {
     pub contract_addr: Option<Addr>,
     // This is used to track disjointed callbacks

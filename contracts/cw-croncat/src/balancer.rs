@@ -7,7 +7,7 @@ use cw_croncat_core::msg::AgentTaskResponse;
 use cw_croncat_core::types::SlotType;
 use cw_storage_plus::Item;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum BalancerMode {
     ActivationOrder,
     Equalizer,
@@ -28,7 +28,7 @@ pub struct RoundRobinBalancer {
     pub mode: BalancerMode,
 }
 
-impl<'a> RoundRobinBalancer {
+impl RoundRobinBalancer {
     pub fn default() -> RoundRobinBalancer {
         RoundRobinBalancer::new(BalancerMode::ActivationOrder)
     }
