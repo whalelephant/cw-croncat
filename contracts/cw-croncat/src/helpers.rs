@@ -1,5 +1,5 @@
 use crate::state::Config;
-use crate::ContractError::AgentUnregistered;
+use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -11,6 +11,12 @@ use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::ops::Div;
 
+pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
+    v1: &[T],
+    v2: &[T],
+) -> Vec<T> {
+    v1.iter().filter(|&x| !v2.contains(x)).cloned().collect()
+}
 // Helper to distribute funds/tokens
 pub(crate) fn send_tokens(
     to: &Addr,
@@ -101,27 +107,31 @@ impl<'a> CwCroncat<'a> {
             // If we should allow a new agent to take over
             let num_agents_to_accept =
                 self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
-            if num_agents_to_accept != 0 && c.agent_nomination_begin_time.is_some() {
-                let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
+            let agent_nomination_begin_time = self.agent_nomination_begin_time.load(storage)?;
+            match agent_nomination_begin_time {
+                Some(begin_time) if num_agents_to_accept > 0 => {
+                    let time_difference = block_time - begin_time.seconds();
 
-                let max_index = cmp::max(
-                    time_difference.div(c.agent_nomination_duration as u64),
-                    num_agents_to_accept - 1,
-                );
-                if agent_position as u64 <= max_index {
-                    AgentStatus::Nominated
-                } else {
+                    let max_index = cmp::max(
+                        time_difference.div(c.agent_nomination_duration as u64),
+                        num_agents_to_accept - 1,
+                    );
+                    if agent_position as u64 <= max_index {
+                        AgentStatus::Nominated
+                    } else {
+                        AgentStatus::Pending
+                    }
+                }
+                _ => {
+                    // Not their time yet
                     AgentStatus::Pending
                 }
-            } else {
-                // Not their time yet
-                AgentStatus::Pending
             }
         } else {
             // This should not happen. It means the address is in self.agents
             // but not in the pending or active queues
             // Note: if your IDE highlights the below as problematic, you can ignore
-            return Err(AgentUnregistered {});
+            return Err(AgentNotRegistered {});
         };
         Ok(agent_status)
     }

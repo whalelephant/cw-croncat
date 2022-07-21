@@ -17,32 +17,19 @@ impl<'a> CwCroncat<'a> {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskResponse>> {
-        let mut ret: Vec<TaskResponse> = Vec::new();
-        let mut start = 0;
         let size: u64 = self
             .task_total
             .may_load(deps.storage)?
-            .unwrap_or(100)
+            .unwrap_or(0)
             .min(1000);
-        if let Some(index) = from_index {
-            start = index;
-        }
-        let mut end = u64::min(start.saturating_add(100), size);
-        if let Some(l) = limit {
-            end = u64::min(start.saturating_add(l), size);
-        }
-
-        // NOTE: could setup another index to allow efficient paginated
-        let keys: Vec<Vec<u8>> = self
-            .tasks
-            .keys(deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
-
-        for i in start..end {
-            let task_hash = &keys[i as usize];
-            let res = self.tasks.may_load(deps.storage, task_hash.to_vec())?;
-            if let Some(task) = res {
-                ret.push(TaskResponse {
+        let from_index = from_index.unwrap_or_default();
+        let limit = limit.unwrap_or(100).min(size);
+        self.tasks
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .map(|res| {
+                res.map(|(_k, task)| TaskResponse {
                     task_hash: task.to_hash(),
                     owner_id: task.owner_id,
                     interval: task.interval,
@@ -51,11 +38,9 @@ impl<'a> CwCroncat<'a> {
                     total_deposit: task.total_deposit,
                     actions: task.actions,
                     rules: task.rules,
-                });
-            }
-        }
-
-        Ok(ret)
+                })
+            })
+            .collect()
     }
 
     /// Returns task data for a specific owner
@@ -352,8 +337,10 @@ impl<'a> CwCroncat<'a> {
         // If we should allow a new agent to take over
         if num_agents_to_accept != 0 {
             // Don't wipe out an older timestamp
-            if c.agent_nomination_begin_time.is_none() {
-                c.agent_nomination_begin_time = Some(env.block.time)
+            let begin = self.agent_nomination_begin_time.load(deps.storage)?;
+            if begin.is_none() {
+                self.agent_nomination_begin_time
+                    .save(deps.storage, &Some(env.block.time))?;
             }
         }
 
@@ -504,6 +491,8 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::convert::TryInto;
     // use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{
         coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
@@ -525,12 +514,16 @@ mod tests {
 
     const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
     const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
-            let accounts: Vec<(u128, String)> =
-                vec![(100, ADMIN.to_string()), (100, ANYONE.to_string())];
+            let accounts: Vec<(u128, String)> = vec![
+                (100, ADMIN.to_string()),
+                (100, ANYONE.to_string()),
+                (u128::max_value(), VERY_RICH.to_string()),
+            ];
             for (amt, address) in accounts.iter() {
                 router
                     .bank
@@ -688,6 +681,161 @@ mod tests {
             )
             .unwrap();
         assert_eq!(owner_tasks.len(), 1);
+    }
+
+    #[test]
+    fn query_get_tasks_pagination() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let tasks_amnt: u64 = 10;
+        let from_index = 3;
+        let limit = 2;
+        let new_msg = |amount| ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: StakingMsg::Delegate {
+                        validator: validator.clone(),
+                        amount: coin(amount, "atom"),
+                    }
+                    .into(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+            },
+        };
+
+        // create a tasks
+        for amount in 1..tasks_amnt as u128 + 1 {
+            app.execute_contract(
+                Addr::unchecked(VERY_RICH),
+                contract_addr.clone(),
+                &new_msg(amount),
+                &coins(37, "atom"),
+            )
+            .unwrap();
+        }
+        let mut all_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(all_tasks.len(), tasks_amnt as usize);
+
+        // check we get right amount of tasks
+        let part_of_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: Some(from_index),
+                    limit: None,
+                },
+            )
+            .unwrap();
+        let expected_amnt: usize = (tasks_amnt - from_index).try_into().unwrap();
+        assert_eq!(part_of_tasks.len(), expected_amnt);
+
+        println!(
+            "half_tasks: {:?}\n hash_vec:{:?}",
+            part_of_tasks
+                .iter()
+                .map(|t| t.task_hash.clone())
+                .collect::<Vec<String>>(),
+            all_tasks
+                .iter()
+                .map(|t| t.task_hash.clone())
+                .collect::<Vec<String>>(),
+        );
+
+        // Check it's in right order
+        for i in 0..expected_amnt {
+            assert_eq!(
+                all_tasks[from_index as usize + i].task_hash,
+                part_of_tasks[i].task_hash
+            );
+        }
+
+        // and with limit
+        let part_of_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: Some(from_index),
+                    limit: Some(limit),
+                },
+            )
+            .unwrap();
+        let expected_amnt: usize = (limit).try_into().unwrap();
+        assert_eq!(part_of_tasks.len(), expected_amnt);
+
+        // Edge cases
+
+        // Index out of bounds, so we return nothing
+        let from_index = tasks_amnt;
+        let out_of_bounds: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: Some(from_index),
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(out_of_bounds.is_empty());
+
+        // Returns as many elements as possible without a panic
+        let from_index = tasks_amnt - 2;
+        let two_last_elements: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: Some(from_index),
+                    limit: Some(tasks_amnt),
+                },
+            )
+            .unwrap();
+        assert_eq!(two_last_elements.len(), 2);
+
+        // Removed task shouldn't reorder things
+        let removed_index = from_index as usize;
+        app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: all_tasks
+                    .remove(removed_index) // We removed hash from original vector to match
+                    .task_hash,
+            },
+            &vec![],
+        )
+        .unwrap();
+        let new_tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(new_tasks, all_tasks);
     }
 
     #[test]
