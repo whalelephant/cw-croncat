@@ -1,6 +1,6 @@
-use crate::types::Agent;
 use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin};
+use crate::types::{Agent, SlotType};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct Croncat {
     config_response: Option<ConfigResponse>,
     balance_response: Option<BalancesResponse>,
     get_agent_ids_response: Option<GetAgentIdsResponse>,
-    get_agent_tasks_response: Option<GetAgentTasksResponse>,
+    get_agent_tasks_response: Option<AgentTaskResponse>,
     task_request: Option<TaskRequest>,
     task_response: Option<TaskResponse>,
 }
@@ -122,7 +122,7 @@ pub struct ConfigResponse {
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
-    pub agent_active_index: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
     pub gas_price: u32,
@@ -146,7 +146,12 @@ pub struct GetAgentIdsResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub u64, pub u64);
+pub struct AgentTaskResponse {
+    pub num_block_tasks: Uint64,
+    pub num_block_tasks_extra: Uint64,
+    pub num_cron_tasks: Uint64,
+    pub num_cron_tasks_extra: Uint64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
