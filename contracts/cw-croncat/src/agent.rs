@@ -351,10 +351,7 @@ impl<'a> CwCroncat<'a> {
             .agent_active_queue
             .may_load(deps.storage)?
             .unwrap_or_default();
-        if let Some(index) = active_agents
-            .iter()
-            .position(|addr| *addr == agent_id.clone())
-        {
+        if let Some(index) = active_agents.iter().position(|addr| *addr == agent_id) {
             active_agents.remove(index);
             self.agent_active_queue.save(deps.storage, &active_agents)?;
         } else {
@@ -364,10 +361,7 @@ impl<'a> CwCroncat<'a> {
                 .agent_pending_queue
                 .may_load(deps.storage)?
                 .unwrap_or_default();
-            if let Some(index) = pending_agents
-                .iter()
-                .position(|addr| *addr == agent_id.clone())
-            {
+            if let Some(index) = pending_agents.iter().position(|addr| *addr == agent_id) {
                 pending_agents.remove(index);
                 self.agent_pending_queue
                     .save(deps.storage, &pending_agents)?;
