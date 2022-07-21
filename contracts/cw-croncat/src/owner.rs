@@ -16,14 +16,13 @@ impl<'a> CwCroncat<'a> {
             owner_id: c.owner_id,
             // treasury_id: c.treasury_id,
             min_tasks_per_agent: c.min_tasks_per_agent,
-            agent_active_index: c.agent_active_index,
+            agent_active_indices: c.agent_active_indices,
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
             agent_fee: c.agent_fee,
             gas_price: c.gas_price,
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity: c.slot_granularity,
-            agent_nomination_begin_time: c.agent_nomination_begin_time,
         })
     }
 
@@ -45,7 +44,11 @@ impl<'a> CwCroncat<'a> {
         info: MessageInfo,
         payload: ExecuteMsg,
     ) -> Result<Response, ContractError> {
-        // TODO: Panic on attach funds
+        for coin in info.funds.iter() {
+            if coin.amount.u128() > 0 {
+                return Err(ContractError::AttachedDeposit {});
+            }
+        }
         match payload {
             ExecuteMsg::UpdateSettings {
                 owner_id,
@@ -109,7 +112,13 @@ impl<'a> CwCroncat<'a> {
             //         .to_string(),
             // )
             .add_attribute("min_tasks_per_agent", c.min_tasks_per_agent.to_string())
-            .add_attribute("agent_active_index", c.agent_active_index.to_string())
+            .add_attribute(
+                "agent_active_indices",
+                c.agent_active_indices
+                    .iter()
+                    .map(|a| format!("{:?}.{}", a.0, a.1))
+                    .collect::<String>(),
+            )
             .add_attribute(
                 "agents_eject_threshold",
                 c.agents_eject_threshold.to_string(),
@@ -240,7 +249,7 @@ mod tests {
     use crate::error::ContractError;
     use crate::state::CwCroncat;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, from_binary, Addr};
+    use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
     use cw20::Balance;
     use cw_croncat_core::msg::{
         BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
@@ -256,7 +265,11 @@ mod tests {
             owner_id: None,
             agent_nomination_duration: Some(360),
         };
-        let info = mock_info("creator", &coins(1000, "meow"));
+        let info = MessageInfo {
+            sender: Addr::unchecked("creator"),
+            funds: vec![],
+        };
+        mock_info("creator", &coins(0, "meow"));
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
             .unwrap();
@@ -275,11 +288,27 @@ mod tests {
         };
 
         // non-owner fails
-        let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
+        let unauth_info = MessageInfo {
+            sender: Addr::unchecked("michael_scott"),
+            funds: vec![],
+        };
         let res_fail = store.execute(deps.as_mut(), mock_env(), unauth_info, payload.clone());
         match res_fail {
             Err(ContractError::Unauthorized {}) => {}
             _ => panic!("Must return unauthorized error"),
+        }
+
+        // non-zero deposit fails
+        let with_deposit_info = mock_info("owner_id", &coins(1000, "meow"));
+        let res_fail = store.execute(
+            deps.as_mut(),
+            mock_env(),
+            with_deposit_info,
+            payload.clone(),
+        );
+        match res_fail {
+            Err(ContractError::AttachedDeposit {}) => {}
+            _ => panic!("Must return deposit error"),
         }
 
         // do the right thing
@@ -328,8 +357,9 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
+        let info_setting = mock_info("owner_id", &coins(0, "meow"));
         let res_exec = store
-            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .execute(deps.as_mut(), mock_env(), info_setting, payload)
             .unwrap();
         assert!(res_exec.messages.is_empty());
 
@@ -387,8 +417,9 @@ mod tests {
             proxy_callback_gas: None,
             slot_granularity: None,
         };
+        let info_settings = mock_info("owner_id", &coins(0, "meow"));
         let res_exec = store
-            .execute(deps.as_mut(), mock_env(), info.clone(), payload)
+            .execute(deps.as_mut(), mock_env(), info_settings, payload)
             .unwrap();
         assert!(res_exec.messages.is_empty());
 
