@@ -197,7 +197,6 @@ mod tests {
             slot_granularity: 60_000_000_000,
             native_denom: NATIVE_DENOM.to_owned(),
             cw20_whitelist: vec![],
-            agent_nomination_begin_time: None,
             agent_nomination_duration: 9,
         }
     }
