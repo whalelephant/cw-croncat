@@ -1,6 +1,6 @@
-use crate::types::Agent;
 use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
-use cosmwasm_std::{Addr, Coin, Timestamp};
+use crate::types::{Agent, SlotType};
+use cosmwasm_std::{Addr, Coin, Uint64};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -28,12 +28,12 @@ pub struct Croncat {
     config_response: Option<ConfigResponse>,
     balance_response: Option<BalancesResponse>,
     get_agent_ids_response: Option<GetAgentIdsResponse>,
-    get_agent_tasks_response: Option<GetAgentTasksResponse>,
+    get_agent_tasks_response: Option<AgentTaskResponse>,
     task_request: Option<TaskRequest>,
     task_response: Option<TaskResponse>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
@@ -122,14 +122,13 @@ pub struct ConfigResponse {
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
-    pub agent_active_index: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
     pub gas_price: u32,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
-    pub agent_nomination_begin_time: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -140,14 +139,19 @@ pub struct BalancesResponse {
     pub cw20_whitelist: Vec<Addr>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
     pub pending: Vec<Addr>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub u64, pub u64);
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct AgentTaskResponse {
+    pub num_block_tasks: Uint64,
+    pub num_block_tasks_extra: Uint64,
+    pub num_cron_tasks: Uint64,
+    pub num_cron_tasks_extra: Uint64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
@@ -168,4 +172,18 @@ pub struct TaskResponse {
     pub total_deposit: Vec<Coin>,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotHashesResponse {
+    pub block_id: u64,
+    pub block_task_hash: Vec<String>,
+    pub time_id: u64,
+    pub time_task_hash: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotIdsResponse {
+    pub time_ids: Vec<u64>,
+    pub block_ids: Vec<u64>,
 }

@@ -3,12 +3,13 @@ use crate::helpers::{send_tokens, GenericBalance};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
-    SubMsg,
+    SubMsg, Uint64,
 };
 use cw20::Balance;
 use std::ops::Div;
 
-use cw_croncat_core::msg::{GetAgentIdsResponse, GetAgentTasksResponse};
+use crate::ContractError::AgentNotRegistered;
+use cw_croncat_core::msg::{AgentTaskResponse, GetAgentIdsResponse};
 use cw_croncat_core::types::{Agent, AgentResponse, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
@@ -24,10 +25,7 @@ impl<'a> CwCroncat<'a> {
         if agent.is_none() {
             return Ok(None);
         }
-        let active: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let active: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
         let a = agent.unwrap();
         let mut agent_response = AgentResponse {
             status: AgentStatus::Pending, // Simple default
@@ -58,14 +56,8 @@ impl<'a> CwCroncat<'a> {
 
     /// Get a list of agent addresses
     pub(crate) fn query_get_agent_ids(&self, deps: Deps) -> StdResult<GetAgentIdsResponse> {
-        let active: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
-        let pending: Vec<Addr> = self
-            .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let active: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let pending: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
 
         Ok(GetAgentIdsResponse { active, pending })
     }
@@ -77,19 +69,66 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         env: Env,
         account_id: Addr,
-    ) -> StdResult<GetAgentTasksResponse> {
-        let empty = GetAgentTasksResponse(0, 0);
+    ) -> StdResult<Option<AgentTaskResponse>> {
         let active = self.agent_active_queue.load(deps.storage)?;
-        let slot = self.get_current_slot_items(&env.block, deps.storage);
-
-        if active.contains(&account_id) {
-            if let Some(slot) = slot {
-                return Ok(GetAgentTasksResponse(1, slot.0));
-            }
-            return Ok(GetAgentTasksResponse(1, 0));
+        if !active.contains(&account_id) {
+            // TODO: unsure if we can return AgentNotRegistered
+            return Err(StdError::GenericErr {
+                msg: AgentNotRegistered {}.to_string(),
+            });
         }
 
-        Ok(empty)
+        // Get all tasks (the final None means no limit when we take)
+        let slot_items = self.get_current_slot_items(&env.block, deps.storage, None);
+
+        if slot_items == (None, None) {
+            return Ok(None);
+        }
+        let mut num_block_tasks = Uint64::from(0u64);
+        let mut num_cron_tasks = Uint64::from(0u64);
+        let num_block_tasks_extra = Uint64::from(0u64);
+        let num_cron_tasks_extra = Uint64::from(0u64);
+        // This below line is commented out and will be used with
+        // the rotating index (see Config's agent_active_indices)
+        // let agent_active_queue_indices: Vec<usize> = (0..active.len()).collect();
+        if let Some(current_block_task_total) = slot_items.0 {
+            // Integer division to determine how much each gets
+            let task_total_each_agent = current_block_task_total / active.len() as u64;
+
+            // Divvy up the modulo leftovers using the active index
+            // TODO: we must give the leftover tasks to some agents.
+            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
+            // let agent_active_index = agent_active_queue
+            //     .iter()
+            //     .position(|x| x == &account_id)
+            //     .expect("Agent not active");
+            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
+
+            num_block_tasks = task_total_each_agent.into();
+        }
+        // Do time slots
+        if let Some(current_cron_task_total) = slot_items.1 {
+            // Integer division to determine how much each gets
+            let task_total_each_agent = current_cron_task_total / active.len() as u64;
+
+            // Divvy up the modulo leftovers using the active index
+            // TODO: we must give the leftover tasks to some agents.
+            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
+            // let agent_active_index = agent_active_queue
+            //     .iter()
+            //     .position(|x| x == &account_id)
+            //     .expect("Agent not active");
+            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
+
+            num_cron_tasks = task_total_each_agent.into();
+        }
+
+        Ok(Some(AgentTaskResponse {
+            num_block_tasks,
+            num_block_tasks_extra,
+            num_cron_tasks_extra,
+            num_cron_tasks,
+        }))
     }
 
     /// Add any account as an agent that will be able to execute tasks.
@@ -135,20 +174,14 @@ impl<'a> CwCroncat<'a> {
 
         let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
 
-        let mut active_agents: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
         let total_agents = active_agents.len();
         let agent_status = if total_agents == 0 {
             active_agents.push(account.clone());
             self.agent_active_queue.save(deps.storage, &active_agents)?;
             AgentStatus::Active
         } else {
-            let mut pending_agents = self
-                .agent_pending_queue
-                .may_load(deps.storage)?
-                .unwrap_or_default();
+            let mut pending_agents = self.agent_pending_queue.load(deps.storage)?;
             pending_agents.push(account.clone());
             self.agent_pending_queue
                 .save(deps.storage, &pending_agents)?;
@@ -267,21 +300,19 @@ impl<'a> CwCroncat<'a> {
         env: Env,
     ) -> Result<Response, ContractError> {
         // Compare current time and Config's agent_nomination_begin_time to see if agent can join
-        let mut c: Config = self.config.load(deps.storage)?;
+        let c: Config = self.config.load(deps.storage)?;
 
-        let time_difference = if let Some(nomination_start) = c.agent_nomination_begin_time {
-            env.block.time.seconds() - nomination_start.seconds()
-        } else {
-            // No agents can join yet
-            return Err(ContractError::CustomError {
-                val: "Not accepting new agents".to_string(),
-            });
-        };
+        let time_difference =
+            if let Some(nomination_start) = self.agent_nomination_begin_time.load(deps.storage)? {
+                env.block.time.seconds() - nomination_start.seconds()
+            } else {
+                // No agents can join yet
+                return Err(ContractError::CustomError {
+                    val: "Not accepting new agents".to_string(),
+                });
+            };
         // Agent must be in the pending queue
-        let pending_queue = self
-            .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let pending_queue = self.agent_pending_queue.load(deps.storage)?;
         // Get the position in the pending queue
         if let Some(agent_position) = pending_queue
             .iter()
@@ -296,10 +327,7 @@ impl<'a> CwCroncat<'a> {
             if agent_position as u64 <= max_index {
                 // Make this agent active
                 // Update state removing from pending queue
-                let mut pending_agents: Vec<Addr> = self
-                    .agent_pending_queue
-                    .may_load(deps.storage)?
-                    .unwrap_or_default();
+                let mut pending_agents: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
                 // Remove this agent and all ahead of them in the queue (they missed out)
                 for idx_to_remove in (0..=agent_position).rev() {
                     pending_agents.remove(idx_to_remove);
@@ -308,16 +336,13 @@ impl<'a> CwCroncat<'a> {
                     .save(deps.storage, &pending_agents)?;
 
                 // and adding to active queue
-                let mut active_agents: Vec<Addr> = self
-                    .agent_active_queue
-                    .may_load(deps.storage)?
-                    .unwrap_or_default();
+                let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
                 active_agents.push(info.sender.clone());
                 self.agent_active_queue.save(deps.storage, &active_agents)?;
 
                 // and update the config, setting the nomination begin time to None,
                 // which indicates no one will be nominated until more tasks arrive
-                c.agent_nomination_begin_time = None;
+                self.agent_nomination_begin_time.save(deps.storage, &None)?;
                 self.config.save(deps.storage, &c)?;
             } else {
                 return Err(ContractError::CustomError {
@@ -492,6 +517,74 @@ mod tests {
             &ExecuteMsg::CreateTask {
                 task: TaskRequest {
                     interval: Interval::Immediate,
+                    boundary: Boundary {
+                        start: None,
+                        end: None,
+                    },
+                    stop_on_fail: false,
+                    actions: vec![Action {
+                        msg,
+                        gas_limit: Some(150_000),
+                    }],
+                    rules: None,
+                },
+            },
+            send_funds.as_ref(),
+        )
+        .expect("Error adding task")
+    }
+
+    fn add_block_task_exec(
+        app: &mut App,
+        contract_addr: &Addr,
+        sender: &str,
+        block_num: u64,
+    ) -> AppResponse {
+        let validator = String::from("you");
+        let amount = coin(3, NATIVE_DENOM);
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+        let send_funds = coins(1, NATIVE_DENOM);
+        app.execute_contract(
+            Addr::unchecked(sender),
+            contract_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: TaskRequest {
+                    interval: Interval::Block(block_num),
+                    boundary: Boundary {
+                        start: None,
+                        end: None,
+                    },
+                    stop_on_fail: false,
+                    actions: vec![Action {
+                        msg,
+                        gas_limit: Some(150_000),
+                    }],
+                    rules: None,
+                },
+            },
+            send_funds.as_ref(),
+        )
+        .expect("Error adding task")
+    }
+
+    fn add_cron_task_exec(
+        app: &mut App,
+        contract_addr: &Addr,
+        sender: &str,
+        num_minutes: u64,
+    ) -> AppResponse {
+        let validator = String::from("you");
+        let amount = coin(3, NATIVE_DENOM);
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+        let send_funds = coins(1, NATIVE_DENOM);
+        app.execute_contract(
+            Addr::unchecked(sender),
+            contract_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: TaskRequest {
+                    interval: Interval::Cron(format!("* {} * * * *", num_minutes)),
                     boundary: Boundary {
                         start: None,
                         end: None,
@@ -1096,15 +1189,15 @@ mod tests {
             contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT0));
         assert_eq!(Err(ContractError::AgentNotRegistered {}), agent_status_res);
 
-        let agent_active_queue_opt: Option<Vec<Addr>> = match deps
-            .storage
-            .get("agent_active_queue".as_bytes())
-        {
-            Some(vec) => Some(from_slice(vec.as_ref()).expect("Could not load agent active queue")),
-            None => None,
-        };
+        let agent_active_queue_opt: Vec<Addr> =
+            match deps.storage.get("agent_active_queue".as_bytes()) {
+                Some(vec) => from_slice(vec.as_ref()).expect("Could not load agent active queue"),
+                None => {
+                    panic!("Uninitialized agent_active_queue_opt");
+                }
+            };
         assert!(
-            agent_active_queue_opt.is_none(),
+            agent_active_queue_opt.is_empty(),
             "Should not have an active queue yet"
         );
 
@@ -1157,5 +1250,106 @@ mod tests {
             agent_status_res.unwrap(),
             "New agent should have nominated status"
         );
+    }
+
+    #[test]
+    fn test_query_get_agent_tasks() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let block_info = app.block_info();
+        println!(
+            "test aloha\n\tcurrent block: {}\n\tcurrent time: {}",
+            block_info.height,
+            block_info.time.nanos()
+        );
+
+        // Register AGENT1, who immediately becomes active
+        register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
+        // Add five tasks total
+        // Three of them are block-based
+        add_block_task_exec(
+            &mut app,
+            &contract_addr,
+            PARTICIPANT0,
+            block_info.height + 6,
+        );
+        add_block_task_exec(
+            &mut app,
+            &contract_addr,
+            PARTICIPANT1,
+            block_info.height + 66,
+        );
+        add_block_task_exec(
+            &mut app,
+            &contract_addr,
+            PARTICIPANT2,
+            block_info.height + 67,
+        );
+        // add_block_task_exec(&mut app, &contract_addr, PARTICIPANT3, block_info.height + 131);
+        // Two tasks use Cron instead of Block (for task interval)
+        add_cron_task_exec(&mut app, &contract_addr, PARTICIPANT4, 6); // 3 minutes
+        add_cron_task_exec(&mut app, &contract_addr, PARTICIPANT5, 53); // 53 minutes
+        let num_tasks = get_task_total(&app, &contract_addr);
+        assert_eq!(num_tasks, 5);
+
+        // Now the task ratio is 1:2 (one agent per two tasks)
+        // Register two agents, the first one succeeding
+        register_agent_exec(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY);
+        assert!(check_in_exec(&mut app, &contract_addr, AGENT2).is_ok());
+        // This next agent should fail because there's no enough tasks yet
+        // Later, we'll have this agent try to nominate themselves before their time
+        register_agent_exec(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
+        let failed_check_in = check_in_exec(&mut app, &contract_addr, AGENT3);
+        assert_eq!(
+            ContractError::CustomError {
+                val: "Not accepting new agents".to_string()
+            },
+            failed_check_in.unwrap_err().downcast().unwrap()
+        );
+
+        let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &contract_addr);
+        assert_eq!(2, num_active_agents);
+        assert_eq!(1, num_pending_agents);
+
+        // Fast forward time a little
+        app.update_block(|block| {
+            let height = 666;
+            block.time = block.time.plus_seconds(6 * height); // ~6 sec block time
+            block.height = block.height + height;
+        });
+
+        // What happens when the only active agent queries to see if there's work for them
+        // calls:
+        // fn query_get_agent_tasks
+        let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
+            account_id: Addr::unchecked(AGENT1),
+        };
+        let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+        println!(
+            "test aloha query_task_res0 {:#?}",
+            query_task_res.as_ref().unwrap()
+        );
+        assert!(
+            query_task_res.is_ok(),
+            "Did not successfully find the newly added task"
+        );
+        msg_agent_tasks = QueryMsg::GetAgentTasks {
+            account_id: Addr::unchecked(AGENT2),
+        };
+        query_task_res = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+        println!("test aloha query_task_res1 {:#?}", query_task_res.unwrap());
+        // Should fail for random user not in the active queue
+        msg_agent_tasks = QueryMsg::GetAgentTasks {
+            // rando account
+            account_id: Addr::unchecked("juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz"),
+        };
+        query_task_res = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+        println!("aloha query_task_res {:?}", query_task_res);
     }
 }
