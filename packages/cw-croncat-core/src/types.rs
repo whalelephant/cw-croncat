@@ -15,7 +15,7 @@ pub struct GenericBalance {
     pub cw20: Vec<Cw20CoinVerified>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum AgentStatus {
     // Default for any new agent, if tasks ratio allows
     Active,
@@ -67,7 +67,7 @@ pub struct AgentResponse {
 /// - Block Height Based: Once, Immediate, Block
 /// - Timestamp Based: Cron
 /// - No Epoch support directly, advised to use block heights instead
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum Interval {
     /// For when this is a non-recurring future scheduled TXN
     Once,
@@ -82,7 +82,7 @@ pub enum Interval {
     Cron(String),
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum BoundarySpec {
     /// Represents the block height
     Height(u64),
@@ -91,7 +91,7 @@ pub enum BoundarySpec {
     Time(Timestamp),
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Boundary {
     ///
     pub start: Option<BoundarySpec>,
@@ -99,13 +99,13 @@ pub struct Boundary {
     pub end: Option<BoundarySpec>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
 pub enum SlotType {
     Block,
     Cron,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Rule {
     /// TBD: Interchain query support (See ibc::IbcMsg)
     // pub chain_id: Option<String>,

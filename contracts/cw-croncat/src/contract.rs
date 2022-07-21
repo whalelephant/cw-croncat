@@ -8,6 +8,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw20::Balance;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use cw_croncat_core::types::SlotType;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -41,7 +42,7 @@ impl<'a> CwCroncat<'a> {
             owner_id: owner_acct,
             // treasury_id: None,
             min_tasks_per_agent: 3,
-            agent_active_index: 0,
+            agent_active_indices: vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance,
             staked_balance: GenericBalance::default(),
@@ -53,13 +54,19 @@ impl<'a> CwCroncat<'a> {
             cw20_whitelist: vec![],
             // TODO: ????
             // cw20_fees: vec![],
-            agent_nomination_begin_time: None,
             agent_nomination_duration: msg
                 .agent_nomination_duration
                 .unwrap_or(DEFAULT_NOMINATION_DURATION),
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
+        self.agent_active_queue
+            .save(deps.storage, &Default::default())?;
+        self.agent_pending_queue
+            .save(deps.storage, &Default::default())?;
+        self.task_total.save(deps.storage, &Default::default())?;
+        self.reply_index.save(deps.storage, &Default::default())?;
+        self.agent_nomination_begin_time.save(deps.storage, &None)?;
 
         // all instantiated data
         Ok(Response::new()
@@ -77,7 +84,14 @@ impl<'a> CwCroncat<'a> {
                 "min_tasks_per_agent",
                 config.min_tasks_per_agent.to_string(),
             )
-            .add_attribute("agent_active_index", config.agent_active_index.to_string())
+            .add_attribute(
+                "agent_active_indices",
+                config
+                    .agent_active_indices
+                    .iter()
+                    .map(|a| format!("{:?}.{}", a.0, a.1))
+                    .collect::<String>(),
+            )
             .add_attribute(
                 "agents_eject_threshold",
                 config.agents_eject_threshold.to_string(),
@@ -176,14 +190,16 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::helpers::test_helpers::mock_init;
     use crate::state::QueueItem;
     use cosmwasm_std::testing::{
         mock_dependencies_with_balance, mock_env, mock_info, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
-        coin, coins, from_binary, Addr, Binary, Event, SubMsgResponse, SubMsgResult,
+        coin, coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult,
     };
     use cw_croncat_core::msg::{ConfigResponse, QueryMsg};
+    use cw_croncat_core::types::SlotType;
 
     #[test]
     fn configure() {
@@ -212,7 +228,10 @@ mod tests {
         assert_eq!(info.sender, value.owner_id);
         // assert_eq!(None, value.treasury_id);
         assert_eq!(3, value.min_tasks_per_agent);
-        assert_eq!(0, value.agent_active_index);
+        assert_eq!(
+            vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
+            value.agent_active_indices
+        );
         assert_eq!(600, value.agents_eject_threshold);
         assert_eq!("atom", value.native_denom);
         assert_eq!(coin(5, "atom"), value.agent_fee);
@@ -225,6 +244,7 @@ mod tests {
     fn replies() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
         let store = CwCroncat::default();
+        mock_init(&store, deps.as_mut()).unwrap();
         let task_hash = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705"
             .as_bytes()
             .to_vec();
