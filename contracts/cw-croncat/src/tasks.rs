@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
 };
 use cw20::Balance;
-use cw_croncat_core::msg::{TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::types::{SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
@@ -121,7 +121,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         slot: Option<u64>,
-    ) -> StdResult<(u64, Vec<String>, u64, Vec<String>)> {
+    ) -> StdResult<GetSlotHashesResponse> {
         let mut block_id: u64 = 0;
         let mut block_hashes: Vec<Vec<u8>> = Vec::new();
         let mut time_id: u64 = 0;
@@ -172,30 +172,38 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Generate strings for all hashes
-        let b_hashes: Vec<_> = block_hashes
+        let block_task_hash: Vec<_> = block_hashes
             .iter()
             .map(|b| String::from_utf8(b.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
-        let t_hashes: Vec<_> = time_hashes
+        let time_task_hash: Vec<_> = time_hashes
             .iter()
             .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
             .collect();
 
-        Ok((block_id, b_hashes, time_id, t_hashes))
+        Ok(GetSlotHashesResponse {
+            block_id,
+            block_task_hash,
+            time_id,
+            time_task_hash,
+        })
     }
 
     /// Gets list of active slot ids, for both time & block slots
     /// (time, block)
-    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<(Vec<u64>, Vec<u64>)> {
-        let time: Vec<u64> = self
+    pub(crate) fn query_slot_ids(&self, deps: Deps) -> StdResult<GetSlotIdsResponse> {
+        let time_ids: Vec<u64> = self
             .time_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        let block: Vec<u64> = self
+        let block_ids: Vec<u64> = self
             .block_slots
             .keys(deps.storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
-        Ok((time, block))
+        Ok(GetSlotIdsResponse {
+            time_ids,
+            block_ids,
+        })
     }
 
     /// Allows any user or contract to pay for future txns based on a specific schedule
@@ -1124,16 +1132,16 @@ mod tests {
         }
 
         // get slot ids
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s_1: Vec<u64> = Vec::new();
-        assert_eq!(s_1, slot_ids.0);
-        assert_eq!(vec![12346], slot_ids.1);
+        assert_eq!(s_1, slot_ids.time_ids);
+        assert_eq!(vec![12346], slot_ids.block_ids);
 
         // get slot hashs
-        let slot_info: (u64, Vec<String>, u64, Vec<String>) = app
+        let slot_info: GetSlotHashesResponse = app
             .wrap()
             .query_wasm_smart(
                 &contract_addr.clone(),
@@ -1141,10 +1149,10 @@ mod tests {
             )
             .unwrap();
         let s_3: Vec<String> = Vec::new();
-        assert_eq!(12346, slot_info.0);
-        assert_eq!(vec![task_id_str.clone()], slot_info.1);
-        assert_eq!(0, slot_info.2);
-        assert_eq!(s_3, slot_info.3);
+        assert_eq!(12346, slot_info.block_id);
+        assert_eq!(vec![task_id_str.clone()], slot_info.block_task_hash);
+        assert_eq!(0, slot_info.time_id);
+        assert_eq!(s_3, slot_info.time_task_hash);
 
         Ok(())
     }
@@ -1199,13 +1207,13 @@ mod tests {
         assert!(new_task.is_some());
 
         // Confirm slot exists, proving task was scheduled
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s_1: Vec<u64> = Vec::new();
-        assert_eq!(s_1, slot_ids.0);
-        assert_eq!(vec![12346], slot_ids.1);
+        assert_eq!(s_1, slot_ids.time_ids);
+        assert_eq!(vec![12346], slot_ids.block_ids);
 
         // Remove the Task
         app.execute_contract(
@@ -1238,13 +1246,13 @@ mod tests {
         assert_eq!(coins(0, "atom"), balances.available_balance.native);
 
         // Check the slots correctly removed the task
-        let slot_ids: (Vec<u64>, Vec<u64>) = app
+        let slot_ids: GetSlotIdsResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetSlotIds {})
             .unwrap();
         let s: Vec<u64> = Vec::new();
-        assert_eq!(s.clone(), slot_ids.0);
-        assert_eq!(s, slot_ids.1);
+        assert_eq!(s.clone(), slot_ids.time_ids);
+        assert_eq!(s, slot_ids.block_ids);
 
         Ok(())
     }

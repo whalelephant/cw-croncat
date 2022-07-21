@@ -173,3 +173,17 @@ pub struct TaskResponse {
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotHashesResponse {
+    pub block_id: u64,
+    pub block_task_hash: Vec<String>,
+    pub time_id: u64,
+    pub time_task_hash: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotIdsResponse {
+    pub time_ids: Vec<u64>,
+    pub block_ids: Vec<u64>,
+}
