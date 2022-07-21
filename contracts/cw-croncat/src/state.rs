@@ -127,7 +127,7 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn task_total(&self, storage: &dyn Storage) -> StdResult<u64> {
-        Ok(self.task_total.may_load(storage)?.unwrap_or_default())
+        self.task_total.load(storage)
     }
 
     pub fn increment_tasks(&self, storage: &mut dyn Storage) -> StdResult<u64> {
@@ -143,11 +143,11 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub(crate) fn rq_next_id(&self, storage: &dyn Storage) -> StdResult<u64> {
-        Ok(self.reply_index.may_load(storage)?.unwrap_or_default() + 1)
+        Ok(self.reply_index.load(storage)? + 1)
     }
 
     pub(crate) fn rq_push(&self, storage: &mut dyn Storage, item: QueueItem) -> StdResult<u64> {
-        let idx = self.reply_index.may_load(storage)?.unwrap_or_default() + 1;
+        let idx = self.reply_index.load(storage)? + 1;
         self.reply_index.save(storage, &idx)?;
         self.reply_queue
             .update(storage, idx, |_d| -> StdResult<QueueItem> { Ok(item) })?;

@@ -25,10 +25,7 @@ impl<'a> CwCroncat<'a> {
         if agent.is_none() {
             return Ok(None);
         }
-        let active: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let active: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
         let a = agent.unwrap();
         let mut agent_response = AgentResponse {
             status: AgentStatus::Pending, // Simple default
@@ -59,14 +56,8 @@ impl<'a> CwCroncat<'a> {
 
     /// Get a list of agent addresses
     pub(crate) fn query_get_agent_ids(&self, deps: Deps) -> StdResult<GetAgentIdsResponse> {
-        let active: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
-        let pending: Vec<Addr> = self
-            .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let active: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let pending: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
 
         Ok(GetAgentIdsResponse { active, pending })
     }
@@ -183,20 +174,14 @@ impl<'a> CwCroncat<'a> {
 
         let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
 
-        let mut active_agents: Vec<Addr> = self
-            .agent_active_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
         let total_agents = active_agents.len();
         let agent_status = if total_agents == 0 {
             active_agents.push(account.clone());
             self.agent_active_queue.save(deps.storage, &active_agents)?;
             AgentStatus::Active
         } else {
-            let mut pending_agents = self
-                .agent_pending_queue
-                .may_load(deps.storage)?
-                .unwrap_or_default();
+            let mut pending_agents = self.agent_pending_queue.load(deps.storage)?;
             pending_agents.push(account.clone());
             self.agent_pending_queue
                 .save(deps.storage, &pending_agents)?;
@@ -327,10 +312,7 @@ impl<'a> CwCroncat<'a> {
                 });
             };
         // Agent must be in the pending queue
-        let pending_queue = self
-            .agent_pending_queue
-            .may_load(deps.storage)?
-            .unwrap_or_default();
+        let pending_queue = self.agent_pending_queue.load(deps.storage)?;
         // Get the position in the pending queue
         if let Some(agent_position) = pending_queue
             .iter()
@@ -345,10 +327,7 @@ impl<'a> CwCroncat<'a> {
             if agent_position as u64 <= max_index {
                 // Make this agent active
                 // Update state removing from pending queue
-                let mut pending_agents: Vec<Addr> = self
-                    .agent_pending_queue
-                    .may_load(deps.storage)?
-                    .unwrap_or_default();
+                let mut pending_agents: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
                 // Remove this agent and all ahead of them in the queue (they missed out)
                 for idx_to_remove in (0..=agent_position).rev() {
                     pending_agents.remove(idx_to_remove);
@@ -357,10 +336,7 @@ impl<'a> CwCroncat<'a> {
                     .save(deps.storage, &pending_agents)?;
 
                 // and adding to active queue
-                let mut active_agents: Vec<Addr> = self
-                    .agent_active_queue
-                    .may_load(deps.storage)?
-                    .unwrap_or_default();
+                let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
                 active_agents.push(info.sender.clone());
                 self.agent_active_queue.save(deps.storage, &active_agents)?;
 
@@ -1186,15 +1162,15 @@ mod tests {
             contract.get_agent_status(&deps.storage, mock_env(), Addr::unchecked(AGENT0));
         assert_eq!(Err(ContractError::AgentNotRegistered {}), agent_status_res);
 
-        let agent_active_queue_opt: Option<Vec<Addr>> = match deps
-            .storage
-            .get("agent_active_queue".as_bytes())
-        {
-            Some(vec) => Some(from_slice(vec.as_ref()).expect("Could not load agent active queue")),
-            None => None,
-        };
+        let agent_active_queue_opt: Vec<Addr> =
+            match deps.storage.get("agent_active_queue".as_bytes()) {
+                Some(vec) => from_slice(vec.as_ref()).expect("Could not load agent active queue"),
+                None => {
+                    panic!("Uninitialized agent_active_queue_opt");
+                }
+            };
         assert!(
-            agent_active_queue_opt.is_none(),
+            agent_active_queue_opt.is_empty(),
             "Should not have an active queue yet"
         );
 
