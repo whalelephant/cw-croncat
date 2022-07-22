@@ -45,8 +45,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         owner_id: Addr,
     ) -> StdResult<Vec<TaskResponse>> {
-        let tasks_by_owner: Vec<TaskResponse> = self
-            .tasks
+        self.tasks
             .idx
             .owner
             .prefix(owner_id)
@@ -63,9 +62,7 @@ impl<'a> CwCroncat<'a> {
                     rules: task.rules,
                 })
             })
-            .collect::<StdResult<Vec<_>>>()?;
-
-        Ok(tasks_by_owner)
+            .collect::<StdResult<Vec<_>>>()
     }
 
     /// Returns single task data
@@ -492,7 +489,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{BalancesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+    use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
     use cw_croncat_core::types::{Action, Boundary, BoundarySpec};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -1231,7 +1228,7 @@ mod tests {
         assert!(rem_task.is_none());
 
         // Check the contract total balance has decreased from the removed task
-        let balances: BalancesResponse = app
+        let balances: GetBalancesResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();
@@ -1325,7 +1322,7 @@ mod tests {
         }
 
         // Check the balance has increased to include the new refilled total
-        let balances: BalancesResponse = app
+        let balances: GetBalancesResponse = app
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();

@@ -3,7 +3,7 @@
   "title": "Croncat",
   "type": "object",
   "properties": {
-    "agent": {
+    "Agent": {
       "anyOf": [
         {
           "$ref": "#/definitions/Agent"
@@ -13,27 +13,27 @@
         }
       ]
     },
-    "balance_response": {
+    "BalanceResponse": {
       "anyOf": [
         {
-          "$ref": "#/definitions/BalancesResponse"
+          "$ref": "#/definitions/GetBalancesResponse"
         },
         {
           "type": "null"
         }
       ]
     },
-    "config_response": {
+    "ConfigResponse": {
       "anyOf": [
         {
-          "$ref": "#/definitions/ConfigResponse"
+          "$ref": "#/definitions/GetConfigResponse"
         },
         {
           "type": "null"
         }
       ]
     },
-    "get_agent_ids_response": {
+    "GetAgentIdsResponse": {
       "anyOf": [
         {
           "$ref": "#/definitions/GetAgentIdsResponse"
@@ -43,17 +43,95 @@
         }
       ]
     },
-    "get_agent_tasks_response": {
+    "GetAgentResponse": {
       "anyOf": [
         {
-          "$ref": "#/definitions/GetAgentTasksResponse"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AgentResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         {
           "type": "null"
         }
       ]
     },
-    "task": {
+    "GetAgentTasksResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AgentTaskResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetSlotHashesResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetSlotHashesResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetSlotIdsResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetSlotIdsResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetTaskHashResponse": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "GetTaskResponse": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/TaskResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetTasksByOwnerResponse": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/TaskResponse"
+      }
+    },
+    "GetTasksResponse": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/TaskResponse"
+      }
+    },
+    "Task": {
       "anyOf": [
         {
           "$ref": "#/definitions/Task"
@@ -63,7 +141,7 @@
         }
       ]
     },
-    "task_request": {
+    "TaskRequest": {
       "anyOf": [
         {
           "$ref": "#/definitions/TaskRequest"
@@ -73,7 +151,7 @@
         }
       ]
     },
-    "task_response": {
+    "TaskResponse": {
       "anyOf": [
         {
           "$ref": "#/definitions/TaskResponse"
@@ -82,14 +160,76 @@
           "type": "null"
         }
       ]
+    },
+    "ValidateIntervalResponse": {
+      "type": [
+        "boolean",
+        "null"
+      ]
     }
   },
   "definitions": {
+    "Action_for_Empty": {
+      "type": "object",
+      "required": [
+        "msg"
+      ],
+      "properties": {
+        "gas_limit": {
+          "description": "The gas needed to safely process the execute msg",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "msg": {
+          "description": "Supported CosmosMsgs only!",
+          "allOf": [
+            {
+              "$ref": "#/definitions/CosmosMsg_for_Empty"
+            }
+          ]
+        }
+      }
+    },
     "Addr": {
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
     },
     "Agent": {
+      "type": "object",
+      "required": [
+        "balance",
+        "last_missed_slot",
+        "payable_account_id",
+        "register_start",
+        "total_tasks_executed"
+      ],
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "last_missed_slot": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "payable_account_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "register_start": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "total_tasks_executed": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "AgentResponse": {
       "type": "object",
       "required": [
         "balance",
@@ -112,9 +252,7 @@
           "$ref": "#/definitions/Addr"
         },
         "register_start": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
+          "$ref": "#/definitions/Timestamp"
         },
         "status": {
           "$ref": "#/definitions/AgentStatus"
@@ -134,29 +272,26 @@
         "Nominated"
       ]
     },
-    "BalancesResponse": {
+    "AgentTaskResponse": {
       "type": "object",
       "required": [
-        "available_balance",
-        "cw20_whitelist",
-        "native_denom",
-        "staked_balance"
+        "num_block_tasks",
+        "num_block_tasks_extra",
+        "num_cron_tasks",
+        "num_cron_tasks_extra"
       ],
       "properties": {
-        "available_balance": {
-          "$ref": "#/definitions/GenericBalance"
+        "num_block_tasks": {
+          "$ref": "#/definitions/Uint64"
         },
-        "cw20_whitelist": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Addr"
-          }
+        "num_block_tasks_extra": {
+          "$ref": "#/definitions/Uint64"
         },
-        "native_denom": {
-          "type": "string"
+        "num_cron_tasks": {
+          "$ref": "#/definitions/Uint64"
         },
-        "staked_balance": {
-          "$ref": "#/definitions/GenericBalance"
+        "num_cron_tasks_extra": {
+          "$ref": "#/definitions/Uint64"
         }
       }
     },
@@ -290,70 +425,6 @@
         },
         "denom": {
           "type": "string"
-        }
-      }
-    },
-    "ConfigResponse": {
-      "type": "object",
-      "required": [
-        "agent_active_index",
-        "agent_fee",
-        "agent_task_ratio",
-        "agents_eject_threshold",
-        "gas_price",
-        "native_denom",
-        "owner_id",
-        "paused",
-        "proxy_callback_gas",
-        "slot_granularity"
-      ],
-      "properties": {
-        "agent_active_index": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "agent_fee": {
-          "$ref": "#/definitions/Coin"
-        },
-        "agent_task_ratio": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          "maxItems": 2,
-          "minItems": 2
-        },
-        "agents_eject_threshold": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "gas_price": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "native_denom": {
-          "type": "string"
-        },
-        "owner_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "paused": {
-          "type": "boolean"
-        },
-        "proxy_callback_gas": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "slot_granularity": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
         }
       }
     },
@@ -580,22 +651,166 @@
         }
       }
     },
-    "GetAgentTasksResponse": {
-      "type": "array",
-      "items": [
-        {
+    "GetBalancesResponse": {
+      "type": "object",
+      "required": [
+        "available_balance",
+        "cw20_whitelist",
+        "native_denom",
+        "staked_balance"
+      ],
+      "properties": {
+        "available_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "cw20_whitelist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "staked_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        }
+      }
+    },
+    "GetConfigResponse": {
+      "type": "object",
+      "required": [
+        "agent_active_indices",
+        "agent_fee",
+        "agents_eject_threshold",
+        "gas_price",
+        "min_tasks_per_agent",
+        "native_denom",
+        "owner_id",
+        "paused",
+        "proxy_callback_gas",
+        "slot_granularity"
+      ],
+      "properties": {
+        "agent_active_indices": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/SlotType"
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              }
+            ],
+            "maxItems": 3,
+            "minItems": 3
+          }
+        },
+        "agent_fee": {
+          "$ref": "#/definitions/Coin"
+        },
+        "agents_eject_threshold": {
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
         },
-        {
+        "gas_price": {
           "type": "integer",
-          "format": "uint128",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "min_tasks_per_agent": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "owner_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "proxy_callback_gas": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "slot_granularity": {
+          "type": "integer",
+          "format": "uint64",
           "minimum": 0.0
         }
+      }
+    },
+    "GetSlotHashesResponse": {
+      "type": "object",
+      "required": [
+        "block_id",
+        "block_task_hash",
+        "time_id",
+        "time_task_hash"
       ],
-      "maxItems": 2,
-      "minItems": 2
+      "properties": {
+        "block_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "block_task_hash": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "time_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "time_task_hash": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "GetSlotIdsResponse": {
+      "type": "object",
+      "required": [
+        "block_ids",
+        "time_ids"
+      ],
+      "properties": {
+        "block_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          }
+        },
+        "time_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          }
+        }
+      }
     },
     "GovMsg": {
       "oneOf": [
@@ -824,19 +1039,12 @@
     "Rule": {
       "type": "object",
       "required": [
-        "contract_id",
+        "contract_addr",
         "msg"
       ],
       "properties": {
-        "chain_id": {
-          "description": "TBD: Interchain query support (See ibc::IbcMsg)",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "contract_id": {
-          "description": "Account to direct all view calls against",
+        "contract_addr": {
+          "description": "TBD: Interchain query support (See ibc::IbcMsg) Account to direct all view calls against",
           "allOf": [
             {
               "$ref": "#/definitions/Addr"
@@ -847,6 +1055,13 @@
           "$ref": "#/definitions/Binary"
         }
       }
+    },
+    "SlotType": {
+      "type": "string",
+      "enum": [
+        "Block",
+        "Cron"
+      ]
     },
     "StakingMsg": {
       "description": "The message types of the staking module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto",
@@ -935,7 +1150,7 @@
     "Task": {
       "type": "object",
       "required": [
-        "action",
+        "actions",
         "boundary",
         "interval",
         "owner_id",
@@ -943,13 +1158,12 @@
         "total_deposit"
       ],
       "properties": {
-        "action": {
+        "actions": {
           "description": "The cosmos message to call, if time or rules are met",
-          "allOf": [
-            {
-              "$ref": "#/definitions/CosmosMsg_for_Empty"
-            }
-          ]
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Action_for_Empty"
+          }
         },
         "boundary": {
           "$ref": "#/definitions/Boundary"
@@ -996,14 +1210,17 @@
     "TaskRequest": {
       "type": "object",
       "required": [
-        "action",
+        "actions",
         "boundary",
         "interval",
         "stop_on_fail"
       ],
       "properties": {
-        "action": {
-          "$ref": "#/definitions/CosmosMsg_for_Empty"
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Action_for_Empty"
+          }
         },
         "boundary": {
           "$ref": "#/definitions/Boundary"
@@ -1028,7 +1245,7 @@
     "TaskResponse": {
       "type": "object",
       "required": [
-        "action",
+        "actions",
         "boundary",
         "interval",
         "owner_id",
@@ -1037,8 +1254,11 @@
         "total_deposit"
       ],
       "properties": {
-        "action": {
-          "$ref": "#/definitions/CosmosMsg_for_Empty"
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Action_for_Empty"
+          }
         },
         "boundary": {
           "$ref": "#/definitions/Boundary"

@@ -6,6 +6,14 @@
     "denom"
   ],
   "properties": {
+    "agent_nomination_duration": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint16",
+      "minimum": 0.0
+    },
     "denom": {
       "type": "string"
     },

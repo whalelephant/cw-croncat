@@ -45,3 +45,4 @@ sha2 = "0.9"
 cosmwasm-schema = { version = "1.0.0" }
 cw-multi-test = { version = "0.13", features = ["staking"] }
 cw20-base = { version = "0.12.1", features = ["library"] }
+serde-json-wasm = "0.4.1"

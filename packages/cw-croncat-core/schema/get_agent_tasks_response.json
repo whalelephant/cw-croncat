@@ -1,226 +1,12 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "QueryMsg",
-  "oneOf": [
+  "title": "GetAgentTasksResponse",
+  "anyOf": [
     {
-      "type": "object",
-      "required": [
-        "get_config"
-      ],
-      "properties": {
-        "get_config": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
+      "$ref": "#/definitions/TaskResponse"
     },
     {
-      "type": "object",
-      "required": [
-        "get_balances"
-      ],
-      "properties": {
-        "get_balances": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent"
-      ],
-      "properties": {
-        "get_agent": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "$ref": "#/definitions/Addr"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_ids"
-      ],
-      "properties": {
-        "get_agent_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_tasks"
-      ],
-      "properties": {
-        "get_agent_tasks": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "$ref": "#/definitions/Addr"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks"
-      ],
-      "properties": {
-        "get_tasks": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks_by_owner"
-      ],
-      "properties": {
-        "get_tasks_by_owner": {
-          "type": "object",
-          "required": [
-            "owner_id"
-          ],
-          "properties": {
-            "owner_id": {
-              "$ref": "#/definitions/Addr"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task"
-      ],
-      "properties": {
-        "get_task": {
-          "type": "object",
-          "required": [
-            "task_hash"
-          ],
-          "properties": {
-            "task_hash": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task_hash"
-      ],
-      "properties": {
-        "get_task_hash": {
-          "type": "object",
-          "required": [
-            "task"
-          ],
-          "properties": {
-            "task": {
-              "$ref": "#/definitions/Task"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "validate_interval"
-      ],
-      "properties": {
-        "validate_interval": {
-          "type": "object",
-          "required": [
-            "interval"
-          ],
-          "properties": {
-            "interval": {
-              "$ref": "#/definitions/Interval"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_hashes"
-      ],
-      "properties": {
-        "get_slot_hashes": {
-          "type": "object",
-          "properties": {
-            "slot": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_ids"
-      ],
-      "properties": {
-        "get_slot_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
+      "type": "null"
     }
   ],
   "definitions": {
@@ -880,7 +666,7 @@
         }
       ]
     },
-    "Task": {
+    "TaskResponse": {
       "type": "object",
       "required": [
         "actions",
@@ -888,11 +674,11 @@
         "interval",
         "owner_id",
         "stop_on_fail",
+        "task_hash",
         "total_deposit"
       ],
       "properties": {
         "actions": {
-          "description": "The cosmos message to call, if time or rules are met",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Action_for_Empty"
@@ -902,23 +688,12 @@
           "$ref": "#/definitions/Boundary"
         },
         "interval": {
-          "description": "Scheduling definitions",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Interval"
-            }
-          ]
+          "$ref": "#/definitions/Interval"
         },
         "owner_id": {
-          "description": "Entity responsible for this task, can change task details",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            }
-          ]
+          "$ref": "#/definitions/Addr"
         },
         "rules": {
-          "description": "A prioritized list of messages that can be chained decision matrix required to complete before task action Rules MUST return the ResolverResponse type",
           "type": [
             "array",
             "null"
@@ -928,11 +703,12 @@
           }
         },
         "stop_on_fail": {
-          "description": "Defines if this task can continue until balance runs out",
           "type": "boolean"
         },
+        "task_hash": {
+          "type": "string"
+        },
         "total_deposit": {
-          "description": "NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Coin"

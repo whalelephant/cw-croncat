@@ -6,12 +6,12 @@ use cosmwasm_std::{
     StdResult, SubMsg, WasmMsg,
 };
 use cw20::{Balance, Cw20ExecuteMsg};
-use cw_croncat_core::msg::{BalancesResponse, ConfigResponse, ExecuteMsg};
+use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, GetConfigResponse};
 
 impl<'a> CwCroncat<'a> {
-    pub(crate) fn query_config(&self, deps: Deps) -> StdResult<ConfigResponse> {
+    pub(crate) fn query_config(&self, deps: Deps) -> StdResult<GetConfigResponse> {
         let c: Config = self.config.load(deps.storage)?;
-        Ok(ConfigResponse {
+        Ok(GetConfigResponse {
             paused: c.paused,
             owner_id: c.owner_id,
             // treasury_id: c.treasury_id,
@@ -26,9 +26,9 @@ impl<'a> CwCroncat<'a> {
         })
     }
 
-    pub(crate) fn query_balances(&self, deps: Deps) -> StdResult<BalancesResponse> {
+    pub(crate) fn query_balances(&self, deps: Deps) -> StdResult<GetBalancesResponse> {
         let c: Config = self.config.load(deps.storage)?;
-        Ok(BalancesResponse {
+        Ok(GetBalancesResponse {
             native_denom: c.native_denom,
             available_balance: c.available_balance,
             staked_balance: c.staked_balance,
@@ -252,7 +252,7 @@ mod tests {
     use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
     use cw20::Balance;
     use cw_croncat_core::msg::{
-        BalancesResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+        ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg, QueryMsg,
     };
 
     #[test]
@@ -321,7 +321,7 @@ mod tests {
         let res = store
             .query(deps.as_ref(), mock_env(), QueryMsg::GetConfig {})
             .unwrap();
-        let value: ConfigResponse = from_binary(&res).unwrap();
+        let value: GetConfigResponse = from_binary(&res).unwrap();
         assert_eq!(true, value.paused);
         assert_eq!(info.sender, value.owner_id);
     }
@@ -448,7 +448,7 @@ mod tests {
         let res_bal = store
             .query(deps.as_ref(), mock_env(), QueryMsg::GetBalances {})
             .unwrap();
-        let balances: BalancesResponse = from_binary(&res_bal).unwrap();
+        let balances: GetBalancesResponse = from_binary(&res_bal).unwrap();
         assert_eq!(
             vec![coin(199999998, "atom"), coin(1000, "meow")],
             balances.available_balance.native
