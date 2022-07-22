@@ -14,3 +14,5 @@
 *.iml
 .idea
 .editorconfig
+
+**/node_modules

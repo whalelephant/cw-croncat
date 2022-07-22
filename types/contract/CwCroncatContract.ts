@@ -10,13 +10,8 @@ export type Addr = string;
 export type Uint128 = string;
 export type Timestamp = Uint64;
 export type Uint64 = string;
-export type GetAgentResponse = AgentResponse | null;
+export type SlotType = "Block" | "Cron";
 export type AgentStatus = "Active" | "Pending" | "Nominated";
-export type GetAgentTasksResponse = [number, number];
-export type GetSlotHashesResponse = [number, string[], number, string[]];
-export type GetSlotIdsResponse = [number[], number[]];
-export type GetTaskHashResponse = string;
-export type GetTaskResponse = TaskResponse | null;
 export type CosmosMsgForEmpty = {
   bank: BankMsg;
 } | {
@@ -156,26 +151,23 @@ export type Interval = ("Once" | "Immediate") | {
 } | {
   Cron: string;
 };
-export type GetTasksByOwnerResponse = TaskResponse[];
-export type GetTasksResponse = TaskResponse[];
-export type ValidateIntervalResponse = boolean;
 export interface Croncat {
-  agent?: Agent | null;
-  balance_response?: GetBalancesResponse | null;
-  config_response?: GetConfigResponse | null;
-  get_agent_ids_response?: GetAgentIdsResponse | null;
-  get_agent_response?: GetAgentResponse | null;
-  get_agent_tasks_response?: GetAgentTasksResponse | null;
-  get_slot_hashes_response?: GetSlotHashesResponse | null;
-  get_slot_ids_response?: GetSlotIdsResponse | null;
-  get_task_hash_response?: GetTaskHashResponse | null;
-  get_task_response?: GetTaskResponse | null;
-  get_tasks_by_owner_response?: GetTasksByOwnerResponse | null;
-  get_tasks_response?: GetTasksResponse | null;
-  task?: Task | null;
-  task_request?: TaskRequest | null;
-  task_response?: TaskResponse | null;
-  validate_interval_response?: ValidateIntervalResponse | null;
+  Agent?: Agent | null;
+  BalanceResponse?: GetBalancesResponse | null;
+  ConfigResponse?: GetConfigResponse | null;
+  GetAgentIdsResponse?: GetAgentIdsResponse | null;
+  GetAgentResponse?: (AgentResponse | null) | null;
+  GetAgentTasksResponse?: AgentTaskResponse | null;
+  GetSlotHashesResponse?: GetSlotHashesResponse | null;
+  GetSlotIdsResponse?: GetSlotIdsResponse | null;
+  GetTaskHashResponse?: string | null;
+  GetTaskResponse?: (TaskResponse | null) | null;
+  GetTasksByOwnerResponse?: TaskResponse[] | null;
+  GetTasksResponse?: TaskResponse[] | null;
+  Task?: Task | null;
+  TaskRequest?: TaskRequest | null;
+  TaskResponse?: TaskResponse | null;
+  ValidateIntervalResponse?: boolean | null;
   [k: string]: unknown;
 }
 export interface Agent {
@@ -209,9 +201,8 @@ export interface GetBalancesResponse {
   [k: string]: unknown;
 }
 export interface GetConfigResponse {
-  agent_active_index: number;
+  agent_active_indices: [SlotType, number, number][];
   agent_fee: Coin;
-  agent_nomination_begin_time?: Timestamp | null;
   agents_eject_threshold: number;
   gas_price: number;
   min_tasks_per_agent: number;
@@ -234,6 +225,25 @@ export interface AgentResponse {
   register_start: Timestamp;
   status: AgentStatus;
   total_tasks_executed: number;
+  [k: string]: unknown;
+}
+export interface AgentTaskResponse {
+  num_block_tasks: Uint64;
+  num_block_tasks_extra: Uint64;
+  num_cron_tasks: Uint64;
+  num_cron_tasks_extra: Uint64;
+  [k: string]: unknown;
+}
+export interface GetSlotHashesResponse {
+  block_id: number;
+  block_task_hash: string[];
+  time_id: number;
+  time_task_hash: string[];
+  [k: string]: unknown;
+}
+export interface GetSlotIdsResponse {
+  block_ids: number[];
+  time_ids: number[];
   [k: string]: unknown;
 }
 export interface TaskResponse {
@@ -359,6 +369,12 @@ export type Balance = {
   cw20: Cw20CoinVerified;
 };
 export type NativeBalance = Coin[];
+export type GetAgentResponse = AgentResponse | null;
+export type GetAgentTasksResponse = TaskResponse | null;
+export type GetTaskHashResponse = string;
+export type GetTaskResponse = TaskResponse | null;
+export type GetTasksByOwnerResponse = TaskResponse[];
+export type GetTasksResponse = TaskResponse[];
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   denom: string;
@@ -423,6 +439,7 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 };
+export type ValidateIntervalResponse = boolean;
 export interface CwCroncatReadOnlyInterface {
   contractAddress: string;
   getConfig: () => Promise<GetConfigResponse>;

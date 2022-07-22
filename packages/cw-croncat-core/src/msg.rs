@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 
 // Exporting a nice schema
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "PascalCase")]
 pub struct Croncat {
     agent: Option<Agent>,
     task: Option<Task>,
