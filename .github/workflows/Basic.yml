@@ -63,3 +63,13 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+      
+      - name: Generate Schema
+        run: ./schema.sh
+
+      - name: Show Schema changes
+        run: git status --porcelain
+
+      - name: Schema Changes
+        # fails if any changes not committed
+        run: test -z "$(git status --porcelain)"
