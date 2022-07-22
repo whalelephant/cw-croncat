@@ -4,27 +4,24 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GenericBalance};
+use cw_croncat_core::types::{Agent, GenericBalance, SlotType};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
     // Runtime
     pub paused: bool,
     pub owner_id: Addr,
 
     // Agent management
-    // The maximum number of tasks per agent
+    // The minimum number of tasks per agent
     // Example: 10
     // Explanation: For every 1 agent, 10 tasks per slot are available.
-    // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
+    // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
     // NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub min_tasks_per_agent: u64,
-    pub agent_active_index: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
+    // How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
-    // This is a timestamp that's updated when a new task is added such that
-    // the agent/task ratio allows for another agent to join.
-    // Once an agent joins, fulfilling the need, this value changes to None
-    pub agent_nomination_begin_time: Option<Timestamp>,
     // The duration a prospective agent has to nominate themselves.
     // When a task is created such that a new agent can join,
     // The agent at the zeroth index of the pending agent queue has this time to nominate
@@ -46,7 +43,7 @@ pub struct Config {
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct QueueItem {
     pub contract_addr: Option<Addr>,
     // This is used to track disjointed callbacks
@@ -96,6 +93,11 @@ pub struct CwCroncat<'a> {
     /// Keeping ordered sub messages & reply id's
     pub reply_queue: Map<'a, u64, QueueItem>,
     pub reply_index: Item<'a, u64>,
+
+    // This is a timestamp that's updated when a new task is added such that
+    // the agent/task ratio allows for another agent to join.
+    // Once an agent joins, fulfilling the need, this value changes to None
+    pub agent_nomination_begin_time: Item<'a, Option<Timestamp>>,
 }
 
 impl Default for CwCroncat<'static> {
@@ -120,11 +122,12 @@ impl<'a> CwCroncat<'a> {
             block_slots: Map::new("block_slots"),
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
+            agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
         }
     }
 
     pub fn task_total(&self, storage: &dyn Storage) -> StdResult<u64> {
-        Ok(self.task_total.may_load(storage)?.unwrap_or_default())
+        self.task_total.load(storage)
     }
 
     pub fn increment_tasks(&self, storage: &mut dyn Storage) -> StdResult<u64> {
@@ -140,11 +143,11 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub(crate) fn rq_next_id(&self, storage: &dyn Storage) -> StdResult<u64> {
-        Ok(self.reply_index.may_load(storage)?.unwrap_or_default() + 1)
+        Ok(self.reply_index.load(storage)? + 1)
     }
 
     pub(crate) fn rq_push(&self, storage: &mut dyn Storage, item: QueueItem) -> StdResult<u64> {
-        let idx = self.reply_index.may_load(storage)?.unwrap_or_default() + 1;
+        let idx = self.reply_index.load(storage)? + 1;
         self.reply_index.save(storage, &idx)?;
         self.reply_queue
             .update(storage, idx, |_d| -> StdResult<QueueItem> { Ok(item) })?;

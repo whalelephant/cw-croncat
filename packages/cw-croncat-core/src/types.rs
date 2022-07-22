@@ -15,7 +15,7 @@ pub struct GenericBalance {
     pub cw20: Vec<Cw20CoinVerified>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum AgentStatus {
     // Default for any new agent, if tasks ratio allows
     Active,
@@ -67,7 +67,7 @@ pub struct AgentResponse {
 /// - Block Height Based: Once, Immediate, Block
 /// - Timestamp Based: Cron
 /// - No Epoch support directly, advised to use block heights instead
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum Interval {
     /// For when this is a non-recurring future scheduled TXN
     Once,
@@ -82,7 +82,7 @@ pub enum Interval {
     Cron(String),
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum BoundarySpec {
     /// Represents the block height
     Height(u64),
@@ -91,7 +91,7 @@ pub enum BoundarySpec {
     Time(Timestamp),
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Boundary {
     ///
     pub start: Option<BoundarySpec>,
@@ -99,13 +99,13 @@ pub struct Boundary {
     pub end: Option<BoundarySpec>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
 pub enum SlotType {
     Block,
     Cron,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Rule {
     /// TBD: Interchain query support (See ibc::IbcMsg)
     // pub chain_id: Option<String>,
@@ -301,6 +301,7 @@ impl GenericBalance {
         };
     }
 }
+
 fn get_next_block_limited(env: Env, boundary: Boundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
@@ -447,5 +448,465 @@ impl Interval {
                 s.is_ok()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::{IbcTimeout, VoteOption};
+    use hex::ToHex;
+
+    #[test]
+    fn is_valid_msg_once_block_based() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Once,
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: Some(BoundarySpec::Height(8)),
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_once_time_based() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Once,
+            boundary: Boundary {
+                start: Some(BoundarySpec::Time(Timestamp::from_nanos(1_000_000_000))),
+                end: Some(BoundarySpec::Time(Timestamp::from_nanos(2_000_000_000))),
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_recurring() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(10),
+            boundary: Boundary {
+                start: None,
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_wrong_account() {
+        // Cannot create a task to execute on the cron manager when not the owner
+        let task = Task {
+            owner_id: Addr::unchecked("alice"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: "alice".to_string(),
+                    msg: Binary::from(vec![]),
+                    funds: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_vote() {
+        // A task with CosmosMsg::Gov Vote should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Gov(GovMsg::Vote {
+                    proposal_id: 0,
+                    vote: VoteOption::Yes,
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_transfer() {
+        // A task with CosmosMsg::Ibc Transfer should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Ibc(IbcMsg::Transfer {
+                    channel_id: "id".to_string(),
+                    to_address: "address".to_string(),
+                    amount: Coin::new(10, "coin"),
+                    timeout: IbcTimeout::with_timestamp(Timestamp::from_nanos(1_000_000_000)),
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_burn() {
+        // A task with CosmosMsg::Bank Burn should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Burn {
+                    amount: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_send() {
+        // A task with CosmosMsg::Bank Send should return false
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "address".to_string(),
+                    amount: vec![Coin::new(10, "coin")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn test_add_tokens() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding zero doesn't change the state
+        let add_zero: Balance = Balance::default();
+        coins.add_tokens(add_zero);
+        assert!(coins.native.is_empty());
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add native coin for the first time
+        let coin = vec![Coin::new(10, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, coin);
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add the same native coin again
+        let coin = vec![Coin::new(20, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert!(coins.cw20.is_empty());
+
+        // Check that we can add a coin for the first time
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (1000 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert_eq!(coins.cw20.len(), 1);
+        assert_eq!(coins.cw20[0], cw20);
+
+        // Check that we can add the same coin again
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (2000 as u128).into(),
+        };
+        let add: Balance = Balance::Cw20(cw20);
+        coins.add_tokens(add);
+        assert_eq!(coins.native.len(), 1);
+        assert_eq!(coins.native, vec![Coin::new(30, "native")]);
+        assert_eq!(coins.cw20.len(), 1);
+        let cw20_result = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (3000 as u128).into(),
+        };
+        assert_eq!(coins.cw20[0], cw20_result);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn test_add_tokens_overflow_native() {
+        let mut coins: GenericBalance = GenericBalance::default();
+        // Adding one coin
+        let coin = vec![Coin::new(1, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        // Adding u128::MAX amount should fail
+        let coin = vec![Coin::new(u128::MAX, "native")];
+        let add_max: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_max);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to add with overflow")]
+    fn test_add_tokens_overflow_cw20() {
+        let mut coins: GenericBalance = GenericBalance::default();
+        // Adding one coin
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (1 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20);
+        coins.add_tokens(add_cw20);
+
+        // Adding u128::MAX amount should fail
+        let cw20_max = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: u128::MAX.into(),
+        };
+        let add_max: Balance = Balance::Cw20(cw20_max);
+        coins.add_tokens(add_max);
+    }
+
+    #[test]
+    fn test_minus_tokens() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some native and cw20 tokens
+        let coin = vec![Coin::new(100, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (100 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+
+        // Check subtraction of native token
+        let coin = vec![Coin::new(10, "native")];
+        let minus_native: Balance = Balance::from(coin.clone());
+        coins.minus_tokens(minus_native);
+        assert_eq!(coins.native, vec![Coin::new(90, "native")]);
+
+        // Check subtraction of cw20
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (20 as u128).into(),
+        };
+        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.minus_tokens(minus_cw20);
+        let cw20_result = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (80 as u128).into(),
+        };
+        assert_eq!(coins.cw20[0], cw20_result);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_minus_tokens_overflow_native() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some native tokens
+        let coin = vec![Coin::new(100, "native")];
+        let add_native: Balance = Balance::from(coin.clone());
+        coins.add_tokens(add_native);
+
+        // Substracting more than added should fail
+        let coin = vec![Coin::new(101, "native")];
+        let minus_native: Balance = Balance::from(coin.clone());
+        coins.minus_tokens(minus_native);
+    }
+
+    #[test]
+    #[should_panic(expected = "attempt to subtract with overflow")]
+    fn test_minus_tokens_overflow_cw20() {
+        let mut coins: GenericBalance = GenericBalance::default();
+
+        // Adding some cw20 tokens
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (100 as u128).into(),
+        };
+        let add_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.add_tokens(add_cw20);
+
+        // Substracting more than added should fail
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("cw20"),
+            amount: (101 as u128).into(),
+        };
+        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
+        coins.minus_tokens(minus_cw20);
+    }
+
+    #[test]
+    fn hashing() {
+        let task = Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(5),
+            boundary: Boundary {
+                start: Some(BoundarySpec::Height(4)),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: Default::default(),
+            actions: vec![Action {
+                msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {
+                    contract_addr: "alice".to_string(),
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+
+        let message = format!(
+            "{:?}{:?}{:?}{:?}{:?}",
+            task.owner_id, task.interval, task.boundary, task.actions, task.rules
+        );
+
+        let hash = Sha256::digest(message.as_bytes());
+
+        let encoded: String = hash.encode_hex();
+        let bytes = encoded.as_bytes();
+
+        // Tests
+        assert_eq!(encoded, task.to_hash());
+        assert_eq!(bytes, task.to_hash_vec());
     }
 }

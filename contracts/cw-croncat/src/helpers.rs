@@ -1,5 +1,5 @@
 use crate::state::Config;
-use crate::ContractError::AgentUnregistered;
+use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -11,6 +11,12 @@ use serde::{Deserialize, Serialize};
 use std::cmp;
 use std::ops::Div;
 
+pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
+    v1: &[T],
+    v2: &[T],
+) -> Vec<T> {
+    v1.iter().filter(|&x| !v2.contains(x)).cloned().collect()
+}
 // Helper to distribute funds/tokens
 pub(crate) fn send_tokens(
     to: &Addr,
@@ -68,17 +74,13 @@ impl<'a> CwCroncat<'a> {
         let c: Config = self.config.load(storage)?;
         let block_time = env.block.time.seconds();
         // Check for active
-        let active_opt = self.agent_active_queue.may_load(storage)?;
-        if let Some(active) = active_opt {
-            if active.contains(&account_id) {
-                return Ok(AgentStatus::Active);
-            }
+        let active = self.agent_active_queue.load(storage)?;
+        if active.contains(&account_id) {
+            return Ok(AgentStatus::Active);
         }
+
         // Pending
-        let pending: Vec<Addr> = self
-            .agent_pending_queue
-            .may_load(storage)?
-            .unwrap_or_default();
+        let pending: Vec<Addr> = self.agent_pending_queue.load(storage)?;
         // If agent is pending, Check if they should get nominated to checkin to become active
         let agent_status: AgentStatus = if pending.contains(&account_id) {
             // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
@@ -87,12 +89,7 @@ impl<'a> CwCroncat<'a> {
             let total_tasks = self
                 .task_total(storage)
                 .expect("Unexpected issue getting task total");
-            let num_active_agents = self
-                .agent_active_queue
-                .may_load(storage)
-                .unwrap()
-                .unwrap_or_default()
-                .len() as u64;
+            let num_active_agents = self.agent_active_queue.load(storage).unwrap().len() as u64;
             let agent_position = pending
                 .iter()
                 .position(|address| address == &account_id)
@@ -101,27 +98,31 @@ impl<'a> CwCroncat<'a> {
             // If we should allow a new agent to take over
             let num_agents_to_accept =
                 self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
-            if num_agents_to_accept != 0 && c.agent_nomination_begin_time.is_some() {
-                let time_difference = block_time - c.agent_nomination_begin_time.unwrap().seconds();
+            let agent_nomination_begin_time = self.agent_nomination_begin_time.load(storage)?;
+            match agent_nomination_begin_time {
+                Some(begin_time) if num_agents_to_accept > 0 => {
+                    let time_difference = block_time - begin_time.seconds();
 
-                let max_index = cmp::max(
-                    time_difference.div(c.agent_nomination_duration as u64),
-                    num_agents_to_accept - 1,
-                );
-                if agent_position as u64 <= max_index {
-                    AgentStatus::Nominated
-                } else {
+                    let max_index = cmp::max(
+                        time_difference.div(c.agent_nomination_duration as u64),
+                        num_agents_to_accept - 1,
+                    );
+                    if agent_position as u64 <= max_index {
+                        AgentStatus::Nominated
+                    } else {
+                        AgentStatus::Pending
+                    }
+                }
+                _ => {
+                    // Not their time yet
                     AgentStatus::Pending
                 }
-            } else {
-                // Not their time yet
-                AgentStatus::Pending
             }
         } else {
             // This should not happen. It means the address is in self.agents
             // but not in the pending or active queues
             // Note: if your IDE highlights the below as problematic, you can ignore
-            return Err(AgentUnregistered {});
+            return Err(AgentNotRegistered {});
         };
         Ok(agent_status)
     }
@@ -151,7 +152,7 @@ impl<'a> CwCroncat<'a> {
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
 /// for working with this.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct CwTemplateContract(pub Addr);
 
 impl CwTemplateContract {
@@ -185,4 +186,26 @@ impl CwTemplateContract {
     //     let res: CountResponse = QuerierWrapper::<CQ>::new(querier).query(&query)?;
     //     Ok(res)
     // }
+}
+
+#[cfg(test)]
+pub mod test_helpers {
+    use cosmwasm_std::{
+        coins,
+        testing::{mock_env, mock_info},
+        DepsMut, Empty, Response, StdResult,
+    };
+    use cw_croncat_core::msg::InstantiateMsg;
+
+    use crate::CwCroncat;
+
+    pub fn mock_init(store: &CwCroncat, deps: DepsMut<Empty>) -> StdResult<Response> {
+        let msg = InstantiateMsg {
+            denom: "atom".to_string(),
+            owner_id: None,
+            agent_nomination_duration: Some(360),
+        };
+        let info = mock_info("creator", &coins(1000, "meow"));
+        store.instantiate(deps, mock_env(), info.clone(), msg)
+    }
 }

@@ -1,6 +1,6 @@
-use crate::types::{Action, Boundary, GenericBalance, Interval, Rule, Task};
-use crate::types::{Agent, AgentResponse};
-use cosmwasm_std::{Addr, Coin, Timestamp};
+use crate::types::{Action, AgentResponse, Boundary, GenericBalance, Interval, Rule, Task};
+use crate::types::{Agent, SlotType};
+use cosmwasm_std::{Addr, Coin, Uint64};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -35,19 +35,20 @@ pub struct Croncat {
     config_response: Option<GetConfigResponse>,
     balance_response: Option<GetBalancesResponse>,
     get_agent_ids_response: Option<GetAgentIdsResponse>,
-    get_agent_tasks_response: Option<GetAgentTasksResponse>,
+    get_agent_tasks_response: Option<AgentTaskResponse>,
     task_request: Option<TaskRequest>,
     task_response: Option<TaskResponse>,
-    validate_interval_response: Option<ValidateIntervalResponse>,
-    get_agent_response: Option<GetAgentResponse>,
-    get_tasks_response: Option<GetTasksResponse>,
-    get_tasks_by_owner_response: Option<GetTasksByOwnerResponse>,
-    get_task_response: Option<GetTaskResponse>,
-    get_task_hash_response: Option<GetTaskHashResponse>,
+    validate_interval_response: Option<bool>,
+    get_agent_response: Option<Option<AgentResponse>>,
+    get_tasks_response: Option<Vec<TaskResponse>>,
+    get_tasks_by_owner_response: Option<Vec<TaskResponse>>,
+    get_task_response: Option<Option<TaskResponse>>,
+    get_task_hash_response: Option<String>,
     get_slot_hashes_response: Option<GetSlotHashesResponse>,
     get_slot_ids_response: Option<GetSlotIdsResponse>,
 }
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
@@ -136,14 +137,13 @@ pub struct GetConfigResponse {
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
-    pub agent_active_index: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
     pub gas_price: u32,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
-    pub agent_nomination_begin_time: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -154,38 +154,19 @@ pub struct GetBalancesResponse {
     pub cw20_whitelist: Vec<Addr>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
     pub pending: Vec<Addr>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentTasksResponse(pub (u64, u64));
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetSlotHashesResponse(pub (u64, Vec<String>, u64, Vec<String>));
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetSlotIdsResponse(pub (Vec<u64>, Vec<u64>));
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetTasksResponse(pub Vec<TaskResponse>);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetAgentResponse(pub Option<AgentResponse>);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetTasksByOwnerResponse(pub Vec<TaskResponse>);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetTaskResponse(pub Option<TaskResponse>);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct ValidateIntervalResponse(pub bool);
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetTaskHashResponse(pub String);
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct AgentTaskResponse {
+    pub num_block_tasks: Uint64,
+    pub num_block_tasks_extra: Uint64,
+    pub num_cron_tasks: Uint64,
+    pub num_cron_tasks_extra: Uint64,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
@@ -208,9 +189,23 @@ pub struct TaskResponse {
     pub rules: Option<Vec<Rule>>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotHashesResponse {
+    pub block_id: u64,
+    pub block_task_hash: Vec<String>,
+    pub time_id: u64,
+    pub time_task_hash: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetSlotIdsResponse {
+    pub time_ids: Vec<u64>,
+    pub block_ids: Vec<u64>,
+}
+
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg};
+    use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg, Timestamp};
     use cw20::Cw20CoinVerified;
 
     use crate::types::{AgentStatus, BoundarySpec};
@@ -263,14 +258,13 @@ mod tests {
             paused: true,
             owner_id: Addr::unchecked("bob"),
             min_tasks_per_agent: 5,
-            agent_active_index: 5,
+            agent_active_indices: vec![(SlotType::Block, 10, 5)],
             agents_eject_threshold: 5,
             agent_fee: coin(5, "earth"),
             gas_price: 2,
             proxy_callback_gas: 3,
             slot_granularity: 1,
             native_denom: "juno".to_string(),
-            agent_nomination_begin_time: Some(Timestamp::from_nanos(5)),
         }
         .into();
         let balance_response = GetBalancesResponse {
@@ -285,7 +279,13 @@ mod tests {
             pending: vec![Addr::unchecked("bob")],
         }
         .into();
-        let get_agent_tasks_response = GetAgentTasksResponse((0, 2)).into();
+        let get_agent_tasks_response = AgentTaskResponse {
+            num_block_tasks: 1u64.into(),
+            num_block_tasks_extra: 2u64.into(),
+            num_cron_tasks: 3u64.into(),
+            num_cron_tasks_extra: 300u64.into(),
+        }
+        .into();
         let task_request = TaskRequest {
             interval: Interval::Block(5),
             boundary: Boundary {
@@ -311,25 +311,32 @@ mod tests {
             rules: None,
         };
         let task_response = task_response_raw.clone().into();
-        let validate_interval_response = ValidateIntervalResponse(false).into();
-        let get_agent_response = GetAgentResponse(Some(AgentResponse {
+        let validate_interval_response = false.into();
+        let get_agent_response = Some(AgentResponse {
             status: AgentStatus::Active,
             payable_account_id: Addr::unchecked("bob"),
             balance: generic_balance.clone(),
             total_tasks_executed: 2,
             last_missed_slot: 2,
             register_start: Timestamp::from_nanos(5),
-        }))
+        })
         .into();
-        let get_tasks_response = GetTasksResponse(vec![task_response_raw.clone()]).into();
-        let get_tasks_by_owner_response =
-            GetTasksByOwnerResponse(vec![task_response_raw.clone()]).into();
-        let get_task_response = GetTaskResponse(Some(task_response_raw)).into();
-        let get_task_hash_response = GetTaskHashResponse("asd".to_string()).into();
-        let get_slot_hashes_response =
-            GetSlotHashesResponse((5, vec!["bob".to_string()], 4, vec!["alice".to_string()]))
-                .into();
-        let get_slot_ids_response = GetSlotIdsResponse((vec![1], vec![3])).into();
+        let get_tasks_response = vec![task_response_raw.clone()].into();
+        let get_tasks_by_owner_response = vec![task_response_raw.clone()].into();
+        let get_task_response = Some(task_response_raw).into();
+        let get_task_hash_response = ("asd".to_string()).into();
+        let get_slot_hashes_response = GetSlotHashesResponse {
+            block_id: 5,
+            block_task_hash: vec!["bob".to_string()],
+            time_id: 4,
+            time_task_hash: vec!["alice".to_string()],
+        }
+        .into();
+        let get_slot_ids_response = GetSlotIdsResponse {
+            time_ids: vec![1],
+            block_ids: vec![3],
+        }
+        .into();
         let croncat = Croncat {
             agent,
             task,
@@ -356,5 +363,3 @@ mod tests {
         assert!(deser.is_ok());
     }
 }
-
-//#[cfg_attr(not(target_arch = "wasm32"), derive(PartialEq))]
