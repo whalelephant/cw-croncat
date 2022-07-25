@@ -246,12 +246,11 @@ impl<'a> CwCroncat<'a> {
 
         // // Check that balance is sufficient for 1 execution minimum
         let call_balance_used = item.task_balance_uses(&c.agent_fee, c.gas_base_fee);
-        let min_balance_needed: u128 =
-            if item.interval != Interval::Once && item.interval != Interval::Immediate {
-                call_balance_used * 2
-            } else {
-                call_balance_used
-            };
+        let min_balance_needed: u128 = if item.interval != Interval::Once {
+            call_balance_used * 2
+        } else {
+            call_balance_used
+        };
         let attached_native = item
             .total_deposit
             .iter()
