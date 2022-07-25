@@ -518,7 +518,7 @@ mod tests {
         AppBuilder::new().build(|router, _, storage| {
             let accounts: Vec<(u128, String)> = vec![
                 (100, ADMIN.to_string()),
-                (600023, ANYONE.to_string()),
+                (800_010, ANYONE.to_string()),
                 (u128::max_value(), VERY_RICH.to_string()),
             ];
             for (amt, address) in accounts.iter() {
@@ -1368,11 +1368,12 @@ mod tests {
             },
         };
         // create 1 token off task
+        let amount_for_one_task = gas_limit + agent_fee;
         let res = app.execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(gas_limit + agent_fee - 1), "atom"),
+            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
         );
         assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
 
@@ -1381,7 +1382,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(gas_limit + agent_fee), "atom"),
+            &coins(u128::from(amount_for_one_task * 2), "atom"),
         );
         assert!(res.is_ok());
     }
@@ -1414,11 +1415,12 @@ mod tests {
             },
         };
         // create 1 token off task
+        let amount_for_one_task = gas_limit + agent_fee;
         let res = app.execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(gas_limit + agent_fee - 1), "atom"),
+            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
         );
         assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
 
@@ -1427,7 +1429,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(gas_limit + agent_fee), "atom"),
+            &coins(u128::from(amount_for_one_task * 2), "atom"),
         );
         assert!(res.is_ok());
     }
