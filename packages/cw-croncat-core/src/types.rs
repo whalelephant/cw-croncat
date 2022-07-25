@@ -175,9 +175,15 @@ impl Task {
     }
     // /// Returns the base amount required to execute 1 task
     // /// NOTE: this is not the final used amount, just the user-specified amount total needed
-    // pub fn task_balance_uses(&self, task: &Task) -> u128 {
-    //     task.deposit.0 + (u128::from(task.gas) * self.gas_price) + self.agent_fee
-    // }
+    pub fn task_balance_uses(&self, agent_fee: &Coin, gas_base_fee: u64) -> u128 {
+        // TODO support attaching funds
+        // task.deposit.0 +
+        self.actions
+            .iter()
+            .fold(agent_fee.amount.u128(), |sum, action| {
+                sum + u128::from(action.gas_limit.unwrap_or(gas_base_fee))
+            })
+    }
 
     /// Validate the task actions only use the supported messages
     pub fn is_valid_msg(&self, self_addr: &Addr, sender: &Addr, owner_id: &Addr) -> bool {
