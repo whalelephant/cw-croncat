@@ -158,6 +158,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::contract::GAS_BASE_FEE_JUNO;
     use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cosmwasm_std::testing::{
@@ -193,6 +194,7 @@ mod tests {
             staked_balance: GenericBalance::default(),
             agent_fee: Coin::new(5, NATIVE_DENOM.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
             gas_price: 1,
+            gas_base_fee: GAS_BASE_FEE_JUNO,
             proxy_callback_gas: 3,
             slot_granularity: 60_000_000_000,
             native_denom: NATIVE_DENOM.to_owned(),

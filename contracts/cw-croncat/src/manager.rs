@@ -373,10 +373,10 @@ mod tests {
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
             let accounts: Vec<(u128, String)> = vec![
-                (100, ADMIN.to_string()),
-                (100, ANYONE.to_string()),
-                (100, AGENT0.to_string()),
-                (100, AGENT1_BENEFICIARY.to_string()),
+                (6_000_000, ADMIN.to_string()),
+                (500_000, ANYONE.to_string()),
+                (2_000_000, AGENT0.to_string()),
+                (2_000_000, AGENT1_BENEFICIARY.to_string()),
             ];
             for (amt, address) in accounts.iter() {
                 router
@@ -399,6 +399,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: NATIVE_DENOM.to_string(),
             owner_id: Some(owner_addr.clone()),
+            gas_base_fee: None,
             agent_nomination_duration: None,
         };
         let cw_template_contract_addr = app
@@ -407,7 +408,7 @@ mod tests {
                 cw_template_id,
                 owner_addr,
                 &msg,
-                &coins(6, NATIVE_DENOM),
+                &coins(2_000_000, NATIVE_DENOM),
                 "Manager",
                 None,
             )
@@ -464,7 +465,7 @@ mod tests {
                 Addr::unchecked(ANYONE),
                 contract_addr.clone(),
                 &proxy_call_msg,
-                &coins(1, NATIVE_DENOM),
+                &coins(300010, NATIVE_DENOM),
             )
             .unwrap_err();
         assert_eq!(
@@ -553,7 +554,7 @@ mod tests {
                 Addr::unchecked(ANYONE),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(1, NATIVE_DENOM),
+                &coins(300010, NATIVE_DENOM),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -655,7 +656,7 @@ mod tests {
                 Addr::unchecked(ADMIN),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(10, NATIVE_DENOM),
+                &coins(500010, NATIVE_DENOM),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -787,7 +788,7 @@ mod tests {
                 Addr::unchecked(ADMIN),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(10, NATIVE_DENOM),
+                &coins(500010, NATIVE_DENOM),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -849,7 +850,7 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "10atom"
+                        && a.clone().value == "500010atom"
                     {
                         has_submsg_method = true;
                     }
@@ -909,7 +910,7 @@ mod tests {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(10, NATIVE_DENOM),
+            &coins(500010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -946,7 +947,7 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "10atom"
+                        && a.clone().value == "500010atom"
                     {
                         has_submsg_method = true;
                     }
@@ -1016,7 +1017,7 @@ mod tests {
                 Addr::unchecked(ADMIN),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(10, NATIVE_DENOM),
+                &coins(500010, NATIVE_DENOM),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -1148,7 +1149,7 @@ mod tests {
                 Addr::unchecked(ADMIN),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(10, NATIVE_DENOM),
+                &coins(500010, NATIVE_DENOM),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -1321,7 +1322,7 @@ mod tests {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(10, NATIVE_DENOM),
+            &coins(500_010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -1329,7 +1330,7 @@ mod tests {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg2,
-            &coins(10, NATIVE_DENOM),
+            &coins(500_010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -1340,7 +1341,7 @@ mod tests {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg3,
-            &coins(10, NATIVE_DENOM),
+            &coins(500_010, NATIVE_DENOM),
         )
         .unwrap();
 

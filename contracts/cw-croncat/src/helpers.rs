@@ -203,6 +203,7 @@ pub mod test_helpers {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let info = mock_info("creator", &coins(1000, "meow"));

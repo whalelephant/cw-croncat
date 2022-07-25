@@ -263,6 +263,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let info = MessageInfo {
@@ -339,6 +340,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let res_init = store
@@ -399,6 +401,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let res_init = store

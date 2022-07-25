@@ -54,6 +54,7 @@ pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
     pub owner_id: Option<Addr>,
+    pub gas_base_fee: Option<Uint64>,
     pub agent_nomination_duration: Option<u16>,
 }
 

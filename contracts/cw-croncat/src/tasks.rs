@@ -244,19 +244,26 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // TODO:
         // // Check that balance is sufficient for 1 execution minimum
-        // let call_balance_used = self.task_balance_uses(&item);
-        // let min_balance_needed: u128 = if recurring == Some(true) {
-        //     call_balance_used * 2
-        // } else {
-        //     call_balance_used
-        // };
-        // assert!(
-        //     min_balance_needed <= item.total_deposit.0,
-        //     "Not enough task balance to execute job, need at least {}",
-        //     min_balance_needed
-        // );
+        let call_balance_used = item.task_balance_uses(&c.agent_fee, c.gas_base_fee);
+        let min_balance_needed: u128 = if item.interval != Interval::Once {
+            call_balance_used * 2
+        } else {
+            call_balance_used
+        };
+        let attached_native = item
+            .total_deposit
+            .iter()
+            .find(|coin| coin.denom == c.native_denom)
+            .map(|c| c.amount.u128())
+            .unwrap_or_default();
+        if attached_native < min_balance_needed {
+            return Err(ContractError::CustomError {
+                val: format!(
+                    "Not enough task balance to execute job, need at least {min_balance_needed}, attached: {attached_native}",
+                ),
+            });
+        }
 
         let hash = item.to_hash();
 
@@ -315,7 +322,7 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Add the attached balance into available_balance
-        let mut c: Config = self.config.load(deps.storage)?;
+        let mut c: Config = c;
         c.available_balance.add_tokens(Balance::from(info.funds));
 
         // If the creation of this task means we'd like another agent, update config
@@ -483,6 +490,7 @@ mod tests {
 
     use std::convert::TryInto;
     // use cosmwasm_std::testing::MockStorage;
+    use crate::contract::GAS_BASE_FEE_JUNO;
     use cosmwasm_std::{
         coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
@@ -510,7 +518,7 @@ mod tests {
         AppBuilder::new().build(|router, _, storage| {
             let accounts: Vec<(u128, String)> = vec![
                 (100, ADMIN.to_string()),
-                (100, ANYONE.to_string()),
+                (800_010, ANYONE.to_string()),
                 (u128::max_value(), VERY_RICH.to_string()),
             ];
             for (amt, address) in accounts.iter() {
@@ -534,6 +542,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: Some(owner_addr.clone()),
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let cw_template_contract_addr = app
@@ -643,7 +652,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(37, "atom"),
+            &coins(300010, "atom"),
         )
         .unwrap();
 
@@ -707,7 +716,7 @@ mod tests {
                 Addr::unchecked(VERY_RICH),
                 contract_addr.clone(),
                 &new_msg(amount),
-                &coins(37, "atom"),
+                &coins(300010, "atom"),
             )
             .unwrap();
         }
@@ -895,7 +904,7 @@ mod tests {
                 Addr::unchecked(ANYONE),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(13, "atom"),
+                &coins(300010, "atom"),
             )
             .unwrap_err();
         assert_eq!(
@@ -993,7 +1002,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(13, "atom"),
+            &coins(300010, "atom"),
         )
         .unwrap();
         let res_err = app
@@ -1001,7 +1010,7 @@ mod tests {
                 Addr::unchecked(ANYONE),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(13, "atom"),
+                &coins(300010, "atom"),
             )
             .unwrap_err();
         assert_eq!(
@@ -1031,7 +1040,7 @@ mod tests {
                         rules: None,
                     },
                 },
-                &coins(13, "atom"),
+                &coins(300010, "atom"),
             )
             .unwrap_err();
         assert_eq!(
@@ -1080,7 +1089,7 @@ mod tests {
                 Addr::unchecked(ANYONE),
                 contract_addr.clone(),
                 &create_task_msg,
-                &coins(37, "atom"),
+                &coins(300010, "atom"),
             )
             .unwrap();
         // Assert task hash is returned as part of event attributes
@@ -1116,7 +1125,7 @@ mod tests {
                 t.boundary
             );
             assert_eq!(false, t.stop_on_fail);
-            assert_eq!(coins(37, "atom"), t.total_deposit);
+            assert_eq!(coins(300010, "atom"), t.total_deposit);
             assert_eq!(task_id_str.clone(), t.task_hash);
         }
 
@@ -1179,7 +1188,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(37, "atom"),
+            &coins(300010, "atom"),
         )
         .unwrap();
 
@@ -1279,7 +1288,7 @@ mod tests {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(37, "atom"),
+            &coins(300010, "atom"),
         )
         .unwrap();
         // refill task
@@ -1297,7 +1306,7 @@ mod tests {
         let mut matches_new_totals: bool = false;
         for e in res.events {
             for a in e.attributes {
-                if a.key == "total_deposit" && a.value == "40atom".to_string() {
+                if a.key == "total_deposit" && a.value == "300013atom".to_string() {
                     matches_new_totals = true;
                 }
             }
@@ -1318,7 +1327,7 @@ mod tests {
 
         if let Some(t) = new_task {
             assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
-            assert_eq!(coins(40, "atom"), t.total_deposit);
+            assert_eq!(coins(300013, "atom"), t.total_deposit);
         }
 
         // Check the balance has increased to include the new refilled total
@@ -1326,8 +1335,102 @@ mod tests {
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();
-        assert_eq!(coins(40, "atom"), balances.available_balance.native);
+        assert_eq!(coins(300013, "atom"), balances.available_balance.native);
 
         Ok(())
+    }
+
+    #[test]
+    fn check_gas_minimum() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+        let gas_limit = 150_000;
+        let agent_fee = 5;
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(gas_limit),
+                }],
+                rules: None,
+            },
+        };
+        // create 1 token off task
+        let amount_for_one_task = gas_limit + agent_fee;
+        let res = app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+        );
+        assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
+
+        // create a task
+        let res = app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2), "atom"),
+        );
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn check_gas_default() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+        let gas_limit = GAS_BASE_FEE_JUNO;
+        let agent_fee = 5;
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: Boundary {
+                    start: None,
+                    end: None,
+                },
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: None,
+                }],
+                rules: None,
+            },
+        };
+        // create 1 token off task
+        let amount_for_one_task = gas_limit + agent_fee;
+        let res = app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+        );
+        assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
+
+        // create a task
+        let res = app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2), "atom"),
+        );
+        assert!(res.is_ok());
     }
 }

@@ -15,6 +15,9 @@ const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
+// default for juno
+pub(crate) const GAS_BASE_FEE_JUNO: u64 = 400_000;
+
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
     pub fn instantiate(
@@ -37,6 +40,12 @@ impl<'a> CwCroncat<'a> {
             "Invalid address"
         );
 
+        let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
+            base_fee.u64()
+        } else {
+            GAS_BASE_FEE_JUNO
+        };
+
         let config = Config {
             paused: false,
             owner_id: owner_acct,
@@ -49,6 +58,7 @@ impl<'a> CwCroncat<'a> {
             agent_fee: Coin::new(5, msg.denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
             gas_price: 1,
             proxy_callback_gas: 3,
+            gas_base_fee,
             slot_granularity: 60_000_000_000,
             native_denom: msg.denom,
             cw20_whitelist: vec![],
@@ -209,6 +219,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let info = mock_info("creator", &coins(1000, "meow"));
