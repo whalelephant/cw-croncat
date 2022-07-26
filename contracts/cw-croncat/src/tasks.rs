@@ -1291,10 +1291,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1338,10 +1335,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
