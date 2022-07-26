@@ -84,23 +84,6 @@ pub enum Interval {
     Cron(String),
 }
 
-// #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub enum BoundarySpec {
-//     /// Represents the block height
-//     Height(u64),
-
-//     /// Represents the block timestamp
-//     Time(Timestamp),
-// }
-
-// #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub struct Boundary {
-//     ///
-//     pub start: Option<BoundarySpec>,
-//     ///
-//     pub end: Option<BoundarySpec>,
-// }
-
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum Boundary {
     Height {
