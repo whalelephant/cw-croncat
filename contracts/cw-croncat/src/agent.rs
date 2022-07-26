@@ -444,20 +444,20 @@ mod tests {
     fn mock_app() -> App {
         AppBuilder::new().build(|router, _, storage| {
             let accounts: Vec<(u128, String)> = vec![
-                (100, ADMIN.to_string()),
+                (2_000_000, ADMIN.to_string()),
                 (1, AGENT0.to_string()),
-                (100, AGENT1.to_string()),
-                (100, AGENT2.to_string()),
-                (100, AGENT3.to_string()),
-                (100, AGENT4.to_string()),
-                (20, PARTICIPANT0.to_string()),
-                (20, PARTICIPANT1.to_string()),
-                (20, PARTICIPANT2.to_string()),
-                (20, PARTICIPANT3.to_string()),
-                (20, PARTICIPANT4.to_string()),
-                (20, PARTICIPANT5.to_string()),
-                (20, PARTICIPANT6.to_string()),
-                (1, AGENT_BENEFICIARY.to_string()),
+                (2_000_000, AGENT1.to_string()),
+                (2_000_000, AGENT2.to_string()),
+                (2_000_000, AGENT3.to_string()),
+                (2_000_000, AGENT4.to_string()),
+                (500_0000, PARTICIPANT0.to_string()),
+                (500_0000, PARTICIPANT1.to_string()),
+                (500_0000, PARTICIPANT2.to_string()),
+                (500_0000, PARTICIPANT3.to_string()),
+                (500_0000, PARTICIPANT4.to_string()),
+                (500_0000, PARTICIPANT5.to_string()),
+                (500_0000, PARTICIPANT6.to_string()),
+                (2_000_000, AGENT_BENEFICIARY.to_string()),
             ];
             for (amt, address) in accounts.iter() {
                 router
@@ -480,6 +480,7 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: Some(owner_addr.clone()),
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
         let cw_template_contract_addr = app
@@ -510,7 +511,7 @@ mod tests {
         let amount = coin(3, NATIVE_DENOM);
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
-        let send_funds = coins(1, NATIVE_DENOM);
+        let send_funds = coins(500_000, NATIVE_DENOM);
         app.execute_contract(
             Addr::unchecked(sender),
             contract_addr.clone(),
@@ -541,7 +542,7 @@ mod tests {
         let amount = coin(3, NATIVE_DENOM);
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
-        let send_funds = coins(1, NATIVE_DENOM);
+        let send_funds = coins(500_000, NATIVE_DENOM);
         app.execute_contract(
             Addr::unchecked(sender),
             contract_addr.clone(),
@@ -572,7 +573,7 @@ mod tests {
         let amount = coin(3, NATIVE_DENOM);
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
-        let send_funds = coins(1, NATIVE_DENOM);
+        let send_funds = coins(500_000, NATIVE_DENOM);
         app.execute_contract(
             Addr::unchecked(sender),
             contract_addr.clone(),
@@ -926,7 +927,7 @@ mod tests {
             .wrap()
             .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
             .unwrap();
-        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+        assert_eq!(agent_bal, coin(2_000_000, NATIVE_DENOM));
 
         // Attempt the unregister
         app.execute_contract(
@@ -962,7 +963,7 @@ mod tests {
             .wrap()
             .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
             .unwrap();
-        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+        assert_eq!(agent_bal, coin(2000000, NATIVE_DENOM));
     }
 
     #[test]
@@ -997,7 +998,7 @@ mod tests {
             .wrap()
             .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
             .unwrap();
-        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+        assert_eq!(agent_bal, coin(2_000_000, NATIVE_DENOM));
 
         // Attempt the withdraw
         app.execute_contract(
@@ -1014,7 +1015,7 @@ mod tests {
             .wrap()
             .query_balance(&Addr::unchecked(AGENT1), NATIVE_DENOM)
             .unwrap();
-        assert_eq!(agent_bal, coin(100, NATIVE_DENOM));
+        assert_eq!(agent_bal, coin(2_000_000, NATIVE_DENOM));
     }
 
     #[test]
@@ -1156,8 +1157,8 @@ mod tests {
         // Give the contract and the agents balances
         let mut deps = cosmwasm_std::testing::mock_dependencies_with_balances(&[
             (&MOCK_CONTRACT_ADDR, &[coin(6000, "atom")]),
-            (&AGENT0, &[coin(600, "atom")]),
-            (&AGENT1, &[coin(600, "atom")]),
+            (&AGENT0, &[coin(2_000_000, "atom")]),
+            (&AGENT1, &[coin(2_000_000, "atom")]),
         ]);
         let mut contract = CwCroncat::default();
 
@@ -1165,9 +1166,10 @@ mod tests {
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
             owner_id: None,
+            gas_base_fee: None,
             agent_nomination_duration: Some(360),
         };
-        let mut info = mock_info(AGENT0, &coins(6000, "atom"));
+        let mut info = mock_info(AGENT0, &coins(900_000, "atom"));
         let res_init = contract
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
             .unwrap();

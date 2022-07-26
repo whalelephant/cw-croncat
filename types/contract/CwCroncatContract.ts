@@ -386,6 +386,7 @@ export type GetTasksResponse = TaskResponse[];
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   denom: string;
+  gas_base_fee?: Uint64 | null;
   owner_id?: Addr | null;
   [k: string]: unknown;
 }
