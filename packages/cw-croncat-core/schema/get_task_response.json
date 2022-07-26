@@ -101,56 +101,71 @@
       "type": "string"
     },
     "Boundary": {
-      "type": "object",
-      "properties": {
-        "end": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/BoundarySpec"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "start": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/BoundarySpec"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      }
-    },
-    "BoundarySpec": {
       "oneOf": [
         {
-          "description": "Represents the block height",
           "type": "object",
           "required": [
             "Height"
           ],
           "properties": {
             "Height": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
             }
           },
           "additionalProperties": false
         },
         {
-          "description": "Represents the block timestamp",
           "type": "object",
           "required": [
             "Time"
           ],
           "properties": {
             "Time": {
-              "$ref": "#/definitions/Timestamp"
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
             }
           },
           "additionalProperties": false
@@ -670,7 +685,6 @@
       "type": "object",
       "required": [
         "actions",
-        "boundary",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -685,7 +699,14 @@
           }
         },
         "boundary": {
-          "$ref": "#/definitions/Boundary"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Boundary"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "interval": {
           "$ref": "#/definitions/Interval"

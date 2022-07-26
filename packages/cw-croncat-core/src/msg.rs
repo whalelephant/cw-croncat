@@ -1,6 +1,8 @@
-use crate::types::{Action, AgentResponse, Boundary, GenericBalance, Interval, Rule, Task};
+use crate::types::{
+    Action, AgentResponse, Boundary, BoundaryValidated, GenericBalance, Interval, Rule, Task,
+};
 use crate::types::{Agent, SlotType};
-use cosmwasm_std::{Addr, Coin, Uint64};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -172,7 +174,7 @@ pub struct AgentTaskResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
     pub interval: Interval,
-    pub boundary: Boundary,
+    pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
@@ -183,11 +185,43 @@ pub struct TaskResponse {
     pub task_hash: String,
     pub owner_id: Addr,
     pub interval: Interval,
-    pub boundary: Boundary,
+    pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+}
+
+impl From<Task> for TaskResponse {
+    fn from(task: Task) -> Self {
+        let boundary = match (task.boundary, &task.interval) {
+            (
+                BoundaryValidated {
+                    start: None,
+                    end: None,
+                },
+                _,
+            ) => None,
+            (BoundaryValidated { start, end }, Interval::Cron(_)) => Some(Boundary::Time {
+                start: start.map(Timestamp::from_nanos),
+                end: end.map(Timestamp::from_nanos),
+            }),
+            (BoundaryValidated { start, end }, _) => Some(Boundary::Height {
+                start: start.map(Into::into),
+                end: end.map(Into::into),
+            }),
+        };
+        TaskResponse {
+            task_hash: task.to_hash(),
+            owner_id: task.owner_id,
+            interval: task.interval,
+            boundary,
+            stop_on_fail: task.stop_on_fail,
+            total_deposit: task.total_deposit,
+            actions: task.actions,
+            rules: task.rules,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -209,7 +243,7 @@ mod tests {
     use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg, Timestamp};
     use cw20::Cw20CoinVerified;
 
-    use crate::types::{AgentStatus, BoundarySpec};
+    use crate::types::AgentStatus;
 
     use super::*;
 
@@ -238,12 +272,13 @@ mod tests {
             amount: coins(1015, "earth"),
         }
         .into();
+
         let task = Task {
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
-            boundary: Boundary {
-                start: None,
-                end: None,
+            boundary: BoundaryValidated {
+                start: Some(54),
+                end: Some(44),
             },
             stop_on_fail: false,
             total_deposit: vec![],
@@ -289,10 +324,10 @@ mod tests {
         .into();
         let task_request = TaskRequest {
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(5)),
-                end: Some(BoundarySpec::Time(Timestamp::from_nanos(64))),
-            },
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(5u64)),
+                end: Some(Uint64::from(64u64)),
+            }),
             stop_on_fail: true,
             actions: vec![],
             rules: None, // TODO
@@ -302,10 +337,10 @@ mod tests {
             task_hash: "test".to_string(),
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Cron("blah-blah".to_string()),
-            boundary: Boundary {
-                start: None,
-                end: None,
-            },
+            boundary: Some(Boundary::Time {
+                start: Some(Timestamp::from_nanos(12345)),
+                end: Some(Timestamp::from_nanos(67890)),
+            }),
             stop_on_fail: true,
             total_deposit: vec![coin(5, "earth")],
             actions: vec![],

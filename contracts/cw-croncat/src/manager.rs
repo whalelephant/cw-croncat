@@ -4,6 +4,7 @@ use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
 use cw20::Balance;
+use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{Agent, SlotType};
 
 impl<'a> CwCroncat<'a> {
@@ -352,7 +353,7 @@ mod tests {
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, TaskRequest};
-    use cw_croncat_core::types::{Action, Boundary, BoundarySpec, Interval};
+    use cw_croncat_core::types::{Action, Boundary, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -443,10 +444,10 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
+                boundary: Some(Boundary::Height {
                     start: None,
                     end: None,
-                },
+                }),
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -456,7 +457,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
+            "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
         // Must attach funds
         let res_err = app
@@ -624,7 +625,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
         let task_id_str =
-            "9c1b6c9d91a5960b9c8580f3606bca18a9ceb8ed628f68a1c7022ef130c5c2d6".to_string();
+            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -636,10 +637,10 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
+                boundary: Some(Boundary::Height {
                     start: None,
                     end: None,
-                },
+                }),
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -757,7 +758,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
         let task_id_str =
-            "ce7f88df7816b4cf2d0cd882f189eb81ad66e4a9aabfc1eb5ba2189d73f9929b".to_string();
+            "96003a7938c1ac9566fec1be9b0cfa97a56626a574940ef5968364ef4d30c15a".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let validator = String::from("you");
@@ -768,10 +769,10 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
+                boundary: Some(Boundary::Height {
                     start: None,
-                    end: Some(BoundarySpec::Height(12347)),
-                },
+                    end: Some(12347_u64.into()),
+                }),
                 stop_on_fail: true,
                 actions: vec![Action {
                     msg,
@@ -891,10 +892,10 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
+                boundary: Some(Boundary::Height {
                     start: None,
-                    end: Some(BoundarySpec::Height(12347)),
-                },
+                    end: Some(12347_u64.into()),
+                }),
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -985,7 +986,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
         let task_id_str =
-            "9c1b6c9d91a5960b9c8580f3606bca18a9ceb8ed628f68a1c7022ef130c5c2d6".to_string();
+            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -997,10 +998,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1117,7 +1115,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
         let task_id_str =
-            "0309be13444499606658e996ed79c3334bf258bbea573ca880f2e8d70bb536b3".to_string();
+            "c7905cb9e5d620ae61b06cae6fb2bf3afa0ba0b290c1d48da626d0b7f68c293c".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1129,10 +1127,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Cron("0 * * * * *".to_string()),
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1271,10 +1266,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1287,10 +1279,7 @@ mod tests {
         let create_task_msg2 = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg: msg2,
@@ -1303,10 +1292,7 @@ mod tests {
         let create_task_msg3 = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg: msg3,

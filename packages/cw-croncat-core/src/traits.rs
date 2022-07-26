@@ -1,4 +1,4 @@
-use crate::types::{Boundary, SlotType};
+use crate::types::{BoundaryValidated, SlotType};
 use cosmwasm_std::{Addr, Env};
 use cw20::Balance;
 
@@ -8,7 +8,7 @@ pub trait GenericBalances {
 }
 
 pub trait Intervals {
-    fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType);
+    fn next(&self, env: Env, boundary: BoundaryValidated) -> (u64, SlotType);
     fn is_valid(&self) -> bool;
 }
 

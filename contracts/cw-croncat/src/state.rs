@@ -166,7 +166,7 @@ mod tests {
     use crate::helpers::Task;
     use cosmwasm_std::testing::MockStorage;
     use cosmwasm_std::{coins, BankMsg, CosmosMsg, Order, StdResult};
-    use cw_croncat_core::types::{Action, Boundary, Interval};
+    use cw_croncat_core::types::{Action, BoundaryValidated, Interval};
     use cw_storage_plus::Bound;
 
     #[test]
@@ -182,7 +182,7 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
-            boundary: Boundary {
+            boundary: BoundaryValidated {
                 start: None,
                 end: None,
             },
@@ -194,7 +194,7 @@ mod tests {
             }],
             rules: None,
         };
-        let task_id_str = "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee";
+        let task_id_str = "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3";
         let task_id = task_id_str.to_string().into_bytes();
 
         // create a task

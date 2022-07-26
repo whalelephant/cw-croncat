@@ -314,62 +314,26 @@
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
     },
-    "Boundary": {
+    "BoundaryValidated": {
       "type": "object",
       "properties": {
         "end": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/BoundarySpec"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         },
         "start": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/BoundarySpec"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         }
       }
-    },
-    "BoundarySpec": {
-      "oneOf": [
-        {
-          "description": "Represents the block height",
-          "type": "object",
-          "required": [
-            "Height"
-          ],
-          "properties": {
-            "Height": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "description": "Represents the block timestamp",
-          "type": "object",
-          "required": [
-            "Time"
-          ],
-          "properties": {
-            "Time": {
-              "$ref": "#/definitions/Timestamp"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
     },
     "Coin": {
       "type": "object",
@@ -899,7 +863,7 @@
           }
         },
         "boundary": {
-          "$ref": "#/definitions/Boundary"
+          "$ref": "#/definitions/BoundaryValidated"
         },
         "interval": {
           "description": "Scheduling definitions",

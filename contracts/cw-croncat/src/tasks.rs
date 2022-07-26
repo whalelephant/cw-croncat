@@ -6,7 +6,8 @@ use cosmwasm_std::{
 };
 use cw20::Balance;
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
-use cw_croncat_core::types::{SlotType, Task};
+use cw_croncat_core::traits::Intervals;
+use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -24,18 +25,7 @@ impl<'a> CwCroncat<'a> {
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
-            .map(|res| {
-                res.map(|(_k, task)| TaskResponse {
-                    task_hash: task.to_hash(),
-                    owner_id: task.owner_id,
-                    interval: task.interval,
-                    boundary: task.boundary,
-                    stop_on_fail: task.stop_on_fail,
-                    total_deposit: task.total_deposit,
-                    actions: task.actions,
-                    rules: task.rules,
-                })
-            })
+            .map(|res| res.map(|(_k, task)| task.into()))
             .collect()
     }
 
@@ -50,18 +40,7 @@ impl<'a> CwCroncat<'a> {
             .owner
             .prefix(owner_id)
             .range(deps.storage, None, None, Order::Ascending)
-            .map(|x| {
-                x.map(|(_, task)| TaskResponse {
-                    task_hash: task.to_hash(),
-                    owner_id: task.owner_id,
-                    interval: task.interval,
-                    boundary: task.boundary,
-                    stop_on_fail: task.stop_on_fail,
-                    total_deposit: task.total_deposit,
-                    actions: task.actions,
-                    rules: task.rules,
-                })
-            })
+            .map(|x| x.map(|(_, task)| task.into()))
             .collect::<StdResult<Vec<_>>>()
     }
 
@@ -71,25 +50,11 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
-        let res = self
+        let res: Option<Task> = self
             .tasks
             .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
-        if res.is_none() {
-            return Ok(None);
-        }
 
-        let task: Task = res.unwrap();
-
-        Ok(Some(TaskResponse {
-            task_hash: task.to_hash(),
-            owner_id: task.owner_id,
-            interval: task.interval,
-            boundary: task.boundary,
-            stop_on_fail: task.stop_on_fail,
-            total_deposit: task.total_deposit,
-            actions: task.actions,
-            rules: task.rules,
-        }))
+        Ok(res.map(Into::into))
     }
 
     /// Returns a hash computed by the input task data
@@ -222,10 +187,11 @@ impl<'a> CwCroncat<'a> {
         }
 
         let owner_id = info.sender;
+        let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
         let item = Task {
             owner_id: owner_id.clone(),
             interval: task.interval,
-            boundary: task.boundary,
+            boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: info.funds.clone(),
             actions: task.actions,
@@ -490,7 +456,7 @@ mod tests {
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Action, Boundary, BoundarySpec};
+    use cw_croncat_core::types::{Action, Boundary};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -558,7 +524,7 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
-            boundary: Boundary {
+            boundary: BoundaryValidated {
                 start: None,
                 end: None,
             },
@@ -582,7 +548,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            "3ccb739ea050ebbd2e08f74aeb0b7aa081b15fa78504cba44155ec774452bbee",
+            "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
             task_hash
         );
     }
@@ -625,10 +591,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -684,10 +647,7 @@ mod tests {
         let new_msg = |amount| ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg: StakingMsg::Delegate {
@@ -840,10 +800,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg: msg.clone(),
@@ -852,7 +809,7 @@ mod tests {
                 rules: None,
             },
         };
-        // let task_id_str = "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
+        // let task_id_str = "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
         // let task_id = task_id_str.clone().into_bytes();
 
         // Must attach funds
@@ -936,10 +893,7 @@ mod tests {
                 &ExecuteMsg::CreateTask {
                     task: TaskRequest {
                         interval: Interval::Once,
-                        boundary: Boundary {
-                            start: None,
-                            end: None,
-                        },
+                        boundary: None,
                         stop_on_fail: false,
                         actions: vec![Action {
                             msg: action_self.clone(),
@@ -966,10 +920,7 @@ mod tests {
                 &ExecuteMsg::CreateTask {
                     task: TaskRequest {
                         interval: Interval::Cron("faux_paw".to_string()),
-                        boundary: Boundary {
-                            start: None,
-                            end: None,
-                        },
+                        boundary: None,
                         stop_on_fail: false,
                         actions: vec![Action {
                             msg: msg.clone(),
@@ -1019,10 +970,10 @@ mod tests {
                 &ExecuteMsg::CreateTask {
                     task: TaskRequest {
                         interval: Interval::Block(12346),
-                        boundary: Boundary {
+                        boundary: Some(Boundary::Height {
                             start: None,
-                            end: Some(BoundarySpec::Height(1)),
-                        },
+                            end: Some(1u64.into()),
+                        }),
                         stop_on_fail: false,
                         actions: vec![Action {
                             msg,
@@ -1059,10 +1010,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1072,7 +1020,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
+            "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
         // create a task
         let res = app
@@ -1108,13 +1056,7 @@ mod tests {
         if let Some(t) = new_task {
             assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
             assert_eq!(Interval::Immediate, t.interval);
-            assert_eq!(
-                Boundary {
-                    start: None,
-                    end: None,
-                },
-                t.boundary
-            );
+            assert_eq!(None, t.boundary);
             assert_eq!(false, t.stop_on_fail);
             assert_eq!(coins(37, "atom"), t.total_deposit);
             assert_eq!(task_id_str.clone(), t.task_hash);
@@ -1159,10 +1101,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1172,7 +1111,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
+            "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
         // create a task
         app.execute_contract(
@@ -1259,10 +1198,7 @@ mod tests {
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg,
@@ -1272,7 +1208,7 @@ mod tests {
             },
         };
         let task_id_str =
-            "ad15b0f15010d57a51ff889d3400fe8d083a0dab2acfc752c5eb55e9e6281705".to_string();
+            "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
         // create a task
         app.execute_contract(
