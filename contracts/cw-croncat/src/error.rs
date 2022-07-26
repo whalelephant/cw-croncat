@@ -6,6 +6,9 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("{0}")]
+    CoreError(#[from] cw_croncat_core::error::CoreError),
+
     #[error("Unauthorized")]
     Unauthorized {},
 

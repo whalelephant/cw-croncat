@@ -141,10 +141,18 @@ export type GovMsg = {
   };
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
-export type BoundarySpec = {
-  Height: number;
+export type Boundary = {
+  Height: {
+    end?: Uint64 | null;
+    start?: Uint64 | null;
+    [k: string]: unknown;
+  };
 } | {
-  Time: Timestamp;
+  Time: {
+    end?: Timestamp | null;
+    start?: Timestamp | null;
+    [k: string]: unknown;
+  };
 };
 export type Interval = ("Once" | "Immediate") | {
   Block: number;
@@ -248,7 +256,7 @@ export interface GetSlotIdsResponse {
 }
 export interface TaskResponse {
   actions: ActionForEmpty[];
-  boundary: Boundary;
+  boundary?: Boundary | null;
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -275,11 +283,6 @@ export interface IbcTimeoutBlock {
   revision: number;
   [k: string]: unknown;
 }
-export interface Boundary {
-  end?: BoundarySpec | null;
-  start?: BoundarySpec | null;
-  [k: string]: unknown;
-}
 export interface Rule {
   contract_addr: Addr;
   msg: Binary;
@@ -287,7 +290,7 @@ export interface Rule {
 }
 export interface Task {
   actions: ActionForEmpty[];
-  boundary: Boundary;
+  boundary: BoundaryValidated;
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -295,9 +298,14 @@ export interface Task {
   total_deposit: Coin[];
   [k: string]: unknown;
 }
+export interface BoundaryValidated {
+  end?: number | null;
+  start?: number | null;
+  [k: string]: unknown;
+}
 export interface TaskRequest {
   actions: ActionForEmpty[];
-  boundary: Boundary;
+  boundary?: Boundary | null;
   interval: Interval;
   rules?: Rule[] | null;
   stop_on_fail: boolean;

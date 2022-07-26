@@ -413,7 +413,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
-    use cw_croncat_core::types::{Action, Boundary, Interval};
+    use cw_croncat_core::types::{Action, Interval};
     use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -518,10 +518,7 @@ mod tests {
             &ExecuteMsg::CreateTask {
                 task: TaskRequest {
                     interval: Interval::Immediate,
-                    boundary: Boundary {
-                        start: None,
-                        end: None,
-                    },
+                    boundary: None,
                     stop_on_fail: false,
                     actions: vec![Action {
                         msg,
@@ -552,10 +549,7 @@ mod tests {
             &ExecuteMsg::CreateTask {
                 task: TaskRequest {
                     interval: Interval::Block(block_num),
-                    boundary: Boundary {
-                        start: None,
-                        end: None,
-                    },
+                    boundary: None,
                     stop_on_fail: false,
                     actions: vec![Action {
                         msg,
@@ -586,10 +580,7 @@ mod tests {
             &ExecuteMsg::CreateTask {
                 task: TaskRequest {
                     interval: Interval::Cron(format!("* {} * * * *", num_minutes)),
-                    boundary: Boundary {
-                        start: None,
-                        end: None,
-                    },
+                    boundary: None,
                     stop_on_fail: false,
                     actions: vec![Action {
                         msg,
@@ -621,10 +612,7 @@ mod tests {
             mock_env(),
             TaskRequest {
                 interval: Interval::Immediate,
-                boundary: Boundary {
-                    start: None,
-                    end: None,
-                },
+                boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
                     msg: msg.clone(),
@@ -1040,7 +1028,7 @@ mod tests {
         let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
         let task_hash = res.events[1].attributes[4].clone().value;
         assert_eq!(
-            "9b576b9c37c7a1774713f3383217953a074178ab7b044832c097f22d1ca0d3a6", task_hash,
+            "7ea9a6d5ef5c78cb168afa96b43b5843b8f880627aa0580f4311403f907cbf93", task_hash,
             "Unexpected task hash"
         );
 

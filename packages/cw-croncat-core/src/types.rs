@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, Timestamp, WasmMsg,
+    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, Timestamp, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Balance, Cw20CoinVerified};
@@ -8,6 +8,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
+
+use crate::{error::CoreError, traits::Intervals};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct GenericBalance {
@@ -83,20 +85,50 @@ pub enum Interval {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub enum BoundarySpec {
-    /// Represents the block height
-    Height(u64),
-
-    /// Represents the block timestamp
-    Time(Timestamp),
+pub enum Boundary {
+    Height {
+        start: Option<Uint64>,
+        end: Option<Uint64>,
+    },
+    Time {
+        start: Option<Timestamp>,
+        end: Option<Timestamp>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct Boundary {
-    ///
-    pub start: Option<BoundarySpec>,
-    ///
-    pub end: Option<BoundarySpec>,
+pub struct BoundaryValidated {
+    pub start: Option<u64>,
+    pub end: Option<u64>,
+}
+
+impl BoundaryValidated {
+    pub fn validate_boundary(
+        boundary: Option<Boundary>,
+        interval: &Interval,
+    ) -> Result<Self, CoreError> {
+        if let Some(boundary) = boundary {
+            match (interval, boundary) {
+                (Interval::Cron(_), Boundary::Time { start, end }) => Ok(Self {
+                    start: start.map(|start| start.nanos()),
+                    end: end.map(|end| end.nanos()),
+                }),
+                (
+                    Interval::Once | Interval::Immediate | Interval::Block(_),
+                    Boundary::Height { start, end },
+                ) => Ok(Self {
+                    start: start.map(Into::into),
+                    end: end.map(Into::into),
+                }),
+                _ => Err(CoreError::InvalidBoundary {}),
+            }
+        } else {
+            Ok(Self {
+                start: None,
+                end: None,
+            })
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
@@ -137,7 +169,7 @@ pub struct Task {
 
     /// Scheduling definitions
     pub interval: Interval,
-    pub boundary: Boundary,
+    pub boundary: BoundaryValidated,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -159,11 +191,7 @@ impl Task {
     pub fn to_hash(&self) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id,
-            self.interval,
-            self.clone().boundary,
-            self.actions,
-            self.rules
+            self.owner_id, self.interval, self.boundary, self.actions, self.rules
         );
 
         let hash = Sha256::digest(message.as_bytes());
@@ -308,101 +336,66 @@ impl GenericBalance {
     }
 }
 
-fn get_next_block_limited(env: Env, boundary: Boundary) -> (u64, SlotType) {
+fn get_next_block_limited(env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
-    let next_block_height = if boundary.start.is_some() {
-        match boundary.start.unwrap() {
-            // Note: Not bothering with time, as that should get handled with the cron situations,
-            // and probably throw an error when mixing blocks and cron
-            BoundarySpec::Height(id) => {
-                if current_block_height < id {
-                    // shorthand - remove 1 since it adds 1 later
-                    id - 1
-                } else {
-                    current_block_height
-                }
-            }
-            _ => current_block_height,
-        }
-    } else {
-        current_block_height
+    let next_block_height = match boundary.start {
+        // shorthand - remove 1 since it adds 1 later
+        Some(id) if current_block_height < id => id - 1,
+        _ => current_block_height,
     };
 
-    if boundary.end.is_some() {
-        match boundary.end.unwrap() {
-            BoundarySpec::Height(id) => {
-                // stop if passed end height
-                if current_block_height > id {
-                    return (0, SlotType::Block);
-                }
-                // we ONLY want to catch if we're passed the end block height
-                if next_block_height > id {
-                    return (id, SlotType::Block);
-                }
-            }
-            _ => unreachable!(),
-        }
-    }
+    match boundary.end {
+        // stop if passed end height
+        Some(id) if current_block_height > id => (0, SlotType::Block),
 
-    // immediate needs to return this block + 1
-    (next_block_height + 1, SlotType::Block)
+        // we ONLY want to catch if we're passed the end block height
+        Some(id) if next_block_height > id => (id, SlotType::Block),
+
+        // immediate needs to return this block + 1
+        _ => (next_block_height + 1, SlotType::Block),
+    }
 }
 
 // So either:
 // - Boundary specifies a start/end that block offsets can be computed from
 // - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: Env, boundary: Boundary, block: u64) -> (u64, SlotType) {
+fn get_next_block_by_offset(env: Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
     let current_block_height = env.block.height;
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
-    let next_block_height = if boundary.start.is_some() {
-        match boundary.start.unwrap() {
-            // Note: Not bothering with time, as that should get handled with the cron situations,
-            // and probably throw an error when mixing blocks and cron
-            BoundarySpec::Height(id) => {
-                if current_block_height < id {
-                    let rem = id % block;
-                    if rem > 0 {
-                        id.saturating_sub(rem) + block
-                    } else {
-                        id
-                    }
-                } else {
-                    modulo_block
-                }
+    let next_block_height = match boundary.start {
+        Some(id) if current_block_height < id => {
+            let rem = id % block;
+            if rem > 0 {
+                id.saturating_sub(rem) + block
+            } else {
+                id
             }
-            _ => modulo_block,
         }
-    } else {
-        modulo_block
+        _ => modulo_block,
     };
 
-    if boundary.end.is_some() {
-        match boundary.end.unwrap() {
-            BoundarySpec::Height(id) => {
-                let rem = id % block;
-                let end_height = if rem > 0 { id.saturating_sub(rem) } else { id };
+    match boundary.end {
+        // stop if passed end height
+        Some(id) if current_block_height > id => (0, SlotType::Block),
 
-                // stop if passed end height
-                if current_block_height > id {
-                    return (0, SlotType::Block);
-                }
-
-                // we ONLY want to catch if we're passed the end block height
-                if next_block_height > end_height {
-                    return (end_height, SlotType::Block);
-                }
-            }
-            _ => unreachable!(),
+        // we ONLY want to catch if we're passed the end block height
+        Some(id) => {
+            let end_height = if let Some(rem) = id.checked_rem(block) {
+                id.saturating_sub(rem)
+            } else {
+                id
+            };
+            (end_height, SlotType::Block)
         }
-    }
 
-    (next_block_height, SlotType::Block)
+        None => (next_block_height, SlotType::Block),
+    }
 }
 
-impl Interval {
-    pub fn next(&self, env: Env, boundary: Boundary) -> (u64, SlotType) {
+impl Intervals for Interval {
+    fn next(&self, env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
         match self {
             // return the first block within a specific range that can be triggered 1 time.
             Interval::Once => get_next_block_limited(env, boundary),
@@ -413,25 +406,10 @@ impl Interval {
             Interval::Cron(crontab) => {
                 let current_block_ts: u64 = env.block.time.nanos();
                 // TODO: get current timestamp within boundary
-                let current_ts: u64 = if boundary.start.is_some() {
-                    let start = boundary.start.unwrap();
-
-                    match start {
-                        // Note: Not bothering with height, as that should get handled with the block situations,
-                        // and probably throw an error when mixing blocks and cron
-                        BoundarySpec::Time(ts) => {
-                            if current_block_ts < ts.nanos() {
-                                ts.nanos()
-                            } else {
-                                current_block_ts
-                            }
-                        }
-                        _ => current_block_ts,
-                    }
-                } else {
-                    current_block_ts
+                let current_ts = match boundary.start {
+                    Some(ts) if current_block_ts < ts => ts,
+                    _ => current_block_ts,
                 };
-
                 let schedule = Schedule::from_str(crontab.as_str()).unwrap();
                 let next_ts = schedule.next_after(&current_ts).unwrap();
                 (next_ts, SlotType::Cron)
@@ -444,7 +422,8 @@ impl Interval {
             Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
         }
     }
-    pub fn is_valid(&self) -> bool {
+
+    fn is_valid(&self) -> bool {
         match self {
             Interval::Once => true,
             Interval::Immediate => true,
@@ -468,9 +447,9 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Once,
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
-                end: Some(BoundarySpec::Height(8)),
+            boundary: BoundaryValidated {
+                start: Some(4),
+                end: Some(8),
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
@@ -499,9 +478,9 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Once,
-            boundary: Boundary {
-                start: Some(BoundarySpec::Time(Timestamp::from_nanos(1_000_000_000))),
-                end: Some(BoundarySpec::Time(Timestamp::from_nanos(2_000_000_000))),
+            boundary: BoundaryValidated {
+                start: Some(1_000_000_000),
+                end: Some(2_000_000_000),
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
@@ -530,7 +509,7 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(10),
-            boundary: Boundary {
+            boundary: BoundaryValidated {
                 start: None,
                 end: None,
             },
@@ -562,8 +541,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("alice"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
@@ -594,8 +573,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
@@ -625,8 +604,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
@@ -658,8 +637,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
@@ -688,8 +667,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
@@ -883,8 +862,8 @@ mod tests {
         let task = Task {
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: Boundary {
-                start: Some(BoundarySpec::Height(4)),
+            boundary: BoundaryValidated {
+                start: Some(4),
                 end: None,
             },
             stop_on_fail: false,
