@@ -232,9 +232,42 @@ impl Task {
                     }
                 }
                 // TODO: Allow send, as long as coverage of assets is correctly handled
-                CosmosMsg::Bank(BankMsg::Send { .. }) => {
+                CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
                     // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
+                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
+                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
+                    // which is however much was passed in, like 1000000ujunox below:
+                    // junod tx wasm execute … … --amount 1000000ujunox
+                    if self.total_deposit.is_empty() {
+                        valid = false
+                    } else {
+                        if self.total_deposit[0].denom != "ujunox" {
+                            valid = false;
+                        } else {
+                            // They've attached some testnet Juno, but make sure it's at least as much as is being paid out
+                            // Remember the "amount" is how much the Bank Message that we're passing in is saying to pay
+                            // So it's possible someone is trying to have Croncat do a Bank message
+                            // for more than their attached deposit. Let's check
+                            if amount.is_empty() || amount[0].denom != "ujunox" {
+                                // They sent more than one native token
+                                // or they tried to attach something different than testnet juno
+                                valid = false
+                            } else {
+                                // So far so good, now let's ensure they attached enough
+                                if amount[0].amount < self.total_deposit[0].amount {
+                                    // These jokers are trying to pay out more than they gave us!
+                                    valid = false
+                                } else {
+                                    // We're good! At least for one execution.
+                                    // BIG TODO: we need to check that if this task is recurring, we're checking the validity each time
+                                    // because eventually, it will run out of funds and we should never
+                                    // drain the Croncat manager contract
+
+                                    // implied "valid = true" here.
+                                }
+                            }
+                        }
+                    }
                 }
                 CosmosMsg::Bank(BankMsg::Burn { .. }) => {
                     // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
