@@ -16,3 +16,5 @@
 .editorconfig
 
 **/node_modules
+
+**/artifacts
