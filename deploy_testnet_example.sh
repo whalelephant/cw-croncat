@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-cargo wasm
+sh build.sh
 # In case of M1 MacBook use rust-optimizer-arm64 instead of rust-optimizer
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
@@ -11,10 +11,26 @@ docker run --rm -v "$(pwd)":/code \
 NODE="--node https://rpc.uni.juno.deuslabs.fi:443"
 TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-3 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 
-# Make sure OWNER and USER wallets have enough JUNOX
-OWNER="$1"
-AGENT="$2"
-USER="$3"
+# Create wallets and make sure they have some JUNOX
+OWNER=owner$RANDOM
+AGENT=agent$RANDOM
+USER=user$RANDOM
+
+junod keys add $OWNER
+junod keys add $AGENT
+junod keys add $USER
+
+# Make sure they have some JUNOX
+JSON=$(jq -n --arg addr $(junod keys show -a $OWNER) '{ denom:"ujunox","address":$addr}') && \
+  curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
+JSON=$(jq -n --arg addr $(junod keys show -a $AGENT) '{ denom:"ujunox","address":$addr}') && \
+  curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
+JSON=$(jq -n --arg addr $(junod keys show -a $USER) '{ denom:"ujunox","address":$addr}') && \
+  curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
+
+echo "Created $OWNER with 10 JUNOX balance"
+echo "Created $AGENT with 10 JUNOX balance"
+echo "Created $USER with 10 JUNOX balance"
 
 # In case of M1 MacBook replace cw_croncat.wasm with cw_croncat-aarch64.wasm 
 RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
