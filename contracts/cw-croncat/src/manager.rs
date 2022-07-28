@@ -97,6 +97,7 @@ impl<'a> CwCroncat<'a> {
 
         //Restrict bank msg so contract doesnt get drained
         if task.is_reccuring()
+            && task.contains_send_msg()
             && !task.is_valid_msg(&env.contract.address, &info.sender, &c.owner_id)
         {
             return Err(ContractError::CustomError {
