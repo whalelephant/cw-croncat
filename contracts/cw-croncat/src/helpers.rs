@@ -21,12 +21,14 @@ pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
     v1.iter().filter(|&x| !v2.contains(x)).cloned().collect()
 }
 
+
 pub(crate) fn from_raw_str(value: &str) -> Option<Coin> {
     let re = Regex::new(r"^([0-9.]+)([a-z][a-z0-9]*)$").unwrap();
     assert!(re.is_match(value));
     let caps = re.captures(value)?;
     let amount = caps.get(1).map_or("", |m| m.as_str());
     let denom = caps.get(2).map_or("", |m| m.as_str());
+    assert!(denom.len() < 3 || denom.len() > 128);
     Some(Coin::new(u128::from_str(amount).unwrap(), denom))
 }
 // Helper to distribute funds/tokens
