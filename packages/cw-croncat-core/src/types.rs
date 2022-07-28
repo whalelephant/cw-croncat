@@ -249,6 +249,9 @@ impl Task {
                     {
                         valid = false
                     } else {
+                        if let Interval::Cron(crontab) = &self.interval {
+                            
+                        }
                         // We're good! At least for one execution.
                         // BIG TODO: we need to check that if this task is recurring, we're checking the validity each time
                         // because eventually, it will run out of funds and we should never
