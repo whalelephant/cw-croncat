@@ -21,7 +21,6 @@ pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
     v1.iter().filter(|&x| !v2.contains(x)).cloned().collect()
 }
 
-
 pub(crate) fn from_raw_str(value: &str) -> Option<Coin> {
     let re = Regex::new(r"^([0-9.]+)([a-z][a-z0-9]*)$").unwrap();
     assert!(re.is_match(value));
