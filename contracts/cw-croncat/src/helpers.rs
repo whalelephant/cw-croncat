@@ -70,7 +70,6 @@ pub trait ReplyMsgParser {
     fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin>;
 }
 impl ReplyMsgParser for cosmwasm_std::Reply {
-    
     fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin> {
         if let SubMsgResult::Ok(res) = &self.result {
             res.events
