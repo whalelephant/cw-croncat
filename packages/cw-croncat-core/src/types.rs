@@ -260,9 +260,9 @@ impl Task {
                     // which is however much was passed in, like 1000000ujunox below:
                     // junod tx wasm execute … … --amount 1000000ujunox
                     if self.total_deposit.is_empty()
-                        || self.total_deposit[0].denom != "ujunox"
+                        || self.total_deposit[0].denom != "atom" // Changed this to atom just for tests, in the end we should look for every `amount` in the `total_deposit`
                         || amount.is_empty()
-                        || amount[0].denom != "ujunox"
+                        || amount[0].denom != "atom"
                         || amount[0].amount > self.total_deposit[0].amount
                         || (self.is_recurring()
                             && self

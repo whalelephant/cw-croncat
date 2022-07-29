@@ -1,7 +1,10 @@
 use crate::state::Config;
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
-use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, Env, StdResult, Storage, SubMsg, WasmMsg};
+use cosmwasm_std::{
+    to_binary, Addr, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
+    WasmMsg,
+};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::types::AgentStatus;
@@ -74,6 +77,37 @@ pub(crate) fn has_cw_coins(coins: &[Cw20CoinVerified], required: &Cw20CoinVerifi
         .find(|c| c.address == required.address)
         .map(|m| m.amount >= required.amount)
         .unwrap_or(false)
+}
+pub trait ReplyMsgParser {
+    fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin>;
+}
+impl ReplyMsgParser for cosmwasm_std::Reply {
+    fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin> {
+        if let SubMsgResult::Ok(res) = &self.result {
+            res.events
+                .iter()
+                .filter(|ev| ev.ty == "transfer")
+                .flat_map(|ev| {
+                    ev.attributes
+                        .iter()
+                        .filter_map(|attr| {
+                            attr.key.eq("amount").then(|| {
+                                // I really don't want to put regex here, it's gonna increase binary size way too much
+                                let n = attr.value.chars().position(|c| c.is_alphabetic()).unwrap();
+                                let (amount, denom) = attr.value.split_at(n);
+                                Coin {
+                                    amount: amount.parse().unwrap(),
+                                    denom: denom.to_owned(),
+                                }
+                            })
+                        })
+                        .collect::<Vec<Coin>>()
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 impl<'a> CwCroncat<'a> {
