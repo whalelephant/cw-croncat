@@ -87,7 +87,7 @@ impl ReplyMsgParser for cosmwasm_std::Reply {
             res.events
                 .iter()
                 .filter(|ev| ev.ty == "transfer")
-                .map(|ev| {
+                .flat_map(|ev| {
                     ev.attributes
                         .iter()
                         .filter_map(|attr| {
@@ -103,7 +103,6 @@ impl ReplyMsgParser for cosmwasm_std::Reply {
                         })
                         .collect::<Vec<Coin>>()
                 })
-                .flatten()
                 .collect()
         } else {
             Vec::new()

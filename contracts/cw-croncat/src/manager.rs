@@ -279,7 +279,7 @@ impl<'a> CwCroncat<'a> {
                 return Ok(response);
             } else {
                 //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
-                let transferred_bank_tokens = msg.transferred_bank_tokens();
+                let _transferred_bank_tokens = msg.transferred_bank_tokens();
                 if task.contains_send_msg() && task.is_recurring() {
                     //task.funds_withdrawn_recurring.saturating_add(msg..funds[0].amount);
                     self.tasks.save(deps.storage, task_hash, &task)?;
