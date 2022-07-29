@@ -215,7 +215,7 @@ impl Task {
             })
     }
 
-    pub fn is_reccuring(&self) -> bool {
+    pub fn is_recurring(&self) -> bool {
         matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
     }
     pub fn contains_send_msg(&self) -> bool {
@@ -264,7 +264,7 @@ impl Task {
                         || amount.is_empty()
                         || amount[0].denom != "atom"
                         || amount[0].amount > self.total_deposit[0].amount
-                        || (self.is_reccuring()
+                        || (self.is_recurring()
                             && self
                                 .funds_withdrawn_recurring
                                 .saturating_add(amount[0].amount)
