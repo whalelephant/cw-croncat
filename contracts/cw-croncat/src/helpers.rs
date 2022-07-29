@@ -25,7 +25,9 @@ pub(crate) fn vect_difference<T: std::clone::Clone + std::cmp::PartialEq>(
 //     let caps = re.captures(value)?;
 //     let amount = caps.get(1).map_or("", |m| m.as_str());
 //     let denom = caps.get(2).map_or("", |m| m.as_str());
-//     assert!(denom.len() < 3 || denom.len() > 128);
+//     if denom.len() < 3 || denom.len() > 128{
+//         return Option::None;
+//     }
 //     Some(Coin::new(u128::from_str(amount).unwrap(), denom))
 // }
 
