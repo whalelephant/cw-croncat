@@ -281,7 +281,8 @@ impl<'a> CwCroncat<'a> {
                 //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
                 let _transferred_bank_tokens = msg.transferred_bank_tokens();
                 if task.contains_send_msg() && task.is_recurring() {
-                    //task.funds_withdrawn_recurring.saturating_add(msg..funds[0].amount);
+                    task.funds_withdrawn_recurring
+                        .saturating_add(_transferred_bank_tokens[0].amount);
                     self.tasks.save(deps.storage, task_hash, &task)?;
                 }
             }
@@ -1392,12 +1393,12 @@ mod tests {
     }
 
     #[test]
-    fn check_bank_msg() {
+    fn test_proxy_call_with_bank_message() -> StdResult<()> {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
         let to_address = String::from("not_you");
-        let amount = coin(3, "atom");
+        let amount = coin(1000, "atom");
         let send = BankMsg::Send {
             to_address,
             amount: vec![amount],
@@ -1427,7 +1428,7 @@ mod tests {
             &create_task_msg,
             &coins(u128::from(amount_for_one_task * 2), "atom"),
         );
-        assert!(res.is_ok());
+        assert!(&res.is_ok());
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
@@ -1438,12 +1439,71 @@ mod tests {
 
         app.update_block(add_little_time);
 
-        app.execute_contract(
+        let res = app.execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall {},
             &[],
-        )
-        .unwrap();
+        );
+
+        assert!(res.is_ok());
+        Ok(())
+    }
+    #[test]
+    fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let to_address = String::from("not_you");
+        let amount = coin(600_000, "atom");
+        let send = BankMsg::Send {
+            to_address,
+            amount: vec![amount],
+        };
+        let msg: CosmosMsg = send.clone().into();
+        let gas_limit = 150_000;
+        let agent_fee = 5;
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(gas_limit),
+                }],
+                rules: None,
+            },
+        };
+        // create 1 token off task
+        let amount_for_one_task = gas_limit + agent_fee;
+        // create a task
+        let res = app.execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2), "atom"),
+        );
+        assert!(res.is_err());//Will fail, abount of send > then task.total_deposit
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        app.update_block(add_little_time);
+
+        let res = app.execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {},
+            &[],
+        );
+
+        assert!(res.is_err());
+        Ok(())
     }
 }

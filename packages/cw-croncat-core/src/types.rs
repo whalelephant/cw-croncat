@@ -260,9 +260,8 @@ impl Task {
                     // which is however much was passed in, like 1000000ujunox below:
                     // junod tx wasm execute … … --amount 1000000ujunox
                     if self.total_deposit.is_empty()
-                        || self.total_deposit[0].denom != "atom" // Changed this to atom just for tests, in the end we should look for every `amount` in the `total_deposit`
                         || amount.is_empty()
-                        || amount[0].denom != "atom"
+                        || amount[0].denom != self.total_deposit[0].denom
                         || amount[0].amount > self.total_deposit[0].amount
                         || (self.is_recurring()
                             && self
@@ -713,7 +712,7 @@ mod tests {
     }
 
     #[test]
-    fn is_valid_msg_send() {
+    fn is_valid_msg_send_should_fail() {
         // A task with CosmosMsg::Bank Send should return false
         let task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
@@ -739,6 +738,39 @@ mod tests {
             }]),
         };
         assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_send_should_success() {
+        // A task with CosmosMsg::Bank Send should return false
+        let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(1),
+            boundary: BoundaryValidated {
+                start: Some(4),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: vec![Coin::new(10, "atom")],
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "address".to_string(),
+                    amount: vec![Coin::new(10, "atom")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+        };
+        assert!(task.is_valid_msg(
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob")

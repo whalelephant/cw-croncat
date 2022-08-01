@@ -202,7 +202,7 @@ impl<'a> CwCroncat<'a> {
 
         if !item.is_valid_msg(&env.contract.address, &owner_id, &c.owner_id) {
             return Err(ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string(),
+                val: "Actions message unsupported or invalid message data".to_string(),
             });
         }
 
