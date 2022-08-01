@@ -919,7 +919,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string()
+                val: "Actions message unsupported or invalid message data".to_string()
             },
             res_err.downcast().unwrap()
         );

@@ -1485,7 +1485,7 @@ mod tests {
             &create_task_msg,
             &coins(u128::from(amount_for_one_task * 2), "atom"),
         );
-        assert!(res.is_err());//Will fail, abount of send > then task.total_deposit
+        assert!(res.is_err()); //Will fail, abount of send > then task.total_deposit
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
