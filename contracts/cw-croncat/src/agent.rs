@@ -64,6 +64,7 @@ impl<'a> CwCroncat<'a> {
 
     // TODO: Change this to solid round-table implementation. Setup this simple version for PoC
     /// Get how many tasks an agent can execute
+    /// TODO: Remove this function, replaced by balancer
     pub(crate) fn query_get_agent_tasks(
         &mut self,
         deps: Deps,

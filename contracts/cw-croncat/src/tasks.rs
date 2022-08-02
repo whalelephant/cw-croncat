@@ -3,6 +3,7 @@ use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
+    Uint128,
 };
 use cw20::Balance;
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
@@ -189,6 +190,7 @@ impl<'a> CwCroncat<'a> {
         let owner_id = info.sender;
         let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
         let item = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: owner_id.clone(),
             interval: task.interval,
             boundary,
@@ -200,7 +202,7 @@ impl<'a> CwCroncat<'a> {
 
         if !item.is_valid_msg(&env.contract.address, &owner_id, &c.owner_id) {
             return Err(ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string(),
+                val: "Actions message unsupported or invalid message data".to_string(),
             });
         }
 
@@ -531,6 +533,7 @@ mod tests {
         let msg: CosmosMsg = bank.clone().into();
 
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
             boundary: BoundaryValidated {
@@ -916,7 +919,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string()
+                val: "Actions message unsupported or invalid message data".to_string()
             },
             res_err.downcast().unwrap()
         );
