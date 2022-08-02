@@ -1,8 +1,9 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, Timestamp, Uint64, WasmMsg,
+    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, StdError, Timestamp,
+    Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
-use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg};
+use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -281,67 +282,80 @@ impl Task {
 }
 
 impl GenericBalance {
-    pub fn add_tokens(&mut self, add: Balance) {
-        match add {
-            Balance::Native(balance) => {
-                for token in balance.0 {
-                    let index = self.native.iter().enumerate().find_map(|(i, exist)| {
-                        if exist.denom == token.denom {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    });
-                    match index {
-                        Some(idx) => self.native[idx].amount += token.amount,
-                        None => self.native.push(token),
-                    }
+    pub fn checked_add_native(&mut self, add: &[Coin]) -> Result<(), CoreError> {
+        for add_token in add {
+            let token = self
+                .native
+                .iter_mut()
+                .find(|exist| exist.denom == add_token.denom);
+            match token {
+                Some(exist) => {
+                    exist.amount = exist
+                        .amount
+                        .checked_add(add_token.amount)
+                        .map_err(StdError::overflow)?
                 }
+                None => self.native.push(add_token.clone()),
             }
-            Balance::Cw20(token) => {
-                let index = self.cw20.iter().enumerate().find_map(|(i, exist)| {
-                    if exist.address == token.address {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
-                match index {
-                    Some(idx) => self.cw20[idx].amount += token.amount,
-                    None => self.cw20.push(token),
-                }
-            }
-        };
+        }
+        Ok(())
     }
-    pub fn minus_tokens(&mut self, minus: Balance) {
-        match minus {
-            Balance::Native(balance) => {
-                for token in balance.0 {
-                    let index = self.native.iter().enumerate().find_map(|(i, exist)| {
-                        if exist.denom == token.denom {
-                            Some(i)
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(idx) = index {
-                        self.native[idx].amount -= token.amount
-                    }
+
+    pub fn checked_add_cw20(&mut self, add: &[Cw20CoinVerified]) -> Result<(), CoreError> {
+        for add_token in add {
+            let token = self
+                .cw20
+                .iter_mut()
+                .find(|exist| exist.address == add_token.address);
+            match token {
+                Some(exist) => {
+                    exist.amount = exist
+                        .amount
+                        .checked_add(add_token.amount)
+                        .map_err(StdError::overflow)?
                 }
+                None => self.cw20.push(add_token.clone()),
             }
-            Balance::Cw20(token) => {
-                let index = self.cw20.iter().enumerate().find_map(|(i, exist)| {
-                    if exist.address == token.address {
-                        Some(i)
-                    } else {
-                        None
-                    }
-                });
-                if let Some(idx) = index {
-                    self.cw20[idx].amount -= token.amount
+        }
+        Ok(())
+    }
+
+    pub fn checked_sub_native(&mut self, sub: &[Coin]) -> Result<(), CoreError> {
+        for sub_token in sub {
+            let coin = self
+                .native
+                .iter_mut()
+                .find(|exist| exist.denom == sub_token.denom);
+            match coin {
+                Some(exist) => {
+                    exist.amount = exist
+                        .amount
+                        .checked_sub(sub_token.amount)
+                        .map_err(StdError::overflow)?
                 }
+                None => return Err(CoreError::EmptyBalance {}),
             }
-        };
+        }
+        Ok(())
+    }
+
+    pub fn checked_sub_cw20(&mut self, sub: &[Cw20CoinVerified]) -> Result<(), CoreError> {
+        for sub_token in sub {
+            let cw20 = self
+                .cw20
+                .iter_mut()
+                .find(|exist| exist.address == sub_token.address);
+            match cw20 {
+                Some(coin) => {
+                    coin.amount = coin
+                        .amount
+                        .checked_sub(sub_token.amount)
+                        .map_err(StdError::overflow)?
+                }
+                None => return Err(CoreError::EmptyBalance {}),
+            }
+        }
+        Ok(())
     }
 }
 
@@ -714,23 +728,21 @@ mod tests {
         let mut coins: GenericBalance = GenericBalance::default();
 
         // Adding zero doesn't change the state
-        let add_zero: Balance = Balance::default();
-        coins.add_tokens(add_zero);
+        let add_zero: Vec<Coin> = vec![];
+        coins.checked_add_native(&add_zero).unwrap();
         assert!(coins.native.is_empty());
         assert!(coins.cw20.is_empty());
 
         // Check that we can add native coin for the first time
-        let coin = vec![Coin::new(10, "native")];
-        let add_native: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_native);
+        let add_native = vec![Coin::new(10, "native")];
+        coins.checked_add_native(&add_native).unwrap();
         assert_eq!(coins.native.len(), 1);
-        assert_eq!(coins.native, coin);
+        assert_eq!(coins.native, add_native);
         assert!(coins.cw20.is_empty());
 
         // Check that we can add the same native coin again
-        let coin = vec![Coin::new(20, "native")];
-        let add_native: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_native);
+        let add_native = vec![Coin::new(20, "native")];
+        coins.checked_add_native(&add_native).unwrap();
         assert_eq!(coins.native.len(), 1);
         assert_eq!(coins.native, vec![Coin::new(30, "native")]);
         assert!(coins.cw20.is_empty());
@@ -738,10 +750,10 @@ mod tests {
         // Check that we can add a coin for the first time
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (1000 as u128).into(),
+            amount: (1000_u128).into(),
         };
-        let add_cw20: Balance = Balance::Cw20(cw20.clone());
-        coins.add_tokens(add_cw20);
+        let add_cw20: Vec<Cw20CoinVerified> = vec![cw20.clone()];
+        coins.checked_add_cw20(&add_cw20).unwrap();
         assert_eq!(coins.native.len(), 1);
         assert_eq!(coins.native, vec![Coin::new(30, "native")]);
         assert_eq!(coins.cw20.len(), 1);
@@ -750,54 +762,52 @@ mod tests {
         // Check that we can add the same coin again
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (2000 as u128).into(),
+            amount: (2000_u128).into(),
         };
-        let add: Balance = Balance::Cw20(cw20);
-        coins.add_tokens(add);
+        let add_cw20: Vec<Cw20CoinVerified> = vec![cw20];
+        coins.checked_add_cw20(&add_cw20).unwrap();
         assert_eq!(coins.native.len(), 1);
         assert_eq!(coins.native, vec![Coin::new(30, "native")]);
         assert_eq!(coins.cw20.len(), 1);
         let cw20_result = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (3000 as u128).into(),
+            amount: (3000_u128).into(),
         };
         assert_eq!(coins.cw20[0], cw20_result);
     }
 
     #[test]
-    #[should_panic(expected = "attempt to add with overflow")]
     fn test_add_tokens_overflow_native() {
         let mut coins: GenericBalance = GenericBalance::default();
         // Adding one coin
-        let coin = vec![Coin::new(1, "native")];
-        let add_native: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_native);
+        let add_native = vec![Coin::new(1, "native")];
+        coins.checked_add_native(&add_native).unwrap();
 
         // Adding u128::MAX amount should fail
-        let coin = vec![Coin::new(u128::MAX, "native")];
-        let add_max: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_max);
+        let add_max = vec![Coin::new(u128::MAX, "native")];
+        let err = coins.checked_add_native(&add_max).unwrap_err();
+        assert!(matches!(err, CoreError::Std(StdError::Overflow { .. })))
     }
 
     #[test]
-    #[should_panic(expected = "attempt to add with overflow")]
     fn test_add_tokens_overflow_cw20() {
         let mut coins: GenericBalance = GenericBalance::default();
         // Adding one coin
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (1 as u128).into(),
+            amount: (1_u128).into(),
         };
-        let add_cw20: Balance = Balance::Cw20(cw20);
-        coins.add_tokens(add_cw20);
+        let add_cw20 = vec![cw20];
+        coins.checked_add_cw20(&add_cw20).unwrap();
 
         // Adding u128::MAX amount should fail
         let cw20_max = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
             amount: u128::MAX.into(),
         };
-        let add_max: Balance = Balance::Cw20(cw20_max);
-        coins.add_tokens(add_max);
+        let add_max: Vec<Cw20CoinVerified> = vec![cw20_max];
+        let err = coins.checked_add_cw20(&add_max).unwrap_err();
+        assert!(matches!(err, CoreError::Std(StdError::Overflow { .. })))
     }
 
     #[test]
@@ -805,73 +815,71 @@ mod tests {
         let mut coins: GenericBalance = GenericBalance::default();
 
         // Adding some native and cw20 tokens
-        let coin = vec![Coin::new(100, "native")];
-        let add_native: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_native);
+        let add_native = vec![Coin::new(100, "native")];
+        coins.checked_add_native(&add_native).unwrap();
 
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (100 as u128).into(),
+            amount: (100_u128).into(),
         };
-        let add_cw20: Balance = Balance::Cw20(cw20.clone());
-        coins.add_tokens(add_cw20);
+        let add_cw20 = vec![cw20];
+        coins.checked_add_cw20(&add_cw20).unwrap();
 
         // Check subtraction of native token
-        let coin = vec![Coin::new(10, "native")];
-        let minus_native: Balance = Balance::from(coin.clone());
-        coins.minus_tokens(minus_native);
+        let minus_native = vec![Coin::new(10, "native")];
+        coins.checked_sub_native(&minus_native).unwrap();
         assert_eq!(coins.native, vec![Coin::new(90, "native")]);
 
         // Check subtraction of cw20
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (20 as u128).into(),
+            amount: (20_u128).into(),
         };
-        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
-        coins.minus_tokens(minus_cw20);
+        let minus_cw20 = vec![cw20];
+        coins.checked_sub_cw20(&minus_cw20).unwrap();
         let cw20_result = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (80 as u128).into(),
+            amount: (80_u128).into(),
         };
         assert_eq!(coins.cw20[0], cw20_result);
     }
 
     #[test]
-    #[should_panic(expected = "attempt to subtract with overflow")]
     fn test_minus_tokens_overflow_native() {
         let mut coins: GenericBalance = GenericBalance::default();
 
         // Adding some native tokens
-        let coin = vec![Coin::new(100, "native")];
-        let add_native: Balance = Balance::from(coin.clone());
-        coins.add_tokens(add_native);
+        let add_native = vec![Coin::new(100, "native")];
+        coins.checked_add_native(&add_native).unwrap();
 
         // Substracting more than added should fail
-        let coin = vec![Coin::new(101, "native")];
-        let minus_native: Balance = Balance::from(coin.clone());
-        coins.minus_tokens(minus_native);
+        let minus_native = vec![Coin::new(101, "native")];
+        let err = coins.checked_sub_native(&minus_native).unwrap_err();
+
+        assert!(matches!(err, CoreError::Std(StdError::Overflow { .. })))
     }
 
     #[test]
-    #[should_panic(expected = "attempt to subtract with overflow")]
     fn test_minus_tokens_overflow_cw20() {
         let mut coins: GenericBalance = GenericBalance::default();
 
         // Adding some cw20 tokens
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (100 as u128).into(),
+            amount: (100_u128).into(),
         };
-        let add_cw20: Balance = Balance::Cw20(cw20.clone());
-        coins.add_tokens(add_cw20);
+        let add_cw20 = vec![cw20];
+        coins.checked_add_cw20(&add_cw20).unwrap();
 
         // Substracting more than added should fail
         let cw20 = Cw20CoinVerified {
             address: Addr::unchecked("cw20"),
-            amount: (101 as u128).into(),
+            amount: (101_u128).into(),
         };
-        let minus_cw20: Balance = Balance::Cw20(cw20.clone());
-        coins.minus_tokens(minus_cw20);
+        let minus_cw20 = vec![cw20];
+        let err = coins.checked_sub_cw20(&minus_cw20).unwrap_err();
+
+        assert!(matches!(err, CoreError::Std(StdError::Overflow { .. })))
     }
 
     #[test]

@@ -188,9 +188,7 @@ impl<'a> CwCroncat<'a> {
                         }
 
                         // Update internal registry balance
-                        config
-                            .available_balance
-                            .minus_tokens(Balance::from(bal.clone()));
+                        config.available_balance.checked_sub_native(&bal)?;
                         Ok(SubMsg::new(BankMsg::Send {
                             to_address: account_id.clone().into(),
                             amount: bal,
@@ -209,9 +207,7 @@ impl<'a> CwCroncat<'a> {
                         }
 
                         // Update internal registry balance
-                        config
-                            .available_balance
-                            .minus_tokens(Balance::from(bal.clone()));
+                        config.available_balance.checked_sub_cw20(&[bal.clone()])?;
 
                         let msg = Cw20ExecuteMsg::Transfer {
                             recipient: account_id.clone().into(),

@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
     StdResult, SubMsg,
 };
-use cw20::{Balance, Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
+use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
@@ -327,7 +327,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add the attached balance into available_balance
         let mut c: Config = c;
-        c.available_balance.add_tokens(Balance::from(info.funds));
+        c.available_balance.checked_add_native(&info.funds)?;
 
         // If the creation of this task means we'd like another agent, update config
         let min_tasks_per_agent = c.min_tasks_per_agent;
@@ -423,7 +423,7 @@ impl<'a> CwCroncat<'a> {
         // remove from the total available_balance
         let mut c: Config = self.config.load(deps.storage)?;
         c.available_balance
-            .minus_tokens(Balance::from(task.total_deposit));
+            .checked_sub_native(&task.total_deposit)?;
         self.config.save(deps.storage, &c)?;
 
         Ok(Response::new()
@@ -451,8 +451,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add the attached balance into available_balance
         let mut c: Config = self.config.load(deps.storage)?;
-        c.available_balance
-            .add_tokens(Balance::from(info.funds.clone()));
+        c.available_balance.checked_add_native(&info.funds)?;
         self.config.save(deps.storage, &c)?;
 
         let mut total_balance: Vec<Coin> = vec![];
@@ -505,16 +504,14 @@ impl<'a> CwCroncat<'a> {
                     Ok(balances)
                 })?;
 
-        self.config.update(deps.storage, |mut c| -> StdResult<_> {
-            c.available_balance.add_tokens(
-                Cw20CoinVerified {
+        self.config
+            .update(deps.storage, |mut c| -> Result<_, ContractError> {
+                c.available_balance.checked_add_cw20(&[Cw20CoinVerified {
                     address: info.sender,
                     amount: msg.amount,
-                }
-                .into(),
-            );
-            Ok(c)
-        })?;
+                }])?;
+                Ok(c)
+            })?;
 
         let total_cw20_string: Vec<String> = new_balances.iter().map(ToString::to_string).collect();
 
