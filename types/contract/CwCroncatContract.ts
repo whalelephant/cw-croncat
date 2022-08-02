@@ -295,6 +295,7 @@ export interface Task {
   owner_id: Addr;
   rules?: Rule[] | null;
   stop_on_fail: boolean;
+  total_cw20_deposit: Cw20CoinVerified[];
   total_deposit: Coin[];
   [k: string]: unknown;
 }
@@ -306,9 +307,15 @@ export interface BoundaryValidated {
 export interface TaskRequest {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
+  cw20_coins: Cw20Coin[];
   interval: Interval;
   rules?: Rule[] | null;
   stop_on_fail: boolean;
+  [k: string]: unknown;
+}
+export interface Cw20Coin {
+  address: string;
+  amount: Uint128;
   [k: string]: unknown;
 }
 export type ExecuteMsg = {
@@ -367,9 +374,17 @@ export type ExecuteMsg = {
     [k: string]: unknown;
   };
 } | {
+  refill_task_cw20_balance: {
+    cw20_coins: Cw20Coin[];
+    task_hash: string;
+    [k: string]: unknown;
+  };
+} | {
   proxy_call: {
     [k: string]: unknown;
   };
+} | {
+  receive: Cw20ReceiveMsg;
 };
 export type Balance = {
   native: NativeBalance;
@@ -377,6 +392,12 @@ export type Balance = {
   cw20: Cw20CoinVerified;
 };
 export type NativeBalance = Coin[];
+export interface Cw20ReceiveMsg {
+  amount: Uint128;
+  msg: Binary;
+  sender: string;
+  [k: string]: unknown;
+}
 export type GetAgentResponse = AgentResponse | null;
 export type GetAgentTasksResponse = TaskResponse | null;
 export type GetTaskHashResponse = string;
@@ -688,7 +709,23 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   }: {
     taskHash: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
+  refillTaskCw20Balance: ({
+    cw20Coins,
+    taskHash
+  }: {
+    cw20Coins: Cw20Coin[];
+    taskHash: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
   proxyCall: (fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
+  receive: ({
+    amount,
+    msg,
+    sender
+  }: {
+    amount: string;
+    msg: string;
+    sender: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
 }
 export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatInterface {
   client: SigningCosmWasmClient;
@@ -710,7 +747,9 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     this.createTask = this.createTask.bind(this);
     this.removeTask = this.removeTask.bind(this);
     this.refillTaskBalance = this.refillTaskBalance.bind(this);
+    this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.proxyCall = this.proxyCall.bind(this);
+    this.receive = this.receive.bind(this);
   }
 
   updateSettings = async ({
@@ -829,9 +868,40 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
       }
     }, fee, memo, funds);
   };
+  refillTaskCw20Balance = async ({
+    cw20Coins,
+    taskHash
+  }: {
+    cw20Coins: Cw20Coin[];
+    taskHash: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      refill_task_cw20_balance: {
+        cw20_coins: cw20Coins,
+        task_hash: taskHash
+      }
+    }, fee, memo, funds);
+  };
   proxyCall = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       proxy_call: {}
+    }, fee, memo, funds);
+  };
+  receive = async ({
+    amount,
+    msg,
+    sender
+  }: {
+    amount: string;
+    msg: string;
+    sender: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      receive: {
+        amount,
+        msg,
+        sender
+      }
     }, fee, memo, funds);
   };
 }
