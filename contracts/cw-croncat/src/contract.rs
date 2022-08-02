@@ -6,7 +6,6 @@ use cosmwasm_std::{
     to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
-use cw20::Balance;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw_croncat_core::types::SlotType;
 
@@ -26,13 +25,13 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         info: MessageInfo,
         msg: InstantiateMsg,
-    ) -> StdResult<Response> {
+    ) -> Result<Response, ContractError> {
         let mut available_balance = GenericBalance::default();
 
         // keep tally of balances initialized
         let state_balances = deps.querier.query_all_balances(&env.contract.address)?;
-        available_balance.add_tokens(Balance::from(state_balances));
-        available_balance.add_tokens(Balance::from(info.funds.clone()));
+        available_balance.checked_add_native(&state_balances)?;
+        available_balance.checked_add_native(&info.funds)?;
 
         let owner_acct = msg.owner_id.unwrap_or_else(|| info.sender.clone());
         assert!(
