@@ -2,7 +2,7 @@ use cosmwasm_std::{
     Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, Timestamp, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
-use cw20::{Balance, Cw20CoinVerified};
+use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg};
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -177,6 +177,8 @@ pub struct Task {
     /// NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks
     pub total_deposit: Vec<Coin>,
 
+    pub total_cw20_deposit: Vec<Cw20CoinVerified>,
+
     /// The cosmos message to call, if time or rules are met
     pub actions: Vec<Action>,
     /// A prioritized list of messages that can be chained decision matrix
@@ -223,12 +225,19 @@ impl Task {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr,
                     funds: _,
-                    msg: _,
+                    msg,
                 }) => {
                     // TODO: Is there any way sender can be "self" creating a malicious task?
                     // cannot be THIS contract id, unless predecessor is owner of THIS contract
                     if &contract_addr == self_addr && sender != owner_id {
                         valid = false;
+                    }
+                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(&msg) {
+                        match cw20_msg {
+                            Cw20ExecuteMsg::Send { .. } => (),
+                            Cw20ExecuteMsg::Transfer { .. } => (),
+                            _ => valid = false,
+                        }
                     }
                 }
                 // TODO: Allow send, as long as coverage of assets is correctly handled
@@ -453,6 +462,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -484,6 +494,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -515,6 +526,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -547,6 +559,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -579,6 +592,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Gov(GovMsg::Vote {
                     proposal_id: 0,
@@ -610,6 +624,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Ibc(IbcMsg::Transfer {
                     channel_id: "id".to_string(),
@@ -643,6 +658,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Burn {
                     amount: vec![Coin::new(10, "coin")],
@@ -673,6 +689,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Send {
                     to_address: "address".to_string(),
@@ -868,6 +885,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
+            total_cw20_deposit: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {
                     contract_addr: "alice".to_string(),

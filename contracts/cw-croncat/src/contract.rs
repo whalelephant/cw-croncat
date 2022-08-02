@@ -140,7 +140,12 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
             ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps, task_hash),
             ExecuteMsg::RefillTaskBalance { task_hash } => self.refill_task(deps, info, task_hash),
+            ExecuteMsg::RefillTaskCw20Balance {
+                task_hash,
+                cw20_coins,
+            } => self.refill_task_cw20(deps, info, task_hash, cw20_coins),
             ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
+            ExecuteMsg::Receive(msg) => self.receive_cw20(deps, info, msg),
         }
     }
 

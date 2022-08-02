@@ -2,9 +2,10 @@ use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
+    coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
+    StdResult, SubMsg,
 };
-use cw20::Balance;
+use cw20::{Balance, Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
@@ -187,6 +188,41 @@ impl<'a> CwCroncat<'a> {
         }
 
         let owner_id = info.sender;
+        let cw20 = if !task.cw20_coins.is_empty() {
+            let cw20 = task
+                .cw20_coins
+                .into_iter()
+                .map(|c| {
+                    Ok(Cw20CoinVerified {
+                        address: deps.api.addr_validate(&c.address)?,
+                        amount: c.amount,
+                    })
+                })
+                .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+            // update user balances
+            self.balances
+                .update(deps.storage, owner_id.clone(), |balances| {
+                    if let Some(mut balances) = balances {
+                        for coin in &cw20 {
+                            match balances.iter_mut().find(|c| c.address == coin.address) {
+                                Some(cw20) => {
+                                    cw20.amount = cw20
+                                        .amount
+                                        .checked_sub(coin.amount)
+                                        .map_err(StdError::overflow)?
+                                }
+                                None => return Err(ContractError::EmptyBalance {}),
+                            }
+                        }
+                        Ok(balances)
+                    } else {
+                        Err(ContractError::EmptyBalance {})
+                    }
+                })?;
+            cw20
+        } else {
+            vec![]
+        };
         let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
         let item = Task {
             owner_id: owner_id.clone(),
@@ -194,6 +230,8 @@ impl<'a> CwCroncat<'a> {
             boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: info.funds.clone(),
+            // Unlikely we will support creating task from Cw20ReceiveMsg
+            total_cw20_deposit: cw20,
             actions: task.actions,
             rules: task.rules,
         };
@@ -404,15 +442,11 @@ impl<'a> CwCroncat<'a> {
         let hash_vec = task_hash.into_bytes();
         let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
         if task_raw.is_none() {
-            return Err(ContractError::CustomError {
-                val: "Task doesnt exist".to_string(),
-            });
+            return Err(ContractError::NoTaskFound {});
         }
         let mut task: Task = task_raw.unwrap();
         if task.owner_id != info.sender {
-            return Err(ContractError::CustomError {
-                val: "Only owner can refill their task".to_string(),
-            });
+            return Err(ContractError::RefillNotTaskOwner {});
         }
 
         // Add the attached balance into available_balance
@@ -447,6 +481,125 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "refill_task")
             .add_attribute("total_deposit", coins_total))
+    }
+
+    pub fn receive_cw20(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        msg: Cw20ReceiveMsg,
+    ) -> Result<Response, ContractError> {
+        let sender = deps.api.addr_validate(&msg.sender)?;
+
+        let new_balances =
+            self.balances
+                .update(deps.storage, sender, |balances| -> StdResult<_> {
+                    let mut balances = balances.unwrap_or_default();
+                    match balances.iter_mut().find(|c| c.address == info.sender) {
+                        Some(coin) => coin.amount += msg.amount,
+                        None => balances.push(Cw20CoinVerified {
+                            address: info.sender.clone(),
+                            amount: msg.amount,
+                        }),
+                    };
+                    Ok(balances)
+                })?;
+
+        self.config.update(deps.storage, |mut c| -> StdResult<_> {
+            c.available_balance.add_tokens(
+                Cw20CoinVerified {
+                    address: info.sender,
+                    amount: msg.amount,
+                }
+                .into(),
+            );
+            Ok(c)
+        })?;
+
+        let total_cw20_string: Vec<String> = new_balances.iter().map(ToString::to_string).collect();
+
+        Ok(Response::new()
+            .add_attribute("method", "receive_cw20")
+            .add_attribute("total_cw20_balances", format!("{total_cw20_string:?}")))
+    }
+
+    pub fn refill_task_cw20(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        task_hash: String,
+        cw20_coins: Vec<Cw20Coin>,
+    ) -> Result<Response, ContractError> {
+        let task_hash = task_hash.into_bytes();
+        let cw20_coins_validated = cw20_coins
+            .into_iter()
+            .map(|c| {
+                Ok(Cw20CoinVerified {
+                    address: deps.api.addr_validate(&c.address)?,
+                    amount: c.amount,
+                })
+            })
+            .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+        let task = self.tasks.update(deps.storage, task_hash, |task| {
+            let mut task = if let Some(task) = task {
+                task
+            } else {
+                return Err(ContractError::NoTaskFound {});
+            };
+            if task.owner_id != info.sender {
+                return Err(ContractError::RefillNotTaskOwner {});
+            }
+            // add amount or create with this amount cw20 coins
+            for coin in &cw20_coins_validated {
+                match task
+                    .total_cw20_deposit
+                    .iter_mut()
+                    .find(|c| c.address == coin.address)
+                {
+                    Some(cw20) => {
+                        cw20.amount = cw20
+                            .amount
+                            .checked_add(coin.amount)
+                            .map_err(StdError::overflow)?
+                    }
+                    None => task.total_cw20_deposit.push(coin.clone()),
+                }
+            }
+            Ok(task)
+        })?;
+
+        // update user balances
+        self.balances
+            .update(deps.storage, info.sender, |balances| {
+                if let Some(mut balances) = balances {
+                    for coin in cw20_coins_validated {
+                        match balances.iter_mut().find(|c| c.address == coin.address) {
+                            Some(cw20) => {
+                                cw20.amount = cw20
+                                    .amount
+                                    .checked_sub(coin.amount)
+                                    .map_err(StdError::overflow)?
+                            }
+                            None => return Err(ContractError::EmptyBalance {}),
+                        }
+                    }
+                    Ok(balances)
+                } else {
+                    Err(ContractError::EmptyBalance {})
+                }
+            })?;
+
+        // used `update` here to not clone task_hash
+
+        let total_cw20_string: Vec<String> = task
+            .total_cw20_deposit
+            .iter()
+            .map(ToString::to_string)
+            .collect();
+
+        Ok(Response::new()
+            .add_attribute("method", "refill_task_cw20")
+            .add_attribute("total_cw20_deposit", format!("{total_cw20_string:?}")))
     }
 }
 
@@ -539,6 +692,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: coins(37, "atom"),
+            total_cw20_deposit: vec![],
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
@@ -607,6 +761,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -667,6 +822,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -816,6 +972,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         // let task_id_str = "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
@@ -909,6 +1066,7 @@ mod tests {
                             gas_limit: Some(150_000),
                         }],
                         rules: None,
+                        cw20_coins: vec![],
                     },
                 },
                 &coins(13, "atom"),
@@ -936,6 +1094,7 @@ mod tests {
                             gas_limit: Some(150_000),
                         }],
                         rules: None,
+                        cw20_coins: vec![],
                     },
                 },
                 &coins(13, "atom"),
@@ -989,6 +1148,7 @@ mod tests {
                             gas_limit: Some(150_000),
                         }],
                         rules: None,
+                        cw20_coins: vec![],
                     },
                 },
                 &coins(300010, "atom"),
@@ -1026,6 +1186,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         let task_id_str =
@@ -1117,6 +1278,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         let task_id_str =
@@ -1214,6 +1376,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         let task_id_str =
@@ -1298,6 +1461,7 @@ mod tests {
                     gas_limit: Some(gas_limit),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         // create 1 token off task
@@ -1342,6 +1506,7 @@ mod tests {
                     gas_limit: None,
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         // create 1 token off task

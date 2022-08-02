@@ -455,6 +455,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
         let task_id_str =
@@ -648,6 +649,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -780,6 +782,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -903,6 +906,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -1006,6 +1010,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -1135,6 +1140,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -1274,6 +1280,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -1287,6 +1294,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 
@@ -1300,6 +1308,7 @@ mod tests {
                     gas_limit: Some(250_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         };
 

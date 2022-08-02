@@ -1,4 +1,5 @@
 use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
+use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -99,6 +100,8 @@ pub struct CwCroncat<'a> {
     // the agent/task ratio allows for another agent to join.
     // Once an agent joins, fulfilling the need, this value changes to None
     pub agent_nomination_begin_time: Item<'a, Option<Timestamp>>,
+
+    pub balances: Map<'a, Addr, Vec<Cw20CoinVerified>>,
 }
 
 impl Default for CwCroncat<'static> {
@@ -124,6 +127,7 @@ impl<'a> CwCroncat<'a> {
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
+            balances: Map::new("balances"),
         }
     }
 
@@ -189,6 +193,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: vec![],
+            total_cw20_deposit: vec![],
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),

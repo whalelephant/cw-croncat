@@ -3,7 +3,7 @@ use crate::types::{
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
-use cw20::Balance;
+use cw20::{Balance, Cw20Coin};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -98,7 +98,13 @@ pub enum ExecuteMsg {
     RefillTaskBalance {
         task_hash: String,
     },
+    RefillTaskCw20Balance {
+        task_hash: String,
+        cw20_coins: Vec<Cw20Coin>,
+    },
     ProxyCall {},
+    // Receive cw20 token
+    Receive(cw20::Cw20ReceiveMsg),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -179,6 +185,7 @@ pub struct TaskRequest {
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+    pub cw20_coins: Vec<Cw20Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -283,6 +290,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: vec![],
+            total_cw20_deposit: vec![],
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
@@ -332,6 +340,7 @@ mod tests {
             stop_on_fail: true,
             actions: vec![],
             rules: None, // TODO
+            cw20_coins: vec![],
         }
         .into();
         let task_response_raw = TaskResponse {
