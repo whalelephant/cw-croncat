@@ -3,7 +3,7 @@ use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
-    StdResult, SubMsg,
+    StdResult, SubMsg, Uint128,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
@@ -225,12 +225,12 @@ impl<'a> CwCroncat<'a> {
         };
         let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
         let item = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: owner_id.clone(),
             interval: task.interval,
             boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: info.funds.clone(),
-            // Unlikely we will support creating task from Cw20ReceiveMsg
             total_cw20_deposit: cw20,
             actions: task.actions,
             rules: task.rules,
@@ -238,7 +238,7 @@ impl<'a> CwCroncat<'a> {
 
         if !item.is_valid_msg(&env.contract.address, &owner_id, &c.owner_id) {
             return Err(ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string(),
+                val: "Actions message unsupported or invalid message data".to_string(),
             });
         }
 
@@ -681,6 +681,7 @@ mod tests {
         let msg: CosmosMsg = bank.clone().into();
 
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
             boundary: BoundaryValidated {
@@ -1071,7 +1072,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             ContractError::CustomError {
-                val: "Actions Message Unsupported".to_string()
+                val: "Actions message unsupported or invalid message data".to_string()
             },
             res_err.downcast().unwrap()
         );

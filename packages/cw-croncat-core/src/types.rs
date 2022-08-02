@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, StdError, Timestamp,
-    Uint64, WasmMsg,
+    Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -171,6 +171,7 @@ pub struct Task {
     /// Scheduling definitions
     pub interval: Interval,
     pub boundary: BoundaryValidated,
+    pub funds_withdrawn_recurring: Uint128,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -216,6 +217,22 @@ impl Task {
             })
     }
 
+    pub fn is_recurring(&self) -> bool {
+        matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
+    }
+    pub fn contains_send_msg(&self) -> bool {
+        let result: bool = self.actions.iter().any(|a| -> bool {
+            matches!(
+                &a.msg,
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: _,
+                    amount: _,
+                })
+            )
+        });
+        result
+    }
+
     /// Validate the task actions only use the supported messages
     pub fn is_valid_msg(&self, self_addr: &Addr, sender: &Addr, owner_id: &Addr) -> bool {
         // TODO: Chagne to default FALSE, once all messages are covered in tests
@@ -242,9 +259,27 @@ impl Task {
                     }
                 }
                 // TODO: Allow send, as long as coverage of assets is correctly handled
-                CosmosMsg::Bank(BankMsg::Send { .. }) => {
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: _,
+                    amount,
+                }) => {
                     // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
+                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
+                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
+                    // which is however much was passed in, like 1000000ujunox below:
+                    // junod tx wasm execute … … --amount 1000000ujunox
+                    if self.total_deposit.is_empty()
+                        || amount.is_empty()
+                        || amount[0].denom != self.total_deposit[0].denom
+                        || amount[0].amount > self.total_deposit[0].amount
+                        || (self.is_recurring()
+                            && self
+                                .funds_withdrawn_recurring
+                                .saturating_add(amount[0].amount)
+                                > self.total_deposit[0].amount)
+                    {
+                        valid = false
+                    }
                 }
                 CosmosMsg::Bank(BankMsg::Burn { .. }) => {
                     // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
@@ -462,12 +497,14 @@ impl Intervals for Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::{IbcTimeout, VoteOption};
+    use cosmwasm_std::{IbcTimeout, Uint128, VoteOption};
     use hex::ToHex;
 
     #[test]
     fn is_valid_msg_once_block_based() {
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Once,
             boundary: BoundaryValidated {
@@ -500,6 +537,8 @@ mod tests {
     #[test]
     fn is_valid_msg_once_time_based() {
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Once,
             boundary: BoundaryValidated {
@@ -532,6 +571,8 @@ mod tests {
     #[test]
     fn is_valid_msg_recurring() {
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(10),
             boundary: BoundaryValidated {
@@ -565,6 +606,8 @@ mod tests {
     fn is_valid_msg_wrong_account() {
         // Cannot create a task to execute on the cron manager when not the owner
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("alice"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {
@@ -598,6 +641,8 @@ mod tests {
     fn is_valid_msg_vote() {
         // A task with CosmosMsg::Gov Vote should return false
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {
@@ -630,6 +675,8 @@ mod tests {
     fn is_valid_msg_transfer() {
         // A task with CosmosMsg::Ibc Transfer should return false
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {
@@ -664,6 +711,8 @@ mod tests {
     fn is_valid_msg_burn() {
         // A task with CosmosMsg::Bank Burn should return false
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {
@@ -692,9 +741,11 @@ mod tests {
     }
 
     #[test]
-    fn is_valid_msg_send() {
+    fn is_valid_msg_send_should_fail() {
         // A task with CosmosMsg::Bank Send should return false
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {
@@ -717,6 +768,40 @@ mod tests {
             }]),
         };
         assert!(!task.is_valid_msg(
+            &Addr::unchecked("alice"),
+            &Addr::unchecked("sender"),
+            &Addr::unchecked("bob")
+        ));
+    }
+
+    #[test]
+    fn is_valid_msg_send_should_success() {
+        // A task with CosmosMsg::Bank Send should return false
+        let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
+
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Block(1),
+            boundary: BoundaryValidated {
+                start: Some(4),
+                end: None,
+            },
+            stop_on_fail: false,
+            total_deposit: vec![Coin::new(10, "atom")],
+            actions: vec![Action {
+                msg: CosmosMsg::Bank(BankMsg::Send {
+                    to_address: "address".to_string(),
+                    amount: vec![Coin::new(10, "atom")],
+                }),
+                gas_limit: Some(5),
+            }],
+            rules: Some(vec![Rule {
+                contract_addr: Addr::unchecked("foo"),
+                msg: Binary("bar".into()),
+            }]),
+            total_cw20_deposit: vec![],
+        };
+        assert!(task.is_valid_msg(
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob")
@@ -885,6 +970,7 @@ mod tests {
     #[test]
     fn hashing() {
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: Addr::unchecked("bob"),
             interval: Interval::Block(5),
             boundary: BoundaryValidated {

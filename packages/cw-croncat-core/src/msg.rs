@@ -232,7 +232,7 @@ impl From<Task> for TaskResponse {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetSlotHashesResponse {
     pub block_id: u64,
     pub block_task_hash: Vec<String>,
@@ -240,7 +240,7 @@ pub struct GetSlotHashesResponse {
     pub time_task_hash: Vec<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct GetSlotIdsResponse {
     pub time_ids: Vec<u64>,
     pub block_ids: Vec<u64>,
@@ -248,7 +248,7 @@ pub struct GetSlotIdsResponse {
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg, Timestamp};
+    use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg, Timestamp, Uint128};
     use cw20::Cw20CoinVerified;
 
     use crate::types::AgentStatus;
@@ -282,6 +282,7 @@ mod tests {
         .into();
 
         let task = Task {
+            funds_withdrawn_recurring: Uint128::zero(),
             owner_id: Addr::unchecked("nobody".to_string()),
             interval: Interval::Immediate,
             boundary: BoundaryValidated {

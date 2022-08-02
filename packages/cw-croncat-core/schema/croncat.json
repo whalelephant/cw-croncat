@@ -1203,6 +1203,7 @@
       "required": [
         "actions",
         "boundary",
+        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1219,6 +1220,9 @@
         },
         "boundary": {
           "$ref": "#/definitions/BoundaryValidated"
+        },
+        "funds_withdrawn_recurring": {
+          "$ref": "#/definitions/Uint128"
         },
         "interval": {
           "description": "Scheduling definitions",
