@@ -15,9 +15,6 @@ pub enum ContractError {
     #[error("An unknown reply ID was received.")]
     UnknownReplyID {},
 
-    #[error("No coin balance found")]
-    EmptyBalance {},
-
     #[error("No task found by hash")]
     NoTaskFound {},
 

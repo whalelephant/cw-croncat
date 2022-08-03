@@ -1,3 +1,5 @@
+use std::slice;
+
 use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
 use crate::state::{Config, CwCroncat};
@@ -207,7 +209,9 @@ impl<'a> CwCroncat<'a> {
                         }
 
                         // Update internal registry balance
-                        config.available_balance.checked_sub_cw20(&[bal.clone()])?;
+                        config
+                            .available_balance
+                            .checked_sub_cw20(slice::from_ref(&bal))?;
 
                         let msg = Cw20ExecuteMsg::Transfer {
                             recipient: account_id.clone().into(),
