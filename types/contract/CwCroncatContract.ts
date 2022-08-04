@@ -262,6 +262,7 @@ export interface TaskResponse {
   rules?: Rule[] | null;
   stop_on_fail: boolean;
   task_hash: string;
+  total_cw20_deposit: Cw20CoinVerified[];
   total_deposit: Coin[];
   [k: string]: unknown;
 }

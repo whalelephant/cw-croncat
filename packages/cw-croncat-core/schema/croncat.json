@@ -1325,6 +1325,7 @@
         "owner_id",
         "stop_on_fail",
         "task_hash",
+        "total_cw20_deposit",
         "total_deposit"
       ],
       "properties": {
@@ -1364,6 +1365,12 @@
         },
         "task_hash": {
           "type": "string"
+        },
+        "total_cw20_deposit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
         },
         "total_deposit": {
           "type": "array",
