@@ -477,10 +477,10 @@ impl<'a> CwCroncat<'a> {
         })?;
 
         // return the task total
-        let coins_total: String = task.total_deposit.iter().map(|a| a.to_string()).collect();
+        let coins_total: Vec<String> = task.total_deposit.iter().map(ToString::to_string).collect();
         Ok(Response::new()
             .add_attribute("method", "refill_task")
-            .add_attribute("total_deposit", coins_total))
+            .add_attribute("total_deposit", format!("{coins_total:?}")))
     }
 
     pub fn receive_cw20(
