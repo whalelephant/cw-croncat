@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
-use cw_croncat_core::traits::Intervals;
+use cw_croncat_core::traits::{BalancesOperations, Intervals};
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
@@ -200,25 +200,16 @@ impl<'a> CwCroncat<'a> {
                 })
                 .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
             // update user balances
-            self.balances
-                .update(deps.storage, owner_id.clone(), |balances| {
-                    if let Some(mut balances) = balances {
-                        for coin in &cw20 {
-                            match balances.iter_mut().find(|c| c.address == coin.address) {
-                                Some(cw20) => {
-                                    cw20.amount = cw20
-                                        .amount
-                                        .checked_sub(coin.amount)
-                                        .map_err(StdError::overflow)?
-                                }
-                                None => return Err(ContractError::EmptyBalance {}),
-                            }
-                        }
-                        Ok(balances)
-                    } else {
-                        Err(ContractError::EmptyBalance {})
-                    }
-                })?;
+            self.balances.update(
+                deps.storage,
+                owner_id.clone(),
+                |balances| -> Result<_, ContractError> {
+                    let mut balances = balances.unwrap_or_default();
+
+                    balances.checked_add_coins(&cw20)?;
+                    Ok(balances)
+                },
+            )?;
             cw20
         } else {
             vec![]
@@ -357,12 +348,13 @@ impl<'a> CwCroncat<'a> {
     pub fn remove_task(&self, deps: DepsMut, task_hash: String) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
         let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
-        if task_raw.is_none() {
+        let task = if let Some(task) = task_raw {
+            task
+        } else {
             return Err(ContractError::CustomError {
                 val: "No task found by hash".to_string(),
             });
-        }
-
+        };
         // Remove all the thangs
         self.tasks.remove(deps.storage, hash_vec)?;
 
@@ -413,8 +405,17 @@ impl<'a> CwCroncat<'a> {
             }
         }
 
+        // return any remaining total_cw20_deposit to the owner
+        self.balances.update(
+            deps.storage,
+            task.owner_id.clone(),
+            |balances| -> Result<_, ContractError> {
+                let mut balances = balances.unwrap_or_default();
+                balances.checked_add_coins(&task.total_cw20_deposit)?;
+                Ok(balances)
+            },
+        )?;
         // setup sub-msgs for returning any remaining total_deposit to the owner
-        let task = task_raw.unwrap();
         let submsgs = SubMsg::new(BankMsg::Send {
             to_address: task.clone().owner_id.into(),
             amount: task.clone().total_deposit,
@@ -489,25 +490,25 @@ impl<'a> CwCroncat<'a> {
         msg: Cw20ReceiveMsg,
     ) -> Result<Response, ContractError> {
         let sender = deps.api.addr_validate(&msg.sender)?;
+        let coin_address = info.sender;
 
-        let new_balances =
-            self.balances
-                .update(deps.storage, sender, |balances| -> StdResult<_> {
-                    let mut balances = balances.unwrap_or_default();
-                    match balances.iter_mut().find(|c| c.address == info.sender) {
-                        Some(coin) => coin.amount += msg.amount,
-                        None => balances.push(Cw20CoinVerified {
-                            address: info.sender.clone(),
-                            amount: msg.amount,
-                        }),
-                    };
-                    Ok(balances)
-                })?;
+        let new_balances = self.balances.update(
+            deps.storage,
+            sender,
+            |balances| -> Result<_, ContractError> {
+                let mut balances = balances.unwrap_or_default();
+                balances.checked_add_coins(&[Cw20CoinVerified {
+                    address: coin_address.clone(),
+                    amount: msg.amount,
+                }])?;
+                Ok(balances)
+            },
+        )?;
 
         self.config
             .update(deps.storage, |mut c| -> Result<_, ContractError> {
                 c.available_balance.checked_add_cw20(&[Cw20CoinVerified {
-                    address: info.sender,
+                    address: coin_address,
                     amount: msg.amount,
                 }])?;
                 Ok(c)
@@ -566,25 +567,15 @@ impl<'a> CwCroncat<'a> {
         })?;
 
         // update user balances
-        self.balances
-            .update(deps.storage, info.sender, |balances| {
-                if let Some(mut balances) = balances {
-                    for coin in cw20_coins_validated {
-                        match balances.iter_mut().find(|c| c.address == coin.address) {
-                            Some(cw20) => {
-                                cw20.amount = cw20
-                                    .amount
-                                    .checked_sub(coin.amount)
-                                    .map_err(StdError::overflow)?
-                            }
-                            None => return Err(ContractError::EmptyBalance {}),
-                        }
-                    }
-                    Ok(balances)
-                } else {
-                    Err(ContractError::EmptyBalance {})
-                }
-            })?;
+        self.balances.update(
+            deps.storage,
+            info.sender,
+            |balances| -> Result<_, ContractError> {
+                let mut balances = balances.unwrap_or_default();
+                balances.checked_sub_coins(&cw20_coins_validated)?;
+                Ok(balances)
+            },
+        )?;
 
         // used `update` here to not clone task_hash
 
