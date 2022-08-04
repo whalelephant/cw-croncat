@@ -5,7 +5,6 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
     Uint128,
 };
-use cw20::Balance;
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
@@ -291,7 +290,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add the attached balance into available_balance
         let mut c: Config = c;
-        c.available_balance.add_tokens(Balance::from(info.funds));
+        c.available_balance.checked_add_native(&info.funds)?;
 
         // If the creation of this task means we'd like another agent, update config
         let min_tasks_per_agent = c.min_tasks_per_agent;
@@ -387,7 +386,7 @@ impl<'a> CwCroncat<'a> {
         // remove from the total available_balance
         let mut c: Config = self.config.load(deps.storage)?;
         c.available_balance
-            .minus_tokens(Balance::from(task.total_deposit));
+            .checked_sub_native(&task.total_deposit)?;
         self.config.save(deps.storage, &c)?;
 
         Ok(Response::new()
@@ -419,8 +418,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add the attached balance into available_balance
         let mut c: Config = self.config.load(deps.storage)?;
-        c.available_balance
-            .add_tokens(Balance::from(info.funds.clone()));
+        c.available_balance.checked_add_native(&info.funds)?;
         self.config.save(deps.storage, &c)?;
 
         let mut total_balance: Vec<Coin> = vec![];

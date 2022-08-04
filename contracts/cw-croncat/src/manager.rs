@@ -5,7 +5,6 @@ use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
     SubMsgResult,
 };
-use cw20::Balance;
 use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{Agent, SlotType};
 
@@ -334,18 +333,18 @@ impl<'a> CwCroncat<'a> {
         let mut config: Config = self.config.load(storage).unwrap();
 
         let agent_base_fee = config.agent_fee.clone();
-        let coin = vec![agent_base_fee.clone()];
-        let add_native: Balance = Balance::from(coin);
+        let add_native = vec![agent_base_fee.clone()];
 
-        agent.balance.add_tokens(add_native.clone());
+        agent.balance.checked_add_native(&add_native).unwrap();
         agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
-        println!("{:?}", add_native);
-        println!("{:?}", config.available_balance.native);
 
         if !config.available_balance.native.is_empty()
             && config.available_balance.native.first().unwrap().amount >= agent_base_fee.amount
         {
-            config.available_balance.minus_tokens(add_native);
+            config
+                .available_balance
+                .checked_sub_native(&add_native)
+                .unwrap();
         }
 
         self.config
