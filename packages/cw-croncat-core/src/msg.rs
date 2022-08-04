@@ -3,7 +3,7 @@ use crate::types::{
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
-use cw20::{Balance, Cw20Coin};
+use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -196,6 +196,7 @@ pub struct TaskResponse {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
+    pub total_cw20_deposit: Vec<Cw20CoinVerified>,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
 }
@@ -226,6 +227,7 @@ impl From<Task> for TaskResponse {
             boundary,
             stop_on_fail: task.stop_on_fail,
             total_deposit: task.total_deposit,
+            total_cw20_deposit: task.total_cw20_deposit,
             actions: task.actions,
             rules: task.rules,
         }
@@ -354,6 +356,7 @@ mod tests {
             }),
             stop_on_fail: true,
             total_deposit: vec![coin(5, "earth")],
+            total_cw20_deposit: vec![],
             actions: vec![],
             rules: None,
         };

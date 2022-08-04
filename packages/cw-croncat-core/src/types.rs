@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, StdError, Timestamp,
+    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, StdError, Timestamp,
     Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
@@ -220,6 +220,54 @@ impl Task {
             })
     }
 
+    pub fn task_cw20_balance_uses(
+        &self,
+        api: &dyn Api,
+    ) -> Result<Vec<Cw20CoinVerified>, CoreError> {
+        let mut balance = vec![];
+        for action in &self.actions {
+            if let CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = &action.msg {
+                if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                    match cw20_msg {
+                        Cw20ExecuteMsg::Send {
+                            contract, amount, ..
+                        } => balance.checked_add_coins(&[Cw20CoinVerified {
+                            address: api.addr_validate(&contract)?,
+                            amount,
+                        }])?,
+                        Cw20ExecuteMsg::Transfer {
+                            recipient, amount, ..
+                        } => balance.checked_add_coins(&[Cw20CoinVerified {
+                            address: api.addr_validate(&recipient)?,
+                            amount,
+                        }])?,
+                        _ => return Err(CoreError::InvalidWasmMsg {}),
+                    }
+                }
+            }
+        }
+        Ok(balance)
+    }
+
+    pub fn verify_enough_cw20_balances(
+        &self,
+        task_cw20_balance_uses: &[Cw20CoinVerified],
+    ) -> Result<(), CoreError> {
+        for coin in task_cw20_balance_uses {
+            if let Some(low_deposit) = self
+                .total_cw20_deposit
+                .iter()
+                .find(|balance| balance.address == coin.address && balance.amount < coin.amount)
+            {
+                return Err(CoreError::NotEnoughCw20 {
+                    addr: low_deposit.address.to_string(),
+                    lack: low_deposit.amount - coin.amount,
+                });
+            }
+        }
+        Ok(())
+    }
+
     pub fn is_recurring(&self) -> bool {
         matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
     }
@@ -242,7 +290,7 @@ impl Task {
         let mut valid = true;
 
         for action in self.actions.iter() {
-            match action.clone().msg {
+            match &action.msg {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr,
                     funds: _,
@@ -250,10 +298,10 @@ impl Task {
                 }) => {
                     // TODO: Is there any way sender can be "self" creating a malicious task?
                     // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                    if &contract_addr == self_addr && sender != owner_id {
+                    if contract_addr == self_addr && sender != owner_id {
                         valid = false;
                     }
-                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(&msg) {
+                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                         match cw20_msg {
                             Cw20ExecuteMsg::Send { .. } => (),
                             Cw20ExecuteMsg::Transfer { .. } => (),
@@ -341,11 +389,11 @@ impl FindAndMutate<'_, Coin> for Vec<Coin> {
                 exist.amount = exist
                     .amount
                     .checked_sub(sub.amount)
-                    .map_err(StdError::overflow)?
+                    .map_err(StdError::overflow)?;
+                Ok(())
             }
-            None => return Err(CoreError::EmptyBalance {}),
+            None => Err(CoreError::EmptyBalance {}),
         }
-        Ok(())
     }
 }
 
@@ -388,14 +436,14 @@ where
 {
     fn checked_add_coins(&mut self, add: Rhs) -> Result<(), CoreError> {
         for add_token in add {
-            self.find_checked_add(&add_token)?;
+            self.find_checked_add(add_token)?;
         }
         Ok(())
     }
 
     fn checked_sub_coins(&mut self, sub: Rhs) -> Result<(), CoreError> {
         for sub_token in sub {
-            self.find_checked_sub(&sub_token)?;
+            self.find_checked_sub(sub_token)?;
         }
         Ok(())
     }

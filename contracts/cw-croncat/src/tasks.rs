@@ -259,6 +259,8 @@ impl<'a> CwCroncat<'a> {
                 ),
             });
         }
+        let task_cw20_balance_uses = item.task_cw20_balance_uses(deps.api)?;
+        item.verify_enough_cw20_balances(&task_cw20_balance_uses)?;
 
         let hash = item.to_hash();
 
@@ -1394,7 +1396,7 @@ mod tests {
         let mut matches_new_totals: bool = false;
         for e in res.events {
             for a in e.attributes {
-                if a.key == "total_deposit" && a.value == "300013atom".to_string() {
+                if a.key == "total_deposit" && a.value == r#"["300013atom"]"#.to_string() {
                     matches_new_totals = true;
                 }
             }
