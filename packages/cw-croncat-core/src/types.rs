@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
-use crate::{error::CoreError, traits::Intervals};
+use crate::{
+    error::CoreError,
+    traits::{BalancesOperations, FindAndMutate, Intervals},
+};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
 pub struct GenericBalance {
@@ -307,81 +310,103 @@ impl Task {
     }
 }
 
-impl GenericBalance {
-    pub fn checked_add_native(&mut self, add: &[Coin]) -> Result<(), CoreError> {
-        for add_token in add {
-            let token = self
-                .native
-                .iter_mut()
-                .find(|exist| exist.denom == add_token.denom);
-            match token {
-                Some(exist) => {
-                    exist.amount = exist
-                        .amount
-                        .checked_add(add_token.amount)
-                        .map_err(StdError::overflow)?
-                }
-                None => self.native.push(add_token.clone()),
+impl FindAndMutate<'_, Coin> for Vec<Coin> {
+    fn find_checked_add(&mut self, add: &Coin) -> Result<(), CoreError> {
+        let token = self.iter_mut().find(|exist| exist.denom == add.denom);
+        match token {
+            Some(exist) => {
+                exist.amount = exist
+                    .amount
+                    .checked_add(add.amount)
+                    .map_err(StdError::overflow)?
             }
+            None => self.push(add.clone()),
         }
         Ok(())
+    }
+
+    fn find_checked_sub(&mut self, sub: &Coin) -> Result<(), CoreError> {
+        let coin = self.iter_mut().find(|exist| exist.denom == sub.denom);
+        match coin {
+            Some(exist) => {
+                exist.amount = exist
+                    .amount
+                    .checked_sub(sub.amount)
+                    .map_err(StdError::overflow)?
+            }
+            None => return Err(CoreError::EmptyBalance {}),
+        }
+        Ok(())
+    }
+}
+
+impl FindAndMutate<'_, Cw20CoinVerified> for Vec<Cw20CoinVerified> {
+    fn find_checked_add(&mut self, add: &Cw20CoinVerified) -> Result<(), CoreError> {
+        let token = self.iter_mut().find(|exist| exist.address == add.address);
+        match token {
+            Some(exist) => {
+                exist.amount = exist
+                    .amount
+                    .checked_add(add.amount)
+                    .map_err(StdError::overflow)?
+            }
+            None => self.push(add.clone()),
+        }
+        Ok(())
+    }
+
+    fn find_checked_sub(&mut self, sub: &Cw20CoinVerified) -> Result<(), CoreError> {
+        let coin = self.iter_mut().find(|exist| exist.address == sub.address);
+        match coin {
+            Some(exist) => {
+                exist.amount = exist
+                    .amount
+                    .checked_sub(sub.amount)
+                    .map_err(StdError::overflow)?
+            }
+            None => return Err(CoreError::EmptyBalance {}),
+        }
+        Ok(())
+    }
+}
+
+impl<'a, T, Rhs> BalancesOperations<'a, T, Rhs> for Vec<T>
+where
+    Self: IntoIterator<Item = T>,
+    Rhs: IntoIterator<Item = &'a T>,
+    Self: FindAndMutate<'a, T>,
+    T: 'a,
+{
+    fn checked_add_coins(&mut self, add: Rhs) -> Result<(), CoreError> {
+        for add_token in add {
+            self.find_checked_add(&add_token)?;
+        }
+        Ok(())
+    }
+
+    fn checked_sub_coins(&mut self, sub: Rhs) -> Result<(), CoreError> {
+        for sub_token in sub {
+            self.find_checked_sub(&sub_token)?;
+        }
+        Ok(())
+    }
+}
+
+impl GenericBalance {
+    pub fn checked_add_native(&mut self, add: &[Coin]) -> Result<(), CoreError> {
+        self.native.checked_add_coins(add)
     }
 
     pub fn checked_add_cw20(&mut self, add: &[Cw20CoinVerified]) -> Result<(), CoreError> {
-        for add_token in add {
-            let token = self
-                .cw20
-                .iter_mut()
-                .find(|exist| exist.address == add_token.address);
-            match token {
-                Some(exist) => {
-                    exist.amount = exist
-                        .amount
-                        .checked_add(add_token.amount)
-                        .map_err(StdError::overflow)?
-                }
-                None => self.cw20.push(add_token.clone()),
-            }
-        }
-        Ok(())
+        self.cw20.checked_add_coins(add)
     }
 
     pub fn checked_sub_native(&mut self, sub: &[Coin]) -> Result<(), CoreError> {
-        for sub_token in sub {
-            let coin = self
-                .native
-                .iter_mut()
-                .find(|exist| exist.denom == sub_token.denom);
-            match coin {
-                Some(exist) => {
-                    exist.amount = exist
-                        .amount
-                        .checked_sub(sub_token.amount)
-                        .map_err(StdError::overflow)?
-                }
-                None => return Err(CoreError::EmptyBalance {}),
-            }
-        }
-        Ok(())
+        self.native.checked_sub_coins(sub)
     }
 
     pub fn checked_sub_cw20(&mut self, sub: &[Cw20CoinVerified]) -> Result<(), CoreError> {
-        for sub_token in sub {
-            let cw20 = self
-                .cw20
-                .iter_mut()
-                .find(|exist| exist.address == sub_token.address);
-            match cw20 {
-                Some(coin) => {
-                    coin.amount = coin
-                        .amount
-                        .checked_sub(sub_token.amount)
-                        .map_err(StdError::overflow)?
-                }
-                None => return Err(CoreError::EmptyBalance {}),
-            }
-        }
-        Ok(())
+        self.cw20.checked_sub_coins(sub)
     }
 }
 

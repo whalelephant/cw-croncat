@@ -1,10 +1,27 @@
-use crate::types::{BoundaryValidated, SlotType};
+use crate::{
+    error::CoreError,
+    types::{BoundaryValidated, SlotType},
+};
 use cosmwasm_std::{Addr, Env};
 use cw20::Balance;
 
 pub trait GenericBalances {
     fn add_tokens(&mut self, add: Balance);
     fn minus_tokens(&mut self, minus: Balance);
+}
+
+pub trait FindAndMutate<'a, T, Rhs = &'a T>
+where
+    T: 'a,
+    Self: IntoIterator<Item = T>,
+{
+    fn find_checked_add(&mut self, add: Rhs) -> Result<(), CoreError>;
+    fn find_checked_sub(&mut self, sub: Rhs) -> Result<(), CoreError>;
+}
+
+pub trait BalancesOperations<'a, T, Rhs> {
+    fn checked_add_coins(&mut self, add: Rhs) -> Result<(), CoreError>;
+    fn checked_sub_coins(&mut self, sub: Rhs) -> Result<(), CoreError>;
 }
 
 pub trait Intervals {
