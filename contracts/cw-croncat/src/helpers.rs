@@ -83,6 +83,7 @@ pub(crate) fn has_cw_coins(coins: &[Cw20CoinVerified], required: &Cw20CoinVerifi
 pub trait ReplyMsgParser {
     fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin>;
 }
+
 impl ReplyMsgParser for cosmwasm_std::Reply {
     fn transferred_bank_tokens(&self) -> Vec<cosmwasm_std::Coin> {
         if let SubMsgResult::Ok(res) = &self.result {

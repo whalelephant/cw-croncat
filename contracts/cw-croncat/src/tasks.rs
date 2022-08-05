@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
     StdResult, SubMsg, Uint128,
 };
-use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ReceiveMsg};
+use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::traits::{BalancesOperations, Intervals};
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
@@ -349,14 +349,10 @@ impl<'a> CwCroncat<'a> {
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
     pub fn remove_task(&self, deps: DepsMut, task_hash: String) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
-        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
-        let task = if let Some(task) = task_raw {
-            task
-        } else {
-            return Err(ContractError::CustomError {
-                val: "No task found by hash".to_string(),
-            });
-        };
+        let task = self
+            .tasks
+            .may_load(deps.storage, hash_vec.clone())?
+            .ok_or(ContractError::NoTaskFound {})?;
         // Remove all the thangs
         self.tasks.remove(deps.storage, hash_vec)?;
 
@@ -483,44 +479,6 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "refill_task")
             .add_attribute("total_deposit", format!("{coins_total:?}")))
-    }
-
-    pub fn receive_cw20(
-        &self,
-        deps: DepsMut,
-        info: MessageInfo,
-        msg: Cw20ReceiveMsg,
-    ) -> Result<Response, ContractError> {
-        let sender = deps.api.addr_validate(&msg.sender)?;
-        let coin_address = info.sender;
-
-        let new_balances = self.balances.update(
-            deps.storage,
-            sender,
-            |balances| -> Result<_, ContractError> {
-                let mut balances = balances.unwrap_or_default();
-                balances.checked_add_coins(&[Cw20CoinVerified {
-                    address: coin_address.clone(),
-                    amount: msg.amount,
-                }])?;
-                Ok(balances)
-            },
-        )?;
-
-        self.config
-            .update(deps.storage, |mut c| -> Result<_, ContractError> {
-                c.available_balance.checked_add_cw20(&[Cw20CoinVerified {
-                    address: coin_address,
-                    amount: msg.amount,
-                }])?;
-                Ok(c)
-            })?;
-
-        let total_cw20_string: Vec<String> = new_balances.iter().map(ToString::to_string).collect();
-
-        Ok(Response::new()
-            .add_attribute("method", "receive_cw20")
-            .add_attribute("total_cw20_balances", format!("{total_cw20_string:?}")))
     }
 
     pub fn refill_task_cw20(

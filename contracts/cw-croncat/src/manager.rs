@@ -175,6 +175,11 @@ impl<'a> CwCroncat<'a> {
         //     }
         // }
 
+        // Decrease cw20 balances for this call
+        // TODO: maybe save task_cw20_balance_uses in the `Task` itself
+        // let task_cw20_balance_uses = task.task_cw20_balance_uses(deps.api)?;
+        // task.total_cw20_deposit
+        //     .checked_sub_coins(&task_cw20_balance_uses)?;
         // Setup submessages for actions for this task
         // Each submessage in storage, computes & stores the "next" reply to allow for chained message processing.
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
@@ -1516,4 +1521,68 @@ mod tests {
         assert!(res.is_err());
         Ok(())
     }
+
+    // TODO: !!!!!!! WE REALLY MUST SUPPORT MULTI-ACTION !!!!!!!!!!!!
+    // #[test]
+    // fn check_multi_action() {
+    //     let (mut app, cw_template_contract) = proper_instantiate();
+    //     let contract_addr = cw_template_contract.addr();
+
+    //     let validator = String::from("you");
+    //     let amount = coin(3, "atom");
+    //     let stake = StakingMsg::Delegate { validator, amount };
+    //     let msg: CosmosMsg = stake.clone().into();
+    //     let gas_limit = GAS_BASE_FEE_JUNO;
+    //     let agent_fee = 5;
+
+    //     let create_task_msg = ExecuteMsg::CreateTask {
+    //         task: TaskRequest {
+    //             interval: Interval::Immediate,
+    //             boundary: None,
+    //             stop_on_fail: false,
+    //             actions: vec![
+    //                 Action {
+    //                     msg: msg.clone(),
+    //                     gas_limit: None,
+    //                 },
+    //                 // Action {
+    //                 //     msg,
+    //                 //     gas_limit: None,
+    //                 // },
+    //             ],
+    //             rules: None,
+    //             cw20_coins: vec![],
+    //         },
+    //     };
+    //     // create 1 token off task
+    //     let amount_for_one_task = (gas_limit * 2) + agent_fee;
+
+    //     // create a task
+    //     let res = app.execute_contract(
+    //         Addr::unchecked(ADMIN),
+    //         contract_addr.clone(),
+    //         &create_task_msg,
+    //         &coins(u128::from(amount_for_one_task * 2), "atom"),
+    //     );
+    //     assert!(res.is_ok());
+
+    //     // quick agent register
+    //     let msg = ExecuteMsg::RegisterAgent {
+    //         payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+    //     };
+    //     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+    //         .unwrap();
+
+    //     app.update_block(add_little_time);
+
+    //     let proxy_call_msg = ExecuteMsg::ProxyCall {};
+    //     let res = app.execute_contract(
+    //         Addr::unchecked(AGENT0),
+    //         contract_addr.clone(),
+    //         &proxy_call_msg,
+    //         &vec![],
+    //     );
+    //     println!("{res:?}");
+    //     assert!(res.is_ok());
+    // }
 }
