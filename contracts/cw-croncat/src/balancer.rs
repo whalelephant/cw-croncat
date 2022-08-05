@@ -22,8 +22,8 @@ pub trait Balancer<'a> {
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
     ) -> StdResult<Option<AgentTaskResponse>>;
-    fn on_agent_unregister(&mut self, agent_id: Addr);
-    fn on_task_completed(&mut self, task_hash: Vec<u8>, agent_id: Addr);
+    fn on_agent_unregister(&self, agent_id: Addr);
+    fn on_task_completed(&self, task_hash: Vec<u8>, agent_id: Addr,is_extra_task:bool);
 }
 
 pub struct RoundRobinBalancer {
@@ -156,11 +156,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         }
     }
 
-    fn on_agent_unregister(&mut self, agent_id: Addr) {
+    fn on_agent_unregister(&self, agent_id: Addr) {
         todo!()
     }
 
-    fn on_task_completed(&mut self, task_hash: Vec<u8>, agent_id: Addr) {
+    fn on_task_completed(&self, task_hash: Vec<u8>, agent_id: Addr,is_extra_task:bool) {
         todo!()
     }
 }

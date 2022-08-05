@@ -92,7 +92,8 @@ impl<'a> CwCroncat<'a> {
             return Err(ContractError::NoTaskFound {});
         }
 
-        let bresult = self
+        //Get agent tasks with extra(if exists) from balancer
+        let balancer_result = self
             .balancer
             .get_agent_tasks(
                 &deps,
@@ -104,6 +105,11 @@ impl<'a> CwCroncat<'a> {
             )
             .unwrap()
             .unwrap();
+        //Balanacer gives not task to this agent, return error
+        if balancer_result.num_block_tasks < 1u64.into() && balancer_result.num_cron_tasks < 1u64.into() {
+            return Err(ContractError::NoTaskFound {});
+        }
+
         // ----------------------------------------------------
         // TODO: FINISH!!!!!!
         // AGENT Task Allowance Logic: see line 339
@@ -214,7 +220,7 @@ impl<'a> CwCroncat<'a> {
                 prev_idx: None,
                 task_hash: Some(hash),
                 contract_addr: Some(self_addr),
-                task_is_extra: bresult.num_cron_tasks_extra > Uint64::from(0u64),
+                task_is_extra: balancer_result.num_cron_tasks_extra > Uint64::from(0u64),
                 agent_id: info.sender.clone(),
             },
         )?;
@@ -241,6 +247,9 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         msg: Reply,
         task_hash: Vec<u8>,
+        task_is_extra:bool,
+        agent_id:Addr,
+    
     ) -> Result<Response, ContractError> {
         let mut response = Response::new().add_attribute("method", "proxy_callback");
 
@@ -295,7 +304,8 @@ impl<'a> CwCroncat<'a> {
                 }
                 response = response.add_attribute("ended_task", task_hash_str);
                 return Ok(response);
-            } else {
+            } else if !reply_submsg_failed{//no fail
+                self.balancer.on_task_completed(task_hash.clone(), agent_id,task_is_extra);//send completed event to balancer
                 //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
                 let _transferred_bank_tokens = msg.transferred_bank_tokens();
                 if task.contains_send_msg() && task.is_recurring() {

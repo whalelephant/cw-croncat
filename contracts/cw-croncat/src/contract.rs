@@ -181,14 +181,21 @@ impl<'a> CwCroncat<'a> {
             return Err(ContractError::UnknownReplyID {});
         }
         let item = queue_item.unwrap();
-
+  
         // Clean up the reply queue
         self.rq_remove(deps.storage, msg.id);
 
         // If contract_addr matches THIS contract, it is the proxy callback
         // proxy_callback is also responsible for handling reply modes: "handle_failure", "handle_success"
         if item.contract_addr.is_some() && item.contract_addr.unwrap() == env.contract.address {
-            return self.proxy_callback(deps, env, msg, item.task_hash.unwrap());
+            return self.proxy_callback(
+                deps,
+                env,
+                msg,
+                item.task_hash.unwrap(),
+                item.task_is_extra,
+                item.agent_id,
+            );
         }
 
         // NOTE: Currently only handling proxy callbacks
