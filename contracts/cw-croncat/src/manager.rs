@@ -1,6 +1,8 @@
+use crate::balancer::Balancer;
 use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem};
+use cosmwasm_std::Uint64;
 use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
     SubMsgResult,
@@ -90,6 +92,18 @@ impl<'a> CwCroncat<'a> {
             return Err(ContractError::NoTaskFound {});
         }
 
+        let bresult = self
+            .balancer
+            .get_agent_tasks(
+                &deps,
+                &env,
+                &self.config,
+                &self.agent_active_queue,
+                info.sender.clone(),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
         // ----------------------------------------------------
         // TODO: FINISH!!!!!!
         // AGENT Task Allowance Logic: see line 339
@@ -200,6 +214,8 @@ impl<'a> CwCroncat<'a> {
                 prev_idx: None,
                 task_hash: Some(hash),
                 contract_addr: Some(self_addr),
+                task_is_extra: bresult.num_cron_tasks_extra > Uint64::from(0u64),
+                agent_id: info.sender.clone(),
             },
         )?;
 
@@ -238,6 +254,8 @@ impl<'a> CwCroncat<'a> {
                     }
                 }
             }
+            //let agentid=msg.result.unwrap().events.get(index)
+            //self.balancer.on_task_completed(task_hash, agentid);
         } else {
             reply_submsg_failed = true;
         }

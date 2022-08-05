@@ -210,7 +210,7 @@ mod tests {
     };
     use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
     use cw_croncat_core::types::SlotType;
-
+    const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
     #[test]
     fn configure() {
         let mut deps = mock_dependencies_with_balance(&coins(200, ""));
@@ -283,6 +283,8 @@ mod tests {
                     prev_idx: None,
                     task_hash: Some(task_hash.clone()),
                     contract_addr: None,
+                    task_is_extra: false,
+                    agent_id: Addr::unchecked(AGENT0),
                 },
             )
             .unwrap();
@@ -315,6 +317,8 @@ mod tests {
                     prev_idx: None,
                     task_hash: Some(task_hash),
                     contract_addr: Some(Addr::unchecked(MOCK_CONTRACT_ADDR)),
+                    task_is_extra: false,
+                    agent_id: Addr::unchecked(AGENT0),
                 },
             )
             .unwrap();

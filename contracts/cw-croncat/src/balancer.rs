@@ -15,13 +15,15 @@ pub enum BalancerMode {
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
-        deps: DepsMut,
-        env: Env,
+        deps: &DepsMut,
+        env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
     ) -> StdResult<Option<AgentTaskResponse>>;
+    fn on_agent_unregister(&mut self, agent_id: Addr);
+    fn on_task_completed(&mut self, task_hash: Vec<u8>, agent_id: Addr);
 }
 
 pub struct RoundRobinBalancer {
@@ -56,8 +58,8 @@ impl RoundRobinBalancer {
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
         &mut self,
-        deps: DepsMut,
-        _env: Env,
+        deps: &DepsMut,
+        _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
         agent_id: Addr,
@@ -153,6 +155,14 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             BalancerMode::Equalizer => todo!(),
         }
     }
+
+    fn on_agent_unregister(&mut self, agent_id: Addr) {
+        todo!()
+    }
+
+    fn on_task_completed(&mut self, task_hash: Vec<u8>, agent_id: Addr) {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -232,8 +242,8 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(1), Some(2));
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT0),
@@ -248,8 +258,8 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(100), Some(50));
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT0),
@@ -264,8 +274,8 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT0),
@@ -309,8 +319,8 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT0),
@@ -327,8 +337,8 @@ mod tests {
         //Verify agent1 gets extra
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT1),
@@ -345,8 +355,8 @@ mod tests {
         //Verify agent3 not getting extra
         let result = balancer
             .get_agent_tasks(
-                deps.as_mut(),
-                env.clone(),
+                &deps.as_mut(),
+                &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
                 Addr::unchecked(AGENT3),

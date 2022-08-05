@@ -1,9 +1,10 @@
+use crate::balancer::RoundRobinBalancer;
 use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::helpers::Task;
+use crate::{balancer::Balancer, helpers::Task};
 use cw_croncat_core::types::{Agent, GenericBalance, SlotType};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -52,6 +53,8 @@ pub struct QueueItem {
     // could help for IBC non-block bound txns
     pub prev_idx: Option<u64>,
     pub task_hash: Option<Vec<u8>>,
+    pub task_is_extra: bool,
+    pub agent_id: Addr,
 }
 
 pub struct TaskIndexes<'a> {
@@ -99,6 +102,8 @@ pub struct CwCroncat<'a> {
     // the agent/task ratio allows for another agent to join.
     // Once an agent joins, fulfilling the need, this value changes to None
     pub agent_nomination_begin_time: Item<'a, Option<Timestamp>>,
+
+    pub balancer: RoundRobinBalancer,
 }
 
 impl Default for CwCroncat<'static> {
@@ -124,6 +129,7 @@ impl<'a> CwCroncat<'a> {
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
+            balancer: RoundRobinBalancer::default(),
         }
     }
 
