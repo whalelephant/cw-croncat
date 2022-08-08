@@ -190,16 +190,13 @@ impl<'a> CwCroncat<'a> {
 
         let owner_id = info.sender;
         let cw20 = if !task.cw20_coins.is_empty() {
-            let cw20 = task
-                .cw20_coins
-                .into_iter()
-                .map(|c| {
-                    Ok(Cw20CoinVerified {
-                        address: deps.api.addr_validate(&c.address)?,
-                        amount: c.amount,
-                    })
+            let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(task.cw20_coins.len());
+            for coin in task.cw20_coins {
+                cw20.push(Cw20CoinVerified {
+                    address: deps.api.addr_validate(&coin.address)?,
+                    amount: coin.amount,
                 })
-                .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+            }
             // update user balances
             self.balances.update(
                 deps.storage,
@@ -207,7 +204,7 @@ impl<'a> CwCroncat<'a> {
                 |balances| -> Result<_, ContractError> {
                     let mut balances = balances.unwrap_or_default();
 
-                    balances.checked_add_coins(&cw20)?;
+                    balances.checked_sub_coins(&cw20)?;
                     Ok(balances)
                 },
             )?;
@@ -262,7 +259,6 @@ impl<'a> CwCroncat<'a> {
         }
         let task_cw20_balance_uses = item.task_cw20_balance_uses(deps.api)?;
         item.verify_enough_cw20_balances(&task_cw20_balance_uses)?;
-
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot

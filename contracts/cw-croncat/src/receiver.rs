@@ -40,7 +40,6 @@ impl<'a> CwCroncat<'a> {
             })?;
 
         let total_cw20_string: Vec<String> = new_balances.iter().map(ToString::to_string).collect();
-
         Ok(Response::new()
             .add_attribute("method", "receive_cw20")
             .add_attribute("total_cw20_balances", format!("{total_cw20_string:?}")))
@@ -50,11 +49,13 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod test {
     use cosmwasm_std::{coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, WasmMsg};
-    use cw20::{BalanceResponse, Cw20Coin};
+    use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, TaskRequest};
+    use cw_croncat_core::msg::{
+        ExecuteMsg, GetWalletBalancesResponse, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse,
+    };
     use cw_croncat_core::types::{Action, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -153,7 +154,7 @@ mod test {
     }
 
     #[test]
-    fn check_cw20_action() {
+    fn test_cw20_action() {
         let (mut app, cw_template_contract, cw20_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
 
@@ -193,11 +194,14 @@ mod test {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
-                cw20_coins: vec![],
+                cw20_coins: vec![Cw20Coin {
+                    address: cw20_contract.to_string(),
+                    amount: 10u128.into(),
+                }],
             },
         };
         app.execute_contract(
-            Addr::unchecked(ADMIN),
+            Addr::unchecked(user),
             contract_addr.clone(),
             &create_task_msg,
             &coins(u128::from(300_010_u128), "atom"),
@@ -241,5 +245,131 @@ mod test {
                 balance: 10_u128.into()
             }
         );
+    }
+
+    #[test]
+    fn test_cw20_balances() {
+        let (mut app, cw_template_contract, cw20_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        // fill balance of cw20 tokens of user
+        let user = ANYONE;
+        // Balances before refill
+        let balances: GetWalletBalancesResponse = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetWalletBalances {
+                    wallet: user.to_string(),
+                },
+            )
+            .unwrap();
+        assert!(balances.cw20_balances.is_empty());
+
+        let refill_balance_msg = cw20::Cw20ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 10u128.into(),
+            msg: Default::default(),
+        };
+        app.execute_contract(
+            Addr::unchecked(user),
+            cw20_contract.clone(),
+            &refill_balance_msg,
+            &[],
+        )
+        .unwrap();
+
+        // Check Balances of user after refill
+        let balances: GetWalletBalancesResponse = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetWalletBalances {
+                    wallet: user.to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            balances,
+            GetWalletBalancesResponse {
+                cw20_balances: vec![Cw20CoinVerified {
+                    address: cw20_contract.clone(),
+                    amount: 10u128.into()
+                }]
+            }
+        );
+
+        // create a task sending cw20 to AGENT0
+        let msg: CosmosMsg = WasmMsg::Execute {
+            contract_addr: cw20_contract.to_string(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: AGENT0.to_string(),
+                amount: 10u128.into(),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into();
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+                cw20_coins: vec![Cw20Coin {
+                    address: cw20_contract.to_string(),
+                    amount: 10u128.into(),
+                }],
+            },
+        };
+        let mut resp = app
+            .execute_contract(
+                Addr::unchecked(user),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(300_010_u128), "atom"),
+            )
+            .unwrap();
+        let task_hash = resp
+            .events
+            .pop()
+            .unwrap()
+            .attributes
+            .into_iter()
+            .find(|attr| attr.key == "task_hash")
+            .unwrap();
+
+        // Check task balances increased
+        let task: TaskResponse = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: task_hash.value,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            task.total_cw20_deposit,
+            vec![Cw20CoinVerified {
+                address: cw20_contract.clone(),
+                amount: 10u128.into()
+            }]
+        );
+        // And user balances decreased
+        let balances: GetWalletBalancesResponse = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetWalletBalances {
+                    wallet: user.to_string(),
+                },
+            )
+            .unwrap();
+        assert!(balances.cw20_balances.is_empty());
     }
 }

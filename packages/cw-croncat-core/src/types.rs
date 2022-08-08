@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, StdError, Timestamp,
-    Uint128, Uint64, WasmMsg,
+    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    OverflowOperation::Sub, StdError, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -226,21 +226,24 @@ impl Task {
     ) -> Result<Vec<Cw20CoinVerified>, CoreError> {
         let mut balance = vec![];
         for action in &self.actions {
-            if let CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = &action.msg {
+            if let CosmosMsg::Wasm(WasmMsg::Execute {
+                msg, contract_addr, ..
+            }) = &action.msg
+            {
                 if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                     match cw20_msg {
-                        Cw20ExecuteMsg::Send {
-                            contract, amount, ..
-                        } => balance.checked_add_coins(&[Cw20CoinVerified {
-                            address: api.addr_validate(&contract)?,
-                            amount,
-                        }])?,
-                        Cw20ExecuteMsg::Transfer {
-                            recipient, amount, ..
-                        } => balance.checked_add_coins(&[Cw20CoinVerified {
-                            address: api.addr_validate(&recipient)?,
-                            amount,
-                        }])?,
+                        Cw20ExecuteMsg::Send { amount, .. } => {
+                            balance.checked_add_coins(&[Cw20CoinVerified {
+                                address: api.addr_validate(contract_addr)?,
+                                amount,
+                            }])?
+                        }
+                        Cw20ExecuteMsg::Transfer { amount, .. } => {
+                            balance.checked_add_coins(&[Cw20CoinVerified {
+                                address: api.addr_validate(contract_addr)?,
+                                amount,
+                            }])?
+                        }
                         _ => return Err(CoreError::InvalidWasmMsg {}),
                     }
                 }
@@ -254,15 +257,19 @@ impl Task {
         task_cw20_balance_uses: &[Cw20CoinVerified],
     ) -> Result<(), CoreError> {
         for coin in task_cw20_balance_uses {
-            if let Some(low_deposit) = self
+            if let Some(balance) = self
                 .total_cw20_deposit
                 .iter()
-                .find(|balance| balance.address == coin.address && balance.amount < coin.amount)
+                .find(|balance| balance.address == coin.address)
             {
-                return Err(CoreError::NotEnoughCw20 {
-                    addr: low_deposit.address.to_string(),
-                    lack: low_deposit.amount - coin.amount,
-                });
+                if balance.amount < coin.amount {
+                    return Err(CoreError::NotEnoughCw20 {
+                        addr: balance.address.to_string(),
+                        lack: balance.amount - coin.amount,
+                    });
+                }
+            } else {
+                return Err(CoreError::EmptyBalance {});
             }
         }
         Ok(())
@@ -413,17 +420,26 @@ impl FindAndMutate<'_, Cw20CoinVerified> for Vec<Cw20CoinVerified> {
     }
 
     fn find_checked_sub(&mut self, sub: &Cw20CoinVerified) -> Result<(), CoreError> {
-        let coin = self.iter_mut().find(|exist| exist.address == sub.address);
-        match coin {
+        let coin_p = self.iter().position(|exist| exist.address == sub.address);
+        match coin_p {
             Some(exist) => {
-                exist.amount = exist
-                    .amount
-                    .checked_sub(sub.amount)
-                    .map_err(StdError::overflow)?
+                match self[exist].amount.cmp(&sub.amount) {
+                    std::cmp::Ordering::Less => {
+                        return Err(CoreError::Std(StdError::overflow(OverflowError::new(
+                            Sub,
+                            self[exist].amount,
+                            sub.amount,
+                        ))))
+                    }
+                    std::cmp::Ordering::Equal => {
+                        self.swap_remove(exist);
+                    }
+                    std::cmp::Ordering::Greater => self[exist].amount -= sub.amount,
+                };
+                Ok(())
             }
-            None => return Err(CoreError::EmptyBalance {}),
+            None => Err(CoreError::EmptyBalance {}),
         }
-        Ok(())
     }
 }
 
