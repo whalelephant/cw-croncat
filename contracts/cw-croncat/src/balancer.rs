@@ -1,6 +1,7 @@
 use crate::helpers::*;
-use crate::state::Config;
+use crate::state::{Config, TaskInfo};
 use crate::ContractError::AgentNotRegistered;
+use cosmwasm_std::Storage;
 use cosmwasm_std::{Addr, Env, StdError, StdResult};
 use cosmwasm_std::{DepsMut, Uint64};
 use cw_croncat_core::msg::AgentTaskResponse;
@@ -22,8 +23,21 @@ pub trait Balancer<'a> {
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
     ) -> StdResult<Option<AgentTaskResponse>>;
-    fn on_agent_unregister(&self, agent_id: Addr);
-    fn on_task_completed(&self, task_hash: Vec<u8>, agent_id: Addr,is_extra_task:bool);
+    fn on_agent_unregister(
+        &self,
+        storage: &'a mut dyn Storage,
+        config: &Item<'a, Config>,
+        active_agents: &Item<'a, Vec<Addr>>,
+        agent_id: Addr,
+    );
+    fn on_task_completed(
+        &self,
+        storage: &'a mut dyn Storage,
+        _env: &Env,
+        config: &Item<'a, Config>,
+        active_agents: &Item<'a, Vec<Addr>>,
+        task_info: TaskInfo,
+    );
 }
 
 pub struct RoundRobinBalancer {
@@ -37,23 +51,40 @@ impl RoundRobinBalancer {
     pub fn new(mode: BalancerMode) -> RoundRobinBalancer {
         RoundRobinBalancer { mode }
     }
-    // fn update_or_append(
-    //     &self,
-    //     overflows: &mut Vec<(SlotType, u32, u32)>,
-    //     value: (SlotType, u32, u32),
-    // ) {
-    //     match overflows
-    //         .iter_mut()
-    //         .find(|p| p.0 == value.0 && p.1 == value.1)
-    //     {
-    //         Some(found) => {
-    //             found.2 += value.2;
-    //         }
-    //         None => {
-    //             overflows.push(value);
-    //         }
-    //     }
-    // }
+    fn update_or_append(
+        &self,
+        overflows: &mut Vec<(SlotType, u32, u32)>,
+        value: (SlotType, u32, u32),
+    ) {
+        match overflows
+            .iter_mut()
+            .find(|p| p.0 == value.0 && p.1 == value.1)
+        {
+            Some(found) => {
+                found.2 += value.2;
+            }
+            None => {
+                overflows.push(value);
+            }
+        }
+    }
+    fn remove_agent_and_rebalance(
+        &self,
+        indices: &mut Vec<(SlotType, u32, u32)>,
+        agent_index: u32,
+    ) {
+        indices.clear();
+        let mut vec: Vec<(SlotType, u32, u32)> = Vec::new();
+        for p in indices.iter() {
+            let val = if p.1 > agent_index {
+                (p.0.clone(), p.1 - 1, p.2)
+            } else {
+                (p.0.clone(), p.1, p.2)
+            };
+            vec.push(val);
+        }
+        indices.extend(vec);
+    }
 }
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
@@ -78,7 +109,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         let agent_index = active
             .iter()
             .position(|x| x == &agent_id)
-            .expect("Agent not active or not registered!") as u64;
+            .expect("Agent is not active or not registered!") as u64;
 
         if slot_items == (None, None) {
             return Ok(None);
@@ -119,7 +150,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                         let agent_index = diff
                             .iter()
                             .position(|x| x == &(agent_index as usize))
-                            .expect("Agent not active or not registered!")
+                            .expect("Agent is not active or not registered!")
                             as u64;
 
                         let mut extra = 0u64;
@@ -156,12 +187,51 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         }
     }
 
-    fn on_agent_unregister(&self, agent_id: Addr) {
-        todo!()
+    fn on_agent_unregister(
+        &self,
+        storage: &'a mut dyn Storage,
+        config: &Item<'a, Config>,
+        active_agents: &Item<'a, Vec<Addr>>,
+        agent_id: Addr,
+    ) {
+        let mut conf: Config = config.load(storage).unwrap();
+        let indices = conf.agent_active_indices.as_mut();
+        let active = active_agents.load(storage).unwrap();
+        let agent_index = active
+            .iter()
+            .position(|x| x == &agent_id)
+            .expect("Agent is not active or not registered!") as u32;
+
+        self.remove_agent_and_rebalance(indices, agent_index);
+
+        config.save(storage, &conf).unwrap();
     }
 
-    fn on_task_completed(&self, task_hash: Vec<u8>, agent_id: Addr,is_extra_task:bool) {
-        todo!()
+    fn on_task_completed(
+        &self,
+        storage: &'a mut dyn Storage,
+        _env: &Env,
+        config: &Item<'a, Config>,
+        active_agents: &Item<'a, Vec<Addr>>,
+        task_info: TaskInfo,
+    ) {
+        if !task_info.task_is_extra.unwrap_or(false) {
+            return;
+        };
+
+        let mut conf: Config = config.load(storage).unwrap();
+        let indices = conf.agent_active_indices.as_mut();
+        let active = active_agents.load(storage).unwrap();
+        let agent_id = task_info.agent_id.unwrap();
+        let slot_kind = task_info.slot_kind;
+        let agent_index = active
+            .iter()
+            .position(|x| x == &agent_id)
+            .expect("Agent is not active or not registered!") as u32;
+
+        self.update_or_append(indices, (slot_kind, agent_index, 1));
+
+        config.save(storage, &conf).unwrap();
     }
 }
 

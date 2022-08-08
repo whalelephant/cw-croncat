@@ -4,7 +4,7 @@ use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{balancer::Balancer, helpers::Task};
+use crate::helpers::Task;
 use cw_croncat_core::types::{Agent, GenericBalance, SlotType};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -53,8 +53,16 @@ pub struct QueueItem {
     // could help for IBC non-block bound txns
     pub prev_idx: Option<u64>,
     pub task_hash: Option<Vec<u8>>,
-    pub task_is_extra: bool,
-    pub agent_id: Addr,
+    pub task_is_extra: Option<bool>,
+    pub agent_id: Option<Addr>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct TaskInfo {
+    pub task_hash: Vec<u8>,
+    pub task_is_extra: Option<bool>,
+    pub agent_id: Option<Addr>,
+    pub slot_kind: SlotType,
 }
 
 pub struct TaskIndexes<'a> {

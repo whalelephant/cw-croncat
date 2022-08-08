@@ -1,4 +1,4 @@
- use crate::state::Config;
+use crate::state::Config;
 // use cosmwasm_std::Binary;
 // use cosmwasm_std::StdError;
 // use thiserror::Error;

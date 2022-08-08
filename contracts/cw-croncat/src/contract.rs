@@ -181,7 +181,7 @@ impl<'a> CwCroncat<'a> {
             return Err(ContractError::UnknownReplyID {});
         }
         let item = queue_item.unwrap();
-  
+
         // Clean up the reply queue
         self.rq_remove(deps.storage, msg.id);
 
@@ -193,8 +193,8 @@ impl<'a> CwCroncat<'a> {
                 env,
                 msg,
                 item.task_hash.unwrap(),
-                item.task_is_extra,
-                item.agent_id,
+                item.task_is_extra.unwrap(),
+                item.agent_id.unwrap(),
             );
         }
 
@@ -290,8 +290,8 @@ mod tests {
                     prev_idx: None,
                     task_hash: Some(task_hash.clone()),
                     contract_addr: None,
-                    task_is_extra: false,
-                    agent_id: Addr::unchecked(AGENT0),
+                    task_is_extra: Some(false),
+                    agent_id: Some(Addr::unchecked(AGENT0)),
                 },
             )
             .unwrap();
@@ -324,8 +324,8 @@ mod tests {
                     prev_idx: None,
                     task_hash: Some(task_hash),
                     contract_addr: Some(Addr::unchecked(MOCK_CONTRACT_ADDR)),
-                    task_is_extra: false,
-                    agent_id: Addr::unchecked(AGENT0),
+                    task_is_extra: Some(false),
+                    agent_id: Some(Addr::unchecked(AGENT0)),
                 },
             )
             .unwrap();
