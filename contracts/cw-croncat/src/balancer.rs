@@ -441,6 +441,6 @@ mod tests {
         assert_eq!(result.num_cron_tasks_extra.u64(), 0);
     }
 
-    fn test_rebalance_agent_removal() {}
-    fn test_rebalance_agent_gets_extra() {}
+    fn test_on_task_completed() {}
+    fn test_on_agent_unregister() {}
 }

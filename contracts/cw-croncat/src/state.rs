@@ -57,8 +57,9 @@ pub struct QueueItem {
     pub agent_id: Option<Addr>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskInfo {
+    pub task: Option<Task>,
     pub task_hash: Vec<u8>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
