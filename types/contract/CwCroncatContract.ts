@@ -172,6 +172,7 @@ export interface Croncat {
   GetTaskResponse?: (TaskResponse | null) | null;
   GetTasksByOwnerResponse?: TaskResponse[] | null;
   GetTasksResponse?: TaskResponse[] | null;
+  GetWalletBalancesResponse?: GetWalletBalancesResponse | null;
   Task?: Task | null;
   TaskRequest?: TaskRequest | null;
   TaskResponse?: TaskResponse | null;
@@ -289,6 +290,10 @@ export interface Rule {
   msg: Binary;
   [k: string]: unknown;
 }
+export interface GetWalletBalancesResponse {
+  cw20_balances: Cw20CoinVerified[];
+  [k: string]: unknown;
+}
 export interface Task {
   actions: ActionForEmpty[];
   boundary: BoundaryValidated;
@@ -387,6 +392,11 @@ export type ExecuteMsg = {
   };
 } | {
   receive: Cw20ReceiveMsg;
+} | {
+  withdraw_wallet_balance: {
+    cw20_amounts: Cw20Coin[];
+    [k: string]: unknown;
+  };
 };
 export type Balance = {
   native: NativeBalance;
@@ -470,6 +480,11 @@ export type QueryMsg = {
   get_slot_ids: {
     [k: string]: unknown;
   };
+} | {
+  get_wallet_balances: {
+    wallet: string;
+    [k: string]: unknown;
+  };
 };
 export type ValidateIntervalResponse = boolean;
 export interface CwCroncatReadOnlyInterface {
@@ -520,6 +535,11 @@ export interface CwCroncatReadOnlyInterface {
     slot?: number;
   }) => Promise<GetSlotHashesResponse>;
   getSlotIds: () => Promise<GetSlotIdsResponse>;
+  getWalletBalances: ({
+    wallet
+  }: {
+    wallet: string;
+  }) => Promise<GetWalletBalancesResponse>;
 }
 export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
   client: CosmWasmClient;
@@ -540,6 +560,7 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
     this.validateInterval = this.validateInterval.bind(this);
     this.getSlotHashes = this.getSlotHashes.bind(this);
     this.getSlotIds = this.getSlotIds.bind(this);
+    this.getWalletBalances = this.getWalletBalances.bind(this);
   }
 
   getConfig = async (): Promise<GetConfigResponse> => {
@@ -653,6 +674,17 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
       get_slot_ids: {}
     });
   };
+  getWalletBalances = async ({
+    wallet
+  }: {
+    wallet: string;
+  }): Promise<GetWalletBalancesResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_wallet_balances: {
+        wallet
+      }
+    });
+  };
 }
 export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   contractAddress: string;
@@ -728,6 +760,11 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     msg: string;
     sender: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
+  withdrawWalletBalance: ({
+    cw20Amounts
+  }: {
+    cw20Amounts: Cw20Coin[];
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
 }
 export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatInterface {
   client: SigningCosmWasmClient;
@@ -752,6 +789,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.proxyCall = this.proxyCall.bind(this);
     this.receive = this.receive.bind(this);
+    this.withdrawWalletBalance = this.withdrawWalletBalance.bind(this);
   }
 
   updateSettings = async ({
@@ -903,6 +941,17 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
         amount,
         msg,
         sender
+      }
+    }, fee, memo, funds);
+  };
+  withdrawWalletBalance = async ({
+    cw20Amounts
+  }: {
+    cw20Amounts: Cw20Coin[];
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      withdraw_wallet_balance: {
+        cw20_amounts: cw20Amounts
       }
     }, fee, memo, funds);
   };

@@ -2,10 +2,11 @@ use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
-    StdResult, SubMsg, Uint128,
+    coin, to_binary, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
+    StdResult, SubMsg, Uint128, WasmMsg,
 };
-use cw20::{Cw20Coin, Cw20CoinVerified};
+use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
+use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
 use cw_croncat_core::traits::{BalancesOperations, Intervals};
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
@@ -202,7 +203,7 @@ impl<'a> CwCroncat<'a> {
             // update user balances
             self.balances.update(
                 deps.storage,
-                owner_id.clone(),
+                &owner_id,
                 |balances| -> Result<_, ContractError> {
                     let mut balances = balances.unwrap_or_default();
 
@@ -406,7 +407,7 @@ impl<'a> CwCroncat<'a> {
         // return any remaining total_cw20_deposit to the owner
         self.balances.update(
             deps.storage,
-            task.owner_id.clone(),
+            &task.owner_id,
             |balances| -> Result<_, ContractError> {
                 let mut balances = balances.unwrap_or_default();
                 balances.checked_add_coins(&task.total_cw20_deposit)?;
@@ -481,6 +482,8 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("total_deposit", format!("{coins_total:?}")))
     }
 
+    /// Refill a task with more cw20 balance from user `balance` to continue its execution
+    /// NOTE: Restricting this to owner only, so owner can make sure the task ends
     pub fn refill_task_cw20(
         &self,
         deps: DepsMut,
@@ -489,47 +492,31 @@ impl<'a> CwCroncat<'a> {
         cw20_coins: Vec<Cw20Coin>,
     ) -> Result<Response, ContractError> {
         let task_hash = task_hash.into_bytes();
-        let cw20_coins_validated = cw20_coins
-            .into_iter()
-            .map(|c| {
-                Ok(Cw20CoinVerified {
-                    address: deps.api.addr_validate(&c.address)?,
-                    amount: c.amount,
+        let cw20_coins_validated = {
+            let mut validated = Vec::with_capacity(cw20_coins.len());
+            for coin in cw20_coins {
+                validated.push(Cw20CoinVerified {
+                    address: deps.api.addr_validate(&coin.address)?,
+                    amount: coin.amount,
                 })
-            })
-            .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+            }
+            validated
+        };
         let task = self.tasks.update(deps.storage, task_hash, |task| {
-            let mut task = if let Some(task) = task {
-                task
-            } else {
-                return Err(ContractError::NoTaskFound {});
-            };
+            let mut task = task.ok_or(ContractError::NoTaskFound {})?;
             if task.owner_id != info.sender {
                 return Err(ContractError::RefillNotTaskOwner {});
             }
             // add amount or create with this amount cw20 coins
-            for coin in &cw20_coins_validated {
-                match task
-                    .total_cw20_deposit
-                    .iter_mut()
-                    .find(|c| c.address == coin.address)
-                {
-                    Some(cw20) => {
-                        cw20.amount = cw20
-                            .amount
-                            .checked_add(coin.amount)
-                            .map_err(StdError::overflow)?
-                    }
-                    None => task.total_cw20_deposit.push(coin.clone()),
-                }
-            }
+            task.total_cw20_deposit
+                .checked_add_coins(&cw20_coins_validated)?;
             Ok(task)
         })?;
 
         // update user balances
         self.balances.update(
             deps.storage,
-            info.sender,
+            &info.sender,
             |balances| -> Result<_, ContractError> {
                 let mut balances = balances.unwrap_or_default();
                 balances.checked_sub_coins(&cw20_coins_validated)?;
@@ -548,6 +535,65 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "refill_task_cw20")
             .add_attribute("total_cw20_deposit", format!("{total_cw20_string:?}")))
+    }
+
+    /// Let users withdraw their balances
+    pub fn withdraw_wallet_balances(
+        &self,
+        deps: DepsMut,
+        info: MessageInfo,
+        cw20_amounts: Vec<Cw20Coin>,
+    ) -> Result<Response, ContractError> {
+        let wallet = info.sender;
+        let withdraws: Vec<Cw20CoinVerified> = {
+            let mut withdraws = Vec::with_capacity(cw20_amounts.len());
+            for balance in cw20_amounts {
+                withdraws.push(Cw20CoinVerified {
+                    address: deps.api.addr_validate(&balance.address)?,
+                    amount: balance.amount,
+                });
+            }
+            withdraws
+        };
+
+        // update user and croncat manager balances
+        let new_balances = self.balances.update(
+            deps.storage,
+            &wallet,
+            |balances| -> Result<_, ContractError> {
+                let mut balances =
+                    balances.ok_or(ContractError::CoreError(CoreError::EmptyBalance {}))?;
+                balances.checked_sub_coins(&withdraws)?;
+                Ok(balances)
+            },
+        )?;
+        self.config
+            .update(deps.storage, |mut c| -> Result<_, ContractError> {
+                c.available_balance.checked_sub_cw20(&withdraws)?;
+                Ok(c)
+            })?;
+
+        let msgs = {
+            let mut msgs = Vec::with_capacity(withdraws.len());
+            for wd in withdraws {
+                msgs.push(WasmMsg::Execute {
+                    contract_addr: wd.address.to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                        recipient: wallet.to_string(),
+                        amount: wd.amount,
+                    })?,
+                    funds: vec![],
+                });
+            }
+            msgs
+        };
+
+        let new_balances_string: Vec<String> =
+            new_balances.iter().map(ToString::to_string).collect();
+        Ok(Response::new()
+            .add_attribute("method", "withdraw_wallet_balances")
+            .add_attribute("total_cw20_deposit", format!("{new_balances_string:?}"))
+            .add_messages(msgs))
     }
 }
 

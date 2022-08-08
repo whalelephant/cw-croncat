@@ -289,6 +289,7 @@
       "additionalProperties": false
     },
     {
+      "description": "Receive cw20 token",
       "type": "object",
       "required": [
         "receive"
@@ -296,6 +297,29 @@
       "properties": {
         "receive": {
           "$ref": "#/definitions/Cw20ReceiveMsg"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "withdraw_wallet_balance"
+      ],
+      "properties": {
+        "withdraw_wallet_balance": {
+          "type": "object",
+          "required": [
+            "cw20_amounts"
+          ],
+          "properties": {
+            "cw20_amounts": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Cw20Coin"
+              }
+            }
+          }
         }
       },
       "additionalProperties": false

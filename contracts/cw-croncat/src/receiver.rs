@@ -5,6 +5,7 @@ use cw_croncat_core::traits::BalancesOperations;
 use crate::{ContractError, CwCroncat};
 
 impl<'a> CwCroncat<'a> {
+    /// Add cw20 coin to user balance, that sent this coins
     pub fn receive_cw20(
         &self,
         deps: DepsMut,
@@ -14,9 +15,10 @@ impl<'a> CwCroncat<'a> {
         let sender = deps.api.addr_validate(&msg.sender)?;
         let coin_address = info.sender;
 
+        // Updating user balance
         let new_balances = self.balances.update(
             deps.storage,
-            sender,
+            &sender,
             |balances| -> Result<_, ContractError> {
                 let mut balances = balances.unwrap_or_default();
                 balances.checked_add_coins(&[Cw20CoinVerified {
@@ -27,6 +29,7 @@ impl<'a> CwCroncat<'a> {
             },
         )?;
 
+        // Updating contract balance
         self.config
             .update(deps.storage, |mut c| -> Result<_, ContractError> {
                 c.available_balance.checked_add_cw20(&[Cw20CoinVerified {
@@ -155,19 +158,21 @@ mod test {
         let contract_addr = cw_template_contract.addr();
 
         // fill balance of cw20 tokens of user
+        let user = ANYONE;
         let refill_balance_msg = cw20::Cw20ExecuteMsg::Send {
             contract: contract_addr.to_string(),
             amount: 10u128.into(),
             msg: Default::default(),
         };
-
         app.execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(user),
             cw20_contract.clone(),
             &refill_balance_msg,
             &[],
         )
         .unwrap();
+
+        // create a task sending cw20 to AGENT0
         let msg: CosmosMsg = WasmMsg::Execute {
             contract_addr: cw20_contract.to_string(),
             msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
@@ -178,7 +183,6 @@ mod test {
             funds: vec![],
         }
         .into();
-
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
                 interval: Interval::Immediate,
@@ -192,25 +196,26 @@ mod test {
                 cw20_coins: vec![],
             },
         };
-
-        // create a task
-        let res = app.execute_contract(
+        app.execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
             &coins(u128::from(300_010_u128), "atom"),
-        );
-        assert!(res.is_ok());
+        )
+        .unwrap();
 
         // quick agent register
-        let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
-        };
-        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
-            .unwrap();
+        {
+            let msg = ExecuteMsg::RegisterAgent {
+                payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            };
+            app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+                .unwrap();
+        }
 
         app.update_block(add_little_time);
 
+        // Agent executes transfer
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
         app.execute_contract(
             Addr::unchecked(AGENT0),
@@ -220,6 +225,7 @@ mod test {
         )
         .unwrap();
 
+        // Check new balance of AGENT0
         let balance: BalanceResponse = app
             .wrap()
             .query_wasm_smart(

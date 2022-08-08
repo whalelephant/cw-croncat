@@ -49,6 +49,7 @@ pub struct Croncat {
     get_task_hash_response: Option<String>,
     get_slot_hashes_response: Option<GetSlotHashesResponse>,
     get_slot_ids_response: Option<GetSlotIdsResponse>,
+    get_wallet_balances_response: Option<GetWalletBalancesResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -103,8 +104,11 @@ pub enum ExecuteMsg {
         cw20_coins: Vec<Cw20Coin>,
     },
     ProxyCall {},
-    // Receive cw20 token
+    /// Receive cw20 token
     Receive(cw20::Cw20ReceiveMsg),
+    WithdrawWalletBalance {
+        cw20_amounts: Vec<Cw20Coin>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -139,6 +143,9 @@ pub enum QueryMsg {
         slot: Option<u64>,
     },
     GetSlotIds {},
+    GetWalletBalances {
+        wallet: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -162,6 +169,11 @@ pub struct GetBalancesResponse {
     pub available_balance: GenericBalance,
     pub staked_balance: GenericBalance,
     pub cw20_whitelist: Vec<Addr>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetWalletBalancesResponse {
+    pub cw20_balances: Vec<Cw20CoinVerified>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -387,6 +399,13 @@ mod tests {
             block_ids: vec![3],
         }
         .into();
+        let get_wallet_balances_response = GetWalletBalancesResponse {
+            cw20_balances: vec![Cw20CoinVerified {
+                address: Addr::unchecked("Bob"),
+                amount: 5u128.into(),
+            }],
+        }
+        .into();
         let croncat = Croncat {
             agent,
             task,
@@ -404,6 +423,7 @@ mod tests {
             get_task_hash_response,
             get_slot_hashes_response,
             get_slot_ids_response,
+            get_wallet_balances_response,
         };
 
         let ser = serde_json_wasm::to_string(&croncat);

@@ -221,6 +221,26 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "get_wallet_balances"
+      ],
+      "properties": {
+        "get_wallet_balances": {
+          "type": "object",
+          "required": [
+            "wallet"
+          ],
+          "properties": {
+            "wallet": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {

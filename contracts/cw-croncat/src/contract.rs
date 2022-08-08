@@ -145,6 +145,9 @@ impl<'a> CwCroncat<'a> {
             } => self.refill_task_cw20(deps, info, task_hash, cw20_coins),
             ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
             ExecuteMsg::Receive(msg) => self.receive_cw20(deps, info, msg),
+            ExecuteMsg::WithdrawWalletBalance {
+                cw20_amounts: cw20_balances,
+            } => self.withdraw_wallet_balances(deps, info, cw20_balances),
         }
     }
 
@@ -174,6 +177,9 @@ impl<'a> CwCroncat<'a> {
             }
             QueryMsg::GetSlotHashes { slot } => to_binary(&self.query_slot_tasks(deps, slot)?),
             QueryMsg::GetSlotIds {} => to_binary(&self.query_slot_ids(deps)?),
+            QueryMsg::GetWalletBalances { wallet } => {
+                to_binary(&self.query_wallet_balances(deps, wallet)?)
+            }
         }
     }
 

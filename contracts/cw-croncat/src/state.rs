@@ -101,7 +101,7 @@ pub struct CwCroncat<'a> {
     // Once an agent joins, fulfilling the need, this value changes to None
     pub agent_nomination_begin_time: Item<'a, Option<Timestamp>>,
 
-    pub balances: Map<'a, Addr, Vec<Cw20CoinVerified>>,
+    pub balances: Map<'a, &'a Addr, Vec<Cw20CoinVerified>>,
 }
 
 impl Default for CwCroncat<'static> {

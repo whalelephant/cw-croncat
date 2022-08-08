@@ -131,6 +131,16 @@
         "$ref": "#/definitions/TaskResponse"
       }
     },
+    "GetWalletBalancesResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetWalletBalancesResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "Task": {
       "anyOf": [
         {
@@ -859,6 +869,20 @@
             "type": "integer",
             "format": "uint64",
             "minimum": 0.0
+          }
+        }
+      }
+    },
+    "GetWalletBalancesResponse": {
+      "type": "object",
+      "required": [
+        "cw20_balances"
+      ],
+      "properties": {
+        "cw20_balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
           }
         }
       }
