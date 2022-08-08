@@ -8,4 +8,7 @@ pub enum CoreError {
 
     #[error("Boundary is not in valid format")]
     InvalidBoundary {},
+
+    #[error("No coin balance found")]
+    EmptyBalance {},
 }

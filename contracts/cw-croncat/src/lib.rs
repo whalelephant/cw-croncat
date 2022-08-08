@@ -26,7 +26,7 @@ pub mod entry {
         env: Env,
         info: MessageInfo,
         msg: InstantiateMsg,
-    ) -> StdResult<Response> {
+    ) -> Result<Response, ContractError> {
         let s = CwCroncat::default();
         s.instantiate(deps, env, info, msg)
     }

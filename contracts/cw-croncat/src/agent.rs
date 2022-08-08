@@ -6,7 +6,6 @@ use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
     SubMsg, Uint64,
 };
-use cw20::Balance;
 use std::ops::Div;
 
 use crate::ContractError::AgentNotRegistered;
@@ -269,7 +268,7 @@ impl<'a> CwCroncat<'a> {
         let mut config = self.config.load(storage)?;
         config
             .available_balance
-            .minus_tokens(Balance::from(balances.native));
+            .checked_sub_native(&balances.native)?;
         // TODO: Finish:
         // config
         //     .available_balance
