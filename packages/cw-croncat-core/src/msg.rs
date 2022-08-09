@@ -190,6 +190,35 @@ pub struct AgentTaskResponse {
     pub num_cron_tasks_extra: Uint64,
 }
 
+impl AgentTaskResponse {
+    pub fn has_any_slot_tasks(&self, slot_kind: SlotType) -> bool {
+        if self.num_of_slot_tasks(slot_kind) < 1u64 {
+            return false;
+        }
+        true
+    }
+    pub fn num_of_slot_tasks(&self, slot_kind: SlotType) -> u64 {
+        if slot_kind == SlotType::Block {
+            return self.num_block_tasks.u64();
+        }
+
+        self.num_cron_tasks.u64()
+    }
+    pub fn has_any_slot_extra_tasks(&self, slot_kind: SlotType) -> bool {
+        if self.num_of_slot_extra_tasks(slot_kind) < 1u64 {
+            return false;
+        }
+        true
+    }
+    pub fn num_of_slot_extra_tasks(&self, slot_kind: SlotType) -> u64 {
+        if slot_kind == SlotType::Block {
+            return self.num_block_tasks_extra.u64();
+        }
+
+        self.num_cron_tasks_extra.u64()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskRequest {
     pub interval: Interval,
