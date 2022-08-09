@@ -393,13 +393,22 @@ impl FindAndMutate<'_, Coin> for Vec<Coin> {
     }
 
     fn find_checked_sub(&mut self, sub: &Coin) -> Result<(), CoreError> {
-        let coin = self.iter_mut().find(|exist| exist.denom == sub.denom);
+        let coin = self.iter().position(|exist| exist.denom == sub.denom);
         match coin {
             Some(exist) => {
-                exist.amount = exist
-                    .amount
-                    .checked_sub(sub.amount)
-                    .map_err(StdError::overflow)?;
+                match self[exist].amount.cmp(&sub.amount) {
+                    std::cmp::Ordering::Less => {
+                        return Err(CoreError::Std(StdError::overflow(OverflowError::new(
+                            Sub,
+                            self[exist].amount,
+                            sub.amount,
+                        ))))
+                    }
+                    std::cmp::Ordering::Equal => {
+                        self.swap_remove(exist);
+                    }
+                    std::cmp::Ordering::Greater => self[exist].amount -= sub.amount,
+                };
                 Ok(())
             }
             None => Err(CoreError::EmptyBalance {}),

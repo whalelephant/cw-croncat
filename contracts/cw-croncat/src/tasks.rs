@@ -1333,7 +1333,7 @@ mod tests {
             .wrap()
             .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
             .unwrap();
-        assert_eq!(coins(0, "atom"), balances.available_balance.native);
+        assert_eq!(balances.available_balance.native, vec![]);
 
         // Check the slots correctly removed the task
         let slot_ids: GetSlotIdsResponse = app

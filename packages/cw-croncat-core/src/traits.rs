@@ -17,7 +17,7 @@ where
 {
     /// Safely adding and adding amount
     fn find_checked_add(&mut self, add: Rhs) -> Result<(), CoreError>;
-    /// Safely finding and subtracting amount or remove it if it's zero cw20
+    /// Safely finding and subtracting amount or remove it if it's zero
     fn find_checked_sub(&mut self, sub: Rhs) -> Result<(), CoreError>;
 }
 
