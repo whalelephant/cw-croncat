@@ -1,6 +1,7 @@
 use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
+use cosmwasm_std::Storage;
 use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
     Uint128,
@@ -317,9 +318,13 @@ impl<'a> CwCroncat<'a> {
     }
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
-    pub fn remove_task(&self, deps: DepsMut, task_hash: String) -> Result<Response, ContractError> {
+    pub fn remove_task(
+        &self,
+        storage: &mut dyn Storage,
+        task_hash: String,
+    ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
-        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
+        let task_raw = self.tasks.may_load(storage, hash_vec.clone())?;
         if task_raw.is_none() {
             return Err(ContractError::CustomError {
                 val: "No task found by hash".to_string(),
@@ -327,42 +332,36 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Remove all the thangs
-        self.tasks.remove(deps.storage, hash_vec)?;
+        self.tasks.remove(storage, hash_vec)?;
 
         // find any scheduled things and remove them!
         // check which type of slot it would be in, then iterate to remove
         // NOTE: def could use some spiffy refactor here
         let time_ids: Vec<u64> = self
             .time_slots
-            .keys(deps.storage, None, None, Order::Ascending)
+            .keys(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
 
         for tid in time_ids {
-            let mut time_hashes = self
-                .time_slots
-                .may_load(deps.storage, tid)?
-                .unwrap_or_default();
+            let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
             if !time_hashes.is_empty() {
                 time_hashes.retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
             }
 
             // save the updates, remove if slot no longer has hashes
             if time_hashes.is_empty() {
-                self.time_slots.remove(deps.storage, tid);
+                self.time_slots.remove(storage, tid);
             } else {
-                self.time_slots.save(deps.storage, tid, &time_hashes)?;
+                self.time_slots.save(storage, tid, &time_hashes)?;
             }
         }
         let block_ids: Vec<u64> = self
             .block_slots
-            .keys(deps.storage, None, None, Order::Ascending)
+            .keys(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
 
         for bid in block_ids {
-            let mut block_hashes = self
-                .block_slots
-                .may_load(deps.storage, bid)?
-                .unwrap_or_default();
+            let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
             if !block_hashes.is_empty() {
                 block_hashes
                     .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
@@ -370,9 +369,9 @@ impl<'a> CwCroncat<'a> {
 
             // save the updates, remove if slot no longer has hashes
             if block_hashes.is_empty() {
-                self.block_slots.remove(deps.storage, bid);
+                self.block_slots.remove(storage, bid);
             } else {
-                self.block_slots.save(deps.storage, bid, &block_hashes)?;
+                self.block_slots.save(storage, bid, &block_hashes)?;
             }
         }
 
@@ -384,10 +383,10 @@ impl<'a> CwCroncat<'a> {
         });
 
         // remove from the total available_balance
-        let mut c: Config = self.config.load(deps.storage)?;
+        let mut c: Config = self.config.load(storage)?;
         c.available_balance
             .checked_sub_native(&task.total_deposit)?;
-        self.config.save(deps.storage, &c)?;
+        self.config.save(storage, &c)?;
 
         Ok(Response::new()
             .add_attribute("method", "remove_task")

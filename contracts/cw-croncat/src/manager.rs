@@ -1,6 +1,7 @@
+use crate::balancer::Balancer;
 use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
-use crate::state::{Config, CwCroncat, QueueItem};
+use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
     SubMsgResult,
@@ -54,20 +55,24 @@ impl<'a> CwCroncat<'a> {
         let slot = self.get_current_slot_items(&env.block, deps.storage, Some(1));
         // Give preference for block-based slots
         let slot_id: u64;
+        let slot_type: SlotType;
         let some_hash: Option<Vec<u8>>;
         if slot.0.is_none() {
-            // See if there are cron (time-based) tasks to execute
+            // See if there are no cron (time-based) tasks to execute
             if slot.1.is_none() {
                 self.send_base_agent_reward(deps.storage, agent, info);
                 return Err(ContractError::CustomError {
                     val: "No Tasks For Slot".to_string(),
                 });
             } else {
+                slot_type = SlotType::Cron;
                 slot_id = slot.1.unwrap();
                 // There aren't block tasks but there are cron tasks
                 some_hash = self.pop_slot_item(deps.storage, &slot_id, &SlotType::Cron);
             }
         } else {
+            slot_type = SlotType::Block;
+
             // There are block tasks (which we prefer to execute before time-based ones at this point)
             slot_id = slot.0.unwrap();
             some_hash = self.pop_slot_item(deps.storage, &slot.0.unwrap(), &SlotType::Block);
@@ -86,6 +91,25 @@ impl<'a> CwCroncat<'a> {
         if some_task.is_none() {
             // NOTE: This could should never get reached, however we cover just in case
             self.send_base_agent_reward(deps.storage, agent, info);
+            return Err(ContractError::NoTaskFound {});
+        }
+
+        //Get agent tasks with extra(if exists) from balancer
+        let balancer_result = self
+            .balancer
+            .get_agent_tasks(
+                &deps,
+                &env,
+                &self.config,
+                &self.agent_active_queue,
+                info.sender.clone(),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+        //Balanacer gives not task to this agent, return error
+        let has_tasks = balancer_result.has_any_slot_tasks(slot_type.clone());
+        if !has_tasks {
             return Err(ContractError::NoTaskFound {});
         }
 
@@ -199,6 +223,8 @@ impl<'a> CwCroncat<'a> {
                 prev_idx: None,
                 task_hash: Some(hash),
                 contract_addr: Some(self_addr),
+                task_is_extra: Some(balancer_result.has_any_slot_extra_tasks(slot_type.clone())),
+                agent_id: Some(info.sender.clone()),
             },
         )?;
 
@@ -208,7 +234,7 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
             .add_attribute("slot_id", slot_id.to_string())
-            .add_attribute("slot_kind", format!("{:?}", SlotType::Block))
+            .add_attribute("slot_kind", format!("{:?}", slot_type))
             .add_attribute("task_hash", task.to_hash())
             // .add_attributes(rule_responses)
             .add_submessages(sub_msgs);
@@ -216,6 +242,36 @@ impl<'a> CwCroncat<'a> {
         Ok(final_res)
     }
 
+    fn complete_agent_task(
+        &self,
+        storage: &mut dyn Storage,
+        env: Env,
+        msg: Reply,
+        task_info: TaskInfo,
+    ) -> Result<(), ContractError> {
+        let TaskInfo {
+            task_hash, task, ..
+        } = task_info.clone();
+
+        //no fail
+        self.balancer.on_task_completed(
+            storage,
+            &env,
+            &self.config,
+            &self.agent_active_queue,
+            task_info,
+        ); //send completed event to balancer
+           //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
+        let transferred_bank_tokens = msg.transferred_bank_tokens();
+        let task_to_finilize = task.unwrap();
+        if task_to_finilize.contains_send_msg() && task_to_finilize.is_recurring() {
+            task_to_finilize
+                .funds_withdrawn_recurring
+                .saturating_add(transferred_bank_tokens[0].amount);
+            self.tasks.save(storage, task_hash, &task_to_finilize)?;
+        }
+        Result::Ok(())
+    }
     /// Logic executed on the completion of a proxy call
     /// Reschedule next task
     pub(crate) fn proxy_callback(
@@ -224,6 +280,8 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         msg: Reply,
         task_hash: Vec<u8>,
+        task_is_extra: bool,
+        agent_id: Addr,
     ) -> Result<Response, ContractError> {
         let mut response = Response::new().add_attribute("method", "proxy_callback");
 
@@ -237,6 +295,8 @@ impl<'a> CwCroncat<'a> {
                     }
                 }
             }
+            //let agentid=msg.result.unwrap().events.get(index)
+            //self.balancer.on_task_completed(task_hash, agentid);
         } else {
             reply_submsg_failed = true;
         }
@@ -250,7 +310,7 @@ impl<'a> CwCroncat<'a> {
             // if non-recurring, exit
             if task.stop_on_fail && reply_submsg_failed {
                 // Process task exit, if no future task can execute
-                let rt = self.remove_task(deps, task_hash_str);
+                let rt = self.remove_task(deps.storage, task_hash_str);
                 if let Ok(..) = rt {
                     let resp = rt.unwrap();
                     response = response
@@ -262,11 +322,17 @@ impl<'a> CwCroncat<'a> {
             }
 
             // Parse interval into a future timestamp, then convert to a slot
-            let (next_id, slot_kind) = task.interval.next(env, task.boundary);
-
+            let (next_id, slot_kind) = task.interval.next(env.clone(), task.boundary);
+            let task_info = TaskInfo {
+                task: Some(task.clone()),
+                task_hash,
+                task_is_extra: Some(task_is_extra),
+                slot_kind: slot_kind.clone(),
+                agent_id: Some(agent_id),
+            };
             // If the next interval comes back 0, then this task should not schedule again
             if next_id == 0 {
-                let rt = self.remove_task(deps, task_hash_str.clone());
+                let rt = self.remove_task(deps.storage, task_hash_str.clone());
                 if let Ok(..) = rt {
                     let resp = rt.unwrap();
                     response = response
@@ -275,15 +341,10 @@ impl<'a> CwCroncat<'a> {
                         .add_events(resp.events);
                 }
                 response = response.add_attribute("ended_task", task_hash_str);
+                //Task has been removed, complete and rebalance internal balancer
+                self.complete_agent_task(deps.storage, env, msg, task_info)
+                    .unwrap();
                 return Ok(response);
-            } else {
-                //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
-                let _transferred_bank_tokens = msg.transferred_bank_tokens();
-                if task.contains_send_msg() && task.is_recurring() {
-                    task.funds_withdrawn_recurring
-                        .saturating_add(_transferred_bank_tokens[0].amount);
-                    self.tasks.save(deps.storage, task_hash, &task)?;
-                }
             }
 
             response = response.add_attribute("slot_id", next_id.to_string());
