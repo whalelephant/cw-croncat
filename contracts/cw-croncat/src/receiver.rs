@@ -50,8 +50,7 @@ impl<'a> CwCroncat<'a> {
 mod test {
     use crate::ContractError;
     use cosmwasm_std::{
-        coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, OverflowError, StdError,
-        Uint128, WasmMsg,
+        coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, StdError, Uint128, WasmMsg,
     };
     use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
     use cw_croncat_core::error::CoreError;
