@@ -534,6 +534,7 @@ mod tests {
                         gas_limit: Some(150_000),
                     }],
                     rules: None,
+                    cw20_coins: vec![],
                 },
             },
             send_funds.as_ref(),
@@ -565,6 +566,7 @@ mod tests {
                         gas_limit: Some(150_000),
                     }],
                     rules: None,
+                    cw20_coins: vec![],
                 },
             },
             send_funds.as_ref(),
@@ -596,6 +598,7 @@ mod tests {
                         gas_limit: Some(150_000),
                     }],
                     rules: None,
+                    cw20_coins: vec![],
                 },
             },
             send_funds.as_ref(),
@@ -628,6 +631,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: None,
+                cw20_coins: vec![],
             },
         )
     }
