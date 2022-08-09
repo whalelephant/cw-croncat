@@ -76,12 +76,11 @@ impl RoundRobinBalancer {
         indices.clear();
         let mut vec: Vec<(SlotType, u32, u32)> = Vec::new();
         for p in indices.iter() {
-            let val = if p.1 > agent_index {
-                (p.0.clone(), p.1 - 1, p.2)
-            } else {
-                (p.0.clone(), p.1, p.2)
-            };
-            vec.push(val);
+            if p.1 > agent_index {
+                vec.push((p.0.clone(), p.1 - 1, p.2));
+            } else if p.1 < agent_index {
+                vec.push((p.0.clone(), p.1, p.2))
+            }
         }
         indices.extend(vec);
     }
