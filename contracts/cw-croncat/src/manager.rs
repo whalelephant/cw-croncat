@@ -309,16 +309,16 @@ impl<'a> CwCroncat<'a> {
             }
             task
         };
+        queue_item.failed = if reply_submsg_failed {
+            reply_submsg_failed
+        } else {
+            queue_item.failed
+        };
         if action_idx + 1 == task.actions.len() as u64 {
             // Last action
             self.rq_remove(deps.storage, msg.id)
         } else {
             // not over yet
-            queue_item.failed = if reply_submsg_failed {
-                reply_submsg_failed
-            } else {
-                queue_item.failed
-            };
             self.rq_update_rq_item(deps.storage, msg.id, queue_item.failed)?;
             return Ok(Response::new()
                 .add_attribute("method", "proxy_callback")
