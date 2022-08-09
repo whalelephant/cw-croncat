@@ -457,7 +457,6 @@ impl FindAndMutate<'_, Cw20CoinVerified> for Vec<Cw20CoinVerified> {
 
 impl<'a, T, Rhs> BalancesOperations<'a, T, Rhs> for Vec<T>
 where
-    Self: IntoIterator<Item = T>,
     Rhs: IntoIterator<Item = &'a T>,
     Self: FindAndMutate<'a, T>,
     T: 'a,

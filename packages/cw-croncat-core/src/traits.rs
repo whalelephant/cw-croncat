@@ -12,12 +12,11 @@ pub trait GenericBalances {
 
 pub trait FindAndMutate<'a, T, Rhs = &'a T>
 where
-    T: 'a,
     Self: IntoIterator<Item = T>,
 {
     /// Safely adding and adding amount
     fn find_checked_add(&mut self, add: Rhs) -> Result<(), CoreError>;
-    /// Safely finding and subtracting amount or remove it if it's zero
+    /// Safely finding and subtracting amount and remove it if it's zero
     fn find_checked_sub(&mut self, sub: Rhs) -> Result<(), CoreError>;
 }
 
