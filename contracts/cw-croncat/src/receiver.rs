@@ -48,8 +48,13 @@ impl<'a> CwCroncat<'a> {
 
 #[cfg(test)]
 mod test {
-    use cosmwasm_std::{coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, WasmMsg};
+    use crate::ContractError;
+    use cosmwasm_std::{
+        coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, OverflowError, StdError,
+        Uint128, WasmMsg,
+    };
     use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
+    use cw_croncat_core::error::CoreError;
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
@@ -371,5 +376,110 @@ mod test {
             )
             .unwrap();
         assert!(balances.cw20_balances.is_empty());
+    }
+
+    #[test]
+    fn test_cw20_negative() {
+        let (mut app, cw_template_contract, cw20_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let user = ANYONE;
+
+        // create a task with empty balance
+        let msg: CosmosMsg = WasmMsg::Execute {
+            contract_addr: cw20_contract.to_string(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: AGENT0.to_string(),
+                amount: 10u128.into(),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into();
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+                cw20_coins: vec![Cw20Coin {
+                    address: cw20_contract.to_string(),
+                    amount: 10u128.into(),
+                }],
+            },
+        };
+        let resp: ContractError = app
+            .execute_contract(
+                Addr::unchecked(user),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(300_010_u128), "atom"),
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(resp, ContractError::CoreError(CoreError::EmptyBalance {}));
+        // or with not enough balance
+
+        // fill balance of cw20 tokens of user
+        let refill_balance_msg = cw20::Cw20ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 9u128.into(),
+            msg: Default::default(),
+        };
+        app.execute_contract(
+            Addr::unchecked(user),
+            cw20_contract.clone(),
+            &refill_balance_msg,
+            &[],
+        )
+        .unwrap();
+
+        let resp: ContractError = app
+            .execute_contract(
+                Addr::unchecked(user),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(300_010_u128), "atom"),
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert!(matches!(
+            resp,
+            ContractError::CoreError(CoreError::Std(StdError::Overflow { .. }))
+        ));
+
+        // Create a task that does cw20 transfer without attaching cw20 to the task
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+                cw20_coins: vec![],
+            },
+        };
+        let resp: ContractError = app
+            .execute_contract(
+                Addr::unchecked(user),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(300_010_u128), "atom"),
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert!(matches!(
+                resp,
+                ContractError::CoreError(CoreError::NotEnoughCw20 { lack, .. }) if lack == Uint128::from(10_u128)));
     }
 }

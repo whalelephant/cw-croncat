@@ -269,7 +269,10 @@ impl Task {
                     });
                 }
             } else {
-                return Err(CoreError::EmptyBalance {});
+                return Err(CoreError::NotEnoughCw20 {
+                    addr: coin.address.to_string(),
+                    lack: coin.amount,
+                });
             }
         }
         Ok(())
