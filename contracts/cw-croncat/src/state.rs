@@ -1,4 +1,4 @@
-use crate::balancer::RoundRobinBalancer;
+use crate::{balancer::RoundRobinBalancer, ContractError};
 use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
@@ -52,10 +52,15 @@ pub struct QueueItem {
     // This is used to track disjointed callbacks
     // could help scheduling multiple calls across txns
     // could help for IBC non-block bound txns
-    pub prev_idx: Option<u64>,
+    // not used yet, need more discover
+    // pub prev_idx: Option<u64>,
+
+    // counter of actions helps track what type of action it is
+    pub action_idx: u64,
     pub task_hash: Option<Vec<u8>>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
+    pub failed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -175,6 +180,20 @@ impl<'a> CwCroncat<'a> {
 
     pub(crate) fn rq_remove(&self, storage: &mut dyn Storage, idx: u64) {
         self.reply_queue.remove(storage, idx);
+    }
+
+    pub(crate) fn rq_update_rq_item(
+        &self,
+        storage: &mut dyn Storage,
+        idx: u64,
+        failed: bool,
+    ) -> Result<QueueItem, ContractError> {
+        self.reply_queue.update(storage, idx, |rq| {
+            let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
+            rq.failed = failed;
+            rq.action_idx += 1;
+            Ok(rq)
+        })
     }
 }
 

@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
-    OverflowOperation::Sub, StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    OverflowOperation::Sub, StdError, SubMsgResult, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
-    traits::{BalancesOperations, FindAndMutate, Intervals},
+    traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
@@ -135,7 +135,9 @@ impl BoundaryValidated {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
+#[derive(
+    Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, Copy, JsonSchema,
+)]
 pub enum SlotType {
     Block,
     Cron,
@@ -161,6 +163,38 @@ pub struct Action<T = Empty> {
 
     /// The gas needed to safely process the execute msg
     pub gas_limit: Option<u64>,
+}
+
+impl Action {
+    pub fn bank_sent(&self) -> Option<&[Coin]> {
+        if let CosmosMsg::Bank(BankMsg::Send { amount, .. }) = &self.msg {
+            Some(amount)
+        } else {
+            None
+        }
+    }
+
+    pub fn cw20_sent(&self, api: &dyn Api) -> Option<Cw20CoinVerified> {
+        if let CosmosMsg::Wasm(WasmMsg::Execute {
+            msg, contract_addr, ..
+        }) = &self.msg
+        {
+            if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                return match cw20_msg {
+                    Cw20ExecuteMsg::Send { amount, .. } => Some(Cw20CoinVerified {
+                        address: api.addr_validate(contract_addr).unwrap(),
+                        amount,
+                    }),
+                    Cw20ExecuteMsg::Transfer { amount, .. } => Some(Cw20CoinVerified {
+                        address: api.addr_validate(contract_addr).unwrap(),
+                        amount,
+                    }),
+                    _ => None,
+                };
+            }
+        }
+        None
+    }
 }
 
 /// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
@@ -491,6 +525,21 @@ impl GenericBalance {
 
     pub fn checked_sub_cw20(&mut self, sub: &[Cw20CoinVerified]) -> Result<(), CoreError> {
         self.cw20.checked_sub_coins(sub)
+    }
+}
+
+impl ResultFailed for SubMsgResult {
+    fn failed(&self) -> bool {
+        match self {
+            SubMsgResult::Ok(response) => response.events.iter().any(|event| {
+                event.attributes.iter().any(|attribute| {
+                    event.ty == "reply"
+                        && attribute.key == "mode"
+                        && attribute.value == "handle_failure"
+                })
+            }),
+            SubMsgResult::Err(_) => true,
+        }
     }
 }
 
