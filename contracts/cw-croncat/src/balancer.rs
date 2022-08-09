@@ -76,12 +76,11 @@ impl RoundRobinBalancer {
         indices.clear();
         let mut vec: Vec<(SlotType, u32, u32)> = Vec::new();
         for p in indices.iter() {
-            let val = if p.1 > agent_index {
-                (p.0, p.1 - 1, p.2)
-            } else {
-                (p.0, p.1, p.2)
-            };
-            vec.push(val);
+            match agent_index {
+                aind if aind < p.1 => vec.push((p.0, p.1 - 1, p.2)),
+                aind if aind > p.1 => vec.push((p.0, p.1, p.2)),
+                _ => (),
+            }
         }
         indices.extend(vec);
     }
@@ -230,7 +229,6 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             .expect("Agent is not active or not registered!") as u32;
 
         self.update_or_append(indices, (slot_kind, agent_index, 1));
-
         config.save(storage, &conf).unwrap();
     }
 }
@@ -440,7 +438,94 @@ mod tests {
         assert_eq!(result.num_block_tasks_extra.u64(), 0);
         assert_eq!(result.num_cron_tasks_extra.u64(), 0);
     }
+    #[test]
+    fn test_on_task_completed() {
+        let store = CwCroncat::default();
+        let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+        let env = mock_env();
+        let balancer = RoundRobinBalancer::default();
+        let mut config = mock_config();
 
-    fn test_on_task_completed() {}
-    fn test_on_agent_unregister() {}
+        store.config.save(&mut deps.storage, &config).unwrap();
+
+        let mut active_agents: Vec<Addr> = store
+            .agent_active_queue
+            .may_load(&deps.storage)
+            .unwrap()
+            .unwrap_or_default();
+        active_agents.extend(vec![
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(AGENT1),
+            Addr::unchecked(AGENT2),
+            Addr::unchecked(AGENT3),
+            Addr::unchecked(AGENT4),
+        ]);
+
+        store
+            .agent_active_queue
+            .save(&mut deps.storage, &active_agents)
+            .unwrap();
+
+        let task_info = TaskInfo {
+            task: None,
+            task_hash: "".as_bytes().to_vec(),
+            task_is_extra: Some(true),
+            agent_id: Some(Addr::unchecked(AGENT0)),
+            slot_kind: SlotType::Block,
+        };
+
+        balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 10));
+        store.config.save(&mut deps.storage, &config).unwrap();
+        balancer.on_task_completed(
+            &mut deps.storage,
+            &env,
+            &store.config,
+            &store.agent_active_queue,
+            task_info,
+        );
+
+        config = store.config.load(&mut deps.storage).unwrap();
+        assert_eq!(config.agent_active_indices, vec![(SlotType::Block, 0, 11)])
+    }
+
+    #[test]
+    fn test_on_agent_unregister() {
+        let store = CwCroncat::default();
+        let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+        let balancer = RoundRobinBalancer::default();
+        let mut config = mock_config();
+
+        store.config.save(&mut deps.storage, &config).unwrap();
+
+        let mut active_agents: Vec<Addr> = store
+            .agent_active_queue
+            .may_load(&deps.storage)
+            .unwrap()
+            .unwrap_or_default();
+        active_agents.extend(vec![
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(AGENT1),
+            Addr::unchecked(AGENT2),
+            Addr::unchecked(AGENT3),
+            Addr::unchecked(AGENT4),
+        ]);
+
+        store
+            .agent_active_queue
+            .save(&mut deps.storage, &active_agents)
+            .unwrap();
+
+        balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 1));
+        balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Cron, 0, 1));
+        store.config.save(&mut deps.storage, &config).unwrap();
+        balancer.on_agent_unregister(
+            &mut deps.storage,
+            &store.config,
+            &store.agent_active_queue,
+            Addr::unchecked(AGENT0),
+        );
+
+        config = store.config.load(&mut deps.storage).unwrap();
+        assert_eq!(config.agent_active_indices, vec![])
+    }
 }
