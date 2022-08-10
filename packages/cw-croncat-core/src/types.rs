@@ -166,6 +166,7 @@ pub struct Action<T = Empty> {
 }
 
 impl Action {
+    // Checking how much native coins sent in this action
     pub fn bank_sent(&self) -> Option<&[Coin]> {
         if let CosmosMsg::Bank(BankMsg::Send { amount, .. }) = &self.msg {
             Some(amount)
@@ -174,6 +175,7 @@ impl Action {
         }
     }
 
+    // Checking how much cw20 coins sent in this action
     pub fn cw20_sent(&self, api: &dyn Api) -> Option<Cw20CoinVerified> {
         if let CosmosMsg::Wasm(WasmMsg::Execute {
             msg, contract_addr, ..
@@ -182,6 +184,7 @@ impl Action {
             if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                 return match cw20_msg {
                     Cw20ExecuteMsg::Send { amount, .. } => Some(Cw20CoinVerified {
+                        // unwraping safe here because we checked it at
                         address: api.addr_validate(contract_addr).unwrap(),
                         amount,
                     }),

@@ -1,4 +1,4 @@
-use crate::state::Config;
+use crate::state::{Config, QueueItem};
 // use cosmwasm_std::Binary;
 // use cosmwasm_std::StdError;
 // use thiserror::Error;
@@ -6,11 +6,12 @@ use crate::state::Config;
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
-    WasmMsg,
+    to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, Reply, StdResult, Storage, SubMsg,
+    SubMsgResult, WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
+use cw_croncat_core::traits::BalancesOperations;
 use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 //use regex::Regex;
@@ -200,6 +201,36 @@ impl<'a> CwCroncat<'a> {
             total_tasks_needing_agents / max_tasks + remainder
         } else {
             0
+        }
+    }
+
+    pub fn task_after_action(
+        &self,
+        storage: &mut dyn Storage,
+        api: &dyn Api,
+        queue_item: QueueItem,
+        ok: bool,
+    ) -> Result<Task, ContractError> {
+        if ok {
+            self.tasks
+                .may_load(storage, queue_item.task_hash.unwrap())?
+                .ok_or(ContractError::NoTaskFound {})
+        } else {
+            let action_idx = queue_item.action_idx;
+            self.tasks
+                .update(storage, queue_item.task_hash.unwrap(), |task| {
+                    let mut task = task.ok_or(ContractError::NoTaskFound {})?;
+
+                    let action = &task.actions[action_idx as usize];
+                    if let Some(sent) = action.bank_sent() {
+                        task.total_deposit.checked_sub_coins(sent)?;
+                    } else if let Some(sent) = action.cw20_sent(api) {
+                        task.total_cw20_deposit
+                            .checked_sub_coins(std::iter::once(&sent))?;
+                    };
+
+                    Ok(task)
+                })
         }
     }
 }

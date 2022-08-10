@@ -6,7 +6,7 @@ use cosmwasm_std::{
     Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
 use cw_croncat_core::traits::{BalancesOperations, Intervals, ResultFailed};
-use cw_croncat_core::types::{Agent, SlotType};
+use cw_croncat_core::types::{Agent, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -284,46 +284,9 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         env: Env,
         msg: Reply,
-        mut queue_item: QueueItem,
+        task: Task,
+        queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
-        let task_hash = queue_item.task_hash.clone().unwrap();
-        let action_idx = queue_item.action_idx;
-
-        // check if reply had failure
-        let reply_submsg_failed = msg.result.failed();
-        let task = {
-            let mut task = self
-                .tasks
-                .may_load(deps.storage, task_hash.clone())?
-                .ok_or(ContractError::NoTaskFound {})?;
-
-            // Check what task it is and then subtract if it did sent any tokens
-            if !reply_submsg_failed {
-                let action = &task.actions[action_idx as usize];
-                if let Some(sent) = action.bank_sent() {
-                    task.total_deposit.checked_sub_coins(sent)?;
-                } else if let Some(sent) = action.cw20_sent(deps.api) {
-                    task.total_cw20_deposit
-                        .checked_sub_coins(std::iter::once(&sent))?;
-                };
-            }
-            task
-        };
-        queue_item.failed = if reply_submsg_failed {
-            reply_submsg_failed
-        } else {
-            queue_item.failed
-        };
-        if action_idx + 1 == task.actions.len() as u64 {
-            // Last action
-            self.rq_remove(deps.storage, msg.id)
-        } else {
-            // not over yet
-            self.rq_update_rq_item(deps.storage, msg.id, queue_item.failed)?;
-            return Ok(Response::new()
-                .add_attribute("method", "proxy_callback")
-                .add_attribute("action_idx", format!("{}", action_idx)));
-        }
         let task_hash_str = task.to_hash();
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
@@ -346,7 +309,7 @@ impl<'a> CwCroncat<'a> {
 
         let task_info = TaskInfo {
             task: Some(task.clone()),
-            task_hash,
+            task_hash: queue_item.task_hash.unwrap(),
             task_is_extra: queue_item.task_is_extra,
             slot_kind,
             agent_id: queue_item.agent_id,

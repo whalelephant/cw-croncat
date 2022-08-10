@@ -190,7 +190,11 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<QueueItem, ContractError> {
         self.reply_queue.update(storage, idx, |rq| {
             let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
-            rq.failed = failed;
+            // if first fails it means whole thing failed
+            // for cases where we stop task on failure
+            if !rq.failed {
+                rq.failed = failed;
+            }
             rq.action_idx += 1;
             Ok(rq)
         })

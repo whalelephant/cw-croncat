@@ -7,6 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use cw_croncat_core::traits::ResultFailed;
 use cw_croncat_core::types::SlotType;
 
 // version info for migration info
@@ -198,7 +199,19 @@ impl<'a> CwCroncat<'a> {
             .as_ref()
             .map_or(false, |addr| *addr == env.contract.address)
         {
-            return self.proxy_callback(deps, env, msg, queue_item);
+            let task =
+                self.task_after_action(deps.storage, deps.api, queue_item, msg.result.is_ok())?;
+            let reply_submsg_failed = msg.result.failed();
+            let queue_item = self.rq_update_rq_item(deps.storage, msg.id, reply_submsg_failed)?;
+            if queue_item.action_idx == task.actions.len() as u64 {
+                // Last action
+                self.rq_remove(deps.storage, msg.id);
+                return self.proxy_callback(deps, env, msg, task, queue_item);
+            } else {
+                return Ok(Response::new()
+                    .add_attribute("reply", "processing_action")
+                    .add_attribute("action_idx", queue_item.action_idx.to_string()));
+            }
         }
 
         // NOTE: Currently only handling proxy callbacks
