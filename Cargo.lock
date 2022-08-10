@@ -271,6 +271,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-rules"
+version = "0.0.1"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-croncat-core",
+ "cw-multi-test",
+ "cw-storage-plus 0.13.2",
+ "cw2 0.13.2",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-storage-plus"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
