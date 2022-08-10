@@ -204,6 +204,7 @@ impl<'a> CwCroncat<'a> {
         }
     }
 
+    // Change balances of task and contract if action did transaction that went through
     pub fn task_after_action(
         &self,
         storage: &mut dyn Storage,
