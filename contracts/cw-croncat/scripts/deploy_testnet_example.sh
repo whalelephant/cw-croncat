@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-sh build.sh
+sh ../build.sh
 # In case of M1 MacBook use rust-optimizer-arm64 instead of rust-optimizer
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
@@ -33,7 +33,7 @@ echo "Created $AGENT with 10 JUNOX balance"
 echo "Created $USER with 10 JUNOX balance"
 
 # In case of M1 MacBook replace cw_croncat.wasm with cw_croncat-aarch64.wasm 
-RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
+RES=$(junod tx wasm store ../artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 
 
