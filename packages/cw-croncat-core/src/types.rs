@@ -529,6 +529,11 @@ impl GenericBalance {
     pub fn checked_sub_cw20(&mut self, sub: &[Cw20CoinVerified]) -> Result<(), CoreError> {
         self.cw20.checked_sub_coins(sub)
     }
+
+    pub fn checked_sub_generic(&mut self, sub: &GenericBalance) -> Result<(), CoreError> {
+        self.checked_sub_native(&sub.native)?;
+        self.checked_sub_cw20(&sub.cw20)
+    }
 }
 
 impl ResultFailed for SubMsgResult {

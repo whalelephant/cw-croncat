@@ -44,12 +44,12 @@ pub(crate) fn send_tokens(
     to: &Addr,
     balance: &GenericBalance,
 ) -> StdResult<(Vec<SubMsg>, GenericBalance)> {
-    let native_balance = &balance.native;
+    let native_balance = &balance.native.clone();
     let mut coins: GenericBalance = GenericBalance::default();
     let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
         vec![]
     } else {
-        coins.native = balance.native.clone();
+        coins.native = native_balance.to_vec();
         vec![SubMsg::new(BankMsg::Send {
             to_address: to.into(),
             amount: native_balance.to_vec(),
@@ -72,7 +72,7 @@ pub(crate) fn send_tokens(
             Ok(exec)
         })
         .collect();
-    coins.cw20 = balance.cw20.clone();
+    coins.cw20 = cw20_balance.to_vec();
     msgs.append(&mut cw20_msgs?);
     Ok((msgs, coins))
 }

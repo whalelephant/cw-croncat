@@ -1756,7 +1756,7 @@ mod tests {
             admin_balance_before_proxy_call.amount + Uint128::from(extra)
         );
 
-        // checking balances of recipients 
+        // checking balances of recipients
         let balance_addr1 = app.wrap().query_balance("addr1", "atom").unwrap();
         assert_eq!(
             balance_addr1,
@@ -1776,5 +1776,34 @@ mod tests {
         );
 
         // checking balance of agent and contract after withdrawal
+        let beneficary_balance_before_withdraw = app
+            .wrap()
+            .query_balance(AGENT1_BENEFICIARY, "atom")
+            .unwrap();
+        let contract_balance_before_withdraw =
+            app.wrap().query_balance(&contract_addr, "atom").unwrap();
+        let withdraw_msg = ExecuteMsg::WithdrawReward {};
+        app.execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &withdraw_msg,
+            &[],
+        )
+        .unwrap();
+        let beneficary_balance_after_withdraw = app
+            .wrap()
+            .query_balance(AGENT1_BENEFICIARY, "atom")
+            .unwrap();
+        let contract_balance_after_withdraw =
+            app.wrap().query_balance(&contract_addr, "atom").unwrap();
+        let expected_transfer_amount = Uint128::from((gas_limit * 2) + agent_fee);
+        assert_eq!(
+            beneficary_balance_after_withdraw.amount,
+            beneficary_balance_before_withdraw.amount + expected_transfer_amount
+        );
+        assert_eq!(
+            contract_balance_after_withdraw.amount,
+            contract_balance_before_withdraw.amount - expected_transfer_amount
+        )
     }
 }

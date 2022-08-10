@@ -257,22 +257,19 @@ impl<'a> CwCroncat<'a> {
         storage: &mut dyn Storage,
         info: MessageInfo,
     ) -> Result<Vec<SubMsg>, ContractError> {
-        let a = self.agents.may_load(storage, &info.sender)?;
-        if a.is_none() {
-            return Err(ContractError::AgentNotRegistered {});
-        }
-        let agent = a.unwrap();
+        let mut agent = self
+            .agents
+            .may_load(storage, &info.sender)?
+            .ok_or(ContractError::AgentNotRegistered {})?;
 
         // This will send all token balances to Agent
         let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
+        agent.balance.checked_sub_generic(&balances)?;
         let mut config = self.config.load(storage)?;
         config
             .available_balance
             .checked_sub_native(&balances.native)?;
-        // TODO: Finish:
-        // config
-        //     .available_balance
-        //     .minus_tokens(Balance::from(balances.cw20));
+        self.agents.save(storage, &info.sender, &agent)?;
         self.config.save(storage, &config)?;
 
         Ok(messages)
