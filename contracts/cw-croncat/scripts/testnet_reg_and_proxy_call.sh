@@ -1,4 +1,4 @@
-. ./init_variables_testnet.sh
+. ./testnet_init_vars.sh
 
 AGENT=juno1pd43m659naajmn2chkt6tna0uud2ywyp5dm4h3
 CONTRACT=juno12z4hh9r3j9aurjn6ppkgyjrkuu4ugrdectsh792w8feyj56dhlssvntdls
@@ -15,4 +15,3 @@ junod tx wasm execute $CONTRACT "$PROXY_CALL" --from $AGENT $TXFLAG -y
 
 echo "AGENT - " $AGENT
 echo "CONTRACT - " $CONTRACT
-echo "JSON - " $REGISTER_AGENT
