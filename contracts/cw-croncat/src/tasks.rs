@@ -53,9 +53,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
-        let res: Option<Task> = self
-            .tasks
-            .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
+        let res: Option<Task> = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
 
         Ok(res.map(Into::into))
     }
@@ -263,7 +261,7 @@ impl<'a> CwCroncat<'a> {
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = item.interval.next(env.clone(), item.boundary);
+        let (next_id, slot_kind) = item.interval.next(&env, item.boundary);
 
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
@@ -274,7 +272,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add task to catalog
         self.tasks
-            .update(deps.storage, item.to_hash_vec(), |old| match old {
+            .update(deps.storage, &item.to_hash_vec(), |old| match old {
                 Some(_) => Err(ContractError::CustomError {
                     val: "Task already exists".to_string(),
                 }),
@@ -353,11 +351,11 @@ impl<'a> CwCroncat<'a> {
         let hash_vec = task_hash.clone().into_bytes();
         let task = self
             .tasks
-            .may_load(storage, hash_vec.clone())?
+            .may_load(storage, &hash_vec)?
             .ok_or(ContractError::NoTaskFound {})?;
 
         // Remove all the thangs
-        self.tasks.remove(storage, hash_vec)?;
+        self.tasks.remove(storage, &hash_vec)?;
 
         // find any scheduled things and remove them!
         // check which type of slot it would be in, then iterate to remove
@@ -410,21 +408,24 @@ impl<'a> CwCroncat<'a> {
                 Ok(balances)
             },
         )?;
-        // setup sub-msgs for returning any remaining total_deposit to the owner
-        let submsgs = SubMsg::new(BankMsg::Send {
-            to_address: task.clone().owner_id.into(),
-            amount: task.clone().total_deposit,
-        });
-
         // remove from the total available_balance
-        let mut c: Config = self.config.load(storage)?;
-        c.available_balance
-            .checked_sub_native(&task.total_deposit)?;
-        self.config.save(storage, &c)?;
-
-        Ok(Response::new()
-            .add_attribute("method", "remove_task")
-            .add_submessage(submsgs))
+        self.config
+            .update(storage, |mut c| -> Result<_, ContractError> {
+                c.available_balance
+                    .checked_sub_native(&task.total_deposit)?;
+                Ok(c)
+            })?;
+        // setup sub-msgs for returning any remaining total_deposit to the owner
+        if !task.total_deposit.is_empty() {
+            Ok(Response::new()
+                .add_attribute("method", "remove_task")
+                .add_submessage(SubMsg::new(BankMsg::Send {
+                    to_address: task.owner_id.into(),
+                    amount: task.total_deposit,
+                })))
+        } else {
+            Ok(Response::new().add_attribute("method", "remove_task"))
+        }
     }
 
     /// Refill a task with more balance to continue its execution
@@ -436,7 +437,7 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.into_bytes();
-        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
+        let task_raw = self.tasks.may_load(deps.storage, &hash_vec)?;
         if task_raw.is_none() {
             return Err(ContractError::NoTaskFound {});
         }
@@ -464,12 +465,13 @@ impl<'a> CwCroncat<'a> {
         task.total_deposit = total_balance;
 
         // update the task
-        self.tasks.update(deps.storage, hash_vec, |old| match old {
-            Some(_) => Ok(task.clone()),
-            None => Err(ContractError::CustomError {
-                val: "Task doesnt exist".to_string(),
-            }),
-        })?;
+        self.tasks
+            .update(deps.storage, &hash_vec, |old| match old {
+                Some(_) => Ok(task.clone()),
+                None => Err(ContractError::CustomError {
+                    val: "Task doesnt exist".to_string(),
+                }),
+            })?;
 
         // return the task total
         let coins_total: Vec<String> = task.total_deposit.iter().map(ToString::to_string).collect();
@@ -498,7 +500,7 @@ impl<'a> CwCroncat<'a> {
             }
             validated
         };
-        let task = self.tasks.update(deps.storage, task_hash, |task| {
+        let task = self.tasks.update(deps.storage, &task_hash, |task| {
             let mut task = task.ok_or(ContractError::NoTaskFound {})?;
             if task.owner_id != info.sender {
                 return Err(ContractError::RefillNotTaskOwner {});

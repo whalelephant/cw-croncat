@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::traits::ResultFailed;
+use cw_croncat_core::traits::{BalancesOperations, ResultFailed};
 use cw_croncat_core::types::SlotType;
 
 // version info for migration info
@@ -27,14 +27,15 @@ impl<'a> CwCroncat<'a> {
         info: MessageInfo,
         msg: InstantiateMsg,
     ) -> Result<Response, ContractError> {
-        let mut available_balance = GenericBalance::default();
-
         // keep tally of balances initialized
-        let state_balances = deps.querier.query_all_balances(&env.contract.address)?;
-        available_balance.checked_add_native(&state_balances)?;
-        available_balance.checked_add_native(&info.funds)?;
+        let mut native = deps.querier.query_all_balances(&env.contract.address)?;
+        native.checked_add_coins(&info.funds)?;
+        let available_balance = GenericBalance {
+            native,
+            cw20: Default::default(),
+        };
 
-        let owner_acct = msg.owner_id.unwrap_or_else(|| info.sender.clone());
+        let owner_acct = msg.owner_id.unwrap_or(info.sender);
         assert!(
             deps.api.addr_validate(owner_acct.as_str()).is_ok(),
             "Invalid address"

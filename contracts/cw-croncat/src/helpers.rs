@@ -6,8 +6,8 @@ use crate::state::{Config, QueueItem};
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, Reply, StdResult, Storage, SubMsg,
-    SubMsgResult, WasmMsg,
+    to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
+    Uint128, WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
@@ -211,27 +211,38 @@ impl<'a> CwCroncat<'a> {
         queue_item: QueueItem,
         ok: bool,
     ) -> Result<Task, ContractError> {
+        let task_hash = queue_item.task_hash.unwrap();
+
+        let mut task = self
+            .tasks
+            .may_load(storage, &task_hash)?
+            .ok_or(ContractError::NoTaskFound {})?;
+        let mut config = self.config.load(storage)?;
+        let action_idx = queue_item.action_idx;
+        let action = &task.actions[action_idx as usize];
+        // slicing gas costs from task even if it failed
+        let gas = Coin {
+            denom: config.native_denom,
+            amount: Uint128::from(action.gas_limit.unwrap_or(config.gas_base_fee)),
+        };
+        task.total_deposit
+            .checked_sub_coins(std::slice::from_ref(&gas))?;
+        // returning moved denom
+        config.native_denom = gas.denom;
         if ok {
-            self.tasks
-                .may_load(storage, queue_item.task_hash.unwrap())?
-                .ok_or(ContractError::NoTaskFound {})
-        } else {
-            let action_idx = queue_item.action_idx;
-            self.tasks
-                .update(storage, queue_item.task_hash.unwrap(), |task| {
-                    let mut task = task.ok_or(ContractError::NoTaskFound {})?;
-
-                    let action = &task.actions[action_idx as usize];
-                    if let Some(sent) = action.bank_sent() {
-                        task.total_deposit.checked_sub_coins(sent)?;
-                    } else if let Some(sent) = action.cw20_sent(api) {
-                        task.total_cw20_deposit
-                            .checked_sub_coins(std::iter::once(&sent))?;
-                    };
-
-                    Ok(task)
-                })
+            // update task balances and contract balances
+            if let Some(sent) = action.bank_sent() {
+                task.total_deposit.checked_sub_coins(sent)?;
+                config.available_balance.checked_sub_native(sent)?;
+            } else if let Some(sent) = action.cw20_sent(api) {
+                task.total_cw20_deposit
+                    .checked_sub_coins(std::iter::once(&sent))?;
+                config.available_balance.checked_sub_cw20(&[sent])?;
+            };
+            self.tasks.save(storage, &task_hash, &task)?;
+            self.config.save(storage, &config)?;
         }
+        Ok(task)
     }
 }
 

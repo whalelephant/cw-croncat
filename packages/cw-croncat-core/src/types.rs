@@ -546,7 +546,7 @@ impl ResultFailed for SubMsgResult {
     }
 }
 
-fn get_next_block_limited(env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary.start {
@@ -570,7 +570,7 @@ fn get_next_block_limited(env: Env, boundary: BoundaryValidated) -> (u64, SlotTy
 // So either:
 // - Boundary specifies a start/end that block offsets can be computed from
 // - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
+fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
     let current_block_height = env.block.height;
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
@@ -605,7 +605,7 @@ fn get_next_block_by_offset(env: Env, boundary: BoundaryValidated, block: u64) -
 }
 
 impl Intervals for Interval {
-    fn next(&self, env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+    fn next(&self, env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
         match self {
             // return the first block within a specific range that can be triggered 1 time.
             Interval::Once => get_next_block_limited(env, boundary),

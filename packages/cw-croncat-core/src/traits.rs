@@ -30,7 +30,7 @@ pub trait ResultFailed {
 }
 
 pub trait Intervals {
-    fn next(&self, env: Env, boundary: BoundaryValidated) -> (u64, SlotType);
+    fn next(&self, env: &Env, boundary: BoundaryValidated) -> (u64, SlotType);
     fn is_valid(&self) -> bool;
 }
 

@@ -93,13 +93,13 @@ pub fn token_owner_idx(d: &Task) -> Addr {
 pub struct CwCroncat<'a> {
     pub config: Item<'a, Config>,
 
-    pub agents: Map<'a, Addr, Agent>,
+    pub agents: Map<'a, &'a Addr, Agent>,
     // TODO: Assess if diff store structure is needed for these:
     pub agent_active_queue: Item<'a, Vec<Addr>>,
     pub agent_pending_queue: Item<'a, Vec<Addr>>,
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
-    pub tasks: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
     pub task_total: Item<'a, u64>,
 
     /// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
@@ -245,7 +245,7 @@ mod tests {
         // create a task
         let res = store
             .tasks
-            .update(&mut storage, task.to_hash_vec(), |old| match old {
+            .update(&mut storage, &task.to_hash_vec(), |old| match old {
                 Some(_) => Err(ContractError::CustomError {
                     val: "Already exists".to_string(),
                 }),
@@ -275,7 +275,7 @@ mod tests {
         assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 
         // get single task
-        let get_task = store.tasks.load(&mut storage, task_id)?;
+        let get_task = store.tasks.load(&mut storage, &task_id)?;
         assert_eq!(get_task, task);
 
         Ok(())

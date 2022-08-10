@@ -21,7 +21,7 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         account_id: Addr,
     ) -> StdResult<Option<AgentResponse>> {
-        let agent = self.agents.may_load(deps.storage, account_id.clone())?;
+        let agent = self.agents.may_load(deps.storage, &account_id)?;
         if agent.is_none() {
             return Ok(None);
         }
@@ -191,7 +191,7 @@ impl<'a> CwCroncat<'a> {
 
         self.agents.update(
             deps.storage,
-            account,
+            &account,
             |a: Option<Agent>| -> Result<_, ContractError> {
                 match a {
                     // make sure that account isn't already added
@@ -235,7 +235,7 @@ impl<'a> CwCroncat<'a> {
 
         self.agents.update(
             deps.storage,
-            info.sender,
+            &info.sender,
             |a: Option<Agent>| -> Result<_, ContractError> {
                 match a {
                     Some(agent) => {
@@ -257,7 +257,7 @@ impl<'a> CwCroncat<'a> {
         storage: &mut dyn Storage,
         info: MessageInfo,
     ) -> Result<Vec<SubMsg>, ContractError> {
-        let a = self.agents.may_load(storage, info.sender)?;
+        let a = self.agents.may_load(storage, &info.sender)?;
         if a.is_none() {
             return Err(ContractError::AgentNotRegistered {});
         }
@@ -370,7 +370,7 @@ impl<'a> CwCroncat<'a> {
         // NOTE: Since this also checks if agent exists, safe to not have redundant logic
         let messages = self.withdraw_balances(deps.storage, info.clone())?;
         let agent_id = info.sender;
-        self.agents.remove(deps.storage, agent_id.clone());
+        self.agents.remove(deps.storage, &agent_id);
 
         // Remove from the list of active agents if the agent in this list
         let mut active_agents: Vec<Addr> = self
