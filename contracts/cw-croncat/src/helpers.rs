@@ -221,7 +221,7 @@ impl<'a> CwCroncat<'a> {
         let mut config = self.config.load(storage)?;
         let action_idx = queue_item.action_idx;
         let action = &task.actions[action_idx as usize];
-        // slicing gas costs from task even if it failed 
+        // slicing gas costs from task even if it failed
         // TODO: it's movable to the `proxy_call`
         let gas = Coin {
             denom: config.native_denom,
