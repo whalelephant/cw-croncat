@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, BalanceResponse, Binary, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult,
+    Response, StdResult, Coin, has_coins,
 };
 use cw2::set_contract_version;
 use cw20::Cw20QueryMsg::Balance;
@@ -44,15 +44,18 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetBalance { address, denom } => {
-            to_binary(&query_get_balance(deps, env, address, denom)?)
+            to_binary(&query_get_balance(deps, address, denom)?)
         }
         QueryMsg::GetCW20Balance {
             cw20_contract,
             address,
-        } => to_binary(&query_get_cw20_balance(deps, env, cw20_contract, address)?),
+        } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
+        QueryMsg::HasBalance { balance, required_balance } => {
+            to_binary(&query_has_balance(balance, required_balance )?)
+        }
         QueryMsg::CheckOwnerOfNFT {
             address,
             nft_address,
@@ -72,7 +75,6 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
 
 fn query_get_balance(
     deps: Deps,
-    _env: Env,
     address: Addr,
     denom: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
@@ -87,7 +89,6 @@ fn query_get_balance(
 
 fn query_get_cw20_balance(
     deps: Deps,
-    _env: Env,
     cw20_contract: Addr,
     address: Addr,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
@@ -99,6 +100,13 @@ fn query_get_cw20_balance(
     )?;
     let amount = to_binary(&balance.amount.amount).ok();
     Ok((true, amount))
+}
+
+fn query_has_balance(
+    balance: Vec<Coin>,
+    required_balance: Coin,
+) -> StdResult<RuleResponse<Option<Binary>>> {
+    Ok((has_coins(&balance, &required_balance), None))
 }
 
 // TODO:
