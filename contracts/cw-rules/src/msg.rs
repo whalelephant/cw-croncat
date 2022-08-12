@@ -28,8 +28,8 @@ pub enum QueryMsg {
         token_id: String,
     },
     CheckProposalReadyToExec {
-        dao_address: Addr,
-        proposal_id: String,
+        dao_address: String,
+        proposal_id: u64,
     },
 
     // Full evaluations

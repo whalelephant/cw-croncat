@@ -12,6 +12,7 @@ use cw_croncat_core::types::Rule;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, QueryMultiResponse, RuleResponse};
+use crate::types::dao::{ProposalResponse, QueryDao, Status};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -47,13 +48,15 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetBalance { address } => to_binary(&query_get_balance(env, address)?),
         QueryMsg::GetCW20Balance { address } => to_binary(&query_get_cw20_balance(env, address)?),
-        QueryMsg::CheckOwnerOfNFT { address, nft_address, token_id } => {
-            to_binary(&query_check_owner_nft(address, nft_address, token_id)?)
-        }
+        QueryMsg::CheckOwnerOfNFT {
+            address,
+            nft_address,
+            token_id,
+        } => to_binary(&query_check_owner_nft(address, nft_address, token_id)?),
         QueryMsg::CheckProposalReadyToExec {
             dao_address,
             proposal_id,
-        } => to_binary(&query_dao_proposal_ready(dao_address, proposal_id)?),
+        } => to_binary(&query_dao_proposal_ready(deps, dao_address, proposal_id)?),
         QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, env, rules)?),
     }
 }
@@ -86,13 +89,15 @@ fn query_check_owner_nft(
 
 // TODO:
 fn query_dao_proposal_ready(
-    dao_address: Addr,
-    proposal_id: String,
+    deps: Deps,
+    dao_address: String,
+    proposal_id: u64,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    // let res: RuleResponse<Option<Binary>> = deps
-    //     .querier
-    //     .query_wasm_smart(dao_address, &msg)?;
-    Ok((true, None))
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    let res: ProposalResponse = deps
+        .querier
+        .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
+    Ok((res.proposal.status == Status::Passed, None))
 }
 
 // // GOAL:
