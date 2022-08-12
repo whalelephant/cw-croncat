@@ -296,14 +296,14 @@ export interface GetWalletBalancesResponse {
 }
 export interface Task {
   actions: ActionForEmpty[];
+  amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
   funds_withdrawn_recurring: Uint128;
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
   stop_on_fail: boolean;
-  total_cw20_deposit: Cw20CoinVerified[];
-  total_deposit: Coin[];
+  total_deposit: GenericBalance;
   [k: string]: unknown;
 }
 export interface BoundaryValidated {

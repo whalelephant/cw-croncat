@@ -1,5 +1,3 @@
-use std::slice;
-
 use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
 use crate::state::{Config, CwCroncat};
@@ -11,6 +9,7 @@ use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetConfigResponse, GetWalletBalancesResponse,
 };
+use cw_croncat_core::traits::FindAndMutate;
 
 impl<'a> CwCroncat<'a> {
     pub(crate) fn query_config(&self, deps: Deps) -> StdResult<GetConfigResponse> {
@@ -224,9 +223,7 @@ impl<'a> CwCroncat<'a> {
                         }
 
                         // Update internal registry balance
-                        config
-                            .available_balance
-                            .checked_sub_cw20(slice::from_ref(&bal))?;
+                        config.available_balance.cw20.find_checked_sub(&bal)?;
 
                         let msg = Cw20ExecuteMsg::Transfer {
                             recipient: account_id.clone().into(),
