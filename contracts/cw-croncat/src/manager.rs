@@ -419,7 +419,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, TaskRequest};
+    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Action, Boundary, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -1805,8 +1805,8 @@ mod tests {
 
         let gas_limit = GAS_BASE_FEE_JUNO;
         let agent_fee = 5; // TODO: might change
-        let extra = 50; // extra for checking refunds at task removal
-        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + 4 + extra; // + 3 + 4 atoms sent
+        let extra = 50; // extra for checking nonzero task balance
+        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + extra; // + 3 atoms sent
 
         // create a task
         app.execute_contract(
@@ -1842,6 +1842,21 @@ mod tests {
                 .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
         }));
 
+        let task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: "65237042c224447b7d6d7cdfd6515af3e76cb3270ce6d5ed989a6babc12f1026"
+                        .to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            task.unwrap().total_deposit[0].amount,
+            Uint128::from(GAS_BASE_FEE_JUNO + extra)
+        );
+
         app.update_block(add_little_time);
         let res = app
             .execute_contract(
@@ -1858,6 +1873,18 @@ mod tests {
                 .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
         }));
         // third time it pays only base to agent
+        // since "extra" is not enough to cover another task and it got removed
+        let task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: "65237042c224447b7d6d7cdfd6515af3e76cb3270ce6d5ed989a6babc12f1026"
+                        .to_string(),
+                },
+            )
+            .unwrap();
+        assert!(task.is_none());
         app.update_block(add_little_time);
         let res = app
             .execute_contract(
@@ -1867,7 +1894,6 @@ mod tests {
                 &vec![],
             )
             .unwrap();
-        // println!("{:?}", res.events);
 
         assert!(res.events.iter().any(|event| {
             event
