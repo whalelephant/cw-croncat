@@ -87,7 +87,6 @@ fn query_check_owner_nft(
     Ok((true, None))
 }
 
-// TODO:
 fn query_dao_proposal_ready(
     deps: Deps,
     dao_address: String,
