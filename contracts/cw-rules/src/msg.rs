@@ -18,8 +18,10 @@ pub enum QueryMsg {
     // Individual query evaluations
     GetBalance {
         address: Addr,
+        denom: String,
     },
     GetCW20Balance {
+        cw20_contract: Addr,
         address: Addr,
     },
     CheckOwnerOfNFT {
@@ -31,11 +33,10 @@ pub enum QueryMsg {
         dao_address: Addr,
         proposal_id: String,
     },
-
-    // Full evaluations
-    QueryConstruct {
-        rules: Vec<Rule>,
-    },
+    // // Full evaluations
+    // QueryConstruct {
+    //     rules: Vec<Rule>,
+    // },
 }
 
 // We define a custom struct for each query response

@@ -281,6 +281,7 @@ dependencies = [
  "cw-multi-test",
  "cw-storage-plus 0.13.2",
  "cw2 0.13.2",
+ "cw20",
  "schemars",
  "serde",
  "serde_json",
