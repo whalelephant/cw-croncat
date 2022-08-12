@@ -3,9 +3,9 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg, Uint128,
+    coin, Addr, Coin, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
-use cw_croncat_core::traits::{BalancesOperations, Intervals};
+use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
@@ -59,10 +59,12 @@ impl<'a> CwCroncat<'a> {
         if slot.0.is_none() {
             // See if there are no cron (time-based) tasks to execute
             if slot.1.is_none() {
-                self.send_base_agent_reward(deps.storage, agent, info);
-                return Err(ContractError::CustomError {
-                    val: "No Tasks For Slot".to_string(),
-                });
+                let base_reward = self.send_base_agent_reward(deps.storage, agent, &info)?;
+                // no task for slot
+                return Ok(Response::new()
+                    .add_attribute("method", "proxy_call")
+                    .add_attribute("agent", &info.sender)
+                    .add_attribute("no_task_agent_base_reward", base_reward.to_string()));
             } else {
                 slot_type = SlotType::Cron;
                 slot_id = slot.1.unwrap();
@@ -77,10 +79,12 @@ impl<'a> CwCroncat<'a> {
             some_hash = self.pop_slot_item(deps.storage, &slot.0.unwrap(), &SlotType::Block);
         }
         if some_hash.is_none() {
-            self.send_base_agent_reward(deps.storage, agent, info);
-            return Err(ContractError::CustomError {
-                val: "No Tasks For Slot".to_string(),
-            });
+            let base_reward = self.send_base_agent_reward(deps.storage, agent, &info)?;
+            //
+            return Ok(Response::new()
+                .add_attribute("method", "proxy_call")
+                .add_attribute("agent", &info.sender)
+                .add_attribute("no_task_agent_base_reward", base_reward.to_string()));
         }
 
         // Get the task details
@@ -89,8 +93,11 @@ impl<'a> CwCroncat<'a> {
         let some_task = self.tasks.may_load(deps.storage, &hash)?;
         if some_task.is_none() {
             // NOTE: This could should never get reached, however we cover just in case
-            self.send_base_agent_reward(deps.storage, agent, info);
-            return Err(ContractError::NoTaskFound {});
+            let base_reward = self.send_base_agent_reward(deps.storage, agent, &info)?;
+            return Ok(Response::new()
+                .add_attribute("method", "proxy_call")
+                .add_attribute("agent", &info.sender)
+                .add_attribute("no_task_agent_base_reward", base_reward.to_string()));
         }
 
         //Get agent tasks with extra(if exists) from balancer
@@ -120,14 +127,14 @@ impl<'a> CwCroncat<'a> {
         let task = some_task.unwrap();
 
         //Restrict bank msg so contract doesnt get drained
-        if task.is_recurring()
-            && task.contains_send_msg()
-            && !task.is_valid_msg(&env.contract.address, &info.sender, &c.owner_id)
-        {
-            return Err(ContractError::CustomError {
-                val: "Invalid process_call message!".to_string(),
-            });
-        }
+        // if task.is_recurring()
+        //     && task.contains_send_msg()
+        //     && !task.is_valid_msg_calculate_usage(&env.contract.address, &info.sender, &c.owner_id)
+        // {
+        //     return Err(ContractError::CustomError {
+        //         val: "Invalid process_call message!".to_string(),
+        //     });
+        // }
 
         // TODO: Bring this back!
         // // Fee breakdown:
@@ -211,15 +218,30 @@ impl<'a> CwCroncat<'a> {
         let self_addr = env.contract.address;
 
         // Add submessages for all actions
+        // And calculate gas usages
+        let mut gas_used = 0;
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
             if let Some(gas_limit) = action.gas_limit {
                 sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
+                gas_used += gas_limit;
             } else {
                 sub_msgs.push(sub_msg);
+                gas_used += c.gas_base_fee;
             }
         }
+        // Task pays for gas even if it failed
+        let mut agent = agent;
+        let mut task = task;
+        let gas_used = coin(gas_used as u128, c.native_denom);
+        agent.balance.native.find_checked_add(&gas_used)?;
+        task.total_deposit.native.find_checked_sub(&gas_used)?;
+        // calculate agent base reward
+        task.total_deposit.native.find_checked_sub(&c.agent_fee)?;
+        agent.balance.native.find_checked_add(&c.agent_fee)?;
 
+        self.agents.save(deps.storage, &info.sender, &agent)?;
+        self.tasks.save(deps.storage, &hash, &task)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
@@ -292,44 +314,10 @@ impl<'a> CwCroncat<'a> {
         // let out_of_funds = call_total_balance > task.total_deposit;
 
         let agent_id = queue_item.agent_id.unwrap();
-
-        // TODO: move this thing to proxy_call
-        let config = self.config.load(deps.storage)?;
-        let task = self.tasks.update(
-            deps.storage,
-            &queue_item.task_hash.clone().unwrap(),
-            |task| -> Result<_, ContractError> {
-                let mut task = task.ok_or(ContractError::NoTaskFound {})?;
-                task.total_deposit
-                    .checked_sub_coins(std::slice::from_ref(&config.agent_fee))?;
-                Ok(task)
-            },
-        )?;
-        {
-            let gas_refund_to_agent =
-                task.actions
-                    .iter()
-                    .fold(config.agent_fee.clone(), |mut acc, action| {
-                        acc.amount +=
-                            Uint128::from(action.gas_limit.unwrap_or(config.gas_base_fee));
-                        acc
-                    });
-            self.agents
-                .update(deps.storage, &agent_id, |ag| -> Result<_, ContractError> {
-                    let mut agent = ag.ok_or(ContractError::AgentNotRegistered {})?;
-                    agent
-                        .balance
-                        .checked_add_native(std::slice::from_ref(&gas_refund_to_agent))?;
-                    Ok(agent)
-                })?;
-        }
-
         // if non-recurring, exit
         if task.interval == Interval::Once
-            || task
-                .verify_enough_cw20_balances(&task.task_cw20_balance_uses(deps.api)?)
-                .is_err()
             || (task.stop_on_fail && queue_item.failed)
+            || task.verify_enough_balances(false).is_err()
         {
             // Process task exit, if no future task can execute
             let rt = self.remove_task(deps.storage, task_hash_str);
@@ -405,34 +393,25 @@ impl<'a> CwCroncat<'a> {
         &self,
         storage: &mut dyn Storage,
         mut agent: Agent,
-        message: MessageInfo,
-    ) {
-        let mut config: Config = self.config.load(storage).unwrap();
+        message: &MessageInfo,
+    ) -> Result<Coin, ContractError> {
+        let mut config: Config = self.config.load(storage)?;
 
-        let agent_base_fee = config.agent_fee.clone();
-        let add_native = vec![agent_base_fee.clone()];
-
-        agent.balance.checked_add_native(&add_native).unwrap();
+        let add_native = config.agent_fee.clone();
         agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
 
-        if !config.available_balance.native.is_empty()
-            && config.available_balance.native.first().unwrap().amount >= agent_base_fee.amount
-        {
-            config
-                .available_balance
-                .checked_sub_native(&add_native)
-                .unwrap();
-        }
+        agent.balance.native.find_checked_add(&add_native)?;
+        config
+            .available_balance
+            .native
+            .find_checked_sub(&add_native)?;
 
-        self.config
-            .save(storage, &config)
-            .expect("Could not save config");
+        self.config.save(storage, &config)?;
 
-        // Reset missed slot, if any
-        if agent.last_missed_slot != 0 {
-            agent.last_missed_slot = 0;
-        }
-        self.agents.save(storage, &message.sender, &agent).unwrap();
+        // Reset missed slot
+        agent.last_missed_slot = 0;
+        self.agents.save(storage, &message.sender, &agent)?;
+        Ok(add_native)
     }
 }
 
@@ -666,20 +645,18 @@ mod tests {
         assert!(has_created_hash);
 
         // NoTasksForSlot
-        let res_err = app
+        let res_no_tasks = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &proxy_call_msg,
                 &vec![],
             )
-            .unwrap_err();
-        assert_eq!(
-            ContractError::CustomError {
-                val: "No Tasks For Slot".to_string()
-            },
-            res_err.downcast().unwrap()
-        );
+            .unwrap();
+        assert!(res_no_tasks.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "no_task_agent_base_reward" && attr.value == "5atom")),);
 
         // NOTE: Unless there's a way to fake a task getting removed but hash remains in slot,
         // this coverage is not mockable. There literally shouldn't be any code that allows
@@ -936,7 +913,6 @@ mod tests {
             ("slot_kind", "Block"),
             ("task_hash", task_id_str.as_str().clone()),
         ];
-        println!("events: {:?}", res.events);
 
         // check all attributes are covered in response, and match the expected values
         for (k, v) in attributes.iter() {
@@ -950,9 +926,8 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "500005atom"
+                        && a.clone().value == "250005atom"
                     {
-                        println!("{}", a.value);
                         has_submsg_method = true;
                     }
                     if e.ty == "reply"
@@ -1050,7 +1025,7 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "500005atom"
+                        && a.clone().value == "250005atom"
                     {
                         has_submsg_method = true;
                     }
@@ -1495,7 +1470,6 @@ mod tests {
         };
         let msg: CosmosMsg = send.clone().into();
         let gas_limit = 150_000;
-        let agent_fee = 5;
 
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
@@ -1510,8 +1484,7 @@ mod tests {
                 cw20_coins: vec![],
             },
         };
-        // create 1 token off task
-        let amount_for_one_task = gas_limit + agent_fee;
+        let amount_for_one_task = gas_limit + 1000;
         // create a task
         let res = app.execute_contract(
             Addr::unchecked(ANYONE),
@@ -1519,7 +1492,7 @@ mod tests {
             &create_task_msg,
             &coins(u128::from(amount_for_one_task * 2), "atom"),
         );
-        assert!(&res.is_ok());
+        assert!(res.is_ok());
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
@@ -1661,13 +1634,15 @@ mod tests {
         app.update_block(add_little_time);
 
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
-        let res = app.execute_contract(
-            Addr::unchecked(AGENT0),
-            contract_addr.clone(),
-            &proxy_call_msg,
-            &vec![],
-        );
-        assert!(res.is_ok());
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        //assert!(res.is_ok());
     }
 
     #[test]

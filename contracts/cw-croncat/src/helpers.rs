@@ -7,11 +7,11 @@ use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
     to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
-    Uint128, WasmMsg,
+    WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
-use cw_croncat_core::traits::BalancesOperations;
+use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
 use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 //use regex::Regex;
@@ -213,36 +213,25 @@ impl<'a> CwCroncat<'a> {
         ok: bool,
     ) -> Result<Task, ContractError> {
         let task_hash = queue_item.task_hash.unwrap();
-
         let mut task = self
             .tasks
             .may_load(storage, &task_hash)?
             .ok_or(ContractError::NoTaskFound {})?;
-        let mut config = self.config.load(storage)?;
-        let action_idx = queue_item.action_idx;
-        let action = &task.actions[action_idx as usize];
-        // slicing gas costs from task even if it failed
-        // TODO: it's movable to the `proxy_call`
-        let gas = Coin {
-            denom: config.native_denom,
-            amount: Uint128::from(action.gas_limit.unwrap_or(config.gas_base_fee)),
-        };
-        task.total_deposit
-            .checked_sub_coins(std::slice::from_ref(&gas))?;
-        // returning moved denom
-        config.native_denom = gas.denom;
         if ok {
+            let mut config = self.config.load(storage)?;
+            let action_idx = queue_item.action_idx;
+            let action = &task.actions[action_idx as usize];
+
             // update task balances and contract balances
             if let Some(sent) = action.bank_sent() {
-                task.total_deposit.checked_sub_coins(sent)?;
+                task.total_deposit.native.checked_sub_coins(sent)?;
                 config.available_balance.checked_sub_native(sent)?;
             } else if let Some(sent) = action.cw20_sent(api) {
-                task.total_cw20_deposit
-                    .checked_sub_coins(std::iter::once(&sent))?;
-                config.available_balance.checked_sub_cw20(&[sent])?;
+                task.total_deposit.cw20.find_checked_sub(&sent)?;
+                config.available_balance.cw20.find_checked_sub(&sent)?;
             };
-            self.tasks.save(storage, &task_hash, &task)?;
             self.config.save(storage, &config)?;
+            self.tasks.save(storage, &task_hash, &task)?;
         }
         Ok(task)
     }

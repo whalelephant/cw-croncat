@@ -231,8 +231,8 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: vec![],
-            total_cw20_deposit: vec![],
+            total_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
