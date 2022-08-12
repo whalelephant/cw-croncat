@@ -44,7 +44,7 @@ pub(crate) fn send_tokens(
     to: &Addr,
     balance: &GenericBalance,
 ) -> StdResult<(Vec<SubMsg>, GenericBalance)> {
-    let native_balance = &balance.native.clone();
+    let native_balance = &balance.native;
     let mut coins: GenericBalance = GenericBalance::default();
     let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
         vec![]

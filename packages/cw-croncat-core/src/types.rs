@@ -184,7 +184,7 @@ impl Action {
             if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                 return match cw20_msg {
                     Cw20ExecuteMsg::Send { amount, .. } => Some(Cw20CoinVerified {
-                        // unwraping safe here because we checked it at
+                        // unwraping safe here because we checked it at `is_valid_msg_calculate_usage`
                         address: api.addr_validate(contract_addr).unwrap(),
                         amount,
                     }),
@@ -345,18 +345,22 @@ impl Task {
                     }
                     if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                         match cw20_msg {
-                            Cw20ExecuteMsg::Send { amount, .. } => amount_for_one_task
-                                .cw20
-                                .find_checked_add(&Cw20CoinVerified {
-                                    address: api.addr_validate(contract_addr)?,
-                                    amount,
-                                })?,
-                            Cw20ExecuteMsg::Transfer { amount, .. } => amount_for_one_task
-                                .cw20
-                                .find_checked_add(&Cw20CoinVerified {
-                                    address: api.addr_validate(contract_addr)?,
-                                    amount,
-                                })?,
+                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
                             _ => valid = false,
                         }
                     }
@@ -371,6 +375,9 @@ impl Task {
                     // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
                     // which is however much was passed in, like 1000000ujunox below:
                     // junod tx wasm execute … … --amount 1000000ujunox
+                    if amount.iter().any(|coin| coin.amount.is_zero()) {
+                        valid = false;
+                    }
                     amount_for_one_task.checked_add_native(amount)?;
                 }
                 CosmosMsg::Bank(BankMsg::Burn { .. }) => {
