@@ -1777,4 +1777,103 @@ mod tests {
             contract_balance_before_withdraw.amount - expected_transfer_amount
         )
     }
+
+    #[test]
+    fn test_no_reschedule_if_lack_balance() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let addr1 = String::from("addr1");
+        let amount = coins(3, "atom");
+        let send = BankMsg::Send {
+            to_address: addr1,
+            amount,
+        };
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: send.into(),
+                    gas_limit: None,
+                }],
+                rules: None,
+                cw20_coins: vec![],
+            },
+        };
+
+        let gas_limit = GAS_BASE_FEE_JUNO;
+        let agent_fee = 5; // TODO: might change
+        let extra = 50; // extra for checking refunds at task removal
+        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + 4 + extra; // + 3 + 4 atoms sent
+
+        // create a task
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task), "atom"),
+        )
+        .unwrap();
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        // executing it two times
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
+        }));
+
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
+        }));
+        // third time it pays only base to agent
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr,
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        // println!("{:?}", res.events);
+
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "no_task_agent_base_reward")
+        }));
+    }
 }
