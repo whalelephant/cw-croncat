@@ -395,18 +395,11 @@ impl<'a> CwCroncat<'a> {
         mut agent: Agent,
         message: &MessageInfo,
     ) -> Result<Coin, ContractError> {
-        let mut config: Config = self.config.load(storage)?;
+        let config: Config = self.config.load(storage)?;
 
-        let add_native = config.agent_fee.clone();
+        let add_native = config.agent_fee;
         agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
-
         agent.balance.native.find_checked_add(&add_native)?;
-        config
-            .available_balance
-            .native
-            .find_checked_sub(&add_native)?;
-
-        self.config.save(storage, &config)?;
 
         // Reset missed slot
         agent.last_missed_slot = 0;
@@ -1561,14 +1554,19 @@ mod tests {
 
         app.update_block(add_little_time);
 
-        let res = app.execute_contract(
-            Addr::unchecked(AGENT0),
-            contract_addr.clone(),
-            &ExecuteMsg::ProxyCall {},
-            &[],
-        );
-
-        assert!(res.is_err());
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {},
+                &[],
+            )
+            .unwrap();
+        // Sents only base reward
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "no_task_agent_base_reward" && attr.value == "5atom")));
         Ok(())
     }
 
@@ -1634,15 +1632,13 @@ mod tests {
         app.update_block(add_little_time);
 
         let proxy_call_msg = ExecuteMsg::ProxyCall {};
-        let res = app
-            .execute_contract(
-                Addr::unchecked(AGENT0),
-                contract_addr.clone(),
-                &proxy_call_msg,
-                &vec![],
-            )
-            .unwrap();
-        //assert!(res.is_ok());
+        let res = app.execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        );
+        assert!(res.is_ok());
     }
 
     #[test]
