@@ -256,6 +256,8 @@ fn test_dao_single_proposal_ready() {
         &[],
     )
     .unwrap();
+
+    // It is not ready to execute yet, so false
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(
@@ -409,6 +411,8 @@ fn test_dao_multiple_proposal_ready() {
         &[],
     )
     .unwrap();
+
+    // It is not ready to execute yet, so false
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(
