@@ -419,7 +419,7 @@ mod tests {
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, TaskRequest};
+    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Action, Boundary, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -1776,5 +1776,130 @@ mod tests {
             contract_balance_after_withdraw.amount,
             contract_balance_before_withdraw.amount - expected_transfer_amount
         )
+    }
+
+    #[test]
+    fn test_no_reschedule_if_lack_balance() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let addr1 = String::from("addr1");
+        let amount = coins(3, "atom");
+        let send = BankMsg::Send {
+            to_address: addr1,
+            amount,
+        };
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: send.into(),
+                    gas_limit: None,
+                }],
+                rules: None,
+                cw20_coins: vec![],
+            },
+        };
+
+        let gas_limit = GAS_BASE_FEE_JUNO;
+        let agent_fee = 5; // TODO: might change
+        let extra = 50; // extra for checking nonzero task balance
+        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + extra; // + 3 atoms sent
+
+        // create a task
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task), "atom"),
+        )
+        .unwrap();
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        // executing it two times
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
+        }));
+
+        let task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: "65237042c224447b7d6d7cdfd6515af3e76cb3270ce6d5ed989a6babc12f1026"
+                        .to_string(),
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            task.unwrap().total_deposit[0].amount,
+            Uint128::from(GAS_BASE_FEE_JUNO + extra)
+        );
+
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "method" && attr.value == "proxy_callback")
+        }));
+        // third time it pays only base to agent
+        // since "extra" is not enough to cover another task and it got removed
+        let task: Option<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTask {
+                    task_hash: "65237042c224447b7d6d7cdfd6515af3e76cb3270ce6d5ed989a6babc12f1026"
+                        .to_string(),
+                },
+            )
+            .unwrap();
+        assert!(task.is_none());
+        app.update_block(add_little_time);
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr,
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+
+        assert!(res.events.iter().any(|event| {
+            event
+                .attributes
+                .iter()
+                .any(|attr| attr.key == "no_task_agent_base_reward")
+        }));
     }
 }
