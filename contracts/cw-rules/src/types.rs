@@ -1,7 +1,7 @@
-/// We can import dao but for simplicity we show what we support
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// We can import dao but for simplicity we show what we support
 pub mod dao {
     use super::*;
 
