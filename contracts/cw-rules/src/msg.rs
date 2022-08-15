@@ -1,4 +1,5 @@
 use cosmwasm_std::{Addr, Coin};
+use cw20::Balance;
 use cw_croncat_core::types::Rule;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -25,8 +26,8 @@ pub enum QueryMsg {
         address: Addr,
     },
     HasBalance {
-        balance: Vec<Coin>,
-        required_balance: Coin,
+        balance: Balance,
+        required_balance: Balance,
     },
     CheckOwnerOfNFT {
         address: Addr,

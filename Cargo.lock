@@ -280,6 +280,7 @@ dependencies = [
  "cw-croncat-core",
  "cw-multi-test",
  "cw-storage-plus 0.13.2",
+ "cw-utils 0.12.1",
  "cw2 0.13.2",
  "cw20",
  "cw20-base",
