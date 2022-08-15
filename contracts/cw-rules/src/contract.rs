@@ -5,10 +5,11 @@ use serde_json::{json, Value};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, BalanceResponse, Binary, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult, Coin, has_coins,
+    from_binary, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
+    Response, StdResult,
 };
 use cw2::set_contract_version;
+use cw20::BalanceResponse;
 use cw20::Cw20QueryMsg::Balance;
 
 use crate::error::ContractError;
@@ -53,9 +54,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
-        QueryMsg::HasBalance { balance, required_balance } => {
-            to_binary(&query_has_balance(balance, required_balance )?)
-        }
+        QueryMsg::HasBalance {
+            balance,
+            required_balance,
+        } => to_binary(&query_has_balance(balance, required_balance)?),
         QueryMsg::CheckOwnerOfNFT {
             address,
             nft_address,
@@ -98,7 +100,7 @@ fn query_get_cw20_balance(
             address: address.to_string(),
         },
     )?;
-    let amount = to_binary(&balance.amount.amount).ok();
+    let amount = to_binary(&balance.balance).ok();
     Ok((true, amount))
 }
 
@@ -212,45 +214,136 @@ fn query_dao_proposal_ready(
 //     Ok(QueryMultiResponse { data })
 // }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-//     use cosmwasm_std::{coins, from_binary};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::{coin, coins, to_binary, Addr, Empty};
+    use cw20::Cw20Coin;
+    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
-//     #[test]
-//     fn proper_initialization() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(execute, instantiate, query);
+        Box::new(contract)
+    }
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(1000, "earth"));
+    pub fn cw20_template() -> Box<dyn Contract<Empty>> {
+        let cw20 = ContractWrapper::new(
+            cw20_base::contract::execute,
+            cw20_base::contract::instantiate,
+            cw20_base::contract::query,
+        );
+        Box::new(cw20)
+    }
 
-//         // we can just call .unwrap() to assert this was a success
-//         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//         assert_eq!(0, res.messages.len());
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+    const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const ADMIN_CW20: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+    const ADMIN_CW721: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const NATIVE_DENOM: &str = "atom";
 
-//         // it worked, let's query the state
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(17, value.count);
-//     }
+    fn mock_app() -> App {
+        AppBuilder::new().build(|router, _, storage| {
+            let accounts: Vec<(u128, String)> = vec![
+                (6_000_000, ADMIN.to_string()),
+                (6_000_000, ADMIN_CW20.to_string()),
+                (6_000_000, ADMIN_CW721.to_string()),
+                (1_000_000, ANYONE.to_string()),
+            ];
+            for (amt, address) in accounts.iter() {
+                router
+                    .bank
+                    .init_balance(
+                        storage,
+                        &Addr::unchecked(address),
+                        vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    )
+                    .unwrap();
+            }
+        })
+    }
 
-//     #[test]
-//     fn increment() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    fn proper_instantiate() -> (App, Addr, Addr) {
+        let mut app = mock_app();
+        let cw_template_id = app.store_code(contract_template());
+        let owner_addr = Addr::unchecked(ADMIN);
+        let nft_owner_addr = Addr::unchecked(ADMIN_CW20);
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let msg = InstantiateMsg {};
+        let cw_template_contract_addr = app
+            .instantiate_contract(
+                cw_template_id,
+                owner_addr,
+                &msg,
+                &coins(2_000_000, NATIVE_DENOM),
+                "CW-RULES",
+                None,
+            )
+            .unwrap();
 
-//         // beneficiary can release it
-//         let info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Increment {};
-//         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let cw20_id = app.store_code(cw20_template());
+        let msg = cw20_base::msg::InstantiateMsg {
+            name: "Test".to_string(),
+            symbol: "Test".to_string(),
+            decimals: 6,
+            initial_balances: vec![Cw20Coin {
+                address: ANYONE.to_string(),
+                amount: 15u128.into(),
+            }],
+            mint: None,
+            marketing: None,
+        };
+        let cw20_addr = app
+            .instantiate_contract(cw20_id, nft_owner_addr, &msg, &[], "Fungible-tokens", None)
+            .unwrap();
 
-//         // should increase counter by 1
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(18, value.count);
-//     }
-// }
+        (app, cw_template_contract_addr, cw20_addr)
+    }
+
+    #[test]
+    fn test_query_get_balance() -> StdResult<()> {
+        let (app, contract_addr, _) = proper_instantiate();
+
+        let msg = QueryMsg::GetBalance {
+            address: Addr::unchecked(ANYONE),
+            denom: NATIVE_DENOM.to_string(),
+        };
+
+        let res: RuleResponse<Option<Binary>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg)
+            .unwrap();
+
+        assert!(res.0);
+        assert_eq!(res.1.unwrap(), to_binary("1000000")?);
+
+        let msg = QueryMsg::GetBalance {
+            address: Addr::unchecked(ANYONE),
+            denom: "juno".to_string(),
+        };
+        let res: RuleResponse<Option<Binary>> =
+            app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+
+        assert!(res.0);
+        assert_eq!(res.1.unwrap(), to_binary("0")?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn query_get_cw20_balance() -> StdResult<()> {
+        let (app, contract_addr, cw20_contract) = proper_instantiate();
+
+        let msg = QueryMsg::GetCW20Balance {
+            cw20_contract,
+            address: Addr::unchecked(ANYONE),
+        };
+
+        let res: RuleResponse<Option<Binary>> =
+            app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+
+        assert!(res.0);
+        assert_eq!(res.1.unwrap(), to_binary("15")?);
+
+        Ok(())
+    }
+}
