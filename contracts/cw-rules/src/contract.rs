@@ -81,21 +81,21 @@ fn query_get_cw20_balance(env: Env, address: Addr) -> StdResult<RuleResponse<Opt
     Ok((true, None))
 }
 
-// TODO:
 fn query_check_owner_nft(
     deps: Deps,
     address: Addr,
     nft_address: Addr,
     token_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    let res: OwnerOfResponse = deps.querier.query_wasm_smart(
-        nft_address,
-        &OwnerOf {
-            token_id,
-            include_expired: None,
-        },
-    )?;
-    Ok((address == res.owner, None))
+    deps.querier
+        .query_wasm_smart(
+            nft_address,
+            &OwnerOf {
+                token_id,
+                include_expired: None,
+            },
+        )
+        .map(|res: OwnerOfResponse| (address == res.owner, None))
 }
 
 // TODO:
@@ -189,45 +189,135 @@ fn query_dao_proposal_ready(
 //     Ok(QueryMultiResponse { data })
 // }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-//     use cosmwasm_std::{coins, from_binary};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::{coin, coins, Addr, Empty};
+    use cw721_base::MintMsg;
+    use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
-//     #[test]
-//     fn proper_initialization() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    pub fn contract_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(execute, instantiate, query);
+        Box::new(contract)
+    }
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(1000, "earth"));
+    pub fn cw721_template() -> Box<dyn Contract<Empty>> {
+        let cw721 = ContractWrapper::new(
+            cw721_base::entry::execute,
+            cw721_base::entry::instantiate,
+            cw721_base::entry::query,
+        );
+        Box::new(cw721)
+    }
 
-//         // we can just call .unwrap() to assert this was a success
-//         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-//         assert_eq!(0, res.messages.len());
+    const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+    const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const ADMIN_CW20: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+    const ADMIN_CW721: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const NATIVE_DENOM: &str = "atom";
+    const URI: &str = "https://testnet.daodao.zone/dao/juno1p2fuar474uv2p6vfnr2eu4nv9rx4m0qd26xuygkesje0r6pzhrssvrnh2y";
 
-//         // it worked, let's query the state
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(17, value.count);
-//     }
+    fn mock_app() -> App {
+        AppBuilder::new().build(|router, _, storage| {
+            let accounts: Vec<(u128, String)> = vec![
+                (6_000_000, ADMIN.to_string()),
+                (6_000_000, ADMIN_CW20.to_string()),
+                (6_000_000, ADMIN_CW721.to_string()),
+                (1_000_000, ANYONE.to_string()),
+            ];
+            for (amt, address) in accounts.iter() {
+                router
+                    .bank
+                    .init_balance(
+                        storage,
+                        &Addr::unchecked(address),
+                        vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    )
+                    .unwrap();
+            }
+        })
+    }
 
-//     #[test]
-//     fn increment() {
-//         let mut deps = mock_dependencies_with_balance(&coins(2, "token"));
+    fn proper_instantiate() -> (App, Addr, Addr) {
+        let mut app = mock_app();
+        let cw_template_id = app.store_code(contract_template());
+        let owner_addr = Addr::unchecked(ADMIN);
+        let nft_owner_addr = Addr::unchecked(ADMIN_CW721);
+        let msg = InstantiateMsg {};
+        let cw_template_contract_addr = app
+            .instantiate_contract(
+                cw_template_id,
+                owner_addr,
+                &msg,
+                &coins(2_000_000, NATIVE_DENOM),
+                "CW-RULES",
+                None,
+            )
+            .unwrap();
 
-//         let msg = InstantiateMsg { count: 17 };
-//         let info = mock_info("creator", &coins(2, "token"));
-//         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let cw721_id = app.store_code(cw721_template());
+        let msg = cw721_base::msg::InstantiateMsg {
+            name: "Name".to_string(),
+            symbol: "Symbol".to_string(),
+            minter: ADMIN_CW721.to_string(),
+        };
+        let cw721_addr = app
+            .instantiate_contract(cw721_id, nft_owner_addr, &msg, &[], "Fungible-tokens", None)
+            .unwrap();
+        (app, cw_template_contract_addr, cw721_addr)
+    }
 
-//         // beneficiary can release it
-//         let info = mock_info("anyone", &coins(2, "token"));
-//         let msg = ExecuteMsg::Increment {};
-//         let _res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    #[test]
+    fn test_check_owner_nft() -> StdResult<()> {
+        let (mut app, contract_addr, cw721_contract) = proper_instantiate();
 
-//         // should increase counter by 1
-//         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetCount {}).unwrap();
-//         let value: CountResponse = from_binary(&res).unwrap();
-//         assert_eq!(18, value.count);
-//     }
-// }
+        let mint_msg = cw721_base::ExecuteMsg::Mint(MintMsg::<Option<String>> {
+            token_id: "croncat".to_string(),
+            owner: ANYONE.to_string(),
+            token_uri: Some(URI.to_string()),
+            extension: None,
+        });
+        app.execute_contract(
+            Addr::unchecked(ADMIN_CW721),
+            cw721_contract.clone(),
+            &mint_msg,
+            &[],
+        )
+        .unwrap();
+
+        let msg = QueryMsg::CheckOwnerOfNFT {
+            address: Addr::unchecked(ANYONE),
+            nft_address: cw721_contract.clone(),
+            token_id: "croncat".to_string(),
+        };
+        let res: RuleResponse<Option<Binary>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg)
+            .unwrap();
+        assert!(res.0);
+
+        // Return false if it's a the owner
+        let msg = QueryMsg::CheckOwnerOfNFT {
+            address: Addr::unchecked(ADMIN),
+            nft_address: cw721_contract.clone(),
+            token_id: "croncat".to_string(),
+        };
+        let res: RuleResponse<Option<Binary>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg)
+            .unwrap();
+        assert!(!res.0);
+
+        // Wrong token_id
+        let msg = QueryMsg::CheckOwnerOfNFT {
+            address: Addr::unchecked(ANYONE),
+            nft_address: cw721_contract,
+            token_id: "croncat2".to_string(),
+        };
+        let err: StdResult<RuleResponse<Option<Binary>>> =
+            app.wrap().query_wasm_smart(contract_addr, &msg);
+        assert!(err.is_err());
+
+        Ok(())
+    }
+}
