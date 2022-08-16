@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-sh ../build.sh
 # In case of M1 MacBook use rust-optimizer-arm64 instead of rust-optimizer
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
