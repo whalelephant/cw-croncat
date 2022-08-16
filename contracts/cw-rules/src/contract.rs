@@ -332,8 +332,10 @@ mod tests {
             address: ANYONE.to_string(),
             denom: "juno".to_string(),
         };
-        let res: RuleResponse<Option<Binary>> =
-            app.wrap().query_wasm_smart(contract_addr.clone(), &msg).unwrap();
+        let res: RuleResponse<Option<Binary>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg)
+            .unwrap();
         assert!(res.0);
         assert_eq!(res.1, None);
 
@@ -370,6 +372,18 @@ mod tests {
         let msg = QueryMsg::GetCW20Balance {
             cw20_contract: cw20_contract.to_string(),
             address: ADMIN_CW20.to_string(),
+        };
+        let res: RuleResponse<Option<Binary>> = app
+            .wrap()
+            .query_wasm_smart(contract_addr.clone(), &msg)
+            .unwrap();
+        assert!(res.0);
+        assert_eq!(res.1, None);
+
+        // Address doesn't exist
+        let msg = QueryMsg::GetCW20Balance {
+            cw20_contract: cw20_contract.to_string(),
+            address: ANOTHER.to_string(),
         };
         let res: RuleResponse<Option<Binary>> = app
             .wrap()
