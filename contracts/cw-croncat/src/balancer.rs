@@ -1,9 +1,9 @@
 use crate::helpers::*;
 use crate::state::{Config, TaskInfo};
 use crate::ContractError::AgentNotRegistered;
-use cosmwasm_std::Storage;
+use cosmwasm_std::Uint64;
 use cosmwasm_std::{Addr, Env, StdError, StdResult};
-use cosmwasm_std::{DepsMut, Uint64};
+use cosmwasm_std::{Deps, Storage};
 use cw_croncat_core::msg::AgentTaskResponse;
 use cw_croncat_core::types::SlotType;
 use cw_storage_plus::Item;
@@ -16,7 +16,7 @@ pub enum BalancerMode {
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
-        deps: &DepsMut,
+        deps: &Deps,
         env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -88,7 +88,7 @@ impl RoundRobinBalancer {
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
         &mut self,
-        deps: &DepsMut,
+        deps: &Deps,
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -370,7 +370,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(1), Some(2));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -386,7 +386,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(100), Some(50));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -402,7 +402,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -447,7 +447,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -465,7 +465,7 @@ mod tests {
         //Verify agent1 gets extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -483,7 +483,7 @@ mod tests {
         //Verify agent3 not getting extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -547,7 +547,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -566,7 +566,7 @@ mod tests {
         //Verify agent1 gets extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -584,7 +584,7 @@ mod tests {
         //Verify agent2 gets extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -602,7 +602,7 @@ mod tests {
         //Verify agent3 not getting extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,

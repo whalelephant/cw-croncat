@@ -4,7 +4,7 @@ use crate::helpers::{send_tokens, GenericBalance};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
-    SubMsg, Uint64,
+    SubMsg,
 };
 use std::ops::Div;
 
@@ -67,7 +67,7 @@ impl<'a> CwCroncat<'a> {
     /// TODO: Remove this function, replaced by balancer
     pub(crate) fn query_get_agent_tasks(
         &mut self,
-        deps: DepsMut,
+        deps: Deps,
         env: Env,
         account_id: Addr,
     ) -> StdResult<Option<AgentTaskResponse>> {
@@ -216,7 +216,7 @@ impl<'a> CwCroncat<'a> {
         let mut agent = self
             .agents
             .may_load(storage, &info.sender)?
-            .ok_or(ContractError::AgentNotRegistered {})?;
+            .ok_or(AgentNotRegistered {})?;
 
         // This will send all token balances to Agent
         let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;

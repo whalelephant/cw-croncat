@@ -104,7 +104,7 @@ impl<'a> CwCroncat<'a> {
         let balancer_result = self
             .balancer
             .get_agent_tasks(
-                &deps,
+                &deps.as_ref(),
                 &env,
                 &self.config,
                 &self.agent_active_queue,
