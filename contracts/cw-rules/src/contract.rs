@@ -83,19 +83,19 @@ fn query_get_cw20_balance(env: Env, address: Addr) -> StdResult<RuleResponse<Opt
 
 fn query_check_owner_nft(
     deps: Deps,
-    address: Addr,
-    nft_address: Addr,
+    address: String,
+    nft_address: String,
     token_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    deps.querier
-        .query_wasm_smart(
-            nft_address,
-            &OwnerOf {
-                token_id,
-                include_expired: None,
-            },
-        )
-        .map(|res: OwnerOfResponse| (address == res.owner, None))
+    let valid_nft = deps.api.addr_validate(&nft_address)?;
+    let res: OwnerOfResponse = deps.querier.query_wasm_smart(
+        valid_nft,
+        &OwnerOf {
+            token_id,
+            include_expired: None,
+        },
+    )?;
+    Ok((address == res.owner, None))
 }
 
 // TODO:
@@ -286,8 +286,8 @@ mod tests {
         .unwrap();
 
         let msg = QueryMsg::CheckOwnerOfNFT {
-            address: Addr::unchecked(ANYONE),
-            nft_address: cw721_contract.clone(),
+            address: ANYONE.to_string(),
+            nft_address: cw721_contract.to_string(),
             token_id: "croncat".to_string(),
         };
         let res: RuleResponse<Option<Binary>> = app
@@ -298,8 +298,8 @@ mod tests {
 
         // Return false if it's a the owner
         let msg = QueryMsg::CheckOwnerOfNFT {
-            address: Addr::unchecked(ADMIN),
-            nft_address: cw721_contract.clone(),
+            address: ADMIN.to_string(),
+            nft_address: cw721_contract.to_string(),
             token_id: "croncat".to_string(),
         };
         let res: RuleResponse<Option<Binary>> = app
@@ -310,8 +310,8 @@ mod tests {
 
         // Wrong token_id
         let msg = QueryMsg::CheckOwnerOfNFT {
-            address: Addr::unchecked(ANYONE),
-            nft_address: cw721_contract,
+            address: ANYONE.to_string(),
+            nft_address: cw721_contract.to_string(),
             token_id: "croncat2".to_string(),
         };
         let err: StdResult<RuleResponse<Option<Binary>>> =

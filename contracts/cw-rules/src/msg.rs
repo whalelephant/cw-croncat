@@ -23,8 +23,8 @@ pub enum QueryMsg {
         address: Addr,
     },
     CheckOwnerOfNFT {
-        address: Addr,
-        nft_address: Addr,
+        address: String,
+        nft_address: String,
         token_id: String,
     },
     CheckProposalReadyToExec {
