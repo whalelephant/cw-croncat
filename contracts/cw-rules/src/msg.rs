@@ -18,12 +18,12 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // Individual query evaluations
     GetBalance {
-        address: Addr,
+        address: String,
         denom: String,
     },
     GetCW20Balance {
-        cw20_contract: Addr,
-        address: Addr,
+        cw20_contract: String,
+        address: String,
     },
     HasBalance {
         balance: Balance,
