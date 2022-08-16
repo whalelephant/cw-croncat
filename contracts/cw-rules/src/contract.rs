@@ -251,6 +251,7 @@ mod tests {
     const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
     const ADMIN_CW20: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
     const ADMIN_CW721: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+    const ANOTHER: &str = "cosmos1wze8mn5nsgl9qrgazq6a92fvh7m5e6psjcx2du";
     const NATIVE_DENOM: &str = "atom";
 
     fn mock_app() -> App {
@@ -319,22 +320,30 @@ mod tests {
             address: ANYONE.to_string(),
             denom: NATIVE_DENOM.to_string(),
         };
-
         let res: RuleResponse<Option<Binary>> = app
             .wrap()
             .query_wasm_smart(contract_addr.clone(), &msg)
             .unwrap();
-
         assert!(res.0);
         assert_eq!(res.1.unwrap(), to_binary("1000000")?);
 
+        // Balance with another denom is zero
         let msg = QueryMsg::GetBalance {
             address: ANYONE.to_string(),
             denom: "juno".to_string(),
         };
         let res: RuleResponse<Option<Binary>> =
-            app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+            app.wrap().query_wasm_smart(contract_addr.clone(), &msg).unwrap();
+        assert!(res.0);
+        assert_eq!(res.1, None);
 
+        // Address doesn't exist
+        let msg = QueryMsg::GetBalance {
+            address: ANOTHER.to_string(),
+            denom: NATIVE_DENOM.to_string(),
+        };
+        let res: RuleResponse<Option<Binary>> =
+            app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
         assert!(res.0);
         assert_eq!(res.1, None);
 
