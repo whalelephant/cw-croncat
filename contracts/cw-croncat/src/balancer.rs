@@ -542,7 +542,6 @@ mod tests {
             &store.agent_active_queue,
             task_info,
         );
-       
 
         //Verify agent0 gets extra
         let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
@@ -582,7 +581,7 @@ mod tests {
         assert_eq!(result.num_block_tasks_extra.u64(), 1);
         assert_eq!(result.num_cron_tasks_extra.u64(), 1);
 
-          //Verify agent2 gets extra
+        //Verify agent2 gets extra
         let result = balancer
             .get_agent_tasks(
                 &deps.as_mut(),

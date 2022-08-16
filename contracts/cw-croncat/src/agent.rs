@@ -67,69 +67,25 @@ impl<'a> CwCroncat<'a> {
     /// TODO: Remove this function, replaced by balancer
     pub(crate) fn query_get_agent_tasks(
         &mut self,
-        deps: Deps,
+        deps: DepsMut,
         env: Env,
         account_id: Addr,
     ) -> StdResult<Option<AgentTaskResponse>> {
-        let active = self.agent_active_queue.load(deps.storage)?;
-        if !active.contains(&account_id) {
-            // TODO: unsure if we can return AgentNotRegistered
-            return Err(StdError::GenericErr {
-                msg: AgentNotRegistered {}.to_string(),
-            });
-        }
-
         // Get all tasks (the final None means no limit when we take)
         let slot_items = self.get_current_slot_items(&env.block, deps.storage, None);
 
         if slot_items == (None, None) {
             return Ok(None);
         }
-        let mut num_block_tasks = Uint64::from(0u64);
-        let mut num_cron_tasks = Uint64::from(0u64);
-        let num_block_tasks_extra = Uint64::from(0u64);
-        let num_cron_tasks_extra = Uint64::from(0u64);
-        // This below line is commented out and will be used with
-        // the rotating index (see Config's agent_active_indices)
-        // let agent_active_queue_indices: Vec<usize> = (0..active.len()).collect();
-        if let Some(current_block_task_total) = slot_items.0 {
-            // Integer division to determine how much each gets
-            let task_total_each_agent = current_block_task_total / active.len() as u64;
 
-            // Divvy up the modulo leftovers using the active index
-            // TODO: we must give the leftover tasks to some agents.
-            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
-            // let agent_active_index = agent_active_queue
-            //     .iter()
-            //     .position(|x| x == &account_id)
-            //     .expect("Agent not active");
-            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
-
-            num_block_tasks = task_total_each_agent.into();
-        }
-        // Do time slots
-        if let Some(current_cron_task_total) = slot_items.1 {
-            // Integer division to determine how much each gets
-            let task_total_each_agent = current_cron_task_total / active.len() as u64;
-
-            // Divvy up the modulo leftovers using the active index
-            // TODO: we must give the leftover tasks to some agents.
-            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
-            // let agent_active_index = agent_active_queue
-            //     .iter()
-            //     .position(|x| x == &account_id)
-            //     .expect("Agent not active");
-            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
-
-            num_cron_tasks = task_total_each_agent.into();
-        }
-
-        Ok(Some(AgentTaskResponse {
-            num_block_tasks,
-            num_block_tasks_extra,
-            num_cron_tasks_extra,
-            num_cron_tasks,
-        }))
+        self.balancer.get_agent_tasks(
+            &deps,
+            &env,
+            &self.config,
+            &self.agent_active_queue,
+            account_id,
+            slot_items,
+        )
     }
 
     /// Add any account as an agent that will be able to execute tasks.
