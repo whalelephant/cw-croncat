@@ -1,5 +1,5 @@
-use cosmwasm_std::{coin, coins, to_binary, Addr, Empty, Uint128, Binary, StdResult};
-use cw20::{Cw20Coin, Cw20CoinVerified, Balance};
+use cosmwasm_std::{coin, coins, to_binary, Addr, Binary, Empty, StdResult, Uint128};
+use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use cw_utils::NativeBalance;
 

@@ -1,18 +1,20 @@
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+//use serde_json::{json, Value};
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, has_coins, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo,
-    Response, StdResult,
+    has_coins, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, QueryMultiResponse, RuleResponse};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
+
+//use cosmwasm_std::from_binary;
+//use crate::msg::QueryMultiResponse;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -22,7 +24,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -124,9 +126,9 @@ fn query_has_balance(
 
 // TODO:
 fn query_check_owner_nft(
-    address: Addr,
-    nft_address: Addr,
-    token_id: String,
+    _address: Addr,
+    _nft_address: Addr,
+    _token_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     // let res: RuleResponse<Option<Binary>> = deps
     //     .querier
@@ -136,8 +138,8 @@ fn query_check_owner_nft(
 
 // TODO:
 fn query_dao_proposal_ready(
-    dao_address: Addr,
-    proposal_id: String,
+    _dao_address: Addr,
+    _proposal_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     // let res: RuleResponse<Option<Binary>> = deps
     //     .querier

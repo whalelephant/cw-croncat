@@ -1,6 +1,7 @@
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::Addr;
 use cw20::Balance;
-use cw_croncat_core::types::Rule;
+//use cw_croncat_core::types::Rule;
+//use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
