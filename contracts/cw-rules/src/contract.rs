@@ -1,19 +1,20 @@
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+// use serde_json::{json, Value};
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-};
+use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
-use cw_croncat_core::types::Rule;
+// use cw_croncat_core::types::Rule;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, QueryMultiResponse, RuleResponse};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
+
+// use cosmwasm_std::from_binary;
+// use crate::msg::QueryMultiResponse;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -23,7 +24,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -72,12 +73,12 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
 }
 
 // TODO:
-fn query_get_balance(env: Env, address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
+fn query_get_balance(_env: Env, _address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
     Ok((true, None))
 }
 
 // TODO:
-fn query_get_cw20_balance(env: Env, address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
+fn query_get_cw20_balance(_env: Env, _address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
     Ok((true, None))
 }
 
@@ -100,8 +101,8 @@ fn query_check_owner_nft(
 
 // TODO:
 fn query_dao_proposal_ready(
-    dao_address: Addr,
-    proposal_id: String,
+    _dao_address: Addr,
+    _proposal_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     // let res: RuleResponse<Option<Binary>> = deps
     //     .querier

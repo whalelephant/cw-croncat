@@ -1,5 +1,5 @@
 use cosmwasm_std::Addr;
-use cw_croncat_core::types::Rule;
+//use cw_croncat_core::types::Rule;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
