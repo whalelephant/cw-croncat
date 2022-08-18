@@ -129,6 +129,10 @@ pub enum QueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    GetTasksWithRules {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
     GetTasksByOwner {
         owner_id: Addr,
     },

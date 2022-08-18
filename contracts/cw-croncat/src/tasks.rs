@@ -32,6 +32,25 @@ impl<'a> CwCroncat<'a> {
             .collect()
     }
 
+    /// Returns task with rules data
+    /// Used by the frontend for viewing tasks
+    pub(crate) fn query_get_tasks_with_rules(
+        &self,
+        deps: Deps,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> StdResult<Vec<TaskResponse>> {
+        let size: u64 = self.task_total.load(deps.storage)?.min(1000);
+        let from_index = from_index.unwrap_or_default();
+        let limit = limit.unwrap_or(100).min(size);
+        self.tasks_with_rules
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .map(|res| res.map(|(_k, task)| task.into()))
+            .collect()
+    }
+
     /// Returns task data for a specific owner
     pub(crate) fn query_get_tasks_by_owner(
         &self,

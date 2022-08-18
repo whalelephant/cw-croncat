@@ -167,6 +167,9 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetTasks { from_index, limit } => {
                 to_binary(&self.query_get_tasks(deps, from_index, limit)?)
             }
+            QueryMsg::GetTasksWithRules { from_index, limit } => {
+                to_binary(&self.query_get_tasks_with_rules(deps, from_index, limit)?)
+            }
             QueryMsg::GetTasksByOwner { owner_id } => {
                 to_binary(&self.query_get_tasks_by_owner(deps, owner_id)?)
             }

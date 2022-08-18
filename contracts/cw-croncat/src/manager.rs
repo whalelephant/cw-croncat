@@ -3,8 +3,8 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    Addr, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
-    SubMsgResult, QueryRequest, WasmQuery,
+    Addr, DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdResult, Storage,
+    SubMsg, SubMsgResult, WasmQuery,
 };
 use cw_croncat_core::traits::Intervals;
 use cw_croncat_core::types::{Agent, SlotType};
@@ -63,10 +63,11 @@ impl<'a> CwCroncat<'a> {
             // Check rules
             let rules = task.rules.as_ref().expect("No rules");
             for rule in rules {
-                let res: (bool, Option<String>) = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: rule.contract_addr.as_ref().to_string(),
-                    msg: rule.msg.clone(),
-                }))?;
+                let res: (bool, Option<String>) =
+                    deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+                        contract_addr: rule.contract_addr.as_ref().to_string(),
+                        msg: rule.msg.clone(),
+                    }))?;
                 if !res.0 {
                     return Err(ContractError::TaskNotReady {});
                 }
