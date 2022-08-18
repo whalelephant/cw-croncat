@@ -143,7 +143,7 @@ impl<'a> CwCroncat<'a> {
                 task_hash,
                 cw20_coins,
             } => self.refill_task_cw20(deps, info, task_hash, cw20_coins),
-            ExecuteMsg::ProxyCall {} => self.proxy_call(deps, info, env),
+            ExecuteMsg::ProxyCall { task_hash } => self.proxy_call(deps, info, env, task_hash),
             ExecuteMsg::Receive(msg) => self.receive_cw20(deps, info, msg),
             ExecuteMsg::WithdrawWalletBalance {
                 cw20_amounts: cw20_balances,

@@ -103,7 +103,9 @@ pub enum ExecuteMsg {
         task_hash: String,
         cw20_coins: Vec<Cw20Coin>,
     },
-    ProxyCall {},
+    ProxyCall {
+        task_hash: Option<Vec<u8>>,
+    },
     /// Receive cw20 token
     Receive(cw20::Cw20ReceiveMsg),
     WithdrawWalletBalance {

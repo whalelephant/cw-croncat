@@ -33,6 +33,9 @@ pub enum ContractError {
     #[error("Only owner can refill their task")]
     RefillNotTaskOwner {},
 
+    #[error("Rule is not ready")]
+    TaskNotReady {},
+
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.

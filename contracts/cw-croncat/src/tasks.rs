@@ -273,13 +273,25 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Add task to catalog
-        self.tasks
-            .update(deps.storage, item.to_hash_vec(), |old| match old {
-                Some(_) => Err(ContractError::CustomError {
-                    val: "Task already exists".to_string(),
-                }),
-                None => Ok(item.clone()),
-            })?;
+        if item.rules.is_some() && !item.rules.as_ref().unwrap().is_empty() {
+            // Add task with rules
+            self.tasks_with_rules
+                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
+        } else {
+            // Add task without rules
+            self.tasks
+                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
+        };
 
         // Increment task totals
         let size_res = self.increment_tasks(deps.storage);
@@ -321,6 +333,7 @@ impl<'a> CwCroncat<'a> {
         c.available_balance.checked_add_native(&info.funds)?;
 
         // If the creation of this task means we'd like another agent, update config
+        // TODO: should we do it for tasks with rules
         let min_tasks_per_agent = c.min_tasks_per_agent;
         let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
         let num_agents_to_accept =

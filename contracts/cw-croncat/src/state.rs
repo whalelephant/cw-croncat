@@ -95,6 +95,7 @@ pub struct CwCroncat<'a> {
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
     pub tasks: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
     pub task_total: Item<'a, u64>,
 
     /// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
@@ -119,14 +120,31 @@ pub struct CwCroncat<'a> {
 
 impl Default for CwCroncat<'static> {
     fn default() -> Self {
-        Self::new("tasks", "tasks__owner")
+        Self::new(
+            "tasks",
+            "tasks_with_rules",
+            "tasks__owner",
+            "tasks_with_rules__owner",
+        )
     }
 }
 
 impl<'a> CwCroncat<'a> {
-    fn new(tasks_key: &'a str, tasks_owner_key: &'a str) -> Self {
+    fn new(
+        tasks_key: &'a str,
+        tasks_with_rules_key: &'a str,
+        tasks_owner_key: &'a str,
+        tasks_with_rules_owner_key: &'a str,
+    ) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
+        };
+        let indexes_rules = TaskIndexes {
+            owner: MultiIndex::new(
+                token_owner_idx,
+                tasks_with_rules_key,
+                tasks_with_rules_owner_key,
+            ),
         };
         Self {
             config: Item::new("config"),
@@ -134,6 +152,7 @@ impl<'a> CwCroncat<'a> {
             agent_active_queue: Item::new("agent_active_queue"),
             agent_pending_queue: Item::new("agent_pending_queue"),
             tasks: IndexedMap::new(tasks_key, indexes),
+            tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
             task_total: Item::new("task_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
