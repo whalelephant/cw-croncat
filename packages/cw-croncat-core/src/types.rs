@@ -281,6 +281,7 @@ impl Task {
     pub fn is_recurring(&self) -> bool {
         matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
     }
+
     pub fn contains_send_msg(&self) -> bool {
         let result: bool = self.actions.iter().any(|a| -> bool {
             matches!(
@@ -374,6 +375,11 @@ impl Task {
         }
 
         gas
+    }
+
+    /// Get whether the task is with rules
+    pub fn with_rules(&self) -> bool {
+        self.rules.is_some() && !self.rules.as_ref().unwrap().is_empty()
     }
 }
 

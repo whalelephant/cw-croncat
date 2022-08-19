@@ -35,6 +35,8 @@ impl<'a> CwCroncat<'a> {
     }
 
     /// Returns task with rules data
+    /// For now it returns only task_hash, interval, boundary and rules,
+    /// so that agent doesn't know details of his task
     /// Used by the frontend for viewing tasks
     pub(crate) fn query_get_tasks_with_rules(
         &self,
@@ -293,36 +295,6 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // Add task to catalog
-        if item.rules.is_some() && !item.rules.as_ref().unwrap().is_empty() {
-            // Add task with rules
-            self.tasks_with_rules
-                .update(deps.storage, item.to_hash_vec(), |old| match old {
-                    Some(_) => Err(ContractError::CustomError {
-                        val: "Task already exists".to_string(),
-                    }),
-                    None => Ok(item.clone()),
-                })?;
-        } else {
-            // Add task without rules
-            self.tasks
-                .update(deps.storage, item.to_hash_vec(), |old| match old {
-                    Some(_) => Err(ContractError::CustomError {
-                        val: "Task already exists".to_string(),
-                    }),
-                    None => Ok(item.clone()),
-                })?;
-        };
-
-        // Increment task totals
-        let size_res = self.increment_tasks(deps.storage);
-        if size_res.is_err() {
-            return Err(ContractError::CustomError {
-                val: "Problem incrementing task total".to_string(),
-            });
-        }
-        let size = size_res.unwrap();
-
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
             match d {
@@ -337,39 +309,93 @@ impl<'a> CwCroncat<'a> {
             }
         };
 
-        // Based on slot kind, put into block or cron slots
-        match slot_kind {
-            SlotType::Block => {
-                self.block_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
-            }
-            SlotType::Cron => {
-                self.time_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
-            }
-        }
+        // Add task to catalog
+        if item.with_rules() {
+            // Add task with rules
+            self.tasks_with_rules
+                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
 
-        // Add the attached balance into available_balance
-        let mut c: Config = c;
-        c.available_balance.checked_add_native(&info.funds)?;
-
-        // If the creation of this task means we'd like another agent, update config
-        // TODO: should we do it for tasks with rules
-        let min_tasks_per_agent = c.min_tasks_per_agent;
-        let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
-        let num_agents_to_accept =
-            self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
-        // If we should allow a new agent to take over
-        if num_agents_to_accept != 0 {
-            // Don't wipe out an older timestamp
-            let begin = self.agent_nomination_begin_time.load(deps.storage)?;
-            if begin.is_none() {
-                self.agent_nomination_begin_time
-                    .save(deps.storage, &Some(env.block.time))?;
+            // Increment task totals
+            let size_res = self.increment_tasks_with_rules(deps.storage);
+            if size_res.is_err() {
+                return Err(ContractError::CustomError {
+                    val: "Problem incrementing task total".to_string(),
+                });
             }
-        }
 
-        self.config.save(deps.storage, &c)?;
+            let mut c: Config = c;
+            c.available_balance.checked_add_native(&info.funds)?;
+            self.config.save(deps.storage, &c)?;
+
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots_rules
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+                SlotType::Cron => {
+                    self.time_slots_rules
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+            }
+        } else {
+            // Add task without rules
+            self.tasks
+                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
+
+            // Increment task totals
+            let size_res = self.increment_tasks(deps.storage);
+            if size_res.is_err() {
+                return Err(ContractError::CustomError {
+                    val: "Problem incrementing task total".to_string(),
+                });
+            }
+            let size = size_res.unwrap();
+
+            // Add the attached balance into available_balance
+            let mut c: Config = c;
+            c.available_balance.checked_add_native(&info.funds)?;
+
+            // If the creation of this task means we'd like another agent, update config
+            // TODO: should we do it for tasks with rules
+            let min_tasks_per_agent = c.min_tasks_per_agent;
+            let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
+            let num_agents_to_accept =
+                self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
+            // If we should allow a new agent to take over
+            if num_agents_to_accept != 0 {
+                // Don't wipe out an older timestamp
+                let begin = self.agent_nomination_begin_time.load(deps.storage)?;
+                if begin.is_none() {
+                    self.agent_nomination_begin_time
+                        .save(deps.storage, &Some(env.block.time))?;
+                }
+            }
+
+            self.config.save(deps.storage, &c)?;
+
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+                SlotType::Cron => {
+                    self.time_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+            }
+        };
 
         Ok(Response::new()
             .add_attribute("method", "create_task")

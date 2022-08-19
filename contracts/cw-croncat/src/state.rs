@@ -95,7 +95,6 @@ pub struct CwCroncat<'a> {
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
     pub tasks: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
-    pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
     pub task_total: Item<'a, u64>,
 
     /// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
@@ -103,6 +102,12 @@ pub struct CwCroncat<'a> {
     /// Block slots allow for grouping of tasks at a specific block height,
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
+
+    pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks_with_rules_total: Item<'a, u64>,
+
+    pub time_slots_rules: Map<'a, u64, Vec<Vec<u8>>>,
+    pub block_slots_rules: Map<'a, u64, Vec<Vec<u8>>>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's
@@ -152,10 +157,13 @@ impl<'a> CwCroncat<'a> {
             agent_active_queue: Item::new("agent_active_queue"),
             agent_pending_queue: Item::new("agent_pending_queue"),
             tasks: IndexedMap::new(tasks_key, indexes),
-            tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
             task_total: Item::new("task_total"),
+            tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
+            tasks_with_rules_total: Item::new("tasks_with_rules_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
+            time_slots_rules: Map::new("time_slots_rules"),
+            block_slots_rules: Map::new("block_slots_rules"),
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
@@ -177,6 +185,22 @@ impl<'a> CwCroncat<'a> {
     pub fn decrement_tasks(&self, storage: &mut dyn Storage) -> StdResult<u64> {
         let val = self.task_total(storage)? - 1;
         self.task_total.save(storage, &val)?;
+        Ok(val)
+    }
+
+    pub fn task_with_rules_total(&self, storage: &dyn Storage) -> StdResult<u64> {
+        self.tasks_with_rules_total.load(storage)
+    }
+
+    pub fn increment_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
+        let val = self.task_total(storage)? + 1;
+        self.tasks_with_rules_total.save(storage, &val)?;
+        Ok(val)
+    }
+
+    pub fn decrement_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
+        let val = self.task_total(storage)? - 1;
+        self.tasks_with_rules_total.save(storage, &val)?;
         Ok(val)
     }
 
