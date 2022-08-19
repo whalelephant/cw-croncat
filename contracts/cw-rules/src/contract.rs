@@ -5,7 +5,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
@@ -17,6 +17,7 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
+use crate::types::dao::{ProposalResponse, QueryDao, Status};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -74,7 +75,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CheckProposalReadyToExec {
             dao_address,
             proposal_id,
-        } => to_binary(&query_dao_proposal_ready(dao_address, proposal_id)?),
+        } => to_binary(&query_dao_proposal_ready(deps, dao_address, proposal_id)?),
         // QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, env, rules)?),
     }
 }
@@ -148,15 +149,16 @@ fn query_check_owner_nft(
     Ok((address == res.owner, None))
 }
 
-// TODO:
 fn query_dao_proposal_ready(
-    _dao_address: Addr,
-    _proposal_id: String,
+    deps: Deps,
+    dao_address: String,
+    proposal_id: u64,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    // let res: RuleResponse<Option<Binary>> = deps
-    //     .querier
-    //     .query_wasm_smart(dao_address, &msg)?;
-    Ok((true, None))
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    let res: ProposalResponse = deps
+        .querier
+        .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
+    Ok((res.proposal.status == Status::Passed, None))
 }
 
 // // // GOAL:

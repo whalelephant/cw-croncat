@@ -1,4 +1,3 @@
-use cosmwasm_std::Addr;
 //use cw_croncat_core::types::Rule;
 use cw20::Balance;
 //use cw_croncat_core::types::Rule;
@@ -6,10 +5,10 @@ use cw20::Balance;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     QueryResult {},
@@ -37,8 +36,8 @@ pub enum QueryMsg {
         token_id: String,
     },
     CheckProposalReadyToExec {
-        dao_address: Addr,
-        proposal_id: String,
+        dao_address: String,
+        proposal_id: u64,
     },
     // // Full evaluations
     // QueryConstruct {
@@ -47,7 +46,7 @@ pub enum QueryMsg {
 }
 
 // We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct QueryMultiResponse {
     pub data: Vec<String>,
 }
