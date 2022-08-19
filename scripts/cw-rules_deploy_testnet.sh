@@ -14,7 +14,7 @@ TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-3 --gas-price
 if [ -z "$1"]
 then
     OWNER=cw-test-rules-owner
-    junod keys show cw-test-rules-owner || junod keys add $OWNER
+    junod keys show cw-test-rules-owner 2> /dev/null || junod keys add $OWNER
     JSON=$(jq -n --arg addr $(junod keys show -a $OWNER) '{ denom:"ujunox","address":$addr}') && \
   curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
 else 
