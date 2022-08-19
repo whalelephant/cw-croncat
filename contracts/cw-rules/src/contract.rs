@@ -1,6 +1,6 @@
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
-//use serde_json::{json, Value};
+// use serde_json::{json, Value};
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -9,6 +9,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
+use cw721::Cw721QueryMsg::OwnerOf;
+use cw721::OwnerOfResponse;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
@@ -63,7 +65,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             address,
             nft_address,
             token_id,
-        } => to_binary(&query_check_owner_nft(address, nft_address, token_id)?),
+        } => to_binary(&query_check_owner_nft(
+            deps,
+            address,
+            nft_address,
+            token_id,
+        )?),
         QueryMsg::CheckProposalReadyToExec {
             dao_address,
             proposal_id,
@@ -124,16 +131,21 @@ fn query_has_balance(
     Ok((res, None))
 }
 
-// TODO:
 fn query_check_owner_nft(
-    _address: Addr,
-    _nft_address: Addr,
-    _token_id: String,
+    deps: Deps,
+    address: String,
+    nft_address: String,
+    token_id: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    // let res: RuleResponse<Option<Binary>> = deps
-    //     .querier
-    //     .query_wasm_smart(nft_address, &msg)?;
-    Ok((true, None))
+    let valid_nft = deps.api.addr_validate(&nft_address)?;
+    let res: OwnerOfResponse = deps.querier.query_wasm_smart(
+        valid_nft,
+        &OwnerOf {
+            token_id,
+            include_expired: None,
+        },
+    )?;
+    Ok((address == res.owner, None))
 }
 
 // TODO:

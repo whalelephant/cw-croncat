@@ -1,4 +1,5 @@
 use cosmwasm_std::Addr;
+//use cw_croncat_core::types::Rule;
 use cw20::Balance;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -31,8 +32,8 @@ pub enum QueryMsg {
         required_balance: Balance,
     },
     CheckOwnerOfNFT {
-        address: Addr,
-        nft_address: Addr,
+        address: String,
+        nft_address: String,
         token_id: String,
     },
     CheckProposalReadyToExec {
