@@ -396,6 +396,7 @@ dependencies = [
  "cw-proposal-multiple",
  "cw-proposal-single",
  "cw-storage-plus 0.13.2",
+ "cw-utils 0.12.1",
  "cw-utils 0.13.2",
  "cw2 0.13.2",
  "cw20 0.13.2",
