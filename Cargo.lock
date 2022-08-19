@@ -403,6 +403,8 @@ dependencies = [
  "cw20-base 0.13.2",
  "cw20-stake",
  "cw20-staked-balance-voting",
+ "cw721",
+ "cw721-base",
  "schemars",
  "serde",
  "serde_json",
@@ -596,6 +598,22 @@ dependencies = [
  "cw-utils 0.13.2",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "cw721-base"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b61200af4e027af2d7485dbdc37c2a9c4093b6b2f2b811732329ef456076f97e"
+dependencies = [
+ "cosmwasm-std",
+ "cw-storage-plus 0.13.2",
+ "cw-utils 0.13.2",
+ "cw2 0.13.2",
+ "cw721",
+ "schemars",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
