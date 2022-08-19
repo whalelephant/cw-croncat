@@ -1,3 +1,3 @@
 mod balance;
-mod nft;
 mod daodao;
+mod nft;
