@@ -4,17 +4,21 @@
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    has_coins, to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+};
 use cw2::set_contract_version;
+use cw20::{Balance, BalanceResponse};
 use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
-// use cw_croncat_core::types::Rule;
+
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
-// use cosmwasm_std::from_binary;
-// use crate::msg::QueryMultiResponse;
+//use cosmwasm_std::from_binary;
+//use crate::msg::QueryMultiResponse;
+
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -46,10 +50,19 @@ pub fn execute(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetBalance { address } => to_binary(&query_get_balance(env, address)?),
-        QueryMsg::GetCW20Balance { address } => to_binary(&query_get_cw20_balance(env, address)?),
+        QueryMsg::GetBalance { address, denom } => {
+            to_binary(&query_get_balance(deps, address, denom)?)
+        }
+        QueryMsg::GetCW20Balance {
+            cw20_contract,
+            address,
+        } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
+        QueryMsg::HasBalance {
+            balance,
+            required_balance,
+        } => to_binary(&query_has_balance(balance, required_balance)?),
         QueryMsg::CheckOwnerOfNFT {
             address,
             nft_address,
@@ -72,14 +85,52 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
     Ok(Response::new().add_attribute("method", "query_result"))
 }
 
-// TODO:
-fn query_get_balance(_env: Env, _address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
-    Ok((true, None))
+fn query_get_balance(
+    deps: Deps,
+    address: String,
+    denom: String,
+) -> StdResult<RuleResponse<Option<Binary>>> {
+    let valid_addr = deps.api.addr_validate(&address)?;
+    let amount = deps.querier.query_balance(valid_addr, denom)?.amount;
+    if amount.is_zero() {
+        Ok((true, None))
+    } else {
+        Ok((true, to_binary(&amount).ok()))
+    }
 }
 
-// TODO:
-fn query_get_cw20_balance(_env: Env, _address: Addr) -> StdResult<RuleResponse<Option<Binary>>> {
-    Ok((true, None))
+fn query_get_cw20_balance(
+    deps: Deps,
+    cw20_contract: String,
+    address: String,
+) -> StdResult<RuleResponse<Option<Binary>>> {
+    let valid_cw20 = deps.api.addr_validate(&cw20_contract)?;
+    let balance: BalanceResponse = deps
+        .querier
+        .query_wasm_smart(valid_cw20, &cw20::Cw20QueryMsg::Balance { address })?;
+    let amount = if balance.balance.is_zero() {
+        None
+    } else {
+        Some(to_binary(&balance.balance)?)
+    };
+    Ok((true, amount))
+}
+
+fn query_has_balance(
+    balance: Balance,
+    required_balance: Balance,
+) -> StdResult<RuleResponse<Option<Binary>>> {
+    let res = match (balance, required_balance) {
+        (Balance::Native(current), Balance::Native(expected)) => {
+            expected.0.iter().all(|c| has_coins(&current.0, c))
+        }
+        (Balance::Cw20(current_cw20), Balance::Cw20(expected_cw20)) => {
+            current_cw20.address == expected_cw20.address
+                && current_cw20.amount >= expected_cw20.amount
+        }
+        _ => false,
+    };
+    Ok((res, None))
 }
 
 fn query_check_owner_nft(

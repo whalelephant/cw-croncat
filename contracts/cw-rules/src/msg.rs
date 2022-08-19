@@ -1,5 +1,8 @@
 use cosmwasm_std::Addr;
 //use cw_croncat_core::types::Rule;
+use cw20::Balance;
+//use cw_croncat_core::types::Rule;
+//use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -17,10 +20,16 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // Individual query evaluations
     GetBalance {
-        address: Addr,
+        address: String,
+        denom: String,
     },
     GetCW20Balance {
-        address: Addr,
+        cw20_contract: String,
+        address: String,
+    },
+    HasBalance {
+        balance: Balance,
+        required_balance: Balance,
     },
     CheckOwnerOfNFT {
         address: String,
