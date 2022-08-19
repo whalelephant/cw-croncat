@@ -1,2 +1,2 @@
-mod nft;
 mod balance;
+mod nft;

@@ -12,13 +12,11 @@ use cw20::{Balance, BalanceResponse};
 use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
 
-
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
-
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
