@@ -11,14 +11,14 @@ pub mod dao {
         Proposal { proposal_id: u64 },
     }
 
-    #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct ProposalResponse {
         /// The ID of the proposal being returned.
         pub id: u64,
         pub proposal: AnyChoiceProposal,
     }
     //
-    #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct AnyChoiceProposal {
         pub status: Status,
         //Ignore rest

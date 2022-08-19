@@ -4,7 +4,7 @@ use cw20_staked_balance_voting::msg::ActiveThreshold;
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
-    voting_strategy::{self, VotingStrategy},
+    voting_strategy::VotingStrategy,
 };
 use voting::{
     threshold::{PercentageThreshold, Threshold},
