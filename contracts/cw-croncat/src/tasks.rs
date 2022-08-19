@@ -8,7 +8,9 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
-use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{
+    GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithRulesResponse,
+};
 use cw_croncat_core::traits::{BalancesOperations, Intervals};
 use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
 
@@ -39,7 +41,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> StdResult<Vec<TaskResponse>> {
+    ) -> StdResult<Vec<TaskWithRulesResponse>> {
         let size: u64 = self.task_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
         let limit = limit.unwrap_or(100).min(size);

@@ -248,6 +248,14 @@ pub struct TaskResponse {
     pub rules: Option<Vec<Rule>>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct TaskWithRulesResponse {
+    pub task_hash: String,
+    pub interval: Interval,
+    pub boundary: Option<Boundary>,
+    pub rules: Option<Vec<Rule>>,
+}
+
 impl From<Task> for TaskResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
@@ -276,6 +284,34 @@ impl From<Task> for TaskResponse {
             total_deposit: task.total_deposit,
             total_cw20_deposit: task.total_cw20_deposit,
             actions: task.actions,
+            rules: task.rules,
+        }
+    }
+}
+
+impl From<Task> for TaskWithRulesResponse {
+    fn from(task: Task) -> Self {
+        let boundary = match (task.boundary, &task.interval) {
+            (
+                BoundaryValidated {
+                    start: None,
+                    end: None,
+                },
+                _,
+            ) => None,
+            (BoundaryValidated { start, end }, Interval::Cron(_)) => Some(Boundary::Time {
+                start: start.map(Timestamp::from_nanos),
+                end: end.map(Timestamp::from_nanos),
+            }),
+            (BoundaryValidated { start, end }, _) => Some(Boundary::Height {
+                start: start.map(Into::into),
+                end: end.map(Into::into),
+            }),
+        };
+        TaskWithRulesResponse {
+            task_hash: task.to_hash(),
+            interval: task.interval,
+            boundary,
             rules: task.rules,
         }
     }
