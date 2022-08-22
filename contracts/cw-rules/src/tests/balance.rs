@@ -130,7 +130,7 @@ fn test_get_balance() -> StdResult<()> {
 fn test_get_cw20_balance() -> StdResult<()> {
     let (app, contract_addr, cw20_contract) = proper_instantiate();
 
-    // Return some amount
+    // Return coin
     let msg = QueryMsg::GetCW20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ANYONE.to_string(),
@@ -140,9 +140,9 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.0);
-    assert_eq!(res.1.unwrap(), to_binary("15")?);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(15, &cw20_contract))?);
 
-    // Return None if balance is zero
+    // Return coin if balance is zero
     let msg = QueryMsg::GetCW20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ADMIN_CW20.to_string(),
@@ -152,9 +152,9 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.0);
-    assert_eq!(res.1, None);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(0, &cw20_contract))?);
 
-    // Address doesn't exist
+    // If address doesn't exist, return coin with zero amount
     let msg = QueryMsg::GetCW20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ANOTHER.to_string(),
@@ -164,9 +164,9 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.0);
-    assert_eq!(res.1, None);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(0, &cw20_contract))?);
 
-    // Error
+    // Error if called wrong cw20_contract
     let msg = QueryMsg::GetCW20Balance {
         cw20_contract: contract_addr.to_string(),
         address: ANYONE.to_string(),

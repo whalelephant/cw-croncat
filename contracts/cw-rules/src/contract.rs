@@ -5,7 +5,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    coin, has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
@@ -100,15 +101,11 @@ fn query_get_cw20_balance(
     address: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     let valid_cw20 = deps.api.addr_validate(&cw20_contract)?;
-    let balance: BalanceResponse = deps
+    let balance_response: BalanceResponse = deps
         .querier
         .query_wasm_smart(valid_cw20, &cw20::Cw20QueryMsg::Balance { address })?;
-    let amount = if balance.balance.is_zero() {
-        None
-    } else {
-        Some(to_binary(&balance.balance)?)
-    };
-    Ok((true, amount))
+    let coin = coin(balance_response.balance.into(), cw20_contract);
+    Ok((true, to_binary(&coin).ok()))
 }
 
 fn query_has_balance_gt(
