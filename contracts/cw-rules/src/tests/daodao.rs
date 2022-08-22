@@ -1,6 +1,7 @@
 use cosmwasm_std::{to_binary, Addr, Binary, Empty, Uint128};
 use cw20::Cw20Coin;
 use cw20_staked_balance_voting::msg::ActiveThreshold;
+use cw_core::state::ProposalModule;
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
@@ -190,7 +191,7 @@ fn test_dao_single_proposal_ready() {
         None,
         None,
     );
-    let governance_modules: Vec<Addr> = app
+    let governance_modules: Vec<ProposalModule> = app
         .wrap()
         .query_wasm_smart(
             governance_addr,
@@ -202,7 +203,7 @@ fn test_dao_single_proposal_ready() {
         .unwrap();
 
     assert_eq!(governance_modules.len(), 1);
-    let govmod_single = governance_modules.into_iter().next().unwrap();
+    let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
     let govmod_config: cw_proposal_single::state::Config = app
         .wrap()
@@ -359,7 +360,7 @@ fn test_dao_multiple_proposal_ready() {
         None,
         None,
     );
-    let governance_modules: Vec<Addr> = app
+    let governance_modules: Vec<ProposalModule> = app
         .wrap()
         .query_wasm_smart(
             governance_addr,
@@ -371,7 +372,7 @@ fn test_dao_multiple_proposal_ready() {
         .unwrap();
 
     assert_eq!(governance_modules.len(), 1);
-    let govmod_single = governance_modules.into_iter().next().unwrap();
+    let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
     let govmod_config: cw_proposal_multiple::state::Config = app
         .wrap()
