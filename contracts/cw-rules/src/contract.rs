@@ -203,11 +203,7 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
 
         let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart {
             contract_addr,
-            msg: to_binary(&cw4::Cw4QueryMsg::ListMembers {
-                start_after: None,
-                limit: None,
-            })
-            .unwrap(),
+            msg: query.msg,
         });
 
         // Copied from `QuerierWrapper::query`
@@ -232,7 +228,7 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
         };
         let json_val: Value = serde_json::from_slice(bin.as_slice())
             .map_err(|e| StdError::parse_err(std::any::type_name::<Value>(), e))?;
-        println!("val: {json_val}");
+
         let mut current_val = &json_val;
         for get in query.gets {
             match get {
