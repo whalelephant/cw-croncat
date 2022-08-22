@@ -99,7 +99,7 @@ fn test_get_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.0);
-    assert_eq!(res.1.unwrap(), to_binary("1000000")?);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(1000000, NATIVE_DENOM))?);
 
     // Balance with another denom is zero
     let msg = QueryMsg::GetBalance {
@@ -111,9 +111,9 @@ fn test_get_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.0);
-    assert_eq!(res.1, None);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(0, "juno"))?);
 
-    // Address doesn't exist
+    // Address doesn't exist, return zero balance
     let msg = QueryMsg::GetBalance {
         address: ANOTHER.to_string(),
         denom: NATIVE_DENOM.to_string(),
@@ -121,7 +121,7 @@ fn test_get_balance() -> StdResult<()> {
     let res: RuleResponse<Option<Binary>> =
         app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.0);
-    assert_eq!(res.1, None);
+    assert_eq!(res.1.unwrap(), to_binary(&coin(0, NATIVE_DENOM))?);
 
     Ok(())
 }

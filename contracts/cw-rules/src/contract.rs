@@ -90,12 +90,8 @@ fn query_get_balance(
     denom: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     let valid_addr = deps.api.addr_validate(&address)?;
-    let amount = deps.querier.query_balance(valid_addr, denom)?.amount;
-    if amount.is_zero() {
-        Ok((true, None))
-    } else {
-        Ok((true, to_binary(&amount).ok()))
-    }
+    let coin = deps.querier.query_balance(valid_addr, denom)?;
+    Ok((true, to_binary(&coin).ok()))
 }
 
 fn query_get_cw20_balance(
