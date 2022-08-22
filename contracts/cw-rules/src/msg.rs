@@ -2,6 +2,7 @@
 use cw20::Balance;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
+use crate::types::dao::Status;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +39,7 @@ pub enum QueryMsg {
     CheckProposalReadyToExec {
         dao_address: String,
         proposal_id: u64,
+        status: Status,
     },
     // // Full evaluations
     // QueryConstruct {

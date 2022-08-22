@@ -1,12 +1,14 @@
 use cosmwasm_std::{to_binary, Addr, Binary, Empty, Uint128};
 use cw20::Cw20Coin;
 use cw20_staked_balance_voting::msg::ActiveThreshold;
+use cw_core::state::ProposalModule;
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
     voting_strategy::VotingStrategy,
 };
 use voting::{
+    status::Status,
     threshold::{PercentageThreshold, Threshold},
     voting::{MultipleChoiceVote, Vote},
 };
@@ -189,7 +191,7 @@ fn test_dao_single_proposal_ready() {
         None,
         None,
     );
-    let governance_modules: Vec<Addr> = app
+    let governance_modules: Vec<ProposalModule> = app
         .wrap()
         .query_wasm_smart(
             governance_addr,
@@ -201,7 +203,7 @@ fn test_dao_single_proposal_ready() {
         .unwrap();
 
     assert_eq!(governance_modules.len(), 1);
-    let govmod_single = governance_modules.into_iter().next().unwrap();
+    let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
     let govmod_config: cw_proposal_single::state::Config = app
         .wrap()
@@ -265,6 +267,7 @@ fn test_dao_single_proposal_ready() {
             &QueryMsg::CheckProposalReadyToExec {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
+                status: Status::Passed,
             },
         )
         .unwrap();
@@ -286,10 +289,34 @@ fn test_dao_single_proposal_ready() {
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::CheckProposalReadyToExec {
+                dao_address: govmod_single.to_string(),
+                proposal_id: 1,
+                status: Status::Passed,
+            },
+        )
+        .unwrap();
+    assert_eq!(res, (true, None));
+
+    app.execute_contract(
+        Addr::unchecked(CREATOR_ADDR),
+        govmod_single.clone(),
+        &cw_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &[],
+    )
+    .unwrap();
+
+    // It's executed now
+    // Test if other types of status works
+    let res: RuleResponse<Option<Binary>> = app
+        .wrap()
+        .query_wasm_smart(
             contract_addr,
             &QueryMsg::CheckProposalReadyToExec {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
+                status: Status::Executed,
             },
         )
         .unwrap();
@@ -333,7 +360,7 @@ fn test_dao_multiple_proposal_ready() {
         None,
         None,
     );
-    let governance_modules: Vec<Addr> = app
+    let governance_modules: Vec<ProposalModule> = app
         .wrap()
         .query_wasm_smart(
             governance_addr,
@@ -345,7 +372,7 @@ fn test_dao_multiple_proposal_ready() {
         .unwrap();
 
     assert_eq!(governance_modules.len(), 1);
-    let govmod_single = governance_modules.into_iter().next().unwrap();
+    let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
     let govmod_config: cw_proposal_multiple::state::Config = app
         .wrap()
@@ -420,6 +447,7 @@ fn test_dao_multiple_proposal_ready() {
             &QueryMsg::CheckProposalReadyToExec {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
+                status: Status::Passed,
             },
         )
         .unwrap();
@@ -441,10 +469,34 @@ fn test_dao_multiple_proposal_ready() {
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::CheckProposalReadyToExec {
+                dao_address: govmod_single.to_string(),
+                proposal_id: 1,
+                status: Status::Passed,
+            },
+        )
+        .unwrap();
+    assert_eq!(res, (true, None));
+
+    app.execute_contract(
+        Addr::unchecked(CREATOR_ADDR),
+        govmod_single.clone(),
+        &cw_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &[],
+    )
+    .unwrap();
+
+    // It's executed now
+    // Test if other types of status works
+    let res: RuleResponse<Option<Binary>> = app
+        .wrap()
+        .query_wasm_smart(
             contract_addr,
             &QueryMsg::CheckProposalReadyToExec {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
+                status: Status::Executed,
             },
         )
         .unwrap();

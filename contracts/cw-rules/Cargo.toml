@@ -42,12 +42,9 @@ cw721-base = "0.13.2"
 cw20 = "0.13"
 schemars = "0.8.8"
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
-#serde-json-wasm = "0.4.1"
-#serde_json = "1.0"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.31" }
-#voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-#cw-proposal-single = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
