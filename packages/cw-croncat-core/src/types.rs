@@ -147,7 +147,7 @@ pub struct Rule {
     // pub chain_id: Option<String>,
 
     /// Account to direct all view calls against
-    pub contract_addr: Addr,
+    pub contract_addr: String,
 
     // NOTE: Only allow static pre-defined query msg
     pub msg: Binary,
@@ -623,7 +623,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -657,7 +657,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -691,7 +691,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -726,7 +726,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -760,7 +760,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -796,7 +796,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -829,7 +829,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -863,7 +863,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -896,7 +896,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
             total_cw20_deposit: vec![],
@@ -1087,7 +1087,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
