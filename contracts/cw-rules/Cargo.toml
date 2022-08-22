@@ -31,11 +31,15 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cw-croncat-core = { version = "0.1.0", path = "../../packages/cw-croncat-core" } 
+cw-croncat-core = { version = "0.1.0", path = "../../packages/cw-croncat-core" }
 cosmwasm-std = "1.0.0"
 cosmwasm-storage = "1.0.0"
 cw-storage-plus = "0.13.2"
+cw-utils = "0.13"
 cw2 = "0.13.2"
+cw721 = "0.13.2"
+cw721-base = "0.13.2"
+cw20 = "0.13"
 schemars = "0.8.8"
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
 #serde-json-wasm = "0.4.1"
@@ -49,6 +53,17 @@ base64 = "0.13"
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
 cw-multi-test = "0.13.2"
+cw-utils = "0.13"
+cw20 = "0.13"
+cw20-base = "0.13"
+# DAO contracts
+voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-proposal-single = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-proposal-multiple = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20-staked-balance-voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-core = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-core-interface = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 # Testing generic msg
 cw4 = "0.14.0"
 cw4-group = "0.14.0"

@@ -1,12 +1,14 @@
-use cosmwasm_std::Addr;
+use cw20::Balance;
 use cw_croncat_core::types::Rule;
+//use cw_croncat_core::types::Rule;
+//use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     QueryResult {},
@@ -17,21 +19,26 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // Individual query evaluations
     GetBalance {
-        address: Addr,
+        address: String,
+        denom: String,
     },
     GetCW20Balance {
-        address: Addr,
+        cw20_contract: String,
+        address: String,
+    },
+    HasBalance {
+        balance: Balance,
+        required_balance: Balance,
     },
     CheckOwnerOfNFT {
-        address: Addr,
-        nft_address: Addr,
+        address: String,
+        nft_address: String,
         token_id: String,
     },
     CheckProposalReadyToExec {
-        dao_address: Addr,
-        proposal_id: String,
+        dao_address: String,
+        proposal_id: u64,
     },
-
     // Full evaluations
     QueryConstruct {
         rules: Vec<Rule>,
@@ -39,7 +46,7 @@ pub enum QueryMsg {
 }
 
 // We define a custom struct for each query response
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct QueryMultiResponse {
     pub data: Vec<String>,
 }

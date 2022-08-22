@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::{
     helpers::ValueOrdering,
     msg::{InstantiateMsg, QueryMsg},
-    types::{GenericQuery, ValueIndex},
+    types::generic_query::{GenericQuery, ValueIndex},
 };
 
 const CREATOR_ADDR: &str = "creator";
