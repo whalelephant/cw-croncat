@@ -35,7 +35,6 @@ pub mod generic_query {
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
     pub struct GenericQuery {
         pub msg: Binary,
-        /// we support up to one value in depth
         pub gets: Vec<ValueIndex>,
 
         pub ordering: ValueOrdering,

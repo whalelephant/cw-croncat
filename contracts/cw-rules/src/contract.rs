@@ -86,7 +86,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             proposal_id,
             status,
         )?),
-        // QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, env, rules)?),
+        QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, rules)?),
     }
 }
 
