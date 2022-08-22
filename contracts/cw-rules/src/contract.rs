@@ -5,7 +5,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
@@ -58,10 +58,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
-        QueryMsg::HasBalance {
-            balance,
+        QueryMsg::HasBalanceGT {
+            address,
             required_balance,
-        } => to_binary(&query_has_balance(balance, required_balance)?),
+        } => to_binary(&query_has_balance_gt(deps, address, required_balance)?),
         QueryMsg::CheckOwnerOfNFT {
             address,
             nft_address,
@@ -111,19 +111,34 @@ fn query_get_cw20_balance(
     Ok((true, amount))
 }
 
-fn query_has_balance(
-    balance: Balance,
+fn query_has_balance_gt(
+    deps: Deps,
+    address: String,
     required_balance: Balance,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
-    let res = match (balance, required_balance) {
-        (Balance::Native(current), Balance::Native(expected)) => {
-            expected.0.iter().all(|c| has_coins(&current.0, c))
+    let valid_address = deps.api.addr_validate(&address)?;
+    let res = match required_balance {
+        Balance::Native(required_native) => {
+            let balances = deps.querier.query_all_balances(valid_address)?;
+            let required_vec = required_native.into_vec();
+            let mut has_balance = true;
+            for required_coin in required_vec {
+                if (required_coin.amount != Uint128::zero())
+                    && (!has_coins(&balances, &required_coin))
+                {
+                    has_balance = false;
+                    break;
+                }
+            }
+            has_balance
         }
-        (Balance::Cw20(current_cw20), Balance::Cw20(expected_cw20)) => {
-            current_cw20.address == expected_cw20.address
-                && current_cw20.amount >= expected_cw20.amount
+        Balance::Cw20(required_cw20) => {
+            let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
+                required_cw20.address,
+                &cw20::Cw20QueryMsg::Balance { address },
+            )?;
+            balance_response.balance >= required_cw20.amount
         }
-        _ => false,
     };
     Ok((res, None))
 }

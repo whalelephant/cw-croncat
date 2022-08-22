@@ -26,8 +26,8 @@ pub enum QueryMsg {
         cw20_contract: String,
         address: String,
     },
-    HasBalance {
-        balance: Balance,
+    HasBalanceGT {
+        address: String,
         required_balance: Balance,
     },
     CheckOwnerOfNFT {
