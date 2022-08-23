@@ -1,7 +1,8 @@
-//use cw_croncat_core::types::Rule;
 use cw20::Balance;
+use cw_croncat_core::types::Rule;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
+use crate::types::dao::Status;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -38,11 +39,12 @@ pub enum QueryMsg {
     CheckProposalReadyToExec {
         dao_address: String,
         proposal_id: u64,
+        status: Status,
     },
-    // // Full evaluations
-    // QueryConstruct {
-    //     rules: Vec<Rule>,
-    // },
+    // Full evaluations
+    QueryConstruct {
+        rules: Vec<Rule>,
+    },
 }
 
 // We define a custom struct for each query response

@@ -1,12 +1,13 @@
+use cw_croncat_core::types::Rule;
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
-// use serde_json::{json, Value};
+use serde_json::Value;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coin, has_coins, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    Uint128,
+    coin, Uint128, from_binary, has_coins, to_binary, to_vec, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
+    QueryRequest, Response, StdError, StdResult, WasmQuery,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
@@ -14,11 +15,13 @@ use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
 
 use crate::error::ContractError;
+use crate::helpers::{ValueOrd, ValueOrdering};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
 use crate::types::dao::{ProposalResponse, QueryDao, Status};
+use crate::types::generic_query::{GenericQuery, ValueIndex};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -76,8 +79,14 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CheckProposalReadyToExec {
             dao_address,
             proposal_id,
-        } => to_binary(&query_dao_proposal_ready(deps, dao_address, proposal_id)?),
-        // QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, env, rules)?),
+            status,
+        } => to_binary(&query_dao_proposal_status(
+            deps,
+            dao_address,
+            proposal_id,
+            status,
+        )?),
+        QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, rules)?),
     }
 }
 
@@ -157,16 +166,17 @@ fn query_check_owner_nft(
     Ok((address == res.owner, None))
 }
 
-fn query_dao_proposal_ready(
+fn query_dao_proposal_status(
     deps: Deps,
     dao_address: String,
     proposal_id: u64,
+    status: Status,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
     let res: ProposalResponse = deps
         .querier
         .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
-    Ok((res.proposal.status == Status::Passed, None))
+    Ok((res.proposal.status == status, None))
 }
 
 // // // GOAL:
@@ -178,21 +188,88 @@ fn query_dao_proposal_ready(
 // //         .querier
 // //         .query_wasm_smart(&env.contract.address, &msg1)?;
 
-// //     // Query a bool with some data from previous
-// //     let msg2 = QueryMsg::GetBoolBinary {
-// //         msg: Some(to_binary(&res1)?),
-// //     };
-// //     let res2: RuleResponse<Option<Binary>> = deps
-// //         .querier
-// //         .query_wasm_smart(&env.contract.address, &msg2)?;
+//     // Query a bool with some data from previous
+//     let msg2 = QueryMsg::GetBoolBinary {
+//         msg: Some(to_binary(&res1)?),
+//     };
+//     let res2: RuleResponse<Option<Binary>> = deps
+//         .querier
+//         .query_wasm_smart(&env.contract.address, &msg2)?;
 
-// //     // Utilize previous query for the input of this query
-// //     // TODO: Setup binary msg, parse into something that contains { msg }, then assign the new binary response to it (if any)
-// //     // let msg = QueryMsg::GetInputBoolBinary {
-// //     //     msg: Some(to_binary(&res2)?),
-// //     // };
-// //     // let res: RuleResponse<Option<Binary>> =
-// //     //     deps.querier.query_wasm_smart(&env.contract.address, &msg)?;
+//     // Utilize previous query for the input of this query
+//     // TODO: Setup binary msg, parse into something that contains { msg }, then assign the new binary response to it (if any)
+//     // let msg = QueryMsg::GetInputBoolBinary {
+//     //     msg: Some(to_binary(&res2)?),
+//     // };
+//     // let res: RuleResponse<Option<Binary>> =
+//     //     deps.querier.query_wasm_smart(&env.contract.address, &msg)?;
+
+//     // Format something to read results
+//     let data = format!("{:?}", res2);
+//     Ok(QueryMultiResponse { data })
+// }
+
+// create a smart query into binary
+fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
+    for rule in rules {
+        let contract_addr = deps.api.addr_validate(&rule.contract_addr)?.into_string();
+        let query: GenericQuery = from_binary(&rule.msg)?;
+
+        let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart {
+            contract_addr,
+            msg: query.msg,
+        });
+
+        // Copied from `QuerierWrapper::query`
+        // because serde_json_wasm fails to deserialize slice into `serde_json::Value`
+        let raw = to_vec(&request).map_err(|serialize_err| {
+            StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
+        })?;
+        let bin = match deps.querier.raw_query(&raw) {
+            cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Ok(value)) => value,
+            cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Err(contract_err)) => {
+                return Err(StdError::generic_err(format!(
+                    "Querier contract error: {}",
+                    contract_err
+                )));
+            }
+            cosmwasm_std::SystemResult::Err(system_err) => {
+                return Err(StdError::generic_err(format!(
+                    "Querier system error: {}",
+                    system_err
+                )));
+            }
+        };
+        let json_val: Value = serde_json::from_slice(bin.as_slice())
+            .map_err(|e| StdError::parse_err(std::any::type_name::<Value>(), e))?;
+
+        let mut current_val = &json_val;
+        for get in query.gets {
+            match get {
+                ValueIndex::Key(s) => {
+                    current_val = current_val
+                        .get(s)
+                        .ok_or_else(|| StdError::generic_err("Invalid key for value"))?
+                }
+                ValueIndex::Number(n) => {
+                    current_val = current_val
+                        .get(n as usize)
+                        .ok_or_else(|| StdError::generic_err("Invalid index for value"))?
+                }
+            }
+        }
+        if !match query.ordering {
+            ValueOrdering::UnitAbove => current_val.bt(&query.value)?,
+            ValueOrdering::UnitAboveEqual => current_val.be(&query.value)?,
+            ValueOrdering::UnitBelow => current_val.lt(&query.value)?,
+            ValueOrdering::UnitBelowEqual => current_val.le(&query.value)?,
+            ValueOrdering::Equal => current_val.eq(&query.value),
+        } {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
 
 // //     // Format something to read results
 // //     let data = format!("{:?}", res2);
