@@ -104,7 +104,7 @@ pub enum ExecuteMsg {
         cw20_coins: Vec<Cw20Coin>,
     },
     ProxyCall {
-        task_hash: Option<Vec<u8>>,
+        task_hash: Option<String>,
     },
     /// Receive cw20 token
     Receive(cw20::Cw20ReceiveMsg),
