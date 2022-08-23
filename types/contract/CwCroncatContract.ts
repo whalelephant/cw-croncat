@@ -286,7 +286,7 @@ export interface IbcTimeoutBlock {
   [k: string]: unknown;
 }
 export interface Rule {
-  contract_addr: Addr;
+  contract_addr: string;
   msg: Binary;
   [k: string]: unknown;
 }

@@ -1,5 +1,5 @@
-//use cw_croncat_core::types::Rule;
 use cw20::Balance;
+use cw_croncat_core::types::Rule;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
 use crate::types::dao::Status;
@@ -41,10 +41,10 @@ pub enum QueryMsg {
         proposal_id: u64,
         status: Status,
     },
-    // // Full evaluations
-    // QueryConstruct {
-    //     rules: Vec<Rule>,
-    // },
+    // Full evaluations
+    QueryConstruct {
+        rules: Vec<Rule>,
+    },
 }
 
 // We define a custom struct for each query response
