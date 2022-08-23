@@ -251,6 +251,28 @@ impl<'a> CwCroncat<'a> {
 
         // TODO: check that this task can be executed in current block or slot ?
 
+        let task_ready = if let Ok(Some(block)) = self
+            .block_slots_rules
+            .may_load(deps.storage, task_hash.clone().into_bytes())
+        {
+            env.block.height >= block
+        } else if let Ok(Some(time)) = self
+            .time_slots_rules
+            .may_load(deps.storage, task_hash.clone().into_bytes())
+        {
+            env.block.time.nanos() >= time
+        } else {
+            // This shouldn't happen
+            return Err(ContractError::CustomError {
+                val: "No block or time for the task".to_string(),
+            });
+        };
+        if !task_ready {
+            return Err(ContractError::CustomError {
+                val: "The task isn't ready to be executed".to_string(),
+            });
+        }
+
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
         let actions = task.clone().actions;

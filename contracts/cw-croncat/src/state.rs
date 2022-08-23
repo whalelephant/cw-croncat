@@ -106,8 +106,8 @@ pub struct CwCroncat<'a> {
     pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
     pub tasks_with_rules_total: Item<'a, u64>,
 
-    pub time_slots_rules: Map<'a, u64, Vec<Vec<u8>>>,
-    pub block_slots_rules: Map<'a, u64, Vec<Vec<u8>>>,
+    pub time_slots_rules: Map<'a, Vec<u8>, u64>,
+    pub block_slots_rules: Map<'a, Vec<u8>, u64>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's

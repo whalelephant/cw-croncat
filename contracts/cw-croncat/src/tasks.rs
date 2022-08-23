@@ -322,10 +322,6 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(item.clone()),
                 })?;
 
-            println!(
-                "{:?}",
-                self.tasks_with_rules.load(deps.storage, item.to_hash_vec())
-            );
             // Increment task totals
             let size_res = self.increment_tasks_with_rules(deps.storage);
             if size_res.is_err() {
@@ -342,11 +338,11 @@ impl<'a> CwCroncat<'a> {
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots_rules
-                        .update(deps.storage, next_id, update_vec_data)?;
+                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
                 }
                 SlotType::Cron => {
                     self.time_slots_rules
-                        .update(deps.storage, next_id, update_vec_data)?;
+                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
                 }
             }
         } else {
@@ -402,10 +398,6 @@ impl<'a> CwCroncat<'a> {
                 }
             }
         };
-        println!(
-            "{:?}",
-            self.tasks_with_rules.load(deps.storage, item.to_hash_vec())
-        );
 
         Ok(Response::new()
             .add_attribute("method", "create_task")
@@ -474,56 +466,13 @@ impl<'a> CwCroncat<'a> {
             // Find a task with rules
             let task = self
                 .tasks_with_rules
-                .may_load(storage, hash_vec)?
+                .may_load(storage, hash_vec.clone())?
                 .ok_or(ContractError::NoTaskFound {})?;
 
-            // find any scheduled things and remove them!
-            // check which type of slot it would be in, then iterate to remove
-            // NOTE: def could use some spiffy refactor here
-            let time_ids: Vec<u64> = self
-                .time_slots_rules
-                .keys(storage, None, None, Order::Ascending)
-                .collect::<StdResult<Vec<_>>>()?;
+            self.time_slots_rules.remove(storage, hash_vec.clone());
 
-            for tid in time_ids {
-                let mut time_hashes = self
-                    .time_slots_rules
-                    .may_load(storage, tid)?
-                    .unwrap_or_default();
-                if !time_hashes.is_empty() {
-                    time_hashes
-                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
-                }
+            self.block_slots_rules.remove(storage, hash_vec);
 
-                // save the updates, remove if slot no longer has hashes
-                if time_hashes.is_empty() {
-                    self.time_slots_rules.remove(storage, tid);
-                } else {
-                    self.time_slots_rules.save(storage, tid, &time_hashes)?;
-                }
-            }
-            let block_ids: Vec<u64> = self
-                .block_slots_rules
-                .keys(storage, None, None, Order::Ascending)
-                .collect::<StdResult<Vec<_>>>()?;
-
-            for bid in block_ids {
-                let mut block_hashes = self
-                    .block_slots_rules
-                    .may_load(storage, bid)?
-                    .unwrap_or_default();
-                if !block_hashes.is_empty() {
-                    block_hashes
-                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
-                }
-
-                // save the updates, remove if slot no longer has hashes
-                if block_hashes.is_empty() {
-                    self.block_slots_rules.remove(storage, bid);
-                } else {
-                    self.block_slots_rules.save(storage, bid, &block_hashes)?;
-                }
-            }
             task
         };
 
