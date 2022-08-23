@@ -44,7 +44,7 @@ impl<'a> CwCroncat<'a> {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskWithRulesResponse>> {
-        let size: u64 = self.task_total.load(deps.storage)?.min(1000);
+        let size: u64 = self.tasks_with_rules_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
         let limit = limit.unwrap_or(100).min(size);
         self.tasks_with_rules
@@ -309,8 +309,10 @@ impl<'a> CwCroncat<'a> {
             }
         };
 
+        let mut with_rules = false;
         // Add task to catalog
         if item.with_rules() {
+            with_rules = true;
             // Add task with rules
             self.tasks_with_rules
                 .update(deps.storage, item.to_hash_vec(), |old| match old {
@@ -320,6 +322,10 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(item.clone()),
                 })?;
 
+            println!(
+                "{:?}",
+                self.tasks_with_rules.load(deps.storage, item.to_hash_vec())
+            );
             // Increment task totals
             let size_res = self.increment_tasks_with_rules(deps.storage);
             if size_res.is_err() {
@@ -396,12 +402,17 @@ impl<'a> CwCroncat<'a> {
                 }
             }
         };
+        println!(
+            "{:?}",
+            self.tasks_with_rules.load(deps.storage, item.to_hash_vec())
+        );
 
         Ok(Response::new()
             .add_attribute("method", "create_task")
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind))
-            .add_attribute("task_hash", hash))
+            .add_attribute("task_hash", hash)
+            .add_attribute("with_rules", with_rules.to_string()))
     }
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
@@ -411,54 +422,110 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
-        let task = self
-            .tasks
-            .may_load(storage, hash_vec.clone())?
-            .ok_or(ContractError::NoTaskFound {})?;
+        let some_task = self.tasks.may_load(storage, hash_vec.clone())?;
 
-        // Remove all the thangs
-        self.tasks.remove(storage, hash_vec)?;
+        let task = if let Some(task) = some_task {
+            // Remove all the thangs
+            self.tasks.remove(storage, hash_vec)?;
 
-        // find any scheduled things and remove them!
-        // check which type of slot it would be in, then iterate to remove
-        // NOTE: def could use some spiffy refactor here
-        let time_ids: Vec<u64> = self
-            .time_slots
-            .keys(storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
+            // find any scheduled things and remove them!
+            // check which type of slot it would be in, then iterate to remove
+            // NOTE: def could use some spiffy refactor here
+            let time_ids: Vec<u64> = self
+                .time_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
 
-        for tid in time_ids {
-            let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
-            if !time_hashes.is_empty() {
-                time_hashes.retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+            for tid in time_ids {
+                let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
+                if !time_hashes.is_empty() {
+                    time_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
+
+                // save the updates, remove if slot no longer has hashes
+                if time_hashes.is_empty() {
+                    self.time_slots.remove(storage, tid);
+                } else {
+                    self.time_slots.save(storage, tid, &time_hashes)?;
+                }
             }
+            let block_ids: Vec<u64> = self
+                .block_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
 
-            // save the updates, remove if slot no longer has hashes
-            if time_hashes.is_empty() {
-                self.time_slots.remove(storage, tid);
-            } else {
-                self.time_slots.save(storage, tid, &time_hashes)?;
-            }
-        }
-        let block_ids: Vec<u64> = self
-            .block_slots
-            .keys(storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
+            for bid in block_ids {
+                let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
+                if !block_hashes.is_empty() {
+                    block_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
 
-        for bid in block_ids {
-            let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
-            if !block_hashes.is_empty() {
-                block_hashes
-                    .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                // save the updates, remove if slot no longer has hashes
+                if block_hashes.is_empty() {
+                    self.block_slots.remove(storage, bid);
+                } else {
+                    self.block_slots.save(storage, bid, &block_hashes)?;
+                }
             }
+            task
+        } else {
+            // Find a task with rules
+            let task = self
+                .tasks_with_rules
+                .may_load(storage, hash_vec)?
+                .ok_or(ContractError::NoTaskFound {})?;
 
-            // save the updates, remove if slot no longer has hashes
-            if block_hashes.is_empty() {
-                self.block_slots.remove(storage, bid);
-            } else {
-                self.block_slots.save(storage, bid, &block_hashes)?;
+            // find any scheduled things and remove them!
+            // check which type of slot it would be in, then iterate to remove
+            // NOTE: def could use some spiffy refactor here
+            let time_ids: Vec<u64> = self
+                .time_slots_rules
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
+
+            for tid in time_ids {
+                let mut time_hashes = self
+                    .time_slots_rules
+                    .may_load(storage, tid)?
+                    .unwrap_or_default();
+                if !time_hashes.is_empty() {
+                    time_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
+
+                // save the updates, remove if slot no longer has hashes
+                if time_hashes.is_empty() {
+                    self.time_slots_rules.remove(storage, tid);
+                } else {
+                    self.time_slots_rules.save(storage, tid, &time_hashes)?;
+                }
             }
-        }
+            let block_ids: Vec<u64> = self
+                .block_slots_rules
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
+
+            for bid in block_ids {
+                let mut block_hashes = self
+                    .block_slots_rules
+                    .may_load(storage, bid)?
+                    .unwrap_or_default();
+                if !block_hashes.is_empty() {
+                    block_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
+
+                // save the updates, remove if slot no longer has hashes
+                if block_hashes.is_empty() {
+                    self.block_slots_rules.remove(storage, bid);
+                } else {
+                    self.block_slots_rules.save(storage, bid, &block_hashes)?;
+                }
+            }
+            task
+        };
 
         // return any remaining total_cw20_deposit to the owner
         self.balances.update(
@@ -661,13 +728,13 @@ mod tests {
     // use cosmwasm_std::testing::MockStorage;
     use crate::contract::GAS_BASE_FEE_JUNO;
     use cosmwasm_std::{
-        coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
+        coin, coins, to_binary, Addr, BankMsg, Binary, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Action, Boundary};
+    use cw_croncat_core::types::{Action, Boundary, Rule};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -1306,6 +1373,80 @@ mod tests {
         assert_eq!(0, slot_info.time_id);
         assert_eq!(s_3, slot_info.time_task_hash);
 
+        Ok(())
+    }
+
+    #[test]
+    fn check_task_with_rules_create_success() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
+                rules: Some(vec![Rule {
+                    contract_addr: Addr::unchecked("juno1v9753kdzphhur3g7wv846qgkvzkz9ys6qa0xlz467t3kvtrclfjsqee9x6"),
+                    msg: Binary::from_base64("eyJnZXRfYmFsYW5jZSI6eyJhZGRyZXNzIjoidXNlcjU2NzYiLCJkZW5vbSI6InVqdW5veCJ9fQ")?
+                }]),
+                cw20_coins: vec![],
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(300010, "atom"),
+            )
+            .unwrap();
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(tasks_with_rules.len(), 1);
+        assert_eq!(tasks.len(), 0);
+
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "with_rules" && a.value == "true" {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
         Ok(())
     }
 

@@ -19,7 +19,7 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         info: MessageInfo,
         env: Env,
-        task_hash: Option<Vec<u8>>,
+        task_hash: Option<String>,
     ) -> Result<Response, ContractError> {
         if !info.funds.is_empty() {
             return Err(ContractError::CustomError {
@@ -52,9 +52,10 @@ impl<'a> CwCroncat<'a> {
         let agent = agent_opt.unwrap();
 
         if let Some(task_hash) = task_hash {
-            let some_task = self.tasks_with_rules.may_load(deps.storage, task_hash)?;
+            let some_task = self
+                .tasks_with_rules
+                .may_load(deps.storage, task_hash.to_owned().into_bytes())?;
             if some_task.is_none() {
-                self.send_base_agent_reward(deps.storage, agent, info);
                 return Err(ContractError::NoTaskFound {});
             }
 
@@ -88,20 +89,6 @@ impl<'a> CwCroncat<'a> {
             let next_idx = self.rq_next_id(deps.storage)?;
             let actions = task.clone().actions;
 
-            // // TODO: Keep track for later scheduling
-            // self.rq_push(
-            //     deps.storage,
-            //     QueueItem {
-            //         prev_idx: None,
-            //         task_hash: Some(hash),
-            //         contract_addr: Some(self_addr),
-            //         task_is_extra: Some(
-            //             balancer_result.has_any_slot_extra_tasks(slot_type.clone()),
-            //         ),
-            //         agent_id: Some(info.sender.clone()),
-            //     },
-            // )?;
-
             // Add submessages for all actions
             for action in actions {
                 let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
@@ -112,13 +99,25 @@ impl<'a> CwCroncat<'a> {
                 }
             }
 
+            // Keep track for later scheduling
+            self.rq_push(
+                deps.storage,
+                QueueItem {
+                    prev_idx: None,
+                    task_hash: Some(task_hash.as_bytes().to_vec()),
+                    contract_addr: Some(env.contract.address),
+                    task_is_extra: Some(false),
+                    agent_id: Some(info.sender.clone()),
+                },
+            )?;
+
             // TODO: Add supported msgs if not a SubMessage?
             // Add the messages, reply handler responsible for task rescheduling
             let final_res = Response::new()
                 .add_attribute("method", "proxy_call")
                 .add_attribute("agent", info.sender)
                 .add_attribute("task_hash", task.to_hash())
-                // .add_attributes(rule_responses)
+                .add_attribute("task_with_rules", "true")
                 .add_submessages(sub_msgs);
             Ok(final_res)
         } else {
@@ -454,6 +453,9 @@ impl<'a> CwCroncat<'a> {
                         .update(deps.storage, next_id, update_vec_data)?;
                 }
             }
+        } else if let Some(task) = self.tasks_with_rules.may_load(deps.storage, task_hash)? {
+            //assert_eq!(task.to_hash(), "0");
+            self.remove_task(deps.storage, task.to_hash())?;
         } else {
             return Err(ContractError::NoTaskFound {});
         }
