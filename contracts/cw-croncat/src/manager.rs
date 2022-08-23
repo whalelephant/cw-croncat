@@ -241,7 +241,7 @@ impl<'a> CwCroncat<'a> {
         for rule in rules {
             let res: (bool, Option<String>) =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: rule.contract_addr.as_ref().to_string(),
+                    contract_addr: rule.contract_addr.clone().to_string(),
                     msg: rule.msg.clone(),
                 }))?;
             if !res.0 {
