@@ -95,9 +95,46 @@ junod tx wasm execute $CONTRACT "$PROXY_CALL" --from $AGENT $TXFLAG -y
 # There shouldn't be any tasks left
 junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE
 
-echo "CONTRACT CODEID - $CODE_ID"
-echo "CONTRACT $CONTRACT"
-echo "OWNER $OWNER"
-echo "AGENT $AGENT"
-echo "USER $USER"
-
+# Do the same for a reccuring task
+# The task shouldn't be deleted after proxy_call
+STAKE2='{
+  "create_task": {
+    "task": {
+      "interval": {
+        "Block": 3
+      },
+      "boundary": null,
+      "cw20_coins": [],
+      "stop_on_fail": false,
+      "actions": [
+        {
+          "msg": {
+            "staking": {
+              "delegate": {
+                "validator": "juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn",
+                "amount": {
+                  "denom": "ujunox",
+                  "amount": "2000000"
+                }
+              }
+            }
+          },
+          "gas_limit": 150000
+        }
+      ],
+      "rules": [
+        {
+          "contract_addr": "'$RULES_CONTRACT'",
+          "msg": "'$ENCODED_MSG'"
+        }
+      ]
+    }
+  }
+}'
+junod tx wasm execute $CONTRACT "$STAKE2" --amount 1000000ujunox --from $USER $TXFLAG -y
+TASKS_WITH_RULES=$(junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE --output json)
+sleep 10
+TASK_HASH=$(echo $TASKS_WITH_RULES | jq -r '.data[0].task_hash')
+PROXY_CALL='{"proxy_call":{"task_hash":"'$TASK_HASH'"}}'
+junod tx wasm execute $CONTRACT "$PROXY_CALL" --from $AGENT $TXFLAG -y
+junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE

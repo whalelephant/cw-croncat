@@ -106,6 +106,7 @@ pub struct CwCroncat<'a> {
     pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
     pub tasks_with_rules_total: Item<'a, u64>,
 
+    /// Store time and block based slots by the corresponding task hash
     pub time_slots_rules: Map<'a, Vec<u8>, u64>,
     pub block_slots_rules: Map<'a, Vec<u8>, u64>,
 
@@ -188,18 +189,8 @@ impl<'a> CwCroncat<'a> {
         Ok(val)
     }
 
-    pub fn task_with_rules_total(&self, storage: &dyn Storage) -> StdResult<u64> {
-        self.tasks_with_rules_total.load(storage)
-    }
-
     pub fn increment_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
         let val = self.task_total(storage)? + 1;
-        self.tasks_with_rules_total.save(storage, &val)?;
-        Ok(val)
-    }
-
-    pub fn decrement_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
-        let val = self.task_total(storage)? - 1;
         self.tasks_with_rules_total.save(storage, &val)?;
         Ok(val)
     }

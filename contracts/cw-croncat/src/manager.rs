@@ -245,7 +245,7 @@ impl<'a> CwCroncat<'a> {
                     msg: rule.msg.clone(),
                 }))?;
             if !res.0 {
-                return Err(ContractError::TaskNotReady {});
+                return Err(ContractError::RulesNotReady {});
             }
         }
 
@@ -263,7 +263,7 @@ impl<'a> CwCroncat<'a> {
         } else {
             // This shouldn't happen
             return Err(ContractError::CustomError {
-                val: "Wrong slot for this task".to_string(),
+                val: "Task doesn't have block or time slot".to_string(),
             });
         };
         if !task_ready {
