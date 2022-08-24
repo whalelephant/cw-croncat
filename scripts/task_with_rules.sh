@@ -1,18 +1,12 @@
 #!/bin/bash
 set -ex
 
-cd "$(dirname "$0")/.."
+# If call from scripts/
+# cd "$(dirname "$0")/.."
 
-# In case of M1 MacBook use rust-optimizer-arm64 instead of rust-optimizer
-docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer-arm64:0.12.6
-
-NODE="--node https://rpc.uni.juno.deuslabs.fi:443"
-TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-3 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
-
-RULES_CONTRACT=$1
+# Deploy cw_rules contract
+. ./scripts/cw-rules_deploy_testnet.sh
+RULES_CONTRACT=$CONTRACT
 
 # Create wallets and make sure they have some JUNOX
 OWNER=owner$RANDOM
@@ -23,7 +17,7 @@ junod keys add $OWNER
 junod keys add $AGENT
 junod keys add $USER
 
-# Make sure they have some JUNOX
+# Make sure they have 10 JUNOX each
 JSON=$(jq -n --arg addr $(junod keys show -a $OWNER) '{ denom:"ujunox","address":$addr}') && \
   curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
 JSON=$(jq -n --arg addr $(junod keys show -a $AGENT) '{ denom:"ujunox","address":$addr}') && \
@@ -36,7 +30,7 @@ echo "Created $AGENT with 10 JUNOX balance"
 echo "Created $USER with 10 JUNOX balance"
 
 # In case of M1 MacBook replace cw_croncat.wasm with cw_croncat-aarch64.wasm 
-RES=$(junod tx wasm store artifacts/cw_croncat-aarch64.wasm --from $OWNER $TXFLAG -y --output json -b block)
+RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 
 # Instantiate
@@ -90,13 +84,15 @@ junod tx wasm execute $CONTRACT "$STAKE" --amount 1000000ujunox --from $USER $TX
 # See tasks with rules
 GET_TASKS_WITH_RULES='{"get_tasks_with_rules":{}}'
 TASKS_WITH_RULES=$(junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE --output json)
-TASK_HASH=$(echo $TASKS_WITH_RULES | jq -r '.data[0].task_hash')
+junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE
 
 # proxy_call
 sleep 10      # is needed to make sure this call in the next block 
+TASK_HASH=$(echo $TASKS_WITH_RULES | jq -r '.data[0].task_hash')
 PROXY_CALL='{"proxy_call":{"task_hash":"'$TASK_HASH'"}}'
 junod tx wasm execute $CONTRACT "$PROXY_CALL" --from $AGENT $TXFLAG -y
 
+# There shouldn't be any tasks left
 junod query wasm contract-state smart $CONTRACT "$GET_TASKS_WITH_RULES" $NODE
 
 echo "CONTRACT CODEID - $CODE_ID"
