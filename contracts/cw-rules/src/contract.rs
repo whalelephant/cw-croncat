@@ -62,7 +62,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
-        QueryMsg::HasBalanceGT {
+        QueryMsg::HasBalanceGt {
             address,
             required_balance,
         } => to_binary(&query_has_balance_gt(deps, address, required_balance)?),

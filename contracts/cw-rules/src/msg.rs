@@ -27,7 +27,7 @@ pub enum QueryMsg {
         cw20_contract: String,
         address: String,
     },
-    HasBalanceGT {
+    HasBalanceGt {
         address: String,
         required_balance: Balance,
     },
