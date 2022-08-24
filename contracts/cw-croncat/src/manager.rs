@@ -7,7 +7,7 @@ use cosmwasm_std::{
     Storage, SubMsg, SubMsgResult, WasmQuery,
 };
 use cw_croncat_core::traits::Intervals;
-use cw_croncat_core::types::{Agent, SlotType, Task};
+use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -249,8 +249,7 @@ impl<'a> CwCroncat<'a> {
             }
         }
 
-        // TODO: check that this task can be executed in current block or slot ?
-
+        // Check that this task can be executed in current slot
         let task_ready = if let Ok(Some(block)) = self
             .block_slots_rules
             .may_load(deps.storage, task_hash.clone().into_bytes())
@@ -264,12 +263,12 @@ impl<'a> CwCroncat<'a> {
         } else {
             // This shouldn't happen
             return Err(ContractError::CustomError {
-                val: "No block or time for the task".to_string(),
+                val: "Wrong slot for this task".to_string(),
             });
         };
         if !task_ready {
             return Err(ContractError::CustomError {
-                val: "The task isn't ready to be executed".to_string(),
+                val: "Wrong slot for this task".to_string(),
             });
         }
 
@@ -339,54 +338,81 @@ impl<'a> CwCroncat<'a> {
             reply_submsg_failed = true;
         }
 
+        let mut task_with_rules = false;
+        let task = if let Some(task) = self.tasks.may_load(deps.storage, task_hash.clone())? {
+            task
+        } else if let Some(task) = self
+            .tasks_with_rules
+            .may_load(deps.storage, task_hash.clone())?
+        {
+            task_with_rules = true;
+            task
+        } else {
+            return Err(ContractError::NoTaskFound {});
+        };
+
         // reschedule next!
-        if let Some(task) = self.tasks.may_load(deps.storage, task_hash.clone())? {
-            let task_hash_str = task.to_hash();
-            // TODO: How can we compute gas & fees paid on this txn?
-            // let out_of_funds = call_total_balance > task.total_deposit;
+        let task_hash_str = task.to_hash();
 
-            // if non-recurring, exit
-            if task.stop_on_fail && reply_submsg_failed {
-                // Process task exit, if no future task can execute
-                let rt = self.remove_task(deps.storage, task_hash_str);
-                if let Ok(..) = rt {
-                    let resp = rt.unwrap();
-                    response = response
-                        .add_attributes(resp.attributes)
-                        .add_submessages(resp.messages)
-                        .add_events(resp.events);
-                }
-                return Ok(response);
+        // TODO: How can we compute gas & fees paid on this txn?
+        // let out_of_funds = call_total_balance > task.total_deposit;
+
+        // if non-recurring, exit
+        if task.interval == Interval::Once || (task.stop_on_fail && reply_submsg_failed) {
+            // Process task exit, if no future task can execute
+            let rt = self.remove_task(deps.storage, task_hash_str.clone());
+            if let Ok(..) = rt {
+                let resp = rt.unwrap();
+                response = response
+                    .add_attributes(resp.attributes)
+                    .add_submessages(resp.messages)
+                    .add_events(resp.events);
             }
+            response = response.add_attribute("ended_non_recurring_task", task_hash_str);
+            return Ok(response);
+        }
 
-            // Parse interval into a future timestamp, then convert to a slot
-            let (next_id, slot_kind) = task.interval.next(env.clone(), task.boundary);
-            let task_info = TaskInfo {
-                task: Some(task.clone()),
-                task_hash,
-                task_is_extra: Some(task_is_extra),
-                slot_kind: slot_kind.clone(),
-                agent_id: Some(agent_id),
-            };
-            // If the next interval comes back 0, then this task should not schedule again
-            if next_id == 0 {
-                let rt = self.remove_task(deps.storage, task_hash_str.clone());
-                if let Ok(..) = rt {
-                    let resp = rt.unwrap();
-                    response = response
-                        .add_attributes(resp.attributes)
-                        .add_submessages(resp.messages)
-                        .add_events(resp.events);
-                }
-                response = response.add_attribute("ended_task", task_hash_str);
-                //Task has been removed, complete and rebalance internal balancer
-                self.complete_agent_task(deps.storage, env, msg, task_info)?;
-                return Ok(response);
+        // Parse interval into a future timestamp, then convert to a slot
+        let (next_id, slot_kind) = task.interval.next(env.clone(), task.boundary);
+        let task_info = TaskInfo {
+            task: Some(task.clone()),
+            task_hash,
+            task_is_extra: Some(task_is_extra),
+            slot_kind: slot_kind.clone(),
+            agent_id: Some(agent_id),
+        };
+        // If the next interval comes back 0, then this task should not schedule again
+        if next_id == 0 {
+            let rt = self.remove_task(deps.storage, task_hash_str.clone());
+            if let Ok(..) = rt {
+                let resp = rt.unwrap();
+                response = response
+                    .add_attributes(resp.attributes)
+                    .add_submessages(resp.messages)
+                    .add_events(resp.events);
             }
+            response = response.add_attribute("ended_task", task_hash_str);
+            //Task has been removed, complete and rebalance internal balancer
+            self.complete_agent_task(deps.storage, env, msg, task_info)?;
+            return Ok(response);
+        }
 
-            response = response.add_attribute("slot_id", next_id.to_string());
-            response = response.add_attribute("slot_kind", format!("{:?}", slot_kind));
+        response = response.add_attribute("slot_id", next_id.to_string());
+        response = response.add_attribute("slot_kind", format!("{:?}", slot_kind));
 
+        if task_with_rules {
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots_rules
+                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                }
+                SlotType::Cron => {
+                    self.time_slots_rules
+                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                }
+            }
+        } else {
             // Get previous task hashes in slot, add as needed
             let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
                 match d {
@@ -412,13 +438,7 @@ impl<'a> CwCroncat<'a> {
                         .update(deps.storage, next_id, update_vec_data)?;
                 }
             }
-        } else if let Some(task) = self.tasks_with_rules.may_load(deps.storage, task_hash)? {
-            //assert_eq!(task.to_hash(), "0");
-            self.remove_task(deps.storage, task.to_hash())?;
-        } else {
-            return Err(ContractError::NoTaskFound {});
         }
-
         Ok(response)
     }
 
@@ -549,6 +569,22 @@ impl<'a> CwCroncat<'a> {
         }
         Result::Ok(())
     }
+
+    // // Check if the task is recurring and if it is, delete it
+    // pub(crate) fn delete_non_recurring(&self, storage: &mut dyn Storage, task: &Task, response: Response, reply_submsg_failed: bool) -> Result<Response, ContractError> {
+    //     if task.interval == Interval::Once || (task.stop_on_fail && reply_submsg_failed) {
+    //         // Process task exit, if no future task can execute
+    //         let rt = self.remove_task(storage, task.to_hash());
+    //         if let Ok(..) = rt {
+    //             let resp = rt.unwrap();
+    //             response = response
+    //                 .add_attributes(resp.attributes)
+    //                 .add_submessages(resp.messages)
+    //                 .add_events(resp.events);
+    //         }
+    //     };
+    //     return Ok(response)
+    // } else {}
 }
 
 #[cfg(test)]

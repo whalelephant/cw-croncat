@@ -56,7 +56,7 @@ ENCODED_MSG=$(echo $MSG | base64)
 STAKE='{
   "create_task": {
     "task": {
-      "interval": "Immediate",
+      "interval": "Once",
       "boundary": null,
       "cw20_coins": [],
       "stop_on_fail": false,
