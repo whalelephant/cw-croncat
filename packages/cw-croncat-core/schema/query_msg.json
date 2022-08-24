@@ -111,6 +111,36 @@
     {
       "type": "object",
       "required": [
+        "get_tasks_with_rules"
+      ],
+      "properties": {
+        "get_tasks_with_rules": {
+          "type": "object",
+          "properties": {
+            "from_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
         "get_tasks_by_owner"
       ],
       "properties": {

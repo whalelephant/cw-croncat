@@ -1345,7 +1345,7 @@ mod tests {
                     gas_limit: Some(150_000),
                 }],
                 rules: Some(vec![Rule {
-                    contract_addr: Addr::unchecked("juno1v9753kdzphhur3g7wv846qgkvzkz9ys6qa0xlz467t3kvtrclfjsqee9x6"),
+                    contract_addr: "juno1v9753kdzphhur3g7wv846qgkvzkz9ys6qa0xlz467t3kvtrclfjsqee9x6".to_string(),
                     msg: Binary::from_base64("eyJnZXRfYmFsYW5jZSI6eyJhZGRyZXNzIjoidXNlcjU2NzYiLCJkZW5vbSI6InVqdW5veCJ9fQ")?
                 }]),
                 cw20_coins: vec![],

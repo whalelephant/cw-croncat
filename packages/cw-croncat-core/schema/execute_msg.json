@@ -283,7 +283,15 @@
       ],
       "properties": {
         "proxy_call": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "task_hash": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false
