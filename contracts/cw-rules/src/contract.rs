@@ -127,16 +127,9 @@ fn query_has_balance_gt(
         Balance::Native(required_native) => {
             let balances = deps.querier.query_all_balances(valid_address)?;
             let required_vec = required_native.into_vec();
-            let mut has_balance = true;
-            for required_coin in required_vec {
-                if (required_coin.amount != Uint128::zero())
-                    && (!has_coins(&balances, &required_coin))
-                {
-                    has_balance = false;
-                    break;
-                }
-            }
-            has_balance
+            required_vec.iter().all(|required| {
+                required.amount == Uint128::zero() || has_coins(&balances, required)
+            })
         }
         Balance::Cw20(required_cw20) => {
             let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
