@@ -469,8 +469,8 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage, hash_vec.clone())?
                 .ok_or(ContractError::NoTaskFound {})?;
 
+            self.tasks_with_rules.remove(storage, hash_vec.clone())?;
             self.time_slots_rules.remove(storage, hash_vec.clone());
-
             self.block_slots_rules.remove(storage, hash_vec);
 
             task
