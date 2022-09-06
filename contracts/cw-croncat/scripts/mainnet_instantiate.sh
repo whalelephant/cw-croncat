@@ -5,7 +5,7 @@ NODE="--node https://rpc-juno.itastakers.com:443/"
 TXFLAG="--node https://rpc-juno.itastakers.com:443/ --chain-id juno-1 --gas-prices 0.025ujuno --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 
 # Make sure OWNER has some JUNO
-if [ -z "$1"]
+if [ -z "$1" ]
 then
     echo "Must provide owner address"
     exit 1

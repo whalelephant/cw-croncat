@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")"/../../../
 
 # OWNER must have enough JUNO (about 2 JUNO)
-if [ -z "$1"]
+if [ -z "$1" ]
 then
     echo "Must provide owner address"
     exit 1

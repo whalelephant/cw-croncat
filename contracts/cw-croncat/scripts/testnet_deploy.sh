@@ -24,7 +24,7 @@ else
     junod keys show $OWNER 2> /dev/null || junod keys add $OWNER
     junod keys show $AGENT 2> /dev/null || junod keys add $AGENT
     junod keys show $USER 2> /dev/null || junod keys add $USER
-    
+
     JSON=$(jq -n --arg addr $(junod keys show -a $OWNER) '{ denom:"ujunox","address":$addr}') && \
       curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
     JSON=$(jq -n --arg addr $(junod keys show -a $AGENT) '{ denom:"ujunox","address":$addr}') && \
@@ -60,4 +60,3 @@ echo "CONTRACT $CONTRACT"
 echo "OWNER $OWNER"
 echo "AGENT $AGENT"
 echo "USER $USER"
-
