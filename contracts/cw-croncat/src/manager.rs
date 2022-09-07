@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::balancer::Balancer;
 use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
@@ -238,14 +240,16 @@ impl<'a> CwCroncat<'a> {
 
         // Check rules
         let rules = task.rules.as_ref().expect("No rules");
-        for rule in rules {
+        for (index, rule) in rules.iter().enumerate() {
             let res: (bool, Option<String>) =
                 deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
                     contract_addr: rule.contract_addr.clone().to_string(),
                     msg: rule.msg.clone(),
                 }))?;
             if !res.0 {
-                return Err(ContractError::RulesNotReady {});
+                return Err(ContractError::RulesNotReady {
+                    index: index.try_into().unwrap(),
+                });
             }
         }
 
