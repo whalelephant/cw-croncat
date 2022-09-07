@@ -3,7 +3,7 @@ use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::Storage;
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
+    to_binary, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
     Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
@@ -36,8 +36,9 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn query_get_tasks_by_owner(
         &self,
         deps: Deps,
-        owner_id: Addr,
+        owner_id: String,
     ) -> StdResult<Vec<TaskResponse>> {
+        let owner_id = deps.api.addr_validate(&owner_id)?;
         self.tasks
             .idx
             .owner
@@ -766,7 +767,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetTasksByOwner {
-                    owner_id: Addr::unchecked(ANYONE),
+                    owner_id: ANYONE.to_string(),
                 },
             )
             .unwrap();

@@ -19,8 +19,9 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         env: Env,
-        account_id: Addr,
+        account_id: String,
     ) -> StdResult<Option<AgentResponse>> {
+        let account_id = deps.api.addr_validate(&account_id)?;
         let agent = self.agents.may_load(deps.storage, &account_id)?;
         if agent.is_none() {
             return Ok(None);
@@ -69,8 +70,9 @@ impl<'a> CwCroncat<'a> {
         &mut self,
         deps: Deps,
         env: Env,
-        account_id: Addr,
+        account_id: String,
     ) -> StdResult<Option<AgentTaskResponse>> {
+        let account_id = deps.api.addr_validate(&account_id)?;
         let active = self.agent_active_queue.load(deps.storage)?;
         if !active.contains(&account_id) {
             // TODO: unsure if we can return AgentNotRegistered
@@ -657,7 +659,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(agent),
+                    account_id: agent.to_string(),
                 },
             )
             .expect("Error getting agent status");
@@ -825,7 +827,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(AGENT1),
+                    account_id: AGENT1.to_string(),
                 },
             )
             .unwrap();
@@ -898,7 +900,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(AGENT1),
+                    account_id: AGENT1.to_string(),
                 },
             )
             .unwrap();
@@ -1322,7 +1324,7 @@ mod tests {
         // calls:
         // fn query_get_agent_tasks
         let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
-            account_id: Addr::unchecked(AGENT1),
+            account_id: AGENT1.to_string(),
         };
         let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
             .wrap()
@@ -1336,7 +1338,7 @@ mod tests {
             "Did not successfully find the newly added task"
         );
         msg_agent_tasks = QueryMsg::GetAgentTasks {
-            account_id: Addr::unchecked(AGENT2),
+            account_id: AGENT2.to_string(),
         };
         query_task_res = app
             .wrap()
@@ -1345,7 +1347,7 @@ mod tests {
         // Should fail for random user not in the active queue
         msg_agent_tasks = QueryMsg::GetAgentTasks {
             // rando account
-            account_id: Addr::unchecked("juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz"),
+            account_id: "juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz".to_string(),
         };
         query_task_res = app
             .wrap()

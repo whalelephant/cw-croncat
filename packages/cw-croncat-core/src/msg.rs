@@ -117,18 +117,18 @@ pub enum QueryMsg {
     GetConfig {},
     GetBalances {},
     GetAgent {
-        account_id: Addr,
+        account_id: String,
     },
     GetAgentIds {},
     GetAgentTasks {
-        account_id: Addr,
+        account_id: String,
     },
     GetTasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
     GetTasksByOwner {
-        owner_id: Addr,
+        owner_id: String,
     },
     GetTask {
         task_hash: String,
