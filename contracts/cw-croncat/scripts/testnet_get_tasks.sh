@@ -1,6 +1,15 @@
 #!/bin/bash
-. ./testnet_init_vars.sh
-CONTRACT=juno12z4hh9r3j9aurjn6ppkgyjrkuu4ugrdectsh792w8feyj56dhlssvntdls
-GET_TASKS='{"get_tasks":{}}'
 
+cd "$(dirname "$0")"
+. ./testnet_init_vars.sh
+
+if [ -z "$1" ]
+then
+    echo "Must provide contract address"
+    exit 1
+else 
+    CONTRACT=$1
+fi
+
+GET_TASKS='{"get_tasks":{}}'
 junod query wasm contract-state smart $CONTRACT "$GET_TASKS" $NODE

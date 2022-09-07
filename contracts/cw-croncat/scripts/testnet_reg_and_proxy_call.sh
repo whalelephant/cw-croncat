@@ -1,13 +1,26 @@
 #!/bin/bash
+set -e
+
+cd "$(dirname "$0")"
 . ./testnet_init_vars.sh
 
-AGENT=juno1pd43m659naajmn2chkt6tna0uud2ywyp5dm4h3
-CONTRACT=juno12z4hh9r3j9aurjn6ppkgyjrkuu4ugrdectsh792w8feyj56dhlssvntdls
+if [ -z "$1" ]
+then
+    echo "Must provide contract address"
+    exit 1
+elif [ -z "$2" ]
+then
+    echo "Must provide address of the new agent"
+    exit 1
+else
+    CONTRACT="$1"
+    AGENT="$2"
+fi
 
 REGISTER_AGENT='{"register_agent":{}}'
 junod tx wasm execute $CONTRACT "$REGISTER_AGENT" --from $AGENT $TXFLAG -y
 
-#make agent active
+# Make agent active
 CHECK_IN_AGENT='{"check_in_agent":{}}'
 junod tx wasm execute $CONTRACT "$CHECK_IN_AGENT" --from $AGENT $TXFLAG -y
 
