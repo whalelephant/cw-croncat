@@ -62,10 +62,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
-        QueryMsg::HasBalanceGt {
+        QueryMsg::HasBalanceGte {
             address,
             required_balance,
-        } => to_binary(&query_has_balance_gt(deps, address, required_balance)?),
+        } => to_binary(&query_has_balance_gte(deps, address, required_balance)?),
         QueryMsg::CheckOwnerOfNFT {
             address,
             nft_address,
@@ -117,7 +117,7 @@ fn query_get_cw20_balance(
     Ok((true, to_binary(&coin).ok()))
 }
 
-fn query_has_balance_gt(
+fn query_has_balance_gte(
     deps: Deps,
     address: String,
     required_balance: Balance,
