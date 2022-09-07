@@ -65,7 +65,7 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     UpdateSettings {
-        owner_id: Option<Addr>,
+        owner_id: Option<String>,
         slot_granularity: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<Coin>,
@@ -77,14 +77,14 @@ pub enum ExecuteMsg {
     },
     MoveBalances {
         balances: Vec<Balance>,
-        account_id: Addr,
+        account_id: String,
     },
 
     RegisterAgent {
-        payable_account_id: Option<Addr>,
+        payable_account_id: Option<String>,
     },
     UpdateAgent {
-        payable_account_id: Addr,
+        payable_account_id: String,
     },
     CheckInAgent {},
     UnregisterAgent {},
