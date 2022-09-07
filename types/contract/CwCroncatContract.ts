@@ -433,7 +433,7 @@ export type QueryMsg = {
   };
 } | {
   get_agent: {
-    account_id: Addr;
+    account_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -442,7 +442,7 @@ export type QueryMsg = {
   };
 } | {
   get_agent_tasks: {
-    account_id: Addr;
+    account_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -453,7 +453,7 @@ export type QueryMsg = {
   };
 } | {
   get_tasks_by_owner: {
-    owner_id: Addr;
+    owner_id: string;
     [k: string]: unknown;
   };
 } | {

@@ -39,7 +39,7 @@
           ],
           "properties": {
             "account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -71,7 +71,7 @@
           ],
           "properties": {
             "account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -121,7 +121,7 @@
           ],
           "properties": {
             "owner_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
