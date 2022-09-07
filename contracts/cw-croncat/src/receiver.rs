@@ -190,7 +190,7 @@ mod test {
         .into();
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
-                interval: Interval::Immediate,
+                interval: Interval::Once,
                 boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {
@@ -316,7 +316,7 @@ mod test {
         .into();
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
-                interval: Interval::Immediate,
+                interval: Interval::Once,
                 boundary: None,
                 stop_on_fail: false,
                 actions: vec![Action {

@@ -3,8 +3,8 @@ use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::Storage;
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, SubMsg, Uint128, WasmMsg,
+    to_binary, Addr, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
+    Uint128, WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
@@ -12,7 +12,7 @@ use cw_croncat_core::msg::{
     GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithRulesResponse,
 };
 use cw_croncat_core::traits::{BalancesOperations, Intervals};
-use cw_croncat_core::types::{BoundaryValidated, SlotType, Task};
+use cw_croncat_core::types::{BoundaryValidated, GenericBalance, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -76,9 +76,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
-        let res: Option<Task> = self
-            .tasks
-            .may_load(deps.storage, task_hash.as_bytes().to_vec())?;
+        let res: Option<Task> = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
 
         Ok(res.map(Into::into))
     }
@@ -237,19 +235,29 @@ impl<'a> CwCroncat<'a> {
             vec![]
         };
         let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
-        let item = Task {
+        let mut item = Task {
             funds_withdrawn_recurring: Uint128::zero(),
             owner_id: owner_id.clone(),
             interval: task.interval,
             boundary,
             stop_on_fail: task.stop_on_fail,
-            total_deposit: info.funds.clone(),
-            total_cw20_deposit: cw20,
+            total_deposit: GenericBalance {
+                native: info.funds.clone(),
+                cw20,
+            },
+            amount_for_one_task: Default::default(),
             actions: task.actions,
             rules: task.rules,
         };
 
-        if !item.is_valid_msg(&env.contract.address, &owner_id, &c.owner_id) {
+        if !item.is_valid_msg_calculate_usage(
+            deps.api,
+            &env.contract.address,
+            &owner_id,
+            &c.owner_id,
+            c.gas_base_fee,
+            c.native_denom.clone(),
+        )? {
             return Err(ContractError::CustomError {
                 val: "Actions message unsupported or invalid message data".to_string(),
             });
@@ -262,31 +270,13 @@ impl<'a> CwCroncat<'a> {
         }
 
         // // Check that balance is sufficient for 1 execution minimum
-        let call_balance_used = item.task_balance_uses(&c.agent_fee, c.gas_base_fee);
-        let min_balance_needed: u128 = if item.interval != Interval::Once {
-            call_balance_used * 2
-        } else {
-            call_balance_used
-        };
-        let attached_native = item
-            .total_deposit
-            .iter()
-            .find(|coin| coin.denom == c.native_denom)
-            .map(|c| c.amount.u128())
-            .unwrap_or_default();
-        if attached_native < min_balance_needed {
-            return Err(ContractError::CustomError {
-                val: format!(
-                    "Not enough task balance to execute job, need at least {min_balance_needed}, attached: {attached_native}",
-                ),
-            });
-        }
-        let task_cw20_balance_uses = item.task_cw20_balance_uses(deps.api)?;
-        item.verify_enough_cw20_balances(&task_cw20_balance_uses)?;
+        let recurring = item.interval != Interval::Once;
+        item.verify_enough_balances(recurring)?;
+
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = item.interval.next(env.clone(), item.boundary);
+        let (next_id, slot_kind) = item.interval.next(&env, item.boundary);
 
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
@@ -383,7 +373,7 @@ impl<'a> CwCroncat<'a> {
                         .save(deps.storage, &Some(env.block.time))?;
                 }
             }
-
+            
             self.config.save(deps.storage, &c)?;
 
             // Based on slot kind, put into block or cron slots
@@ -482,25 +472,28 @@ impl<'a> CwCroncat<'a> {
             &task.owner_id,
             |balances| -> Result<_, ContractError> {
                 let mut balances = balances.unwrap_or_default();
-                balances.checked_add_coins(&task.total_cw20_deposit)?;
+                balances.checked_add_coins(&task.total_deposit.cw20)?;
                 Ok(balances)
             },
         )?;
-        // setup sub-msgs for returning any remaining total_deposit to the owner
-        let submsgs = SubMsg::new(BankMsg::Send {
-            to_address: task.clone().owner_id.into(),
-            amount: task.clone().total_deposit,
-        });
-
         // remove from the total available_balance
-        let mut c: Config = self.config.load(storage)?;
-        c.available_balance
-            .checked_sub_native(&task.total_deposit)?;
-        self.config.save(storage, &c)?;
-
-        Ok(Response::new()
-            .add_attribute("method", "remove_task")
-            .add_submessage(submsgs))
+        self.config
+            .update(storage, |mut c| -> Result<_, ContractError> {
+                c.available_balance
+                    .checked_sub_native(&task.total_deposit.native)?;
+                Ok(c)
+            })?;
+        // setup sub-msgs for returning any remaining total_deposit to the owner
+        if !task.total_deposit.native.is_empty() {
+            Ok(Response::new()
+                .add_attribute("method", "remove_task")
+                .add_submessage(SubMsg::new(BankMsg::Send {
+                    to_address: task.owner_id.into(),
+                    amount: task.total_deposit.native,
+                })))
+        } else {
+            Ok(Response::new().add_attribute("method", "remove_task"))
+        }
     }
 
     /// Refill a task with more balance to continue its execution
@@ -512,11 +505,11 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.into_bytes();
-        let task_raw = self.tasks.may_load(deps.storage, hash_vec.clone())?;
-        if task_raw.is_none() {
-            return Err(ContractError::NoTaskFound {});
-        }
-        let mut task: Task = task_raw.unwrap();
+        let mut task = self
+            .tasks
+            .may_load(deps.storage, &hash_vec)?
+            .ok_or(ContractError::NoTaskFound {})?;
+
         if task.owner_id != info.sender {
             return Err(ContractError::RefillNotTaskOwner {});
         }
@@ -524,31 +517,19 @@ impl<'a> CwCroncat<'a> {
         // Add the attached balance into available_balance
         let mut c: Config = self.config.load(deps.storage)?;
         c.available_balance.checked_add_native(&info.funds)?;
+        task.total_deposit.checked_add_native(&info.funds)?;
+
+        // update the task and the config
         self.config.save(deps.storage, &c)?;
-
-        let mut total_balance: Vec<Coin> = vec![];
-        for t in task.total_deposit.iter() {
-            for f in info.funds.clone() {
-                if f.denom == t.denom {
-                    let amt = t.clone().amount.saturating_add(f.amount);
-                    total_balance.push(coin(amt.into(), t.clone().denom));
-                } else {
-                    total_balance.push(t.clone());
-                }
-            }
-        }
-        task.total_deposit = total_balance;
-
-        // update the task
-        self.tasks.update(deps.storage, hash_vec, |old| match old {
-            Some(_) => Ok(task.clone()),
-            None => Err(ContractError::CustomError {
-                val: "Task doesnt exist".to_string(),
-            }),
-        })?;
+        self.tasks.save(deps.storage, &hash_vec, &task)?;
 
         // return the task total
-        let coins_total: Vec<String> = task.total_deposit.iter().map(ToString::to_string).collect();
+        let coins_total: Vec<String> = task
+            .total_deposit
+            .native
+            .iter()
+            .map(ToString::to_string)
+            .collect();
         Ok(Response::new()
             .add_attribute("method", "refill_task")
             .add_attribute("total_deposit", format!("{coins_total:?}")))
@@ -574,14 +555,13 @@ impl<'a> CwCroncat<'a> {
             }
             validated
         };
-        let task = self.tasks.update(deps.storage, task_hash, |task| {
+        let task = self.tasks.update(deps.storage, &task_hash, |task| {
             let mut task = task.ok_or(ContractError::NoTaskFound {})?;
             if task.owner_id != info.sender {
                 return Err(ContractError::RefillNotTaskOwner {});
             }
             // add amount or create with this amount cw20 coins
-            task.total_cw20_deposit
-                .checked_add_coins(&cw20_coins_validated)?;
+            task.total_deposit.checked_add_cw20(&cw20_coins_validated)?;
             Ok(task)
         })?;
 
@@ -599,7 +579,8 @@ impl<'a> CwCroncat<'a> {
         // used `update` here to not clone task_hash
 
         let total_cw20_string: Vec<String> = task
-            .total_cw20_deposit
+            .total_deposit
+            .cw20
             .iter()
             .map(ToString::to_string)
             .collect();
@@ -758,8 +739,11 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: coins(37, "atom"),
-            total_cw20_deposit: vec![],
+            total_deposit: GenericBalance {
+                native: coins(37, "atom"),
+                cw20: Default::default(),
+            },
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
@@ -1590,7 +1574,6 @@ mod tests {
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
         let gas_limit = 150_000;
-        let agent_fee = 5;
 
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
@@ -1606,14 +1589,24 @@ mod tests {
             },
         };
         // create 1 token off task
-        let amount_for_one_task = gas_limit + agent_fee;
-        let res = app.execute_contract(
-            Addr::unchecked(ANYONE),
-            contract_addr.clone(),
-            &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+        let amount_for_one_task = gas_limit;
+        let res: ContractError = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(
+            res,
+            ContractError::CoreError(CoreError::NotEnoughNative {
+                denom: "atom".to_string(),
+                lack: Uint128::from(1u128)
+            })
         );
-        assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
 
         // create a task
         let res = app.execute_contract(
@@ -1635,7 +1628,6 @@ mod tests {
         let stake = StakingMsg::Delegate { validator, amount };
         let msg: CosmosMsg = stake.clone().into();
         let gas_limit = GAS_BASE_FEE_JUNO;
-        let agent_fee = 5;
 
         let create_task_msg = ExecuteMsg::CreateTask {
             task: TaskRequest {
@@ -1651,14 +1643,24 @@ mod tests {
             },
         };
         // create 1 token off task
-        let amount_for_one_task = gas_limit + agent_fee;
-        let res = app.execute_contract(
-            Addr::unchecked(ANYONE),
-            contract_addr.clone(),
-            &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+        let amount_for_one_task = gas_limit;
+        let res: ContractError = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(
+            res,
+            ContractError::CoreError(CoreError::NotEnoughNative {
+                denom: "atom".to_string(),
+                lack: Uint128::from(1u128)
+            })
         );
-        assert!(format!("{res:?}").contains("Not enough task balance to execute job"));
 
         // create a task
         let res = app.execute_contract(

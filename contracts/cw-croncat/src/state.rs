@@ -1,4 +1,4 @@
-use crate::balancer::RoundRobinBalancer;
+use crate::{balancer::RoundRobinBalancer, ContractError};
 use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
@@ -52,10 +52,15 @@ pub struct QueueItem {
     // This is used to track disjointed callbacks
     // could help scheduling multiple calls across txns
     // could help for IBC non-block bound txns
-    pub prev_idx: Option<u64>,
+    // not used yet, need more discover
+    // pub prev_idx: Option<u64>,
+
+    // counter of actions helps track what type of action it is
+    pub action_idx: u64,
     pub task_hash: Option<Vec<u8>>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
+    pub failed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -88,13 +93,13 @@ pub fn token_owner_idx(d: &Task) -> Addr {
 pub struct CwCroncat<'a> {
     pub config: Item<'a, Config>,
 
-    pub agents: Map<'a, Addr, Agent>,
+    pub agents: Map<'a, &'a Addr, Agent>,
     // TODO: Assess if diff store structure is needed for these:
     pub agent_active_queue: Item<'a, Vec<Addr>>,
     pub agent_pending_queue: Item<'a, Vec<Addr>>,
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
-    pub tasks: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
     pub task_total: Item<'a, u64>,
 
     /// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
@@ -210,6 +215,24 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn rq_remove(&self, storage: &mut dyn Storage, idx: u64) {
         self.reply_queue.remove(storage, idx);
     }
+
+    pub(crate) fn rq_update_rq_item(
+        &self,
+        storage: &mut dyn Storage,
+        idx: u64,
+        failed: bool,
+    ) -> Result<QueueItem, ContractError> {
+        self.reply_queue.update(storage, idx, |rq| {
+            let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
+            // if first fails it means whole thing failed
+            // for cases where we stop task on failure
+            if !rq.failed {
+                rq.failed = failed;
+            }
+            rq.action_idx += 1;
+            Ok(rq)
+        })
+    }
 }
 
 #[cfg(test)]
@@ -242,8 +265,8 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: vec![],
-            total_cw20_deposit: vec![],
+            total_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
@@ -256,7 +279,7 @@ mod tests {
         // create a task
         let res = store
             .tasks
-            .update(&mut storage, task.to_hash_vec(), |old| match old {
+            .update(&mut storage, &task.to_hash_vec(), |old| match old {
                 Some(_) => Err(ContractError::CustomError {
                     val: "Already exists".to_string(),
                 }),
@@ -286,7 +309,7 @@ mod tests {
         assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 
         // get single task
-        let get_task = store.tasks.load(&mut storage, task_id)?;
+        let get_task = store.tasks.load(&mut storage, &task_id)?;
         assert_eq!(get_task, task);
 
         Ok(())

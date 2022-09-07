@@ -281,8 +281,8 @@ impl From<Task> for TaskResponse {
             interval: task.interval,
             boundary,
             stop_on_fail: task.stop_on_fail,
-            total_deposit: task.total_deposit,
-            total_cw20_deposit: task.total_cw20_deposit,
+            total_deposit: task.total_deposit.native,
+            total_cw20_deposit: task.total_deposit.cw20,
             actions: task.actions,
             rules: task.rules,
         }
@@ -375,8 +375,8 @@ mod tests {
                 end: Some(44),
             },
             stop_on_fail: false,
-            total_deposit: vec![],
-            total_cw20_deposit: vec![],
+            total_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),

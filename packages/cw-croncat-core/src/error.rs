@@ -15,6 +15,9 @@ pub enum CoreError {
     #[error("Not enough cw20 balance of {addr}, need {lack} more")]
     NotEnoughCw20 { addr: String, lack: Uint128 },
 
+    #[error("Not enough native balance of {denom}, need {lack} more")]
+    NotEnoughNative { denom: String, lack: Uint128 },
+
     #[error("invalid cosmwasm message")]
     InvalidWasmMsg {},
 }

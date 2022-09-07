@@ -119,7 +119,7 @@ mod tests {
         for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
             let env = mock_env();
             // CHECK IT!
-            let (next_id, slot_kind) = interval.next(env, boundary.clone());
+            let (next_id, slot_kind) = interval.next(&env, boundary.clone());
             println!("next_id {:?}, slot_kind {:?}", next_id, slot_kind);
             assert_eq!(outcome_block, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
@@ -151,7 +151,7 @@ mod tests {
         for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
             let env = mock_env();
             // CHECK IT!
-            let (next_id, slot_kind) = interval.next(env, boundary.clone());
+            let (next_id, slot_kind) = interval.next(&env, boundary.clone());
             assert_eq!(outcome_block, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }

@@ -1,4 +1,4 @@
-use crate::state::Config;
+use crate::state::{Config, QueueItem};
 // use cosmwasm_std::Binary;
 // use cosmwasm_std::StdError;
 // use thiserror::Error;
@@ -6,11 +6,12 @@ use crate::state::Config;
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    to_binary, Addr, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
+    to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
     WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
+use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
 use cw_croncat_core::types::AgentStatus;
 pub use cw_croncat_core::types::{GenericBalance, Task};
 //use regex::Regex;
@@ -48,7 +49,7 @@ pub(crate) fn send_tokens(
     let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
         vec![]
     } else {
-        coins.native = balance.native.clone();
+        coins.native = native_balance.to_vec();
         vec![SubMsg::new(BankMsg::Send {
             to_address: to.into(),
             amount: native_balance.to_vec(),
@@ -71,7 +72,7 @@ pub(crate) fn send_tokens(
             Ok(exec)
         })
         .collect();
-    coins.cw20 = balance.cw20.clone();
+    coins.cw20 = cw20_balance.to_vec();
     msgs.append(&mut cw20_msgs?);
     Ok((msgs, coins))
 }
@@ -201,6 +202,38 @@ impl<'a> CwCroncat<'a> {
         } else {
             0
         }
+    }
+
+    // Change balances of task and contract if action did transaction that went through
+    pub fn task_after_action(
+        &self,
+        storage: &mut dyn Storage,
+        api: &dyn Api,
+        queue_item: QueueItem,
+        ok: bool,
+    ) -> Result<Task, ContractError> {
+        let task_hash = queue_item.task_hash.unwrap();
+        let mut task = self
+            .tasks
+            .may_load(storage, &task_hash)?
+            .ok_or(ContractError::NoTaskFound {})?;
+        if ok {
+            let mut config = self.config.load(storage)?;
+            let action_idx = queue_item.action_idx;
+            let action = &task.actions[action_idx as usize];
+
+            // update task balances and contract balances
+            if let Some(sent) = action.bank_sent() {
+                task.total_deposit.native.checked_sub_coins(sent)?;
+                config.available_balance.checked_sub_native(sent)?;
+            } else if let Some(sent) = action.cw20_sent(api) {
+                task.total_deposit.cw20.find_checked_sub(&sent)?;
+                config.available_balance.cw20.find_checked_sub(&sent)?;
+            };
+            self.config.save(storage, &config)?;
+            self.tasks.save(storage, &task_hash, &task)?;
+        }
+        Ok(task)
     }
 }
 

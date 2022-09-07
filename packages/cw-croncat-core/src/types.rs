@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
-    OverflowOperation::Sub, StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    coin, Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    OverflowOperation::Sub, StdError, SubMsgResult, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
-    traits::{BalancesOperations, FindAndMutate, Intervals},
+    traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
@@ -135,7 +135,9 @@ impl BoundaryValidated {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, JsonSchema)]
+#[derive(
+    Debug, PartialEq, Eq, std::hash::Hash, Deserialize, Serialize, Clone, Copy, JsonSchema,
+)]
 pub enum SlotType {
     Block,
     Cron,
@@ -163,6 +165,41 @@ pub struct Action<T = Empty> {
     pub gas_limit: Option<u64>,
 }
 
+impl Action {
+    // Checking how much native coins sent in this action
+    pub fn bank_sent(&self) -> Option<&[Coin]> {
+        if let CosmosMsg::Bank(BankMsg::Send { amount, .. }) = &self.msg {
+            Some(amount)
+        } else {
+            None
+        }
+    }
+
+    // Checking how much cw20 coins sent in this action
+    pub fn cw20_sent(&self, api: &dyn Api) -> Option<Cw20CoinVerified> {
+        if let CosmosMsg::Wasm(WasmMsg::Execute {
+            msg, contract_addr, ..
+        }) = &self.msg
+        {
+            if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                return match cw20_msg {
+                    Cw20ExecuteMsg::Send { amount, .. } => Some(Cw20CoinVerified {
+                        // unwraping safe here because we checked it at `is_valid_msg_calculate_usage`
+                        address: api.addr_validate(contract_addr).unwrap(),
+                        amount,
+                    }),
+                    Cw20ExecuteMsg::Transfer { amount, .. } => Some(Cw20CoinVerified {
+                        address: api.addr_validate(contract_addr).unwrap(),
+                        amount,
+                    }),
+                    _ => None,
+                };
+            }
+        }
+        None
+    }
+}
+
 /// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
 pub type RuleResponse<T> = (bool, T);
 
@@ -180,9 +217,9 @@ pub struct Task {
     pub stop_on_fail: bool,
 
     /// NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks
-    pub total_deposit: Vec<Coin>,
+    pub total_deposit: GenericBalance,
 
-    pub total_cw20_deposit: Vec<Cw20CoinVerified>,
+    pub amount_for_one_task: GenericBalance,
 
     /// The cosmos message to call, if time or rules are met
     pub actions: Vec<Action>,
@@ -208,64 +245,43 @@ impl Task {
     pub fn to_hash_vec(&self) -> Vec<u8> {
         self.to_hash().into_bytes()
     }
-    // /// Returns the base amount required to execute 1 task
-    // /// NOTE: this is not the final used amount, just the user-specified amount total needed
-    pub fn task_balance_uses(&self, agent_fee: &Coin, gas_base_fee: u64) -> u128 {
-        // TODO support attaching funds
-        // task.deposit.0 +
-        self.actions
-            .iter()
-            .fold(agent_fee.amount.u128(), |sum, action| {
-                sum + u128::from(action.gas_limit.unwrap_or(gas_base_fee))
-            })
-    }
 
-    pub fn task_cw20_balance_uses(
-        &self,
-        api: &dyn Api,
-    ) -> Result<Vec<Cw20CoinVerified>, CoreError> {
-        let mut balance = vec![];
-        for action in &self.actions {
-            if let CosmosMsg::Wasm(WasmMsg::Execute {
-                msg, contract_addr, ..
-            }) = &action.msg
+    pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {
+        let multiplier = Uint128::from(if recurring { 2u128 } else { 1u128 });
+
+        let task_native_balance_uses = &self.amount_for_one_task.native;
+        for coin in task_native_balance_uses {
+            if let Some(balance) = self
+                .total_deposit
+                .native
+                .iter()
+                .find(|balance| balance.denom == coin.denom)
             {
-                if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
-                    match cw20_msg {
-                        Cw20ExecuteMsg::Send { amount, .. } => {
-                            balance.checked_add_coins(&[Cw20CoinVerified {
-                                address: api.addr_validate(contract_addr)?,
-                                amount,
-                            }])?
-                        }
-                        Cw20ExecuteMsg::Transfer { amount, .. } => {
-                            balance.checked_add_coins(&[Cw20CoinVerified {
-                                address: api.addr_validate(contract_addr)?,
-                                amount,
-                            }])?
-                        }
-                        _ => return Err(CoreError::InvalidWasmMsg {}),
-                    }
+                if balance.amount < coin.amount * multiplier {
+                    return Err(CoreError::NotEnoughNative {
+                        denom: coin.denom.clone(),
+                        lack: coin.amount * multiplier - balance.amount,
+                    });
                 }
+            } else {
+                return Err(CoreError::NotEnoughNative {
+                    denom: coin.denom.clone(),
+                    lack: coin.amount,
+                });
             }
         }
-        Ok(balance)
-    }
-
-    pub fn verify_enough_cw20_balances(
-        &self,
-        task_cw20_balance_uses: &[Cw20CoinVerified],
-    ) -> Result<(), CoreError> {
+        let task_cw20_balance_uses = &self.amount_for_one_task.cw20;
         for coin in task_cw20_balance_uses {
             if let Some(balance) = self
-                .total_cw20_deposit
+                .total_deposit
+                .cw20
                 .iter()
                 .find(|balance| balance.address == coin.address)
             {
-                if balance.amount < coin.amount {
+                if balance.amount < coin.amount * multiplier {
                     return Err(CoreError::NotEnoughCw20 {
-                        addr: balance.address.to_string(),
-                        lack: balance.amount - coin.amount,
+                        addr: coin.address.to_string(),
+                        lack: coin.amount * multiplier - balance.amount,
                     });
                 }
             } else {
@@ -296,11 +312,27 @@ impl Task {
     }
 
     /// Validate the task actions only use the supported messages
-    pub fn is_valid_msg(&self, self_addr: &Addr, sender: &Addr, owner_id: &Addr) -> bool {
+    /// We're iterating over all actions
+    /// so it's a great place for calculaing balance usages
+    pub fn is_valid_msg_calculate_usage(
+        &mut self,
+        api: &dyn Api,
+        self_addr: &Addr,
+        sender: &Addr,
+        owner_id: &Addr,
+        default_gas: u64,
+        native_denom: String,
+    ) -> Result<bool, CoreError> {
         // TODO: Chagne to default FALSE, once all messages are covered in tests
         let mut valid = true;
+        let mut gas_amount: u64 = 0;
+        let amount_for_one_task = &mut self.amount_for_one_task;
 
         for action in self.actions.iter() {
+            // checked for cases, where task creator intentionaly tries to overflow
+            gas_amount = gas_amount
+                .checked_add(action.gas_limit.unwrap_or(default_gas))
+                .ok_or(CoreError::InvalidWasmMsg {})?;
             match &action.msg {
                 CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr,
@@ -314,8 +346,22 @@ impl Task {
                     }
                     if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                         match cw20_msg {
-                            Cw20ExecuteMsg::Send { .. } => (),
-                            Cw20ExecuteMsg::Transfer { .. } => (),
+                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
                             _ => valid = false,
                         }
                     }
@@ -330,18 +376,10 @@ impl Task {
                     // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
                     // which is however much was passed in, like 1000000ujunox below:
                     // junod tx wasm execute … … --amount 1000000ujunox
-                    if self.total_deposit.is_empty()
-                        || amount.is_empty()
-                        || amount[0].denom != self.total_deposit[0].denom
-                        || amount[0].amount > self.total_deposit[0].amount
-                        || (self.is_recurring()
-                            && self
-                                .funds_withdrawn_recurring
-                                .saturating_add(amount[0].amount)
-                                > self.total_deposit[0].amount)
-                    {
-                        valid = false
+                    if amount.iter().any(|coin| coin.amount.is_zero()) {
+                        valid = false;
                     }
+                    amount_for_one_task.checked_add_native(amount)?;
                 }
                 CosmosMsg::Bank(BankMsg::Burn { .. }) => {
                     // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
@@ -360,8 +398,10 @@ impl Task {
                 _ => (),
             }
         }
-
-        valid
+        amount_for_one_task
+            .native
+            .find_checked_add(&coin(gas_amount as u128, native_denom))?;
+        Ok(valid)
     }
 
     /// Get task gas total
@@ -498,9 +538,29 @@ impl GenericBalance {
     pub fn checked_sub_cw20(&mut self, sub: &[Cw20CoinVerified]) -> Result<(), CoreError> {
         self.cw20.checked_sub_coins(sub)
     }
+
+    pub fn checked_sub_generic(&mut self, sub: &GenericBalance) -> Result<(), CoreError> {
+        self.checked_sub_native(&sub.native)?;
+        self.checked_sub_cw20(&sub.cw20)
+    }
 }
 
-fn get_next_block_limited(env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+impl ResultFailed for SubMsgResult {
+    fn failed(&self) -> bool {
+        match self {
+            SubMsgResult::Ok(response) => response.events.iter().any(|event| {
+                event.attributes.iter().any(|attribute| {
+                    event.ty == "reply"
+                        && attribute.key == "mode"
+                        && attribute.value == "handle_failure"
+                })
+            }),
+            SubMsgResult::Err(_) => true,
+        }
+    }
+}
+
+fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary.start {
@@ -524,7 +584,7 @@ fn get_next_block_limited(env: Env, boundary: BoundaryValidated) -> (u64, SlotTy
 // So either:
 // - Boundary specifies a start/end that block offsets can be computed from
 // - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
+fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
     let current_block_height = env.block.height;
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
@@ -559,7 +619,7 @@ fn get_next_block_by_offset(env: Env, boundary: BoundaryValidated, block: u64) -
 }
 
 impl Intervals for Interval {
-    fn next(&self, env: Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+    fn next(&self, env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
         match self {
             // return the first block within a specific range that can be triggered 1 time.
             Interval::Once => get_next_block_limited(env, boundary),
@@ -603,12 +663,12 @@ impl Intervals for Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::{IbcTimeout, Uint128, VoteOption};
+    use cosmwasm_std::{coins, testing::mock_dependencies, IbcTimeout, Uint128, VoteOption};
     use hex::ToHex;
 
     #[test]
     fn is_valid_msg_once_block_based() {
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -619,7 +679,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -633,16 +693,21 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(task.is_valid_msg(
-            &Addr::unchecked("alice2"),
-            &Addr::unchecked("bob"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice2"),
+                &Addr::unchecked("bob"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_once_time_based() {
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -653,7 +718,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -667,16 +732,21 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(task.is_valid_msg(
-            &Addr::unchecked("alice2"),
-            &Addr::unchecked("bob"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice2"),
+                &Addr::unchecked("bob"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_recurring() {
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -687,7 +757,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -701,17 +771,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(task.is_valid_msg(
-            &Addr::unchecked("alice2"),
-            &Addr::unchecked("bob"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice2"),
+                &Addr::unchecked("bob"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_wrong_account() {
         // Cannot create a task to execute on the cron manager when not the owner
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("alice"),
@@ -722,7 +797,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -736,17 +811,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(!task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(!task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_vote() {
         // A task with CosmosMsg::Gov Vote should return false
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -757,7 +837,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Gov(GovMsg::Vote {
                     proposal_id: 0,
@@ -770,17 +850,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(!task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(!task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_transfer() {
         // A task with CosmosMsg::Ibc Transfer should return false
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -791,7 +876,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Ibc(IbcMsg::Transfer {
                     channel_id: "id".to_string(),
@@ -806,17 +891,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(!task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(!task
+            .is_valid_msg_calculate_usage(
+                &mock_dependencies().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_burn() {
         // A task with CosmosMsg::Bank Burn should return false
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -827,7 +917,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Burn {
                     amount: vec![Coin::new(10, "coin")],
@@ -839,17 +929,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(!task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(!task
+            .is_valid_msg_calculate_usage(
+                mock_dependencies().as_ref().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
-    fn is_valid_msg_send_should_fail() {
-        // A task with CosmosMsg::Bank Send should return false
-        let task = Task {
+    fn is_valid_msg_send_doesnt_fail() {
+        // A task with CosmosMsg::Bank Send should return true
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -860,7 +955,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Send {
                     to_address: "address".to_string(),
@@ -873,17 +968,22 @@ mod tests {
                 msg: Binary("bar".into()),
             }]),
         };
-        assert!(!task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(task
+            .is_valid_msg_calculate_usage(
+                mock_dependencies().as_ref().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "coin".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
     fn is_valid_msg_send_should_success() {
         // A task with CosmosMsg::Bank Send should return false
-        let task = Task {
+        let mut task = Task {
             funds_withdrawn_recurring: Uint128::zero(),
 
             owner_id: Addr::unchecked("bob"),
@@ -893,7 +993,11 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: vec![Coin::new(10, "atom")],
+            total_deposit: GenericBalance {
+                native: coins(10, "atom"),
+                cw20: Default::default(),
+            },
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Send {
                     to_address: "address".to_string(),
@@ -905,13 +1009,17 @@ mod tests {
                 contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
-            total_cw20_deposit: vec![],
         };
-        assert!(task.is_valid_msg(
-            &Addr::unchecked("alice"),
-            &Addr::unchecked("sender"),
-            &Addr::unchecked("bob")
-        ));
+        assert!(task
+            .is_valid_msg_calculate_usage(
+                mock_dependencies().as_ref().api,
+                &Addr::unchecked("alice"),
+                &Addr::unchecked("sender"),
+                &Addr::unchecked("bob"),
+                100,
+                "atom".to_string()
+            )
+            .unwrap());
     }
 
     #[test]
@@ -1085,7 +1193,7 @@ mod tests {
             },
             stop_on_fail: false,
             total_deposit: Default::default(),
-            total_cw20_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {
                     contract_addr: "alice".to_string(),
