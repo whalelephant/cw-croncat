@@ -286,7 +286,7 @@ export interface IbcTimeoutBlock {
   [k: string]: unknown;
 }
 export interface Rule {
-  contract_addr: Addr;
+  contract_addr: string;
   msg: Binary;
   [k: string]: unknown;
 }
@@ -388,6 +388,7 @@ export type ExecuteMsg = {
   };
 } | {
   proxy_call: {
+    task_hash?: string | null;
     [k: string]: unknown;
   };
 } | {
@@ -452,6 +453,12 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 } | {
+  get_tasks_with_rules: {
+    from_index?: number | null;
+    limit?: number | null;
+    [k: string]: unknown;
+  };
+} | {
   get_tasks_by_owner: {
     owner_id: Addr;
     [k: string]: unknown;
@@ -509,6 +516,13 @@ export interface CwCroncatReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<GetTasksResponse>;
+  getTasksWithRules: ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }) => Promise<GetTasksWithRulesResponse>;
   getTasksByOwner: ({
     ownerId
   }: {
@@ -554,6 +568,7 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
     this.getAgentIds = this.getAgentIds.bind(this);
     this.getAgentTasks = this.getAgentTasks.bind(this);
     this.getTasks = this.getTasks.bind(this);
+    this.getTasksWithRules = this.getTasksWithRules.bind(this);
     this.getTasksByOwner = this.getTasksByOwner.bind(this);
     this.getTask = this.getTask.bind(this);
     this.getTaskHash = this.getTaskHash.bind(this);
@@ -609,6 +624,20 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
   }): Promise<GetTasksResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_tasks: {
+        from_index: fromIndex,
+        limit
+      }
+    });
+  };
+  getTasksWithRules = async ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }): Promise<GetTasksWithRulesResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_tasks_with_rules: {
         from_index: fromIndex,
         limit
       }
@@ -750,7 +779,11 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     cw20Coins: Cw20Coin[];
     taskHash: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
-  proxyCall: (fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
+  proxyCall: ({
+    taskHash
+  }: {
+    taskHash?: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
   receive: ({
     amount,
     msg,
@@ -922,9 +955,15 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
       }
     }, fee, memo, funds);
   };
-  proxyCall = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
+  proxyCall = async ({
+    taskHash
+  }: {
+    taskHash?: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      proxy_call: {}
+      proxy_call: {
+        task_hash: taskHash
+      }
     }, fee, memo, funds);
   };
   receive = async ({

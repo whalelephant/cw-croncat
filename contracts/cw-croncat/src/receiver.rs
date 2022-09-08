@@ -224,7 +224,7 @@ mod test {
         app.update_block(add_little_time);
 
         // Agent executes transfer
-        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         app.execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),

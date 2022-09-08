@@ -8,7 +8,9 @@ use cosmwasm_std::{
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
-use cw_croncat_core::msg::{GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{
+    GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithRulesResponse,
+};
 use cw_croncat_core::traits::{BalancesOperations, Intervals};
 use cw_croncat_core::types::{BoundaryValidated, GenericBalance, SlotType, Task};
 
@@ -25,6 +27,27 @@ impl<'a> CwCroncat<'a> {
         let from_index = from_index.unwrap_or_default();
         let limit = limit.unwrap_or(100).min(size);
         self.tasks
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .map(|res| res.map(|(_k, task)| task.into()))
+            .collect()
+    }
+
+    /// Returns task with rules data
+    /// For now it returns only task_hash, interval, boundary and rules,
+    /// so that agent doesn't know details of his task
+    /// Used by the frontend for viewing tasks
+    pub(crate) fn query_get_tasks_with_rules(
+        &self,
+        deps: Deps,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    ) -> StdResult<Vec<TaskWithRulesResponse>> {
+        let size: u64 = self.tasks_with_rules_total.load(deps.storage)?.min(1000);
+        let from_index = from_index.unwrap_or_default();
+        let limit = limit.unwrap_or(100).min(size);
+        self.tasks_with_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
@@ -246,7 +269,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // // Check that balance is sufficient for 1 execution minimum
+        // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;
         item.verify_enough_balances(recurring)?;
 
@@ -262,75 +285,116 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
+        let mut with_rules = false;
         // Add task to catalog
-        self.tasks
-            .update(deps.storage, &item.to_hash_vec(), |old| match old {
-                Some(_) => Err(ContractError::CustomError {
-                    val: "Task already exists".to_string(),
-                }),
-                None => Ok(item.clone()),
-            })?;
+        if item.with_rules() {
+            with_rules = true;
+            // Add task with rules
+            self.tasks_with_rules
+                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
 
-        // Increment task totals
-        let size_res = self.increment_tasks(deps.storage);
-        if size_res.is_err() {
-            return Err(ContractError::CustomError {
-                val: "Problem incrementing task total".to_string(),
-            });
-        }
-        let size = size_res.unwrap();
+            // Increment task totals
+            let size_res = self.increment_tasks_with_rules(deps.storage);
+            if size_res.is_err() {
+                return Err(ContractError::CustomError {
+                    val: "Problem incrementing task total".to_string(),
+                });
+            }
 
-        // Get previous task hashes in slot, add as needed
-        let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
-            match d {
-                // has some data, simply push new hash
-                Some(data) => {
-                    let mut s = data;
-                    s.push(item.to_hash_vec());
-                    Ok(s)
+            let mut c: Config = c;
+            c.available_balance.checked_add_native(&info.funds)?;
+            self.config.save(deps.storage, &c)?;
+
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots_rules
+                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
                 }
-                // No data, push new vec & hash
-                None => Ok(vec![item.to_hash_vec()]),
+                SlotType::Cron => {
+                    self.time_slots_rules
+                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
+                }
+            }
+        } else {
+            // Add task without rules
+            self.tasks
+                .update(deps.storage, &item.to_hash_vec(), |old| match old {
+                    Some(_) => Err(ContractError::CustomError {
+                        val: "Task already exists".to_string(),
+                    }),
+                    None => Ok(item.clone()),
+                })?;
+
+            // Increment task totals
+            let size_res = self.increment_tasks(deps.storage);
+            if size_res.is_err() {
+                return Err(ContractError::CustomError {
+                    val: "Problem incrementing task total".to_string(),
+                });
+            }
+            let size = size_res.unwrap();
+
+            // Add the attached balance into available_balance
+            let mut c: Config = c;
+            c.available_balance.checked_add_native(&info.funds)?;
+
+            // If the creation of this task means we'd like another agent, update config
+            // TODO: should we do it for tasks with rules
+            let min_tasks_per_agent = c.min_tasks_per_agent;
+            let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
+            let num_agents_to_accept =
+                self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
+            // If we should allow a new agent to take over
+            if num_agents_to_accept != 0 {
+                // Don't wipe out an older timestamp
+                let begin = self.agent_nomination_begin_time.load(deps.storage)?;
+                if begin.is_none() {
+                    self.agent_nomination_begin_time
+                        .save(deps.storage, &Some(env.block.time))?;
+                }
+            }
+
+            self.config.save(deps.storage, &c)?;
+
+            // Get previous task hashes in slot, add as needed
+            let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+                match d {
+                    // has some data, simply push new hash
+                    Some(data) => {
+                        let mut s = data;
+                        s.push(item.to_hash_vec());
+                        Ok(s)
+                    }
+                    // No data, push new vec & hash
+                    None => Ok(vec![item.to_hash_vec()]),
+                }
+            };
+
+            // Based on slot kind, put into block or cron slots
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+                SlotType::Cron => {
+                    self.time_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
             }
         };
 
-        // Based on slot kind, put into block or cron slots
-        match slot_kind {
-            SlotType::Block => {
-                self.block_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
-            }
-            SlotType::Cron => {
-                self.time_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
-            }
-        }
-
-        // Add the attached balance into available_balance
-        let mut c: Config = c;
-        c.available_balance.checked_add_native(&info.funds)?;
-
-        // If the creation of this task means we'd like another agent, update config
-        let min_tasks_per_agent = c.min_tasks_per_agent;
-        let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
-        let num_agents_to_accept =
-            self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
-        // If we should allow a new agent to take over
-        if num_agents_to_accept != 0 {
-            // Don't wipe out an older timestamp
-            let begin = self.agent_nomination_begin_time.load(deps.storage)?;
-            if begin.is_none() {
-                self.agent_nomination_begin_time
-                    .save(deps.storage, &Some(env.block.time))?;
-            }
-        }
-
-        self.config.save(deps.storage, &c)?;
         Ok(Response::new()
             .add_attribute("method", "create_task")
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind))
-            .add_attribute("task_hash", hash))
+            .add_attribute("task_hash", hash)
+            .add_attribute("with_rules", with_rules.to_string()))
     }
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
@@ -340,54 +404,67 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
-        let task = self
-            .tasks
-            .may_load(storage, &hash_vec)?
-            .ok_or(ContractError::NoTaskFound {})?;
+        let some_task = self.tasks.may_load(storage, &hash_vec)?;
 
-        // Remove all the thangs
-        self.tasks.remove(storage, &hash_vec)?;
+        let task = if let Some(task) = some_task {
+            // Remove all the thangs
+            self.tasks.remove(storage, &hash_vec)?;
 
-        // find any scheduled things and remove them!
-        // check which type of slot it would be in, then iterate to remove
-        // NOTE: def could use some spiffy refactor here
-        let time_ids: Vec<u64> = self
-            .time_slots
-            .keys(storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
+            // find any scheduled things and remove them!
+            // check which type of slot it would be in, then iterate to remove
+            // NOTE: def could use some spiffy refactor here
+            let time_ids: Vec<u64> = self
+                .time_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
 
-        for tid in time_ids {
-            let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
-            if !time_hashes.is_empty() {
-                time_hashes.retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+            for tid in time_ids {
+                let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
+                if !time_hashes.is_empty() {
+                    time_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
+
+                // save the updates, remove if slot no longer has hashes
+                if time_hashes.is_empty() {
+                    self.time_slots.remove(storage, tid);
+                } else {
+                    self.time_slots.save(storage, tid, &time_hashes)?;
+                }
             }
+            let block_ids: Vec<u64> = self
+                .block_slots
+                .keys(storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
 
-            // save the updates, remove if slot no longer has hashes
-            if time_hashes.is_empty() {
-                self.time_slots.remove(storage, tid);
-            } else {
-                self.time_slots.save(storage, tid, &time_hashes)?;
-            }
-        }
-        let block_ids: Vec<u64> = self
-            .block_slots
-            .keys(storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<_>>>()?;
+            for bid in block_ids {
+                let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
+                if !block_hashes.is_empty() {
+                    block_hashes
+                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                }
 
-        for bid in block_ids {
-            let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
-            if !block_hashes.is_empty() {
-                block_hashes
-                    .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                // save the updates, remove if slot no longer has hashes
+                if block_hashes.is_empty() {
+                    self.block_slots.remove(storage, bid);
+                } else {
+                    self.block_slots.save(storage, bid, &block_hashes)?;
+                }
             }
+            task
+        } else {
+            // Find a task with rules
+            let task = self
+                .tasks_with_rules
+                .may_load(storage, hash_vec.clone())?
+                .ok_or(ContractError::NoTaskFound {})?;
 
-            // save the updates, remove if slot no longer has hashes
-            if block_hashes.is_empty() {
-                self.block_slots.remove(storage, bid);
-            } else {
-                self.block_slots.save(storage, bid, &block_hashes)?;
-            }
-        }
+            self.tasks_with_rules.remove(storage, hash_vec.clone())?;
+            self.time_slots_rules.remove(storage, hash_vec.clone());
+            self.block_slots_rules.remove(storage, hash_vec);
+
+            task
+        };
 
         // return any remaining total_cw20_deposit to the owner
         self.balances.update(
@@ -581,13 +658,13 @@ mod tests {
     // use cosmwasm_std::testing::MockStorage;
     use crate::contract::GAS_BASE_FEE_JUNO;
     use cosmwasm_std::{
-        coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
+        coin, coins, to_binary, Addr, BankMsg, Binary, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Action, Boundary};
+    use cw_croncat_core::types::{Action, Boundary, Rule};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -903,7 +980,7 @@ mod tests {
         // Removed task shouldn't reorder things
         let removed_index = from_index as usize;
         app.execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(VERY_RICH),
             contract_addr.clone(),
             &ExecuteMsg::RemoveTask {
                 task_hash: all_tasks
@@ -1233,6 +1310,80 @@ mod tests {
     }
 
     #[test]
+    fn check_task_with_rules_create_success() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
+                rules: Some(vec![Rule {
+                    contract_addr: "juno1v9753kdzphhur3g7wv846qgkvzkz9ys6qa0xlz467t3kvtrclfjsqee9x6".to_string(),
+                    msg: Binary::from_base64("eyJnZXRfYmFsYW5jZSI6eyJhZGRyZXNzIjoidXNlcjU2NzYiLCJkZW5vbSI6InVqdW5veCJ9fQ")?
+                }]),
+                cw20_coins: vec![],
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &create_task_msg,
+                &coins(300010, "atom"),
+            )
+            .unwrap();
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(tasks_with_rules.len(), 1);
+        assert_eq!(tasks.len(), 0);
+
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "with_rules" && a.value == "true" {
+                    has_created_hash = true;
+                }
+            }
+        }
+        assert!(has_created_hash);
+        Ok(())
+    }
+
+    #[test]
     fn check_remove_create() -> StdResult<()> {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
@@ -1287,6 +1438,17 @@ mod tests {
         let s_1: Vec<u64> = Vec::new();
         assert_eq!(s_1, slot_ids.time_ids);
         assert_eq!(vec![12346], slot_ids.block_ids);
+
+        // Another person can't remove the task
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_id_str.clone(),
+            },
+            &vec![],
+        )
+        .unwrap_err();
 
         // Remove the Task
         app.execute_contract(

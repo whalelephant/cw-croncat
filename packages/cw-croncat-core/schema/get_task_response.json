@@ -601,11 +601,7 @@
       "properties": {
         "contract_addr": {
           "description": "TBD: Interchain query support (See ibc::IbcMsg) Account to direct all view calls against",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            }
-          ]
+          "type": "string"
         },
         "msg": {
           "$ref": "#/definitions/Binary"
