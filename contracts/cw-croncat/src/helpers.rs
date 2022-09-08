@@ -213,10 +213,7 @@ impl<'a> CwCroncat<'a> {
         ok: bool,
     ) -> Result<Task, ContractError> {
         let task_hash = queue_item.task_hash.unwrap();
-        let mut task = self
-            .tasks
-            .may_load(storage, &task_hash)?
-            .ok_or(ContractError::NoTaskFound {})?;
+        let mut task = self.get_task_by_hash(storage, task_hash.clone())?;
         if ok {
             let mut config = self.config.load(storage)?;
             let action_idx = queue_item.action_idx;

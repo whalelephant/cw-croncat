@@ -286,7 +286,7 @@ export interface IbcTimeoutBlock {
   [k: string]: unknown;
 }
 export interface Rule {
-  contract_addr: Addr;
+  contract_addr: string;
   msg: Binary;
   [k: string]: unknown;
 }
@@ -331,7 +331,7 @@ export type ExecuteMsg = {
     agents_eject_threshold?: number | null;
     gas_price?: number | null;
     min_tasks_per_agent?: number | null;
-    owner_id?: Addr | null;
+    owner_id?: string | null;
     paused?: boolean | null;
     proxy_callback_gas?: number | null;
     slot_granularity?: number | null;
@@ -339,18 +339,18 @@ export type ExecuteMsg = {
   };
 } | {
   move_balances: {
-    account_id: Addr;
+    account_id: string;
     balances: Balance[];
     [k: string]: unknown;
   };
 } | {
   register_agent: {
-    payable_account_id?: Addr | null;
+    payable_account_id?: string | null;
     [k: string]: unknown;
   };
 } | {
   update_agent: {
-    payable_account_id: Addr;
+    payable_account_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -388,6 +388,7 @@ export type ExecuteMsg = {
   };
 } | {
   proxy_call: {
+    task_hash?: string | null;
     [k: string]: unknown;
   };
 } | {
@@ -433,7 +434,7 @@ export type QueryMsg = {
   };
 } | {
   get_agent: {
-    account_id: Addr;
+    account_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -442,7 +443,7 @@ export type QueryMsg = {
   };
 } | {
   get_agent_tasks: {
-    account_id: Addr;
+    account_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -452,8 +453,14 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 } | {
+  get_tasks_with_rules: {
+    from_index?: number | null;
+    limit?: number | null;
+    [k: string]: unknown;
+  };
+} | {
   get_tasks_by_owner: {
-    owner_id: Addr;
+    owner_id: string;
     [k: string]: unknown;
   };
 } | {
@@ -509,6 +516,13 @@ export interface CwCroncatReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<GetTasksResponse>;
+  getTasksWithRules: ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }) => Promise<GetTasksWithRulesResponse>;
   getTasksByOwner: ({
     ownerId
   }: {
@@ -554,6 +568,7 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
     this.getAgentIds = this.getAgentIds.bind(this);
     this.getAgentTasks = this.getAgentTasks.bind(this);
     this.getTasks = this.getTasks.bind(this);
+    this.getTasksWithRules = this.getTasksWithRules.bind(this);
     this.getTasksByOwner = this.getTasksByOwner.bind(this);
     this.getTask = this.getTask.bind(this);
     this.getTaskHash = this.getTaskHash.bind(this);
@@ -609,6 +624,20 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
   }): Promise<GetTasksResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_tasks: {
+        from_index: fromIndex,
+        limit
+      }
+    });
+  };
+  getTasksWithRules = async ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }): Promise<GetTasksWithRulesResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_tasks_with_rules: {
         from_index: fromIndex,
         limit
       }
@@ -703,7 +732,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     agentsEjectThreshold?: number;
     gasPrice?: number;
     minTasksPerAgent?: number;
-    ownerId?: Addr;
+    ownerId?: string;
     paused?: boolean;
     proxyCallbackGas?: number;
     slotGranularity?: number;
@@ -718,7 +747,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   registerAgent: ({
     payableAccountId
   }: {
-    payableAccountId?: Addr;
+    payableAccountId?: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
   updateAgent: ({
     payableAccountId
@@ -750,7 +779,11 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     cw20Coins: Cw20Coin[];
     taskHash: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
-  proxyCall: (fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
+  proxyCall: ({
+    taskHash
+  }: {
+    taskHash?: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: readonly Coin[]) => Promise<ExecuteResult>;
   receive: ({
     amount,
     msg,
@@ -806,7 +839,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     agentsEjectThreshold?: number;
     gasPrice?: number;
     minTasksPerAgent?: number;
-    ownerId?: Addr;
+    ownerId?: string;
     paused?: boolean;
     proxyCallbackGas?: number;
     slotGranularity?: number;
@@ -841,7 +874,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
   registerAgent = async ({
     payableAccountId
   }: {
-    payableAccountId?: Addr;
+    payableAccountId?: string;
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       register_agent: {
@@ -922,9 +955,15 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
       }
     }, fee, memo, funds);
   };
-  proxyCall = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
+  proxyCall = async ({
+    taskHash
+  }: {
+    taskHash?: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: readonly Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      proxy_call: {}
+      proxy_call: {
+        task_hash: taskHash
+      }
     }, fee, memo, funds);
   };
   receive = async ({

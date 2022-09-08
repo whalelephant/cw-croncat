@@ -215,7 +215,7 @@ mod test {
         // quick agent register
         {
             let msg = ExecuteMsg::RegisterAgent {
-                payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+                payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
             };
             app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
                 .unwrap();
@@ -224,7 +224,7 @@ mod test {
         app.update_block(add_little_time);
 
         // Agent executes transfer
-        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         app.execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),

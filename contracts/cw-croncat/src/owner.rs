@@ -2,8 +2,8 @@ use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Response,
-    StdResult, SubMsg, WasmMsg,
+    has_coins, to_binary, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    SubMsg, WasmMsg,
 };
 use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
@@ -65,6 +65,7 @@ impl<'a> CwCroncat<'a> {
                 return Err(ContractError::AttachedDeposit {});
             }
         }
+        let api = deps.api;
         match payload {
             ExecuteMsg::UpdateSettings {
                 owner_id,
@@ -84,6 +85,7 @@ impl<'a> CwCroncat<'a> {
                         }
 
                         if let Some(owner_id) = owner_id {
+                            let owner_id = api.addr_validate(&owner_id)?;
                             config.owner_id = owner_id;
                         }
                         // if let Some(treasury_id) = treasury_id {
@@ -155,8 +157,9 @@ impl<'a> CwCroncat<'a> {
         info: MessageInfo,
         env: Env,
         balances: Vec<Balance>,
-        account_id: Addr,
+        account_id: String,
     ) -> Result<Response, ContractError> {
+        let account_id = deps.api.addr_validate(&account_id)?;
         let mut config = self.config.load(deps.storage)?;
 
         // // Check if is owner OR the treasury account making the transfer request
@@ -380,7 +383,7 @@ mod tests {
         // try to move funds as non-owner
         let msg_move_1 = ExecuteMsg::MoveBalances {
             balances: non_exist_bal,
-            account_id: Addr::unchecked("scammer"),
+            account_id: "scammer".to_string(),
         };
         let res_fail_1 = store.execute(deps.as_mut(), mock_env(), unauth_info, msg_move_1);
         match res_fail_1 {
@@ -391,7 +394,7 @@ mod tests {
         // try to move funds to account other than treasury or owner
         let msg_move_2 = ExecuteMsg::MoveBalances {
             balances: exist_bal.clone(),
-            account_id: Addr::unchecked("scammer"),
+            account_id: "scammer".to_string(),
         };
         let res_fail_2 = store.execute(deps.as_mut(), mock_env(), info.clone(), msg_move_2);
         match res_fail_2 {
@@ -407,7 +410,7 @@ mod tests {
         let info = mock_info("owner_id", &coins(1000, "meow"));
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
         let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
-        let money_bags = Addr::unchecked("owner_id");
+        let money_bags = "owner_id".to_string();
 
         // instantiate with owner, then add treasury
         let msg = InstantiateMsg {

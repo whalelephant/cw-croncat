@@ -65,7 +65,7 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     UpdateSettings {
-        owner_id: Option<Addr>,
+        owner_id: Option<String>,
         slot_granularity: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<Coin>,
@@ -77,14 +77,14 @@ pub enum ExecuteMsg {
     },
     MoveBalances {
         balances: Vec<Balance>,
-        account_id: Addr,
+        account_id: String,
     },
 
     RegisterAgent {
-        payable_account_id: Option<Addr>,
+        payable_account_id: Option<String>,
     },
     UpdateAgent {
-        payable_account_id: Addr,
+        payable_account_id: String,
     },
     CheckInAgent {},
     UnregisterAgent {},
@@ -103,7 +103,9 @@ pub enum ExecuteMsg {
         task_hash: String,
         cw20_coins: Vec<Cw20Coin>,
     },
-    ProxyCall {},
+    ProxyCall {
+        task_hash: Option<String>,
+    },
     /// Receive cw20 token
     Receive(cw20::Cw20ReceiveMsg),
     WithdrawWalletBalance {
@@ -117,18 +119,22 @@ pub enum QueryMsg {
     GetConfig {},
     GetBalances {},
     GetAgent {
-        account_id: Addr,
+        account_id: String,
     },
     GetAgentIds {},
     GetAgentTasks {
-        account_id: Addr,
+        account_id: String,
     },
     GetTasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    GetTasksWithRules {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
     GetTasksByOwner {
-        owner_id: Addr,
+        owner_id: String,
     },
     GetTask {
         task_hash: String,
@@ -242,6 +248,14 @@ pub struct TaskResponse {
     pub rules: Option<Vec<Rule>>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct TaskWithRulesResponse {
+    pub task_hash: String,
+    pub interval: Interval,
+    pub boundary: Option<Boundary>,
+    pub rules: Option<Vec<Rule>>,
+}
+
 impl From<Task> for TaskResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
@@ -270,6 +284,34 @@ impl From<Task> for TaskResponse {
             total_deposit: task.total_deposit.native,
             total_cw20_deposit: task.total_deposit.cw20,
             actions: task.actions,
+            rules: task.rules,
+        }
+    }
+}
+
+impl From<Task> for TaskWithRulesResponse {
+    fn from(task: Task) -> Self {
+        let boundary = match (task.boundary, &task.interval) {
+            (
+                BoundaryValidated {
+                    start: None,
+                    end: None,
+                },
+                _,
+            ) => None,
+            (BoundaryValidated { start, end }, Interval::Cron(_)) => Some(Boundary::Time {
+                start: start.map(Timestamp::from_nanos),
+                end: end.map(Timestamp::from_nanos),
+            }),
+            (BoundaryValidated { start, end }, _) => Some(Boundary::Height {
+                start: start.map(Into::into),
+                end: end.map(Into::into),
+            }),
+        };
+        TaskWithRulesResponse {
+            task_hash: task.to_hash(),
+            interval: task.interval,
+            boundary,
             rules: task.rules,
         }
     }
