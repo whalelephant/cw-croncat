@@ -1,4 +1,4 @@
-use crate::balancer::RoundRobinBalancer;
+use crate::{balancer::RoundRobinBalancer, ContractError};
 use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
@@ -52,10 +52,15 @@ pub struct QueueItem {
     // This is used to track disjointed callbacks
     // could help scheduling multiple calls across txns
     // could help for IBC non-block bound txns
-    pub prev_idx: Option<u64>,
+    // not used yet, need more discover
+    // pub prev_idx: Option<u64>,
+
+    // counter of actions helps track what type of action it is
+    pub action_idx: u64,
     pub task_hash: Option<Vec<u8>>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
+    pub failed: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -88,13 +93,13 @@ pub fn token_owner_idx(d: &Task) -> Addr {
 pub struct CwCroncat<'a> {
     pub config: Item<'a, Config>,
 
-    pub agents: Map<'a, Addr, Agent>,
+    pub agents: Map<'a, &'a Addr, Agent>,
     // TODO: Assess if diff store structure is needed for these:
     pub agent_active_queue: Item<'a, Vec<Addr>>,
     pub agent_pending_queue: Item<'a, Vec<Addr>>,
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
-    pub tasks: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
     pub task_total: Item<'a, u64>,
 
     /// Timestamps can be grouped into slot buckets (1-60 second buckets) for easier agent handling
@@ -102,6 +107,13 @@ pub struct CwCroncat<'a> {
     /// Block slots allow for grouping of tasks at a specific block height,
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
+
+    pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks_with_rules_total: Item<'a, u64>,
+
+    /// Store time and block based slots by the corresponding task hash
+    pub time_slots_rules: Map<'a, Vec<u8>, u64>,
+    pub block_slots_rules: Map<'a, Vec<u8>, u64>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's
@@ -119,14 +131,31 @@ pub struct CwCroncat<'a> {
 
 impl Default for CwCroncat<'static> {
     fn default() -> Self {
-        Self::new("tasks", "tasks__owner")
+        Self::new(
+            "tasks",
+            "tasks_with_rules",
+            "tasks__owner",
+            "tasks_with_rules__owner",
+        )
     }
 }
 
 impl<'a> CwCroncat<'a> {
-    fn new(tasks_key: &'a str, tasks_owner_key: &'a str) -> Self {
+    fn new(
+        tasks_key: &'a str,
+        tasks_with_rules_key: &'a str,
+        tasks_owner_key: &'a str,
+        tasks_with_rules_owner_key: &'a str,
+    ) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
+        };
+        let indexes_rules = TaskIndexes {
+            owner: MultiIndex::new(
+                token_owner_idx,
+                tasks_with_rules_key,
+                tasks_with_rules_owner_key,
+            ),
         };
         Self {
             config: Item::new("config"),
@@ -135,8 +164,12 @@ impl<'a> CwCroncat<'a> {
             agent_pending_queue: Item::new("agent_pending_queue"),
             tasks: IndexedMap::new(tasks_key, indexes),
             task_total: Item::new("task_total"),
+            tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
+            tasks_with_rules_total: Item::new("tasks_with_rules_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
+            time_slots_rules: Map::new("time_slots_rules"),
+            block_slots_rules: Map::new("block_slots_rules"),
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
@@ -161,6 +194,12 @@ impl<'a> CwCroncat<'a> {
         Ok(val)
     }
 
+    pub fn increment_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
+        let val = self.task_total(storage)? + 1;
+        self.tasks_with_rules_total.save(storage, &val)?;
+        Ok(val)
+    }
+
     pub(crate) fn rq_next_id(&self, storage: &dyn Storage) -> StdResult<u64> {
         Ok(self.reply_index.load(storage)? + 1)
     }
@@ -175,6 +214,40 @@ impl<'a> CwCroncat<'a> {
 
     pub(crate) fn rq_remove(&self, storage: &mut dyn Storage, idx: u64) {
         self.reply_queue.remove(storage, idx);
+    }
+
+    pub(crate) fn rq_update_rq_item(
+        &self,
+        storage: &mut dyn Storage,
+        idx: u64,
+        failed: bool,
+    ) -> Result<QueueItem, ContractError> {
+        self.reply_queue.update(storage, idx, |rq| {
+            let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
+            // if first fails it means whole thing failed
+            // for cases where we stop task on failure
+            if !rq.failed {
+                rq.failed = failed;
+            }
+            rq.action_idx += 1;
+            Ok(rq)
+        })
+    }
+
+    pub(crate) fn get_task_by_hash(
+        &self,
+        storage: &dyn Storage,
+        task_hash: Vec<u8>,
+    ) -> Result<Task, ContractError> {
+        let some_task = self.tasks.may_load(storage, &task_hash)?;
+        if let Some(task) = some_task {
+            Ok(task)
+        } else {
+            self.tasks_with_rules
+                .may_load(storage, task_hash)?
+                .map(Ok)
+                .ok_or(ContractError::NoTaskFound {})?
+        }
     }
 }
 
@@ -208,8 +281,8 @@ mod tests {
                 end: None,
             },
             stop_on_fail: false,
-            total_deposit: vec![],
-            total_cw20_deposit: vec![],
+            total_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg,
                 gas_limit: Some(150_000),
@@ -222,7 +295,7 @@ mod tests {
         // create a task
         let res = store
             .tasks
-            .update(&mut storage, task.to_hash_vec(), |old| match old {
+            .update(&mut storage, &task.to_hash_vec(), |old| match old {
                 Some(_) => Err(ContractError::CustomError {
                     val: "Already exists".to_string(),
                 }),
@@ -252,7 +325,7 @@ mod tests {
         assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 
         // get single task
-        let get_task = store.tasks.load(&mut storage, task_id)?;
+        let get_task = store.tasks.load(&mut storage, &task_id)?;
         assert_eq!(get_task, task);
 
         Ok(())

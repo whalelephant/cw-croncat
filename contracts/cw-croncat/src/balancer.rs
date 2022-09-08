@@ -1,9 +1,9 @@
 use crate::helpers::*;
 use crate::state::{Config, TaskInfo};
 use crate::ContractError::AgentNotRegistered;
-use cosmwasm_std::Storage;
+use cosmwasm_std::Uint64;
 use cosmwasm_std::{Addr, Env, StdError, StdResult};
-use cosmwasm_std::{DepsMut, Uint64};
+use cosmwasm_std::{Deps, Storage};
 use cw_croncat_core::msg::AgentTaskResponse;
 use cw_croncat_core::types::SlotType;
 use cw_storage_plus::Item;
@@ -16,7 +16,7 @@ pub enum BalancerMode {
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
-        deps: &DepsMut,
+        deps: &Deps,
         env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -77,8 +77,8 @@ impl RoundRobinBalancer {
         let mut vec: Vec<(SlotType, u32, u32)> = Vec::new();
         for p in indices.iter() {
             match agent_index {
-                aind if aind < p.1 => vec.push((p.0.clone(), p.1 - 1, p.2)),
-                aind if aind > p.1 => vec.push((p.0.clone(), p.1, p.2)),
+                aind if aind < p.1 => vec.push((p.0, p.1 - 1, p.2)),
+                aind if aind > p.1 => vec.push((p.0, p.1, p.2)),
                 _ => (),
             }
         }
@@ -88,7 +88,7 @@ impl RoundRobinBalancer {
 impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn get_agent_tasks(
         &mut self,
-        deps: &DepsMut,
+        deps: &Deps,
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
@@ -182,7 +182,67 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                     num_cron_tasks_extra,
                 }))
             }
-            BalancerMode::Equalizer => todo!(),
+            BalancerMode::Equalizer => {
+                let equalizer = |total_tasks: u64| -> (Uint64, Uint64) {
+                    if total_tasks < 1 {
+                        return (Uint64::from(0u64), Uint64::from(0u64));
+                    }
+                    let mut rich_agents: Vec<(SlotType, u32, u32)> = agent_active_indices_config
+                        .clone()
+                        .into_iter()
+                        .filter(|e| e.2 > 0)
+                        .collect::<_>();
+
+                    rich_agents.sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap());
+                    let rich_indices: Vec<usize> =
+                        rich_agents.iter().map(|v| v.1 as usize).collect();
+
+                    let mut diff = vect_difference(&agent_active_indices, &rich_indices);
+                    diff.extend(rich_indices);
+
+                    let agent_index = diff
+                        .iter()
+                        .position(|x| x == &(agent_index as usize))
+                        .expect("Agent is not active or not registered!")
+                        as u64;
+
+                    if total_tasks <= diff.len() as u64 {
+                        let agent_tasks_total = 1u64.saturating_sub(
+                            agent_index.saturating_sub(total_tasks.saturating_sub(1)),
+                        );
+                        (agent_tasks_total.into(), agent_tasks_total.into())
+                    } else {
+                        let leftover = total_tasks % agent_count;
+                        let mut extra = 0u64;
+                        if leftover > 0 {
+                            extra = 1u64.saturating_sub(
+                                agent_index.saturating_sub(leftover.saturating_sub(1)),
+                            );
+                        }
+                        let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
+
+                        (agent_tasks_total.into(), extra.into())
+                    }
+                };
+
+                if let Some(current_block_task_total) = slot_items.0 {
+                    let (n, ne) = equalizer(current_block_task_total);
+                    num_block_tasks = n;
+                    num_block_tasks_extra = ne;
+                }
+                if let Some(current_cron_task_total) = slot_items.1 {
+                    let (n, ne) = equalizer(current_cron_task_total);
+                    num_cron_tasks = n;
+                    num_cron_tasks_extra = ne;
+                }
+
+                Ok(Some(AgentTaskResponse {
+                    num_block_tasks,
+                    num_block_tasks_extra,
+                    num_cron_tasks,
+                    num_cron_tasks_extra,
+                }))
+            }
         }
     }
 
@@ -214,7 +274,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         active_agents: &Item<'a, Vec<Addr>>,
         task_info: TaskInfo,
     ) {
-        if !task_info.task_is_extra.unwrap_or(false) {
+        if !task_info.task_is_extra.unwrap_or(false) && self.mode == BalancerMode::ActivationOrder {
             return;
         };
 
@@ -281,7 +341,7 @@ mod tests {
         }
     }
     #[test]
-    fn test_agent_has_valid_task_count() {
+    fn test_agent_has_valid_task_count_ao_mode() {
         let store = CwCroncat::default();
         let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
         let env = mock_env();
@@ -310,7 +370,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(1), Some(2));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -326,7 +386,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(100), Some(50));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -342,7 +402,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -356,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_check_valid_agents_get_extra_tasks() {
+    fn test_check_valid_agents_get_extra_tasks_ao_mode() {
         let store = CwCroncat::default();
         let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
         let env = mock_env();
@@ -387,7 +447,7 @@ mod tests {
         let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -405,7 +465,7 @@ mod tests {
         //Verify agent1 gets extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,
@@ -423,7 +483,126 @@ mod tests {
         //Verify agent3 not getting extra
         let result = balancer
             .get_agent_tasks(
-                &deps.as_mut(),
+                &deps.as_ref(),
+                &env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT3),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.num_block_tasks.u64(), 1);
+        assert_eq!(result.num_cron_tasks.u64(), 1);
+        assert_eq!(result.num_block_tasks_extra.u64(), 0);
+        assert_eq!(result.num_cron_tasks_extra.u64(), 0);
+    }
+    #[test]
+    fn test_check_valid_agents_get_extra_tasks_eq_mode() {
+        let store = CwCroncat::default();
+        let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+        let env = mock_env();
+        let mut balancer = RoundRobinBalancer::new(BalancerMode::Equalizer);
+        let config = mock_config();
+
+        store.config.save(&mut deps.storage, &config).unwrap();
+
+        let mut active_agents: Vec<Addr> = store
+            .agent_active_queue
+            .may_load(&deps.storage)
+            .unwrap()
+            .unwrap_or_default();
+        active_agents.extend(vec![
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(AGENT1),
+            Addr::unchecked(AGENT2),
+            Addr::unchecked(AGENT3),
+            Addr::unchecked(AGENT4),
+        ]);
+
+        store
+            .agent_active_queue
+            .save(&mut deps.storage, &active_agents)
+            .unwrap();
+
+        let task_info = TaskInfo {
+            task: None,
+            task_hash: "".as_bytes().to_vec(),
+            task_is_extra: Some(true),
+            agent_id: Some(Addr::unchecked(AGENT0)),
+            slot_kind: SlotType::Block,
+        };
+
+        //Notify agent got 1 task
+        balancer.on_task_completed(
+            &mut deps.storage,
+            &env,
+            &store.config,
+            &store.agent_active_queue,
+            task_info,
+        );
+
+        //Verify agent0 gets extra
+        let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
+        let result = balancer
+            .get_agent_tasks(
+                &deps.as_ref(),
+                &env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT0),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+
+        //In equalizer mode, agent0 get 1 task and 0 extra
+        assert_eq!(result.num_block_tasks.u64(), 1);
+        assert_eq!(result.num_cron_tasks.u64(), 1);
+        assert_eq!(result.num_block_tasks_extra.u64(), 0);
+        assert_eq!(result.num_cron_tasks_extra.u64(), 0);
+
+        //Verify agent1 gets extra
+        let result = balancer
+            .get_agent_tasks(
+                &deps.as_ref(),
+                &env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT1),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.num_block_tasks.u64(), 2);
+        assert_eq!(result.num_cron_tasks.u64(), 2);
+        assert_eq!(result.num_block_tasks_extra.u64(), 1);
+        assert_eq!(result.num_cron_tasks_extra.u64(), 1);
+
+        //Verify agent2 gets extra
+        let result = balancer
+            .get_agent_tasks(
+                &deps.as_ref(),
+                &env.clone(),
+                &store.config,
+                &store.agent_active_queue,
+                Addr::unchecked(AGENT2),
+                slot,
+            )
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.num_block_tasks.u64(), 2);
+        assert_eq!(result.num_cron_tasks.u64(), 2);
+        assert_eq!(result.num_block_tasks_extra.u64(), 1);
+        assert_eq!(result.num_cron_tasks_extra.u64(), 1);
+
+        //Verify agent3 not getting extra
+        let result = balancer
+            .get_agent_tasks(
+                &deps.as_ref(),
                 &env.clone(),
                 &store.config,
                 &store.agent_active_queue,

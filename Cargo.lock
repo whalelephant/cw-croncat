@@ -237,8 +237,8 @@ dependencies = [
 
 [[package]]
 name = "cw-core"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -257,8 +257,8 @@ dependencies = [
 
 [[package]]
 name = "cw-core-interface"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cw-core-macros",
@@ -269,8 +269,8 @@ dependencies = [
 
 [[package]]
 name = "cw-core-macros"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -342,8 +342,8 @@ dependencies = [
 
 [[package]]
 name = "cw-paginate"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -353,8 +353,8 @@ dependencies = [
 
 [[package]]
 name = "cw-proposal-multiple"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cw-core",
@@ -374,8 +374,8 @@ dependencies = [
 
 [[package]]
 name = "cw-proposal-single"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -594,7 +594,7 @@ dependencies = [
 [[package]]
 name = "cw20-stake"
 version = "0.2.6"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -612,8 +612,8 @@ dependencies = [
 
 [[package]]
 name = "cw20-staked-balance-voting"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -862,8 +862,8 @@ dependencies = [
 
 [[package]]
 name = "indexable-hooks"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 0.13.4",
@@ -974,8 +974,8 @@ dependencies = [
 
 [[package]]
 name = "proposal-hooks"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "indexable-hooks",
@@ -1280,8 +1280,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vote-hooks"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "indexable-hooks",
@@ -1292,8 +1292,8 @@ dependencies = [
 
 [[package]]
 name = "voting"
-version = "0.1.0"
-source = "git+https://github.com/DA0-DA0/dao-contracts#9df2d5880072d7c96f63e7559e2f429abbce062e"
+version = "0.2.0"
+source = "git+https://github.com/DA0-DA0/dao-contracts#35aea9e6bb7f70e5b1bf86a92db154751338dcae"
 dependencies = [
  "cosmwasm-std",
  "cw-core",

@@ -46,13 +46,9 @@
               "minimum": 0.0
             },
             "owner_id": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Addr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             },
             "paused": {
@@ -96,7 +92,7 @@
           ],
           "properties": {
             "account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             },
             "balances": {
               "type": "array",
@@ -119,13 +115,9 @@
           "type": "object",
           "properties": {
             "payable_account_id": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Addr"
-                },
-                {
-                  "type": "null"
-                }
+              "type": [
+                "string",
+                "null"
               ]
             }
           }
@@ -146,7 +138,7 @@
           ],
           "properties": {
             "payable_account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -283,7 +275,15 @@
       ],
       "properties": {
         "proxy_call": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "task_hash": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false

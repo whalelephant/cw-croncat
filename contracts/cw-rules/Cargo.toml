@@ -47,7 +47,7 @@ thiserror = { version = "1.0.31" }
 cw4 = "0.14.0"
 cw4-group = "0.14.0"
 base64 = "0.13"
-voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
@@ -56,13 +56,13 @@ cw-utils = "0.13"
 cw20 = "0.13"
 cw20-base = "0.13"
 # DAO contracts
-voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw-proposal-single = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw-proposal-multiple = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw20-staked-balance-voting = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-proposal-multiple = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20-staked-balance-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw-core = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw-core-interface = { version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw-core-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 # Testing generic msg
 cw4 = "0.14.0"
 cw4-group = "0.14.0"

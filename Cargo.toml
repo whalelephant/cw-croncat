@@ -1,7 +1,8 @@
 [workspace]
 members = [
-  "contracts/*",
-  "packages/*"
+  "contracts/cw-croncat",
+  "contracts/cw-rules",
+  "packages/cw-croncat-core"
 ]
 
 [profile.release]

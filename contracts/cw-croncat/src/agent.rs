@@ -4,7 +4,7 @@ use crate::helpers::{send_tokens, GenericBalance};
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
-    SubMsg, Uint64,
+    SubMsg,
 };
 use std::ops::Div;
 
@@ -19,9 +19,10 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: Deps,
         env: Env,
-        account_id: Addr,
+        account_id: String,
     ) -> StdResult<Option<AgentResponse>> {
-        let agent = self.agents.may_load(deps.storage, account_id.clone())?;
+        let account_id = deps.api.addr_validate(&account_id)?;
+        let agent = self.agents.may_load(deps.storage, &account_id)?;
         if agent.is_none() {
             return Ok(None);
         }
@@ -69,8 +70,9 @@ impl<'a> CwCroncat<'a> {
         &mut self,
         deps: Deps,
         env: Env,
-        account_id: Addr,
+        account_id: String,
     ) -> StdResult<Option<AgentTaskResponse>> {
+        let account_id = deps.api.addr_validate(&account_id)?;
         let active = self.agent_active_queue.load(deps.storage)?;
         if !active.contains(&account_id) {
             // TODO: unsure if we can return AgentNotRegistered
@@ -78,58 +80,21 @@ impl<'a> CwCroncat<'a> {
                 msg: AgentNotRegistered {}.to_string(),
             });
         }
-
         // Get all tasks (the final None means no limit when we take)
         let slot_items = self.get_current_slot_items(&env.block, deps.storage, None);
 
         if slot_items == (None, None) {
             return Ok(None);
         }
-        let mut num_block_tasks = Uint64::from(0u64);
-        let mut num_cron_tasks = Uint64::from(0u64);
-        let num_block_tasks_extra = Uint64::from(0u64);
-        let num_cron_tasks_extra = Uint64::from(0u64);
-        // This below line is commented out and will be used with
-        // the rotating index (see Config's agent_active_indices)
-        // let agent_active_queue_indices: Vec<usize> = (0..active.len()).collect();
-        if let Some(current_block_task_total) = slot_items.0 {
-            // Integer division to determine how much each gets
-            let task_total_each_agent = current_block_task_total / active.len() as u64;
 
-            // Divvy up the modulo leftovers using the active index
-            // TODO: we must give the leftover tasks to some agents.
-            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
-            // let agent_active_index = agent_active_queue
-            //     .iter()
-            //     .position(|x| x == &account_id)
-            //     .expect("Agent not active");
-            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
-
-            num_block_tasks = task_total_each_agent.into();
-        }
-        // Do time slots
-        if let Some(current_cron_task_total) = slot_items.1 {
-            // Integer division to determine how much each gets
-            let task_total_each_agent = current_cron_task_total / active.len() as u64;
-
-            // Divvy up the modulo leftovers using the active index
-            // TODO: we must give the leftover tasks to some agents.
-            // Still need to implement the "round table" idea, where we use Config's agent_active_indices
-            // let agent_active_index = agent_active_queue
-            //     .iter()
-            //     .position(|x| x == &account_id)
-            //     .expect("Agent not active");
-            // let leftover_tasks = total_tasks % agent_active_queue.len() as u64;
-
-            num_cron_tasks = task_total_each_agent.into();
-        }
-
-        Ok(Some(AgentTaskResponse {
-            num_block_tasks,
-            num_block_tasks_extra,
-            num_cron_tasks_extra,
-            num_cron_tasks,
-        }))
+        self.balancer.get_agent_tasks(
+            &deps,
+            &env,
+            &self.config,
+            &self.agent_active_queue,
+            account_id,
+            slot_items,
+        )
     }
 
     /// Add any account as an agent that will be able to execute tasks.
@@ -142,7 +107,7 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         info: MessageInfo,
         env: Env,
-        payable_account_id: Option<Addr>,
+        payable_account_id: Option<String>,
     ) -> Result<Response, ContractError> {
         if !info.funds.is_empty() {
             return Err(ContractError::CustomError {
@@ -173,7 +138,11 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        let payable_id = payable_account_id.unwrap_or_else(|| account.clone());
+        let payable_id = if let Some(addr) = payable_account_id {
+            deps.api.addr_validate(&addr)?
+        } else {
+            account.clone()
+        };
 
         let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
         let total_agents = active_agents.len();
@@ -191,7 +160,7 @@ impl<'a> CwCroncat<'a> {
 
         self.agents.update(
             deps.storage,
-            account,
+            &account,
             |a: Option<Agent>| -> Result<_, ContractError> {
                 match a {
                     // make sure that account isn't already added
@@ -224,8 +193,9 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         info: MessageInfo,
         _env: Env,
-        payable_account_id: Addr,
+        payable_account_id: String,
     ) -> Result<Response, ContractError> {
+        let payable_account_id = deps.api.addr_validate(&payable_account_id)?;
         let c: Config = self.config.load(deps.storage)?;
         if c.paused {
             return Err(ContractError::ContractPaused {
@@ -235,7 +205,7 @@ impl<'a> CwCroncat<'a> {
 
         self.agents.update(
             deps.storage,
-            info.sender,
+            &info.sender,
             |a: Option<Agent>| -> Result<_, ContractError> {
                 match a {
                     Some(agent) => {
@@ -257,22 +227,19 @@ impl<'a> CwCroncat<'a> {
         storage: &mut dyn Storage,
         info: MessageInfo,
     ) -> Result<Vec<SubMsg>, ContractError> {
-        let a = self.agents.may_load(storage, info.sender)?;
-        if a.is_none() {
-            return Err(ContractError::AgentNotRegistered {});
-        }
-        let agent = a.unwrap();
+        let mut agent = self
+            .agents
+            .may_load(storage, &info.sender)?
+            .ok_or(AgentNotRegistered {})?;
 
         // This will send all token balances to Agent
         let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
+        agent.balance.checked_sub_generic(&balances)?;
         let mut config = self.config.load(storage)?;
         config
             .available_balance
             .checked_sub_native(&balances.native)?;
-        // TODO: Finish:
-        // config
-        //     .available_balance
-        //     .minus_tokens(Balance::from(balances.cw20));
+        self.agents.save(storage, &info.sender, &agent)?;
         self.config.save(storage, &config)?;
 
         Ok(messages)
@@ -370,7 +337,7 @@ impl<'a> CwCroncat<'a> {
         // NOTE: Since this also checks if agent exists, safe to not have redundant logic
         let messages = self.withdraw_balances(deps.storage, info.clone())?;
         let agent_id = info.sender;
-        self.agents.remove(deps.storage, agent_id.clone());
+        self.agents.remove(deps.storage, &agent_id);
 
         // Remove from the list of active agents if the agent in this list
         let mut active_agents: Vec<Addr> = self
@@ -649,7 +616,7 @@ mod tests {
                 funds: vec![],
             },
             ExecuteMsg::RegisterAgent {
-                payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+                payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
             },
         )
     }
@@ -660,7 +627,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(agent),
+                    account_id: agent.to_string(),
                 },
             )
             .expect("Error getting agent status");
@@ -677,7 +644,7 @@ mod tests {
             Addr::unchecked(agent),
             contract_addr.clone(),
             &ExecuteMsg::RegisterAgent {
-                payable_account_id: Some(Addr::unchecked(beneficiary)),
+                payable_account_id: Some(beneficiary.to_string()),
             },
             &[],
         )
@@ -724,7 +691,7 @@ mod tests {
 
         // start first register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
 
         // Test funds fail register if sent
@@ -812,7 +779,7 @@ mod tests {
 
         // start first register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -828,7 +795,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(AGENT1),
+                    account_id: AGENT1.to_string(),
                 },
             )
             .unwrap();
@@ -856,7 +823,7 @@ mod tests {
 
         // test another register, put into pending queue
         let msg2 = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT2), contract_addr.clone(), &msg2, &[])
             .unwrap();
@@ -875,14 +842,14 @@ mod tests {
 
         // start first register
         let msg1 = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
             .unwrap();
 
         // Fails for non-existent agents
         let msg = ExecuteMsg::UpdateAgent {
-            payable_account_id: Addr::unchecked(AGENT0),
+            payable_account_id: AGENT0.to_string(),
         };
         let update_err = app
             .execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
@@ -901,7 +868,7 @@ mod tests {
             .query_wasm_smart(
                 &contract_addr.clone(),
                 &QueryMsg::GetAgent {
-                    account_id: Addr::unchecked(AGENT1),
+                    account_id: AGENT1.to_string(),
                 },
             )
             .unwrap();
@@ -915,7 +882,7 @@ mod tests {
 
         // start first register
         let msg1 = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
             .unwrap();
@@ -986,7 +953,7 @@ mod tests {
 
         // start first register
         let msg1 = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT_BENEFICIARY)),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg1, &[])
             .unwrap();
@@ -1325,7 +1292,7 @@ mod tests {
         // calls:
         // fn query_get_agent_tasks
         let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
-            account_id: Addr::unchecked(AGENT1),
+            account_id: AGENT1.to_string(),
         };
         let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
             .wrap()
@@ -1339,7 +1306,7 @@ mod tests {
             "Did not successfully find the newly added task"
         );
         msg_agent_tasks = QueryMsg::GetAgentTasks {
-            account_id: Addr::unchecked(AGENT2),
+            account_id: AGENT2.to_string(),
         };
         query_task_res = app
             .wrap()
@@ -1348,7 +1315,7 @@ mod tests {
         // Should fail for random user not in the active queue
         msg_agent_tasks = QueryMsg::GetAgentTasks {
             // rando account
-            account_id: Addr::unchecked("juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz"),
+            account_id: "juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz".to_string(),
         };
         query_task_res = app
             .wrap()
