@@ -149,7 +149,7 @@ pub struct Rule {
     // pub chain_id: Option<String>,
 
     /// Account to direct all view calls against
-    pub contract_addr: Addr,
+    pub contract_addr: String,
 
     // NOTE: Only allow static pre-defined query msg
     pub msg: Binary,
@@ -297,6 +297,7 @@ impl Task {
     pub fn is_recurring(&self) -> bool {
         matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
     }
+
     pub fn contains_send_msg(&self) -> bool {
         let result: bool = self.actions.iter().any(|a| -> bool {
             matches!(
@@ -414,6 +415,16 @@ impl Task {
         }
 
         gas
+    }
+
+    /// Get whether the task is with rules
+    pub fn with_rules(&self) -> bool {
+        self.rules.is_some() && !self.rules.as_ref().unwrap().is_empty()
+    }
+
+    /// Check if given Addr is the owner
+    pub fn is_owner(&self, addr: Addr) -> bool {
+        self.owner_id == addr
     }
 }
 
@@ -683,7 +694,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -722,7 +733,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -761,7 +772,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -801,7 +812,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -840,7 +851,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -881,7 +892,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -919,7 +930,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -958,7 +969,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -1000,7 +1011,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };
@@ -1195,7 +1206,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: Some(vec![Rule {
-                contract_addr: Addr::unchecked("foo"),
+                contract_addr: "foo".to_string(),
                 msg: Binary("bar".into()),
             }]),
         };

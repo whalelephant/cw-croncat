@@ -39,7 +39,7 @@
           ],
           "properties": {
             "account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -71,7 +71,7 @@
           ],
           "properties": {
             "account_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -111,6 +111,36 @@
     {
       "type": "object",
       "required": [
+        "get_tasks_with_rules"
+      ],
+      "properties": {
+        "get_tasks_with_rules": {
+          "type": "object",
+          "properties": {
+            "from_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "limit": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
         "get_tasks_by_owner"
       ],
       "properties": {
@@ -121,7 +151,7 @@
           ],
           "properties": {
             "owner_id": {
-              "$ref": "#/definitions/Addr"
+              "type": "string"
             }
           }
         }
@@ -805,11 +835,7 @@
       "properties": {
         "contract_addr": {
           "description": "TBD: Interchain query support (See ibc::IbcMsg) Account to direct all view calls against",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            }
-          ]
+          "type": "string"
         },
         "msg": {
           "$ref": "#/definitions/Binary"
