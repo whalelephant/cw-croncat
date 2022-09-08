@@ -980,7 +980,7 @@ mod tests {
         // Removed task shouldn't reorder things
         let removed_index = from_index as usize;
         app.execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(VERY_RICH),
             contract_addr.clone(),
             &ExecuteMsg::RemoveTask {
                 task_hash: all_tasks
@@ -1438,6 +1438,17 @@ mod tests {
         let s_1: Vec<u64> = Vec::new();
         assert_eq!(s_1, slot_ids.time_ids);
         assert_eq!(vec![12346], slot_ids.block_ids);
+
+        // Another person can't remove the task
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_id_str.clone(),
+            },
+            &vec![],
+        )
+        .unwrap_err();
 
         // Remove the Task
         app.execute_contract(

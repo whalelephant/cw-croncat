@@ -139,7 +139,13 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
-            ExecuteMsg::RemoveTask { task_hash } => self.remove_task(deps.storage, task_hash),
+            ExecuteMsg::RemoveTask { task_hash } => {
+                let task = self.get_task_by_hash(deps.storage, task_hash.as_bytes().to_vec())?;
+                if !task.is_owner(info.sender) {
+                    return Err(ContractError::Unauthorized {});
+                }
+                self.remove_task(deps.storage, task_hash)
+            }
             ExecuteMsg::RefillTaskBalance { task_hash } => self.refill_task(deps, info, task_hash),
             ExecuteMsg::RefillTaskCw20Balance {
                 task_hash,

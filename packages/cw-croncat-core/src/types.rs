@@ -421,6 +421,11 @@ impl Task {
     pub fn with_rules(&self) -> bool {
         self.rules.is_some() && !self.rules.as_ref().unwrap().is_empty()
     }
+
+    /// Check if given Addr is the owner
+    pub fn is_owner(&self, addr: Addr) -> bool {
+        self.owner_id == addr
+    }
 }
 
 impl FindAndMutate<'_, Coin> for Vec<Coin> {

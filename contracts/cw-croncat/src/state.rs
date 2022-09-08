@@ -233,6 +233,22 @@ impl<'a> CwCroncat<'a> {
             Ok(rq)
         })
     }
+
+    pub(crate) fn get_task_by_hash(
+        &self,
+        storage: &dyn Storage,
+        task_hash: Vec<u8>,
+    ) -> Result<Task, ContractError> {
+        let some_task = self.tasks.may_load(storage, &task_hash)?;
+        if let Some(task) = some_task {
+            Ok(task)
+        } else {
+            self.tasks_with_rules
+                .may_load(storage, task_hash)?
+                .map(Ok)
+                .ok_or(ContractError::NoTaskFound {})?
+        }
+    }
 }
 
 #[cfg(test)]
