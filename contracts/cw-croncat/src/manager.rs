@@ -790,7 +790,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -918,7 +918,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1051,7 +1051,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1280,7 +1280,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1410,7 +1410,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1586,7 +1586,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1667,7 +1667,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1725,7 +1725,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1802,7 +1802,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1874,7 +1874,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -1997,7 +1997,7 @@ mod tests {
 
         // quick agent register
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(Addr::unchecked(AGENT1_BENEFICIARY)),
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();

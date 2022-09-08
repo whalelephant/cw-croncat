@@ -65,7 +65,7 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     UpdateSettings {
-        owner_id: Option<Addr>,
+        owner_id: Option<String>,
         slot_granularity: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<Coin>,
@@ -77,14 +77,14 @@ pub enum ExecuteMsg {
     },
     MoveBalances {
         balances: Vec<Balance>,
-        account_id: Addr,
+        account_id: String,
     },
 
     RegisterAgent {
-        payable_account_id: Option<Addr>,
+        payable_account_id: Option<String>,
     },
     UpdateAgent {
-        payable_account_id: Addr,
+        payable_account_id: String,
     },
     CheckInAgent {},
     UnregisterAgent {},
@@ -119,11 +119,11 @@ pub enum QueryMsg {
     GetConfig {},
     GetBalances {},
     GetAgent {
-        account_id: Addr,
+        account_id: String,
     },
     GetAgentIds {},
     GetAgentTasks {
-        account_id: Addr,
+        account_id: String,
     },
     GetTasks {
         from_index: Option<u64>,
@@ -134,7 +134,7 @@ pub enum QueryMsg {
         limit: Option<u64>,
     },
     GetTasksByOwner {
-        owner_id: Addr,
+        owner_id: String,
     },
     GetTask {
         task_hash: String,
