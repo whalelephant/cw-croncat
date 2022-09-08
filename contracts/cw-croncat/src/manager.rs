@@ -5,8 +5,8 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    Addr, Deps, DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response, StdResult,
-    Storage, SubMsg, SubMsgResult, WasmQuery,
+    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response,
+    StdResult, Storage, SubMsg, WasmQuery,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
@@ -103,7 +103,7 @@ impl<'a> CwCroncat<'a> {
 
         let task = some_task.unwrap();
 
-        self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
+        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
 
         // TODO: Bring this back!
         // // Fee breakdown:
@@ -186,27 +186,46 @@ impl<'a> CwCroncat<'a> {
         let actions = task.clone().actions;
         let self_addr = env.contract.address;
 
-        // Keep track for later scheduling
-        self.rq_push(
-            deps.storage,
-            QueueItem {
-                prev_idx: None,
-                task_hash: Some(hash),
-                contract_addr: Some(self_addr),
-                task_is_extra: Some(balancer_result.has_any_slot_extra_tasks(slot_type.clone())),
-                agent_id: Some(info.sender.clone()),
-            },
-        )?;
-
         // Add submessages for all actions
+        // And calculate gas usages
+        let mut gas_used = 0;
+        let c: Config = self.config.load(deps.storage)?;
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
             if let Some(gas_limit) = action.gas_limit {
                 sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
+                gas_used += gas_limit;
             } else {
                 sub_msgs.push(sub_msg);
+                gas_used += c.gas_base_fee;
             }
         }
+
+        // Task pays for gas even if it failed
+        let mut agent = agent;
+        let mut task = task;
+        let gas_used = coin(gas_used as u128, c.native_denom);
+        agent.balance.native.find_checked_add(&gas_used)?;
+        task.total_deposit.native.find_checked_sub(&gas_used)?;
+        // calculate agent base reward
+        task.total_deposit.native.find_checked_sub(&c.agent_fee)?;
+        agent.balance.native.find_checked_add(&c.agent_fee)?;
+
+        self.agents.save(deps.storage, &info.sender, &agent)?;
+        self.tasks.save(deps.storage, &hash, &task)?;
+
+        // Keep track for later scheduling
+        self.rq_push(
+            deps.storage,
+            QueueItem {
+                action_idx: 0,
+                task_hash: Some(hash),
+                contract_addr: Some(self_addr),
+                task_is_extra: Some(balancer_result.has_any_slot_extra_tasks(slot_type)),
+                agent_id: Some(info.sender.clone()),
+                failed: false,
+            },
+        )?;
 
         // TODO: Add supported msgs if not a SubMessage?
         // Add the messages, reply handler responsible for task rescheduling
@@ -233,7 +252,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
-        self.check_agent(deps.as_ref(), &info)?;
+        let agent = self.check_agent(deps.as_ref(), &info)?;
 
         let some_task = self
             .tasks_with_rules
@@ -243,7 +262,7 @@ impl<'a> CwCroncat<'a> {
         }
         let task = some_task.unwrap();
 
-        self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
+        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
 
         // Check rules
         let rules = task.rules.as_ref().expect("No rules");
@@ -289,6 +308,7 @@ impl<'a> CwCroncat<'a> {
 
         // Add submessages for all actions
         // And calculate gas usages
+        let c: Config = self.config.load(deps.storage)?;
         let mut gas_used = 0;
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
@@ -311,12 +331,12 @@ impl<'a> CwCroncat<'a> {
         agent.balance.native.find_checked_add(&c.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
-        self.tasks.save(deps.storage, &hash, &task)?;
+        self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
             QueueItem {
-                prev_idx: None,
+                action_idx: 0,
                 task_hash: Some(task_hash.as_bytes().to_vec()),
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
@@ -336,37 +356,6 @@ impl<'a> CwCroncat<'a> {
         Ok(final_res)
     }
 
-    fn complete_agent_task(
-        &self,
-        storage: &mut dyn Storage,
-        env: Env,
-        msg: Reply,
-        task_info: TaskInfo,
-    ) -> Result<(), ContractError> {
-        let TaskInfo {
-            task_hash, task, ..
-        } = task_info.clone();
-
-        //no fail
-        self.balancer.on_task_completed(
-            storage,
-            &env,
-            &self.config,
-            &self.agent_active_queue,
-            task_info,
-        ); //send completed event to balancer
-           //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
-        let transferred_bank_tokens = msg.transferred_bank_tokens();
-        let task_to_finilize = task.unwrap();
-        if task_to_finilize.contains_send_msg() && task_to_finilize.is_recurring() {
-            task_to_finilize
-                .funds_withdrawn_recurring
-                .saturating_add(transferred_bank_tokens[0].amount);
-            self.tasks.save(storage, &task_hash, &task_to_finilize)?;
-        }
-        Result::Ok(())
-    }
-
     /// Logic executed on the completion of a proxy call
     /// Reschedule next task
     pub(crate) fn proxy_callback(
@@ -377,7 +366,7 @@ impl<'a> CwCroncat<'a> {
         task: Task,
         queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
-        let task_hash_str = task.to_hash();
+        let task_hash = task.to_hash();
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
 
@@ -388,7 +377,7 @@ impl<'a> CwCroncat<'a> {
             || task.verify_enough_balances(false).is_err()
         {
             // Process task exit, if no future task can execute
-            let rt = self.remove_task(deps.storage, task_hash_str);
+            let rt = self.remove_task(deps.storage, task_hash);
             let resp = rt.unwrap_or_default();
             return Ok(Response::new()
                 .add_attribute("method", "proxy_callback")
@@ -397,69 +386,32 @@ impl<'a> CwCroncat<'a> {
                 .add_events(resp.events));
         }
 
-        let mut task_with_rules = false;
-        let task = if let Some(task) = self.tasks.may_load(deps.storage, task_hash.clone())? {
-            task
-        } else if let Some(task) = self
-            .tasks_with_rules
-            .may_load(deps.storage, task_hash.clone())?
-        {
-            task_with_rules = true;
-            task
-        } else {
-            return Err(ContractError::NoTaskFound {});
-        };
-
         // reschedule next!
-        let task_hash_str = task.to_hash();
-
-        // TODO: How can we compute gas & fees paid on this txn?
-        // let out_of_funds = call_total_balance > task.total_deposit;
-
-        // if non-recurring, exit
-        if task.interval == Interval::Once || (task.stop_on_fail && reply_submsg_failed) {
-            // Process task exit, if no future task can execute
-            let rt = self.remove_task(deps.storage, task_hash_str.clone());
-            if let Ok(..) = rt {
-                let resp = rt.unwrap();
-                response = response
-                    .add_attributes(resp.attributes)
-                    .add_submessages(resp.messages)
-                    .add_events(resp.events);
-            }
-            response = response.add_attribute("ended_non_recurring_task", task_hash_str);
-            return Ok(response);
-        }
-
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = task.interval.next(env.clone(), task.boundary);
+        let (next_id, slot_kind) = task.interval.next(&env, task.boundary);
         let task_info = TaskInfo {
             task: Some(task.clone()),
-            task_hash,
-            task_is_extra: Some(task_is_extra),
-            slot_kind: slot_kind.clone(),
+            task_hash: task_hash.as_bytes().to_vec(),
+            task_is_extra: queue_item.task_is_extra,
+            slot_kind,
             agent_id: Some(agent_id),
         };
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
-            let rt = self.remove_task(deps.storage, task_hash_str.clone());
-            if let Ok(..) = rt {
-                let resp = rt.unwrap();
-                response = response
-                    .add_attributes(resp.attributes)
-                    .add_submessages(resp.messages)
-                    .add_events(resp.events);
-            }
-            response = response.add_attribute("ended_task", task_hash_str);
-            //Task has been removed, complete and rebalance internal balancer
-            self.complete_agent_task(deps.storage, env, msg, task_info)?;
-            return Ok(response);
+            let rt = self.remove_task(deps.storage, task_hash.clone());
+            let resp = rt.unwrap_or_default();
+            // Task has been removed, complete and rebalance internal balancer
+            self.complete_agent_task(deps.storage, env, msg, task_info)
+                .unwrap();
+            return Ok(Response::new()
+                .add_attribute("method", "proxy_callback")
+                .add_attribute("ended_task", task_hash)
+                .add_attributes(resp.attributes)
+                .add_submessages(resp.messages)
+                .add_events(resp.events));
         }
 
-        response = response.add_attribute("slot_id", next_id.to_string());
-        response = response.add_attribute("slot_kind", format!("{:?}", slot_kind));
-
-        if task_with_rules {
+        if task.with_rules() {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
@@ -498,7 +450,10 @@ impl<'a> CwCroncat<'a> {
                 }
             }
         }
-        Ok(response)
+        Ok(Response::new()
+            .add_attribute("method", "proxy_callback")
+            .add_attribute("slot_id", next_id.to_string())
+            .add_attribute("slot_kind", format!("{:?}", slot_kind)))
     }
 
     /// Internal management of agent reward
@@ -549,7 +504,7 @@ impl<'a> CwCroncat<'a> {
 
     fn check_agent(&self, deps: Deps, info: &MessageInfo) -> Result<Agent, ContractError> {
         // only registered agent signed, because micropayments will benefit long term
-        let agent_opt = self.agents.may_load(deps.storage, info.sender.clone())?;
+        let agent_opt = self.agents.may_load(deps.storage, &info.sender)?;
         if agent_opt.is_none() {
             return Err(ContractError::AgentNotRegistered {});
         }
@@ -562,25 +517,26 @@ impl<'a> CwCroncat<'a> {
         Ok(agent_opt.unwrap())
     }
 
-    fn check_bank_msg(
-        &self,
-        deps: Deps,
-        info: &MessageInfo,
-        env: &Env,
-        task: &Task,
-    ) -> Result<(), ContractError> {
-        //Restrict bank msg so contract doesnt get drained
-        let c: Config = self.config.load(deps.storage)?;
-        if task.is_recurring()
-            && task.contains_send_msg()
-            && !task.is_valid_msg(&env.contract.address, &info.sender, &c.owner_id)
-        {
-            return Err(ContractError::CustomError {
-                val: "Invalid process_call message!".to_string(),
-            });
-        };
-        Ok(())
-    }
+    // // Restrict bank msg so contract doesnt get drained
+    // fn check_bank_msg(
+    //     &self,
+    //     deps: Deps,
+    //     info: &MessageInfo,
+    //     env: &Env,
+    //     task: &Task,
+    // ) -> Result<(), ContractError> {
+    //     //Restrict bank msg so contract doesnt get drained
+    //     let c: Config = self.config.load(deps.storage)?;
+    //     if task.is_recurring()
+    //         && task.contains_send_msg()
+    //         && !task.is_valid_msg_calculate_usage(&env.contract.address, &info.sender, &c.owner_id).unwrap()
+    //     {
+    //         return Err(ContractError::CustomError {
+    //             val: "Invalid process_call message!".to_string(),
+    //         });
+    //     };
+    //     Ok(())
+    // }
 
     fn complete_agent_task(
         &self,
@@ -608,7 +564,7 @@ impl<'a> CwCroncat<'a> {
             task_to_finilize
                 .funds_withdrawn_recurring
                 .saturating_add(transferred_bank_tokens[0].amount);
-            self.tasks.save(storage, task_hash, &task_to_finilize)?;
+            self.tasks.save(storage, &task_hash, &task_to_finilize)?;
         }
         Result::Ok(())
     }
@@ -1780,7 +1736,7 @@ mod tests {
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
-                &ExecuteMsg::ProxyCall {},
+                &ExecuteMsg::ProxyCall { task_hash: None },
                 &[],
             )
             .unwrap();
@@ -1853,11 +1809,11 @@ mod tests {
 
         app.update_block(add_little_time);
 
-        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let res = app.execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
-            &ExecuteMsg::ProxyCall { task_hash: None },
+            &proxy_call_msg,
             &[],
         );
         assert!(res.is_ok());
@@ -1929,7 +1885,7 @@ mod tests {
         let contract_balance_before_proxy_call =
             app.wrap().query_balance(&contract_addr, "atom").unwrap();
         let admin_balance_before_proxy_call = app.wrap().query_balance(ADMIN, "atom").unwrap();
-        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         app.execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
@@ -2046,7 +2002,7 @@ mod tests {
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
 
-        let proxy_call_msg = ExecuteMsg::ProxyCall {};
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         // executing it two times
         app.update_block(add_little_time);
         let res = app

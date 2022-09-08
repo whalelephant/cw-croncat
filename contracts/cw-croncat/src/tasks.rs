@@ -269,7 +269,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        // // Check that balance is sufficient for 1 execution minimum
+        // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;
         item.verify_enough_balances(recurring)?;
 
@@ -284,20 +284,6 @@ impl<'a> CwCroncat<'a> {
                 val: "Task ended".to_string(),
             });
         }
-
-        // Get previous task hashes in slot, add as needed
-        let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
-            match d {
-                // has some data, simply push new hash
-                Some(data) => {
-                    let mut s = data;
-                    s.push(item.to_hash_vec());
-                    Ok(s)
-                }
-                // No data, push new vec & hash
-                None => Ok(vec![item.to_hash_vec()]),
-            }
-        };
 
         let mut with_rules = false;
         // Add task to catalog
@@ -338,7 +324,7 @@ impl<'a> CwCroncat<'a> {
         } else {
             // Add task without rules
             self.tasks
-                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                .update(deps.storage, &item.to_hash_vec(), |old| match old {
                     Some(_) => Err(ContractError::CustomError {
                         val: "Task already exists".to_string(),
                     }),
@@ -373,8 +359,22 @@ impl<'a> CwCroncat<'a> {
                         .save(deps.storage, &Some(env.block.time))?;
                 }
             }
-            
+
             self.config.save(deps.storage, &c)?;
+
+            // Get previous task hashes in slot, add as needed
+            let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+                match d {
+                    // has some data, simply push new hash
+                    Some(data) => {
+                        let mut s = data;
+                        s.push(item.to_hash_vec());
+                        Ok(s)
+                    }
+                    // No data, push new vec & hash
+                    None => Ok(vec![item.to_hash_vec()]),
+                }
+            };
 
             // Based on slot kind, put into block or cron slots
             match slot_kind {
@@ -404,11 +404,11 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
-        let some_task = self.tasks.may_load(storage, hash_vec.clone())?;
+        let some_task = self.tasks.may_load(storage, &hash_vec)?;
 
         let task = if let Some(task) = some_task {
             // Remove all the thangs
-            self.tasks.remove(storage, hash_vec)?;
+            self.tasks.remove(storage, &hash_vec)?;
 
             // find any scheduled things and remove them!
             // check which type of slot it would be in, then iterate to remove
