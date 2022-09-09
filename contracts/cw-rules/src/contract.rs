@@ -110,9 +110,13 @@ fn query_get_cw20_balance(
     address: String,
 ) -> StdResult<RuleResponse<Option<Binary>>> {
     let valid_cw20 = deps.api.addr_validate(&cw20_contract)?;
-    let balance_response: BalanceResponse = deps
-        .querier
-        .query_wasm_smart(valid_cw20, &cw20::Cw20QueryMsg::Balance { address })?;
+    let valid_address = deps.api.addr_validate(&address)?;
+    let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
+        valid_cw20,
+        &cw20::Cw20QueryMsg::Balance {
+            address: valid_address.to_string(),
+        },
+    )?;
     let coin = coin(balance_response.balance.into(), cw20_contract);
     Ok((true, to_binary(&coin).ok()))
 }
