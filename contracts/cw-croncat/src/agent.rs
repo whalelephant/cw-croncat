@@ -157,7 +157,7 @@ impl<'a> CwCroncat<'a> {
                 .save(deps.storage, &pending_agents)?;
             AgentStatus::Pending
         };
-
+        let payable_id_str = format!("{:?}", payable_id);
         self.agents.update(
             deps.storage,
             &account,
@@ -184,7 +184,8 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "register_agent")
             .add_attribute("agent_status", format!("{:?}", agent_status))
-            .add_attribute("register_start", env.block.time.nanos().to_string()))
+            .add_attribute("register_start", env.block.time.nanos().to_string())
+            .add_attribute("payable_account_id", payable_id_str))
     }
 
     /// Update agent details, specifically the payable account id for an agent.
