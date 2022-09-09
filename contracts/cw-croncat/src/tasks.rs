@@ -403,11 +403,16 @@ impl<'a> CwCroncat<'a> {
         &self,
         storage: &mut dyn Storage,
         task_hash: String,
+        info: Option<MessageInfo>,
     ) -> Result<Response, ContractError> {
         let hash_vec = task_hash.clone().into_bytes();
         let some_task = self.tasks.may_load(storage, &hash_vec)?;
 
         let task = if let Some(task) = some_task {
+            if !task.is_owner(info.unwrap().sender) {
+                return Err(ContractError::Unauthorized {});
+            }
+
             // Remove all the thangs
             self.tasks.remove(storage, &hash_vec)?;
 
