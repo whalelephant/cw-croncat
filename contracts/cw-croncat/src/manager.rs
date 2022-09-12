@@ -377,7 +377,7 @@ impl<'a> CwCroncat<'a> {
             || task.verify_enough_balances(false).is_err()
         {
             // Process task exit, if no future task can execute
-            let rt = self.remove_task(deps.storage, task_hash);
+            let rt = self.remove_task(deps.storage, task_hash, None);
             let resp = rt.unwrap_or_default();
             return Ok(Response::new()
                 .add_attribute("method", "proxy_callback")
@@ -398,7 +398,7 @@ impl<'a> CwCroncat<'a> {
         };
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
-            let rt = self.remove_task(deps.storage, task_hash.clone());
+            let rt = self.remove_task(deps.storage, task_hash.clone(), None);
             let resp = rt.unwrap_or_default();
             // Task has been removed, complete and rebalance internal balancer
             self.complete_agent_task(deps.storage, env, msg, task_info)
