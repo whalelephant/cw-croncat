@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 use cw_croncat_core::{
-    msg::{Croncat, ExecuteMsg, InstantiateMsg, QueryMsg, TaskResponse},
+    msg::{Croncat, ExecuteMsg, InstantiateMsg, QueryMsg, TaskResponse, TaskWithRulesResponse},
     types::AgentResponse,
 };
 
@@ -34,6 +34,11 @@ fn main() {
         &schema_for!(Vec<TaskResponse>),
         &out_dir,
         "GetTasksByOwnerResponse",
+    );
+    export_schema_with_title(
+        &schema_for!(Vec<TaskWithRulesResponse>),
+        &out_dir,
+        "GetTasksWithRulesResponse",
     );
     export_schema_with_title(
         &schema_for!(Option<TaskResponse>),
