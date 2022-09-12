@@ -413,8 +413,10 @@ impl<'a> CwCroncat<'a> {
         let some_task = self.tasks.may_load(storage, &hash_vec)?;
 
         let task = if let Some(task) = some_task {
-            if !task.is_owner(info.unwrap().sender) {
-                return Err(ContractError::Unauthorized {});
+            if !info.is_none() {
+                if !task.is_owner(info.unwrap().sender) {
+                    return Err(ContractError::Unauthorized {});
+                }
             }
 
             // Remove all the thangs
