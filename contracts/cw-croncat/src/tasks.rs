@@ -25,7 +25,9 @@ impl<'a> CwCroncat<'a> {
     ) -> StdResult<Vec<TaskResponse>> {
         let size: u64 = self.task_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
-        let limit = limit.unwrap_or(100).min(size);
+        let limit = limit
+            .unwrap_or(self.config.load(deps.storage)?.limit)
+            .min(size);
         self.tasks
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
@@ -46,7 +48,9 @@ impl<'a> CwCroncat<'a> {
     ) -> StdResult<Vec<TaskWithRulesResponse>> {
         let size: u64 = self.tasks_with_rules_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
-        let limit = limit.unwrap_or(100).min(size);
+        let limit = limit
+            .unwrap_or(self.config.load(deps.storage)?.limit)
+            .min(size);
         self.tasks_with_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
