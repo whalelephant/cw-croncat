@@ -42,12 +42,13 @@ cw721-base = "0.13.2"
 cw20 = "0.13"
 schemars = "0.8.8"
 serde = { version = "1.0.137", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 thiserror = { version = "1.0.31" }
 cw4 = "0.14.0"
 cw4-group = "0.14.0"
 base64 = "0.13"
 voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+# This thing saved our lives thanks @hashedone for implementing it
+serde-cw-value = "0.7.0"
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
@@ -67,3 +68,4 @@ cw-core-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-c
 cw4 = "0.14.0"
 cw4-group = "0.14.0"
 base64 = "0.13.0"
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
