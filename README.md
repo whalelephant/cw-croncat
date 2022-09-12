@@ -27,6 +27,12 @@ to the world, once you are ready to deploy it on a running blockchain.
 
 # For testing everything
 ./test.sh
+
+# Production compilation, run before deploying to live network
+docker run --rm -v "$(pwd)":/code \
+  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+  cosmwasm/rust-optimizer:0.12.7
 ```
 
 ## Changelog
