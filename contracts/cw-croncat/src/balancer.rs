@@ -338,6 +338,7 @@ mod tests {
             native_denom: NATIVE_DENOM.to_owned(),
             cw20_whitelist: vec![],
             agent_nomination_duration: 9,
+            limit: 100,
         }
     }
     #[test]

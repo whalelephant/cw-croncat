@@ -44,6 +44,9 @@ pub struct Config {
     pub native_denom: String,
     pub available_balance: GenericBalance, // tasks + rewards balances
     pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
+
+    // The default amount of tasks to query
+    pub limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
