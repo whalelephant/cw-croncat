@@ -415,7 +415,7 @@ export type GetTaskHashResponse = string;
 export type GetTaskResponse = TaskResponse | null;
 export type GetTasksByOwnerResponse = TaskResponse[];
 export type GetTasksResponse = TaskResponse[];
-export type GetTasksWithRulesResponse = TaskWithRulesResponse | null;
+export type GetTasksWithRulesResponse = TaskWithRulesResponse[];
 export interface TaskWithRulesResponse {
   boundary?: Boundary | null;
   interval: Interval;

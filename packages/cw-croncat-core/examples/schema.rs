@@ -36,14 +36,14 @@ fn main() {
         "GetTasksByOwnerResponse",
     );
     export_schema_with_title(
+        &schema_for!(Vec<TaskWithRulesResponse>),
+        &out_dir,
+        "GetTasksWithRulesResponse",
+    );
+    export_schema_with_title(
         &schema_for!(Option<TaskResponse>),
         &out_dir,
         "GetTaskResponse",
-    );
-    export_schema_with_title(
-        &schema_for!(Option<TaskWithRulesResponse>),
-        &out_dir,
-        "GetTasksWithRulesResponse",
     );
     export_schema_with_title(&schema_for!(String), &out_dir, "GetTaskHashResponse");
     export_schema_with_title(
