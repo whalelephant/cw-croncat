@@ -4,12 +4,13 @@
   "description": "codegen for contract",
   "main": "index.js",
   "scripts": {
-    "codegen": "node_modules/cosmwasm-typescript-gen/main/cosmwasm-typescript-gen.js generate --schema ../packages/cw-croncat-core/schema --out ./contract --name cw-croncat"
+    "codegen": "cosmwasm-ts-codegen generate --plugin client --schema ../packages/cw-croncat-core/schema --out ./contract --name CW-CRONCAT --no-bundle"
   },
   "license": "MIT",
   "dependencies": {
-    "@cosmjs/amino": "^0.28.11",
-    "@cosmjs/cosmwasm-stargate": "^0.28.11",
-    "cosmwasm-typescript-gen": "^0.3.9"
+    "@cosmjs/amino": "^0.28.13",
+    "@cosmjs/cosmwasm-stargate": "^0.28.13",
+    "@cosmwasm/ts-codegen": "^0.14.2"
   }
 }
+  
