@@ -68,6 +68,7 @@ impl<'a> CwCroncat<'a> {
             agent_nomination_duration: msg
                 .agent_nomination_duration
                 .unwrap_or(DEFAULT_NOMINATION_DURATION),
+            limit: 100,
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;

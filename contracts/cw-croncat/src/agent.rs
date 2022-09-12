@@ -157,8 +157,7 @@ impl<'a> CwCroncat<'a> {
                 .save(deps.storage, &pending_agents)?;
             AgentStatus::Pending
         };
-
-        self.agents.update(
+        let agent = self.agents.update(
             deps.storage,
             &account,
             |a: Option<Agent>| -> Result<_, ContractError> {
@@ -184,7 +183,8 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "register_agent")
             .add_attribute("agent_status", format!("{:?}", agent_status))
-            .add_attribute("register_start", env.block.time.nanos().to_string()))
+            .add_attribute("register_start", agent.register_start.nanos().to_string())
+            .add_attribute("payable_account_id", agent.payable_account_id))
     }
 
     /// Update agent details, specifically the payable account id for an agent.
@@ -203,7 +203,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        self.agents.update(
+        let agent = self.agents.update(
             deps.storage,
             &info.sender,
             |a: Option<Agent>| -> Result<_, ContractError> {
@@ -218,7 +218,9 @@ impl<'a> CwCroncat<'a> {
             },
         )?;
 
-        Ok(Response::new().add_attribute("method", "update_agent"))
+        Ok(Response::new()
+            .add_attribute("method", "update_agent")
+            .add_attribute("payable_account_id", agent.payable_account_id))
     }
 
     /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
