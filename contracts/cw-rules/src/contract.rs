@@ -1,7 +1,7 @@
 use cw_croncat_core::types::Rule;
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_cw_value::Value;
 
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -214,7 +214,7 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
         });
 
         // Copied from `QuerierWrapper::query`
-        // because serde_json_wasm fails to deserialize slice into `serde_json::Value`
+        // because serde_json_wasm fails to deserialize slice into `serde_cw_value::Value`
         let raw = to_vec(&request).map_err(|serialize_err| {
             StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
         })?;
@@ -233,30 +233,41 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
                 )));
             }
         };
-        let json_val: Value = serde_json::from_slice(bin.as_slice())
-            .map_err(|e| StdError::parse_err(std::any::type_name::<Value>(), e))?;
-
+        let json_val = cosmwasm_std::from_slice(bin.as_slice())
+            .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+        let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
+            .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
         let mut current_val = &json_val;
         for get in query.gets {
             match get {
                 ValueIndex::Key(s) => {
-                    current_val = current_val
-                        .get(s)
-                        .ok_or_else(|| StdError::generic_err("Invalid key for value"))?
+                    if let Value::Map(map) = current_val {
+                        current_val = map
+                            .get(&Value::String(s))
+                            .ok_or_else(|| StdError::generic_err("Invalid key for value"))?;
+                    } else {
+                        return Err(StdError::generic_err("Failed to get map from this value"));
+                    }
                 }
-                ValueIndex::Number(n) => {
-                    current_val = current_val
-                        .get(n as usize)
-                        .ok_or_else(|| StdError::generic_err("Invalid index for value"))?
+                ValueIndex::Index(n) => {
+                    if let Value::Seq(seq) = current_val {
+                        current_val = seq
+                            .get(n as usize)
+                            .ok_or_else(|| StdError::generic_err("Invalid index for value"))?;
+                    } else {
+                        return Err(StdError::generic_err(
+                            "Failed to get sequence from this value",
+                        ));
+                    }
                 }
             }
         }
         if !match query.ordering {
-            ValueOrdering::UnitAbove => current_val.bt(&query.value)?,
-            ValueOrdering::UnitAboveEqual => current_val.be(&query.value)?,
-            ValueOrdering::UnitBelow => current_val.lt(&query.value)?,
-            ValueOrdering::UnitBelowEqual => current_val.le(&query.value)?,
-            ValueOrdering::Equal => current_val.eq(&query.value),
+            ValueOrdering::UnitAbove => current_val.bt_g(&json_rhs)?,
+            ValueOrdering::UnitAboveEqual => current_val.be_g(&json_rhs)?,
+            ValueOrdering::UnitBelow => current_val.lt_g(&json_rhs)?,
+            ValueOrdering::UnitBelowEqual => current_val.le_g(&json_rhs)?,
+            ValueOrdering::Equal => current_val.eq(&json_rhs),
         } {
             return Ok(false);
         }

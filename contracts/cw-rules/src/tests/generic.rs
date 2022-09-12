@@ -95,11 +95,11 @@ fn test_generic() {
         .unwrap(),
         gets: vec![
             ValueIndex::Key("members".to_string()),
-            ValueIndex::Number(1),
+            ValueIndex::Index(1),
             ValueIndex::Key("weight".to_string()),
         ],
         ordering: ValueOrdering::UnitAbove,
-        value: json!(1),
+        value: to_binary(&1).unwrap(),
     };
     let binary = to_binary(&generic_query).unwrap();
     let msg = QueryMsg::QueryConstruct {
@@ -161,9 +161,9 @@ fn test_generic_json_repr() {
     .unwrap();
     let generic_query_json = json!({
         "msg": query_binary,
-        "gets": ["members", 1, "weight"],
+        "gets": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
         "ordering": "unit_above",
-        "value": 1
+        "value": to_binary(&1).unwrap()
     });
     let binary: Binary = Binary(generic_query_json.to_string().into_bytes());
     let msg = QueryMsg::QueryConstruct {
@@ -220,7 +220,7 @@ fn test_generic_bigint() {
         msg: to_binary(&cw20::Cw20QueryMsg::TokenInfo {}).unwrap(),
         gets: vec![ValueIndex::Key("total_supply".to_string())],
         ordering: ValueOrdering::UnitAbove,
-        value: json!("2012"),
+        value: to_binary("2012").unwrap(),
     };
     // what we get here is :
     // pub struct TokenInfoResponse {
