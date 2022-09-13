@@ -248,7 +248,7 @@ pub struct TaskResponse {
     pub rules: Option<Vec<Rule>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskWithRulesResponse {
     pub task_hash: String,
     pub interval: Interval,

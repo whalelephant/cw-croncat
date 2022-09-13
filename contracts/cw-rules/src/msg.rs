@@ -1,8 +1,7 @@
-use cw20::Balance;
-use cw_croncat_core::types::Rule;
+use cw_croncat_core::types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte, Rule};
+use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
-use crate::types::dao::Status;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -27,20 +26,10 @@ pub enum QueryMsg {
         cw20_contract: String,
         address: String,
     },
-    HasBalanceGte {
-        address: String,
-        required_balance: Balance,
-    },
-    CheckOwnerOfNFT {
-        address: String,
-        nft_address: String,
-        token_id: String,
-    },
-    CheckProposalReadyToExec {
-        dao_address: String,
-        proposal_id: u64,
-        status: Status,
-    },
+    HasBalanceGte(HasBalanceGte),
+    CheckOwnerOfNFT(CheckOwnerOfNFT),
+    CheckProposalStatus(CheckProposalStatus),
+    GenericQuery(GenericQuery),
     // Full evaluations
     QueryConstruct {
         rules: Vec<Rule>,

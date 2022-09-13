@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// We can import dao but for simplicity we show what we support
 pub mod dao {
-    pub use voting::status::Status;
+    pub use cw_croncat_core::types::Status;
 
     use super::*;
 
@@ -24,26 +24,5 @@ pub mod dao {
     pub struct AnyChoiceProposal {
         pub status: Status,
         //Ignore rest
-    }
-}
-
-pub mod generic_query {
-    use super::*;
-    use crate::helpers::ValueOrdering;
-    use cosmwasm_std::Binary;
-    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-    pub struct GenericQuery {
-        pub msg: Binary,
-        pub gets: Vec<ValueIndex>,
-
-        pub ordering: ValueOrdering,
-        pub value: Binary,
-    }
-
-    #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-    #[serde(rename_all = "snake_case")]
-    pub enum ValueIndex {
-        Key(String),
-        Index(u64),
     }
 }

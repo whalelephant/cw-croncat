@@ -1,5 +1,6 @@
 use cosmwasm_std::{coin, coins, Addr, Binary, Empty, StdResult};
 use cw721_base::MintMsg;
+use cw_croncat_core::types::CheckOwnerOfNFT;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
 use crate::msg::{InstantiateMsg, QueryMsg, RuleResponse};
@@ -95,11 +96,11 @@ fn test_check_owner_nft() -> StdResult<()> {
     )
     .unwrap();
 
-    let msg = QueryMsg::CheckOwnerOfNFT {
+    let msg = QueryMsg::CheckOwnerOfNFT(CheckOwnerOfNFT {
         address: ANYONE.to_string(),
         nft_address: cw721_contract.to_string(),
         token_id: "croncat".to_string(),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -107,11 +108,11 @@ fn test_check_owner_nft() -> StdResult<()> {
     assert!(res.0);
 
     // Return false if it's a the owner
-    let msg = QueryMsg::CheckOwnerOfNFT {
+    let msg = QueryMsg::CheckOwnerOfNFT(CheckOwnerOfNFT {
         address: ADMIN.to_string(),
         nft_address: cw721_contract.to_string(),
         token_id: "croncat".to_string(),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -119,11 +120,11 @@ fn test_check_owner_nft() -> StdResult<()> {
     assert!(!res.0);
 
     // Wrong token_id
-    let msg = QueryMsg::CheckOwnerOfNFT {
+    let msg = QueryMsg::CheckOwnerOfNFT(CheckOwnerOfNFT {
         address: ANYONE.to_string(),
         nft_address: cw721_contract.to_string(),
         token_id: "croncat2".to_string(),
-    };
+    });
     let err: StdResult<RuleResponse<Option<Binary>>> =
         app.wrap().query_wasm_smart(contract_addr, &msg);
     assert!(err.is_err());

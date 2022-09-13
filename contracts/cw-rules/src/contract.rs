@@ -1,4 +1,4 @@
-use cw_croncat_core::types::Rule;
+use cw_croncat_core::types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte, Rule};
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
 use serde_cw_value::Value;
@@ -6,8 +6,8 @@ use serde_cw_value::Value;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coin, from_binary, has_coins, to_binary, to_vec, Binary, Deps, DepsMut, Empty, Env,
-    MessageInfo, QueryRequest, Response, StdError, StdResult, Uint128, WasmQuery,
+    coin, has_coins, to_binary, to_vec, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmQuery,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
@@ -15,13 +15,12 @@ use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
 
 use crate::error::ContractError;
-use crate::helpers::{ValueOrd, ValueOrdering};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
 use crate::types::dao::{ProposalResponse, QueryDao, Status};
-use crate::types::generic_query::{GenericQuery, ValueIndex};
+use generic_query::{GenericQuery, ValueIndex, ValueOrd, ValueOrdering};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -62,30 +61,31 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
-        QueryMsg::HasBalanceGte {
+        QueryMsg::HasBalanceGte(HasBalanceGte {
             address,
             required_balance,
-        } => to_binary(&query_has_balance_gte(deps, address, required_balance)?),
-        QueryMsg::CheckOwnerOfNFT {
+        }) => to_binary(&query_has_balance_gte(deps, address, required_balance)?),
+        QueryMsg::CheckOwnerOfNFT(CheckOwnerOfNFT {
             address,
             nft_address,
             token_id,
-        } => to_binary(&query_check_owner_nft(
+        }) => to_binary(&query_check_owner_nft(
             deps,
             address,
             nft_address,
             token_id,
         )?),
-        QueryMsg::CheckProposalReadyToExec {
+        QueryMsg::CheckProposalStatus(CheckProposalStatus {
             dao_address,
             proposal_id,
             status,
-        } => to_binary(&query_dao_proposal_status(
+        }) => to_binary(&query_dao_proposal_status(
             deps,
             dao_address,
             proposal_id,
             status,
         )?),
+        QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
         QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, rules)?),
     }
 }
@@ -209,127 +209,92 @@ fn query_dao_proposal_status(
 // create a smart query into binary
 fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
     for rule in rules {
-        let contract_addr = deps.api.addr_validate(&rule.contract_addr)?.into_string();
-        let query: GenericQuery = from_binary(&rule.msg)?;
-
-        let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart {
-            contract_addr,
-            msg: query.msg,
-        });
-
-        // Copied from `QuerierWrapper::query`
-        // because serde_json_wasm fails to deserialize slice into `serde_cw_value::Value`
-        let raw = to_vec(&request).map_err(|serialize_err| {
-            StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
-        })?;
-        let bin = match deps.querier.raw_query(&raw) {
-            cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Ok(value)) => value,
-            cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Err(contract_err)) => {
-                return Err(StdError::generic_err(format!(
-                    "Querier contract error: {}",
-                    contract_err
-                )));
-            }
-            cosmwasm_std::SystemResult::Err(system_err) => {
-                return Err(StdError::generic_err(format!(
-                    "Querier system error: {}",
-                    system_err
-                )));
-            }
-        };
-        let json_val = cosmwasm_std::from_slice(bin.as_slice())
-            .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
-        let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
-            .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
-        let mut current_val = &json_val;
-        for get in query.gets {
-            match get {
-                ValueIndex::Key(s) => {
-                    if let Value::Map(map) = current_val {
-                        current_val = map
-                            .get(&Value::String(s))
-                            .ok_or_else(|| StdError::generic_err("Invalid key for value"))?;
-                    } else {
-                        return Err(StdError::generic_err("Failed to get map from this value"));
-                    }
-                }
-                ValueIndex::Index(n) => {
-                    if let Value::Seq(seq) = current_val {
-                        current_val = seq
-                            .get(n as usize)
-                            .ok_or_else(|| StdError::generic_err("Invalid index for value"))?;
-                    } else {
-                        return Err(StdError::generic_err(
-                            "Failed to get sequence from this value",
-                        ));
-                    }
-                }
-            }
-        }
-        if !match query.ordering {
-            ValueOrdering::UnitAbove => current_val.bt_g(&json_rhs)?,
-            ValueOrdering::UnitAboveEqual => current_val.be_g(&json_rhs)?,
-            ValueOrdering::UnitBelow => current_val.lt_g(&json_rhs)?,
-            ValueOrdering::UnitBelowEqual => current_val.le_g(&json_rhs)?,
-            ValueOrdering::Equal => current_val.eq(&json_rhs),
-        } {
+        let res = match rule {
+            Rule::HasBalanceGte(HasBalanceGte {
+                address,
+                required_balance,
+            }) => query_has_balance_gte(deps, address, required_balance),
+            Rule::CheckOwnerOfNft(CheckOwnerOfNFT {
+                address,
+                nft_address,
+                token_id,
+            }) => query_check_owner_nft(deps, address, nft_address, token_id),
+            Rule::CheckProposalStatus(CheckProposalStatus {
+                dao_address,
+                proposal_id,
+                status,
+            }) => query_dao_proposal_status(deps, dao_address, proposal_id, status),
+            Rule::GenericQuery(query) => generic_query(deps, query),
+        }?;
+        if !res.0 {
             return Ok(false);
         }
     }
     Ok(true)
 }
 
-// //     // Format something to read results
-// //     let data = format!("{:?}", res2);
-// //     Ok(QueryMultiResponse { data })
-// // }
+fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Option<Binary>>> {
+    let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart {
+        contract_addr: query.contract_addr,
+        msg: query.msg,
+    });
 
-// // create a smart query into binary
-// fn query_construct(_deps: Deps, _env: Env, _rules: Vec<Rule>) -> StdResult<QueryMultiResponse> {
-//     let input_binary = to_binary(&RandomResponse { number: 1235 })?;
+    // Copied from `QuerierWrapper::query`
+    // because serde_json_wasm fails to deserialize slice into `serde_cw_value::Value`
+    let raw = to_vec(&request).map_err(|serialize_err| {
+        StdError::generic_err(format!("Serializing QueryRequest: {}", serialize_err))
+    })?;
+    let bin = match deps.querier.raw_query(&raw) {
+        cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Ok(value)) => value,
+        cosmwasm_std::SystemResult::Ok(cosmwasm_std::ContractResult::Err(contract_err)) => {
+            return Err(StdError::generic_err(format!(
+                "Querier contract error: {}",
+                contract_err
+            )));
+        }
+        cosmwasm_std::SystemResult::Err(system_err) => {
+            return Err(StdError::generic_err(format!(
+                "Querier system error: {}",
+                system_err
+            )));
+        }
+    };
+    let json_val = cosmwasm_std::from_slice(bin.as_slice())
+        .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+    let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
+        .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+    let mut current_val = &json_val;
+    for get in query.gets {
+        match get {
+            ValueIndex::Key(s) => {
+                if let Value::Map(map) = current_val {
+                    current_val = map
+                        .get(&Value::String(s))
+                        .ok_or_else(|| StdError::generic_err("Invalid key for value"))?;
+                } else {
+                    return Err(StdError::generic_err("Failed to get map from this value"));
+                }
+            }
+            ValueIndex::Index(n) => {
+                if let Value::Seq(seq) = current_val {
+                    current_val = seq
+                        .get(n as usize)
+                        .ok_or_else(|| StdError::generic_err("Invalid index for value"))?;
+                } else {
+                    return Err(StdError::generic_err(
+                        "Failed to get sequence from this value",
+                    ));
+                }
+            }
+        }
+    }
 
-//     // create an injectable blank msg
-//     let json_msg = json!({
-//         "get_random": {
-//             "msg": "",
-//             "key": "value"
-//         }
-//     });
-//     // blank msg to binary
-//     let msg_binary = to_binary(&json_msg.to_string())?;
-
-//     // try to parse binary
-//     let msg_unbinary: String = from_binary(&msg_binary)?;
-//     // let msg_parsed: Value = serde_json::from_str(msg_unbinary);
-//     let msg_parse = serde_json::from_str(msg_unbinary.as_str());
-//     let mut msg_parsed: String = "".to_string();
-
-//     // Attempt to peel the onion, and fill with goodness
-//     if let Ok(msg_parse) = msg_parse {
-//         let parsed: Value = msg_parse;
-//         // travel n1 child keys
-//         if parsed.is_object() {
-//             for (_key, value) in parsed.as_object().unwrap().iter() {
-//                 for (k, _v) in value.as_object().unwrap().iter() {
-//                     // check if this key has "msg"
-//                     if k == "msg" {
-//                         // then replace "msg" with "input_binary"
-//                         // TODO:
-//                         // parsed[key][k] = input_binary;
-//                         msg_parsed = input_binary.to_string();
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     // Lastly, attempt to make the actual query!
-//     // let res1 = deps
-//     //     .querier
-//     //     .query_wasm_smart(&env.contract.address, &msg1)?;
-
-//     // Format something to read results
-//     // let data = format!("{:?}", res1);
-//     let data = format!("{:?} :: {:?}", msg_binary, msg_parsed);
-//     Ok(QueryMultiResponse { data })
-// }
+    let res = match query.ordering {
+        ValueOrdering::UnitAbove => current_val.bt_g(&json_rhs)?,
+        ValueOrdering::UnitAboveEqual => current_val.be_g(&json_rhs)?,
+        ValueOrdering::UnitBelow => current_val.lt_g(&json_rhs)?,
+        ValueOrdering::UnitBelowEqual => current_val.le_g(&json_rhs)?,
+        ValueOrdering::Equal => current_val.eq(&json_rhs),
+    };
+    Ok((res, None))
+}
