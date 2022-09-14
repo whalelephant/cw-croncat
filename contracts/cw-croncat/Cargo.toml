@@ -31,8 +31,9 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cw-croncat-core = { version = "0.1.0", path = "../../packages/cw-croncat-core" } 
+cw-croncat-core = { version = "0.1.0", path = "../../packages/cw-croncat-core" }
 cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
+cw-rules = { version = "0.0.1", path = "../cw-rules" }
 cosmwasm-storage = { version = "1.0.0" }
 cw-storage-plus = "0.13"
 cron_schedule = "0.2.0"

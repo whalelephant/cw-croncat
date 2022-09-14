@@ -207,8 +207,8 @@ fn query_dao_proposal_status(
 // }
 
 // create a smart query into binary
-fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
-    for rule in rules {
+fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>)> {
+    for (idx, rule) in rules.into_iter().enumerate() {
         let res = match rule {
             Rule::HasBalanceGte(HasBalanceGte {
                 address,
@@ -227,10 +227,10 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<bool> {
             Rule::GenericQuery(query) => generic_query(deps, query),
         }?;
         if !res.0 {
-            return Ok(false);
+            return Ok((false, Some(idx as u64)));
         }
     }
-    Ok(true)
+    Ok((true, None))
 }
 
 fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Option<Binary>>> {

@@ -457,9 +457,10 @@ mod tests {
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
-            owner_id: Some(owner_addr.clone()),
+            owner_id: Some(owner_addr.to_string()),
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
@@ -1150,6 +1151,7 @@ mod tests {
             owner_id: None,
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let mut info = mock_info(AGENT0, &coins(900_000, "atom"));
         let res_init = contract

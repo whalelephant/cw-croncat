@@ -172,21 +172,21 @@ pub struct HasBalanceGte {
     pub required_balance: Balance,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct CheckOwnerOfNFT {
     pub address: String,
     pub nft_address: String,
     pub token_id: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct CheckProposalStatus {
     pub dao_address: String,
     pub proposal_id: u64,
     pub status: Status,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Action<T = Empty> {
     // NOTE: Only allow static pre-defined query msg
     /// Supported CosmosMsgs only!
