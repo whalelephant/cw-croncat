@@ -1,308 +1,111 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "QueryMsg",
-  "oneOf": [
-    {
-      "type": "object",
-      "required": [
-        "get_config"
-      ],
-      "properties": {
-        "get_config": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_balances"
-      ],
-      "properties": {
-        "get_balances": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent"
-      ],
-      "properties": {
-        "get_agent": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_ids"
-      ],
-      "properties": {
-        "get_agent_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_tasks"
-      ],
-      "properties": {
-        "get_agent_tasks": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks"
-      ],
-      "properties": {
-        "get_tasks": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks_with_rules"
-      ],
-      "properties": {
-        "get_tasks_with_rules": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks_by_owner"
-      ],
-      "properties": {
-        "get_tasks_by_owner": {
-          "type": "object",
-          "required": [
-            "owner_id"
-          ],
-          "properties": {
-            "owner_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task"
-      ],
-      "properties": {
-        "get_task": {
-          "type": "object",
-          "required": [
-            "task_hash"
-          ],
-          "properties": {
-            "task_hash": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task_hash"
-      ],
-      "properties": {
-        "get_task_hash": {
-          "type": "object",
-          "required": [
-            "task"
-          ],
-          "properties": {
-            "task": {
-              "$ref": "#/definitions/Task"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "validate_interval"
-      ],
-      "properties": {
-        "validate_interval": {
-          "type": "object",
-          "required": [
-            "interval"
-          ],
-          "properties": {
-            "interval": {
-              "$ref": "#/definitions/Interval"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_hashes"
-      ],
-      "properties": {
-        "get_slot_hashes": {
-          "type": "object",
-          "properties": {
-            "slot": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_ids"
-      ],
-      "properties": {
-        "get_slot_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_wallet_balances"
-      ],
-      "properties": {
-        "get_wallet_balances": {
-          "type": "object",
-          "required": [
-            "wallet"
-          ],
-          "properties": {
-            "wallet": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_state"
-      ],
-      "properties": {
-        "get_state": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    }
+  "title": "GetStateResponse",
+  "type": "object",
+  "required": [
+    "agent_active_queue",
+    "agent_pending_queue",
+    "balancer_mode",
+    "balances",
+    "block_slots",
+    "block_slots_rules",
+    "config",
+    "reply_index",
+    "reply_queue",
+    "task_total",
+    "tasks",
+    "tasks_with_rules",
+    "tasks_with_rules_total",
+    "time_slots",
+    "time_slots_rules"
   ],
+  "properties": {
+    "agent_active_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Addr"
+      }
+    },
+    "agent_nomination_begin_time": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agent_pending_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Addr"
+      }
+    },
+    "balancer_mode": {
+      "$ref": "#/definitions/RoundRobinBalancerModeResponse"
+    },
+    "balances": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/BalancesResponse"
+      }
+    },
+    "block_slots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SlotResponse"
+      }
+    },
+    "block_slots_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SlotWithRuleResponse"
+      }
+    },
+    "config": {
+      "$ref": "#/definitions/GetConfigResponse"
+    },
+    "reply_index": {
+      "$ref": "#/definitions/Uint64"
+    },
+    "reply_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ReplyQueueResponse"
+      }
+    },
+    "task_total": {
+      "$ref": "#/definitions/Uint64"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TaskResponse"
+      }
+    },
+    "tasks_with_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TaskWithRulesResponse"
+      }
+    },
+    "tasks_with_rules_total": {
+      "$ref": "#/definitions/Uint64"
+    },
+    "time_slots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SlotResponse"
+      }
+    },
+    "time_slots_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SlotWithRuleResponse"
+      }
+    }
+  },
   "definitions": {
     "Action_for_Empty": {
       "type": "object",
@@ -332,6 +135,24 @@
     "Addr": {
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
+    },
+    "BalancesResponse": {
+      "type": "object",
+      "required": [
+        "address",
+        "balances"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Addr"
+        },
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        }
+      }
     },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
@@ -394,26 +215,77 @@
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
       "type": "string"
     },
-    "BoundaryValidated": {
-      "type": "object",
-      "properties": {
-        "end": {
-          "type": [
-            "integer",
-            "null"
+    "Boundary": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Height"
           ],
-          "format": "uint64",
-          "minimum": 0.0
+          "properties": {
+            "Height": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
         },
-        "start": {
-          "type": [
-            "integer",
-            "null"
+        {
+          "type": "object",
+          "required": [
+            "Time"
           ],
-          "format": "uint64",
-          "minimum": 0.0
+          "properties": {
+            "Time": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
         }
-      }
+      ]
     },
     "Coin": {
       "type": "object",
@@ -611,24 +483,80 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GenericBalance": {
+    "GetConfigResponse": {
       "type": "object",
       "required": [
-        "cw20",
-        "native"
+        "agent_active_indices",
+        "agent_fee",
+        "agents_eject_threshold",
+        "gas_price",
+        "min_tasks_per_agent",
+        "native_denom",
+        "owner_id",
+        "paused",
+        "proxy_callback_gas",
+        "slot_granularity"
       ],
       "properties": {
-        "cw20": {
+        "agent_active_indices": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Cw20CoinVerified"
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/SlotType"
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              }
+            ],
+            "maxItems": 3,
+            "minItems": 3
           }
         },
-        "native": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
+        "agent_fee": {
+          "$ref": "#/definitions/Coin"
+        },
+        "agents_eject_threshold": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_price": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "min_tasks_per_agent": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "owner_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "proxy_callback_gas": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "slot_granularity": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
         }
       }
     },
@@ -856,6 +784,80 @@
         }
       ]
     },
+    "QueueItemResponse": {
+      "type": "object",
+      "required": [
+        "action_idx",
+        "failed"
+      ],
+      "properties": {
+        "action_idx": {
+          "$ref": "#/definitions/Uint64"
+        },
+        "agent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "contract_addr": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failed": {
+          "type": "boolean"
+        },
+        "task_hash": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0.0
+          }
+        },
+        "task_is_extra": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "ReplyQueueResponse": {
+      "type": "object",
+      "required": [
+        "index",
+        "item"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/definitions/Uint64"
+        },
+        "item": {
+          "$ref": "#/definitions/QueueItemResponse"
+        }
+      }
+    },
+    "RoundRobinBalancerModeResponse": {
+      "type": "string",
+      "enum": [
+        "ActivationOrder",
+        "Equalizer"
+      ]
+    },
     "Rule": {
       "type": "object",
       "required": [
@@ -869,6 +871,56 @@
         },
         "msg": {
           "$ref": "#/definitions/Binary"
+        }
+      }
+    },
+    "SlotResponse": {
+      "type": "object",
+      "required": [
+        "slot",
+        "tasks"
+      ],
+      "properties": {
+        "slot": {
+          "$ref": "#/definitions/Uint64"
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        }
+      }
+    },
+    "SlotType": {
+      "type": "string",
+      "enum": [
+        "Block",
+        "Cron"
+      ]
+    },
+    "SlotWithRuleResponse": {
+      "type": "object",
+      "required": [
+        "slot",
+        "task_hash"
+      ],
+      "properties": {
+        "slot": {
+          "$ref": "#/definitions/Uint64"
+        },
+        "task_hash": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0.0
+          }
         }
       }
     },
@@ -956,53 +1008,41 @@
         }
       ]
     },
-    "Task": {
+    "TaskResponse": {
       "type": "object",
       "required": [
         "actions",
-        "amount_for_one_task",
-        "boundary",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
+        "task_hash",
+        "total_cw20_deposit",
         "total_deposit"
       ],
       "properties": {
         "actions": {
-          "description": "The cosmos message to call, if time or rules are met",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Action_for_Empty"
           }
         },
-        "amount_for_one_task": {
-          "$ref": "#/definitions/GenericBalance"
-        },
         "boundary": {
-          "$ref": "#/definitions/BoundaryValidated"
-        },
-        "funds_withdrawn_recurring": {
-          "$ref": "#/definitions/Uint128"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Boundary"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "interval": {
-          "description": "Scheduling definitions",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Interval"
-            }
-          ]
+          "$ref": "#/definitions/Interval"
         },
         "owner_id": {
-          "description": "Entity responsible for this task, can change task details",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            }
-          ]
+          "$ref": "#/definitions/Addr"
         },
         "rules": {
-          "description": "A prioritized list of messages that can be chained decision matrix required to complete before task action Rules MUST return the ResolverResponse type",
           "type": [
             "array",
             "null"
@@ -1012,16 +1052,56 @@
           }
         },
         "stop_on_fail": {
-          "description": "Defines if this task can continue until balance runs out",
           "type": "boolean"
         },
+        "task_hash": {
+          "type": "string"
+        },
+        "total_cw20_deposit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
         "total_deposit": {
-          "description": "NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks",
-          "allOf": [
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
+    "TaskWithRulesResponse": {
+      "type": "object",
+      "required": [
+        "interval",
+        "task_hash"
+      ],
+      "properties": {
+        "boundary": {
+          "anyOf": [
             {
-              "$ref": "#/definitions/GenericBalance"
+              "$ref": "#/definitions/Boundary"
+            },
+            {
+              "type": "null"
             }
           ]
+        },
+        "interval": {
+          "$ref": "#/definitions/Interval"
+        },
+        "rules": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Rule"
+          }
+        },
+        "task_hash": {
+          "type": "string"
         }
       }
     },
