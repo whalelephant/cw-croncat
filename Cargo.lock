@@ -181,9 +181,9 @@ dependencies = [
 
 [[package]]
 name = "cron_schedule"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53e7f989876690ac7583391c3a08a511743f2ec0a0782a95076e7ca48bec85c7"
+checksum = "bf4f43da0800aa0c164c3ba885e8b53674a9197d3b3178c8d4e376f286551d23"
 dependencies = [
  "chrono",
  "nom",
