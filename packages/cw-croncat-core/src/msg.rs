@@ -152,6 +152,10 @@ pub enum QueryMsg {
     GetWalletBalances {
         wallet: String,
     },
+    GetState {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -254,6 +258,73 @@ pub struct TaskWithRulesResponse {
     pub interval: Interval,
     pub boundary: Option<Boundary>,
     pub rules: Option<Vec<Rule>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct CwCroncatResponse {
+    pub config: GetConfigResponse,
+
+    pub agent_active_queue: Vec<Addr>,
+    pub agent_pending_queue: Vec<Addr>,
+
+    pub tasks: Vec<TaskResponse>,
+    pub task_total: Uint64,
+
+    pub time_slots: Vec<SlotResponse>,
+    pub block_slots: Vec<SlotResponse>,
+    pub tasks_with_rules: Vec<TaskWithRulesResponse>,
+    pub tasks_with_rules_total: Uint64,
+
+    pub time_slots_rules: Vec<SlotWithRuleResponse>,
+    pub block_slots_rules: Vec<SlotWithRuleResponse>,
+
+    pub reply_queue: Vec<ReplyQueueResponse>,
+    pub reply_index: Uint64,
+
+    pub agent_nomination_begin_time: Option<Timestamp>,
+
+    pub balancer_mode: RoundRobinBalancerModeResponse,
+    pub balances: Vec<BalancesResponse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SlotResponse {
+    pub slot: Uint64,
+    pub tasks: Vec<Vec<u8>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct BalancesResponse {
+    pub address: Addr,
+    pub balances: Vec<Cw20CoinVerified>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub enum RoundRobinBalancerModeResponse {
+    ActivationOrder,
+    Equalizer,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct ReplyQueueResponse {
+    pub index: Uint64,
+    pub item: QueueItemResponse,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueueItemResponse {
+    pub contract_addr: Option<Addr>,
+    pub action_idx: Uint64,
+    pub task_hash: Option<Vec<u8>>,
+    pub task_is_extra: Option<bool>,
+    pub agent_id: Option<Addr>,
+    pub failed: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct SlotWithRuleResponse {
+    pub task_hash: Vec<u8>,
+    pub slot: Uint64,
 }
 
 impl From<Task> for TaskResponse {

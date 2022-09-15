@@ -23,11 +23,10 @@ impl<'a> CwCroncat<'a> {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskResponse>> {
-        let size: u64 = self.task_total.load(deps.storage)?.min(1000);
+        let default_limit = self.config.load(deps.storage)?.limit;
+        let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
         let from_index = from_index.unwrap_or_default();
-        let limit = limit
-            .unwrap_or(self.config.load(deps.storage)?.limit)
-            .min(size);
+        let limit = limit.unwrap_or(default_limit).min(size);
         self.tasks
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
