@@ -6,6 +6,7 @@ use cosmwasm_std::{
     coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
     SubMsg,
 };
+use cw_croncat_core::msg::QueryConstruct;
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 
@@ -267,7 +268,7 @@ impl<'a> CwCroncat<'a> {
         // Check rules
         let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
             cfg.cw_rules_addr,
-            &cw_rules::msg::QueryMsg::QueryConstruct {
+            &QueryConstruct {
                 rules: rules.clone(),
             },
         )?;

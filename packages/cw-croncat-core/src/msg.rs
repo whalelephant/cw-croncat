@@ -332,6 +332,12 @@ pub struct GetSlotIdsResponse {
     pub block_ids: Vec<u64>,
 }
 
+// cw_rules
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueryConstruct {
+    pub rules: Vec<Rule>,
+}
+
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::{coin, coins, BankMsg, CosmosMsg, Timestamp, Uint128};

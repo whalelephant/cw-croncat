@@ -1,4 +1,7 @@
-use cw_croncat_core::types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte, Rule};
+use cw_croncat_core::{
+    msg::QueryConstruct,
+    types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte},
+};
 use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -31,9 +34,7 @@ pub enum QueryMsg {
     CheckProposalStatus(CheckProposalStatus),
     GenericQuery(GenericQuery),
     // Full evaluations
-    QueryConstruct {
-        rules: Vec<Rule>,
-    },
+    QueryConstruct(QueryConstruct),
 }
 
 // We define a custom struct for each query response

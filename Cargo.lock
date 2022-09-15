@@ -312,7 +312,6 @@ dependencies = [
  "cron_schedule",
  "cw-croncat-core",
  "cw-multi-test",
- "cw-rules",
  "cw-storage-plus 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
