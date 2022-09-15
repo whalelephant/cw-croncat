@@ -287,7 +287,7 @@ pub struct CwCroncatResponse {
     pub balances: Vec<BalancesResponse>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct SlotResponse {
     pub slot: Uint64,
     pub tasks: Vec<Vec<u8>>,
@@ -299,19 +299,19 @@ pub struct BalancesResponse {
     pub balances: Vec<Cw20CoinVerified>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum RoundRobinBalancerModeResponse {
     ActivationOrder,
     Equalizer,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct ReplyQueueResponse {
     pub index: Uint64,
     pub item: QueueItemResponse,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct QueueItemResponse {
     pub contract_addr: Option<Addr>,
     pub action_idx: Uint64,
@@ -321,7 +321,7 @@ pub struct QueueItemResponse {
     pub failed: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct SlotWithRuleResponse {
     pub task_hash: Vec<u8>,
     pub slot: Uint64,
