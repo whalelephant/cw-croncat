@@ -339,6 +339,7 @@ mod tests {
             cw20_whitelist: vec![],
             agent_nomination_duration: 9,
             limit: 100,
+            cw_rules_addr: Addr::unchecked("todo"),
         }
     }
     #[test]

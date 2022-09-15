@@ -1,0 +1,26 @@
+[package]
+name = "generic_query"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+staking = ["cw-multi-test/staking"]
+stargate = ["cw-multi-test/stargate"]
+
+[dependencies]
+schemars = "0.8"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
+serde-cw-value = "0.7.0"
+
+[dev-dependencies]
+cw-multi-test = { version = "0.13", features = ["staking"] }

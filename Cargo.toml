@@ -2,7 +2,8 @@
 members = [
   "contracts/cw-croncat",
   "contracts/cw-rules",
-  "packages/cw-croncat-core"
+  "packages/cw-croncat-core",
+  "packages/generic_query",
 ]
 
 [profile.release]
@@ -15,4 +16,3 @@ debug-assertions = false
 panic = 'abort'
 incremental = false
 overflow-checks = true
- 

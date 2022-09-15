@@ -1,14 +1,16 @@
 use cosmwasm_std::{
-    coin, Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    coin, Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
     OverflowOperation::Sub, StdError, SubMsgResult, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
-use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
+use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg};
+use generic_query::GenericQuery;
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
+pub use voting::status::Status;
 
 use crate::{
     error::CoreError,
@@ -143,19 +145,48 @@ pub enum SlotType {
     Cron,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct Rule {
-    /// TBD: Interchain query support (See ibc::IbcMsg)
-    // pub chain_id: Option<String>,
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+// pub struct Rule {
+//     /// TBD: Interchain query support (See ibc::IbcMsg)
+//     // pub chain_id: Option<String>,
 
-    /// Account to direct all view calls against
-    pub contract_addr: String,
+//     /// Account to direct all view calls against
+//     pub contract_addr: String,
 
-    // NOTE: Only allow static pre-defined query msg
-    pub msg: Binary,
+//     // NOTE: Only allow static pre-defined query msg
+//     pub msg: Binary,
+// }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Rule {
+    HasBalanceGte(HasBalanceGte),
+    CheckOwnerOfNft(CheckOwnerOfNFT),
+    CheckProposalStatus(CheckProposalStatus),
+    GenericQuery(GenericQuery),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct HasBalanceGte {
+    pub address: String,
+    pub required_balance: Balance,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct CheckOwnerOfNFT {
+    pub address: String,
+    pub nft_address: String,
+    pub token_id: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct CheckProposalStatus {
+    pub dao_address: String,
+    pub proposal_id: u64,
+    pub status: Status,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Action<T = Empty> {
     // NOTE: Only allow static pre-defined query msg
     /// Supported CosmosMsgs only!
@@ -668,7 +699,9 @@ impl Intervals for Interval {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::{coins, testing::mock_dependencies, IbcTimeout, Uint128, VoteOption};
+    use cosmwasm_std::{
+        coins, testing::mock_dependencies, Binary, IbcTimeout, Uint128, VoteOption,
+    };
     use hex::ToHex;
 
     #[test]
@@ -693,10 +726,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -732,10 +762,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -771,10 +798,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -811,10 +835,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(!task
             .is_valid_msg_calculate_usage(
@@ -850,10 +871,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(!task
             .is_valid_msg_calculate_usage(
@@ -891,10 +909,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(!task
             .is_valid_msg_calculate_usage(
@@ -929,10 +944,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(!task
             .is_valid_msg_calculate_usage(
@@ -968,10 +980,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -1010,10 +1019,7 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: None,
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -1205,10 +1211,10 @@ mod tests {
                 }),
                 gas_limit: Some(5),
             }],
-            rules: Some(vec![Rule {
-                contract_addr: "foo".to_string(),
-                msg: Binary("bar".into()),
-            }]),
+            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                address: "foo".to_string(),
+                required_balance: coins(5, "atom").into(),
+            })]),
         };
 
         let message = format!(

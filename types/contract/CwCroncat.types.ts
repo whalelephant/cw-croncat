@@ -157,6 +157,28 @@ export type Interval = ("Once" | "Immediate") | {
 } | {
   Cron: string;
 };
+export type Rule = {
+  has_balance_gte: HasBalanceGte;
+} | {
+  check_owner_of_nft: CheckOwnerOfNFT;
+} | {
+  check_proposal_status: CheckProposalStatus;
+} | {
+  generic_query: GenericQuery;
+};
+export type Balance = {
+  native: NativeBalance;
+} | {
+  cw20: Cw20CoinVerified;
+};
+export type NativeBalance = Coin[];
+export type Status = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
+export type ValueIndex = {
+  key: string;
+} | {
+  index: number;
+};
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
 export interface Croncat {
   Agent?: Agent | null;
   BalanceResponse?: GetBalancesResponse | null;
@@ -283,9 +305,29 @@ export interface IbcTimeoutBlock {
   revision: number;
   [k: string]: unknown;
 }
-export interface Rule {
+export interface HasBalanceGte {
+  address: string;
+  required_balance: Balance;
+  [k: string]: unknown;
+}
+export interface CheckOwnerOfNFT {
+  address: string;
+  nft_address: string;
+  token_id: string;
+  [k: string]: unknown;
+}
+export interface CheckProposalStatus {
+  dao_address: string;
+  proposal_id: number;
+  status: Status;
+  [k: string]: unknown;
+}
+export interface GenericQuery {
   contract_addr: string;
+  gets: ValueIndex[];
   msg: Binary;
+  ordering: ValueOrdering;
+  value: Binary;
   [k: string]: unknown;
 }
 export interface GetWalletBalancesResponse {
@@ -397,12 +439,6 @@ export type ExecuteMsg = {
     [k: string]: unknown;
   };
 };
-export type Balance = {
-  native: NativeBalance;
-} | {
-  cw20: Cw20CoinVerified;
-};
-export type NativeBalance = Coin[];
 export interface Cw20ReceiveMsg {
   amount: Uint128;
   msg: Binary;
@@ -425,9 +461,10 @@ export interface TaskWithRulesResponse {
 }
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
+  cw_rules_addr: string;
   denom: string;
   gas_base_fee?: Uint64 | null;
-  owner_id?: Addr | null;
+  owner_id?: string | null;
   [k: string]: unknown;
 }
 export type QueryMsg = {

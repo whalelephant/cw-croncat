@@ -2,6 +2,7 @@ use cosmwasm_std::{to_binary, Addr, Binary, Empty, Uint128};
 use cw20::Cw20Coin;
 use cw20_staked_balance_voting::msg::ActiveThreshold;
 use cw_core::state::ProposalModule;
+use cw_croncat_core::types::CheckProposalStatus;
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
@@ -140,6 +141,7 @@ fn instantiate_with_staking_active_threshold(
             label: "DAO DAO governance module".to_string(),
         }],
         initial_items: None,
+        dao_uri: None,
     };
 
     app.instantiate_contract(
@@ -264,11 +266,11 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (false, None));
@@ -290,11 +292,11 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (true, None));
@@ -313,11 +315,11 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr,
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Executed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (true, None));
@@ -444,11 +446,11 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (false, None));
@@ -470,11 +472,11 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (true, None));
@@ -493,11 +495,11 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr,
-            &QueryMsg::CheckProposalReadyToExec {
+            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Executed,
-            },
+            }),
         )
         .unwrap();
     assert_eq!(res, (true, None));
