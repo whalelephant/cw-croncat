@@ -45,6 +45,8 @@ FUND_RES=$(junod tx bank send $(junod keys show validator -a) $(junod keys show 
 junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1 --sequence 2 -y
 junod tx bank send $(junod keys show validator -a) $(junod keys show user -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 3 -y
 junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 4 -y
+junod tx bank send $(junod keys show validator -a) $(junod keys show alice -a) 1stake --chain-id croncat-0.0.1  --sequence 5 -y
+junod tx bank send $(junod keys show validator -a) $(junod keys show bob -a) 1stake --chain-id croncat-0.0.1  --sequence 6 -y
 echo "Fund owner result: $FUND_RES"
 sleep 1
 
