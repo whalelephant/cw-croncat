@@ -31,7 +31,6 @@ pub enum Status {
     ExecutionFailed,
 }
 
-
 use crate::{
     error::CoreError,
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
