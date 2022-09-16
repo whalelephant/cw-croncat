@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 cd "$(dirname "$0")"
 . ./testnet_init_vars.sh
@@ -11,9 +11,9 @@ then
     AGENT_BALANCE=$2
     USER_BALANCE=$3
 else 
-    OWNER_BALANCE=30000
-    AGENT_BALANCE=20000
-    USER_BALANCE=10000
+    OWNER_BALANCE=12000000
+    AGENT_BALANCE=10000
+    USER_BALANCE=15000
 fi
 
 OWNER=cw-croncat-test-owner
