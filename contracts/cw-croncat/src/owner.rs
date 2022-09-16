@@ -26,6 +26,7 @@ impl<'a> CwCroncat<'a> {
             gas_price: c.gas_price,
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity: c.slot_granularity,
+            cw_rules_addr: c.cw_rules_addr,
         })
     }
 

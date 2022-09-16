@@ -233,6 +233,7 @@ export interface GetConfigResponse {
   agent_active_indices: [SlotType, number, number][];
   agent_fee: Coin;
   agents_eject_threshold: number;
+  cw_rules_addr: Addr;
   gas_price: number;
   min_tasks_per_agent: number;
   native_denom: string;

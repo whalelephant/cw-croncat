@@ -3,7 +3,7 @@ members = [
   "contracts/cw-croncat",
   "contracts/cw-rules",
   "packages/cw-croncat-core",
-  "packages/generic_query",
+  "packages/generic-query",
 ]
 
 [profile.release]
