@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, Rule, Balance, NativeBalance, Status, ValueIndex, ValueOrdering, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNFT, CheckProposalStatus, GenericQuery, GetWalletBalancesResponse, Task, BoundaryValidated, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithRulesResponse, TaskWithRulesResponse, InstantiateMsg, QueryMsg, ValidateIntervalResponse } from "./CwCroncat.types";
+import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, Rule, Balance, NativeBalance, Status, ValueIndex, ValueOrdering, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNFT, CheckProposalStatus, GenericQuery, GetWalletBalancesResponse, Task, BoundaryValidated, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, RoundRobinBalancerModeResponse, GetStateResponse, BalancesResponse, SlotResponse, SlotWithRuleResponse, ReplyQueueResponse, QueueItemResponse, TaskWithRulesResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithRulesResponse, InstantiateMsg, QueryMsg, ValidateIntervalResponse } from "./CwCroncat.types";
 export interface CwCroncatReadOnlyInterface {
   contractAddress: string;
   getConfig: () => Promise<GetConfigResponse>;
@@ -67,6 +67,13 @@ export interface CwCroncatReadOnlyInterface {
   }: {
     wallet: string;
   }) => Promise<GetWalletBalancesResponse>;
+  getState: ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }) => Promise<GetStateResponse>;
 }
 export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
   client: CosmWasmClient;
@@ -89,6 +96,7 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
     this.getSlotHashes = this.getSlotHashes.bind(this);
     this.getSlotIds = this.getSlotIds.bind(this);
     this.getWalletBalances = this.getWalletBalances.bind(this);
+    this.getState = this.getState.bind(this);
   }
 
   getConfig = async (): Promise<GetConfigResponse> => {
@@ -224,6 +232,20 @@ export class CwCroncatQueryClient implements CwCroncatReadOnlyInterface {
     return this.client.queryContractSmart(this.contractAddress, {
       get_wallet_balances: {
         wallet
+      }
+    });
+  };
+  getState = async ({
+    fromIndex,
+    limit
+  }: {
+    fromIndex?: number;
+    limit?: number;
+  }): Promise<GetStateResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      get_state: {
+        from_index: fromIndex,
+        limit
       }
     });
   };
