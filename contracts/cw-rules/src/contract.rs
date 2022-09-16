@@ -1,3 +1,4 @@
+use cw_croncat_core::msg::QueryConstruct;
 use cw_croncat_core::types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte, Rule};
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
@@ -86,7 +87,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             status,
         )?),
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
-        QueryMsg::QueryConstruct { rules } => to_binary(&query_construct(deps, rules)?),
+        QueryMsg::QueryConstruct(QueryConstruct { rules }) => {
+            to_binary(&query_construct(deps, rules)?)
+        }
     }
 }
 

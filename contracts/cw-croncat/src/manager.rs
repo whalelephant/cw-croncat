@@ -6,6 +6,7 @@ use cosmwasm_std::{
     coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
     SubMsg,
 };
+use cw_croncat_core::msg::QueryConstruct;
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 
@@ -267,7 +268,7 @@ impl<'a> CwCroncat<'a> {
         // Check rules
         let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
             cfg.cw_rules_addr,
-            &cw_rules::msg::QueryMsg::QueryConstruct {
+            &QueryConstruct {
                 rules: rules.clone(),
             },
         )?;
@@ -868,7 +869,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "bc08cfc1bcd1986df3e299e3b6e4541dbd390b15c84fecffd2b5137e010fe18b".to_string();
+            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1233,7 +1234,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "bc08cfc1bcd1986df3e299e3b6e4541dbd390b15c84fecffd2b5137e010fe18b".to_string();
+            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1363,7 +1364,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "dafb3c6f2a86e238a04cfe0d55e16b44d63a20c62e94699d389aabbe469e9d54".to_string();
+            "c7905cb9e5d620ae61b06cae6fb2bf3afa0ba0b290c1d48da626d0b7f68c293c".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
