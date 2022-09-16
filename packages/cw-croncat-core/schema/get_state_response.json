@@ -587,6 +587,7 @@
         "agent_active_indices",
         "agent_fee",
         "agents_eject_threshold",
+        "cw_rules_addr",
         "gas_price",
         "min_tasks_per_agent",
         "native_denom",
@@ -626,6 +627,9 @@
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
+        },
+        "cw_rules_addr": {
+          "$ref": "#/definitions/Addr"
         },
         "gas_price": {
           "type": "integer",
