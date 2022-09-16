@@ -168,6 +168,7 @@ pub struct GetConfigResponse {
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
+    pub cw_rules_addr: Addr,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -403,6 +404,7 @@ mod tests {
             proxy_callback_gas: 3,
             slot_granularity: 1,
             native_denom: "juno".to_string(),
+            cw_rules_addr: Addr::unchecked("bob"),
         }
         .into();
         let balance_response = GetBalancesResponse {
