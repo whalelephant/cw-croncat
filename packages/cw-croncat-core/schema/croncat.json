@@ -305,6 +305,34 @@
         }
       }
     },
+    "Balance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "native"
+          ],
+          "properties": {
+            "native": {
+              "$ref": "#/definitions/NativeBalance"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "cw20"
+          ],
+          "properties": {
+            "cw20": {
+              "$ref": "#/definitions/Cw20CoinVerified"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
       "oneOf": [
@@ -456,6 +484,46 @@
           ],
           "format": "uint64",
           "minimum": 0.0
+        }
+      }
+    },
+    "CheckOwnerOfNFT": {
+      "type": "object",
+      "required": [
+        "address",
+        "nft_address",
+        "token_id"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "nft_address": {
+          "type": "string"
+        },
+        "token_id": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckProposalStatus": {
+      "type": "object",
+      "required": [
+        "dao_address",
+        "proposal_id",
+        "status"
+      ],
+      "properties": {
+        "dao_address": {
+          "type": "string"
+        },
+        "proposal_id": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "status": {
+          "$ref": "#/definitions/Status"
         }
       }
     },
@@ -691,6 +759,36 @@
         }
       }
     },
+    "GenericQuery": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "gets",
+        "msg",
+        "ordering",
+        "value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "gets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ValueIndex"
+          }
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        },
+        "ordering": {
+          "$ref": "#/definitions/ValueOrdering"
+        },
+        "value": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
+    },
     "GetAgentIdsResponse": {
       "type": "object",
       "required": [
@@ -918,6 +1016,21 @@
         }
       ]
     },
+    "HasBalanceGte": {
+      "type": "object",
+      "required": [
+        "address",
+        "required_balance"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "required_balance": {
+          "$ref": "#/definitions/Balance"
+        }
+      }
+    },
     "IbcMsg": {
       "description": "These are messages in the IBC lifecycle. Only usable by IBC-enabled contracts (contracts that directly speak the IBC protocol via 6 entry points)",
       "oneOf": [
@@ -1111,21 +1224,63 @@
         }
       ]
     },
-    "Rule": {
-      "type": "object",
-      "required": [
-        "contract_addr",
-        "msg"
-      ],
-      "properties": {
-        "contract_addr": {
-          "description": "TBD: Interchain query support (See ibc::IbcMsg) Account to direct all view calls against",
-          "type": "string"
-        },
-        "msg": {
-          "$ref": "#/definitions/Binary"
-        }
+    "NativeBalance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Coin"
       }
+    },
+    "Rule": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "has_balance_gte"
+          ],
+          "properties": {
+            "has_balance_gte": {
+              "$ref": "#/definitions/HasBalanceGte"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_owner_of_nft"
+          ],
+          "properties": {
+            "check_owner_of_nft": {
+              "$ref": "#/definitions/CheckOwnerOfNFT"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_proposal_status"
+          ],
+          "properties": {
+            "check_proposal_status": {
+              "$ref": "#/definitions/CheckProposalStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "generic_query"
+          ],
+          "properties": {
+            "generic_query": {
+              "$ref": "#/definitions/GenericQuery"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "SlotType": {
       "type": "string",
@@ -1216,6 +1371,17 @@
           },
           "additionalProperties": false
         }
+      ]
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "rejected",
+        "passed",
+        "executed",
+        "closed",
+        "execution_failed"
       ]
     },
     "Task": {
@@ -1413,6 +1579,46 @@
     "Uint64": {
       "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
       "type": "string"
+    },
+    "ValueIndex": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "key"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "index"
+          ],
+          "properties": {
+            "index": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ValueOrdering": {
+      "type": "string",
+      "enum": [
+        "unit_above",
+        "unit_above_equal",
+        "unit_below",
+        "unit_below_equal",
+        "equal"
+      ]
     },
     "VoteOption": {
       "type": "string",

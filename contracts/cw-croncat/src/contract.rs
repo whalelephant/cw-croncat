@@ -35,11 +35,11 @@ impl<'a> CwCroncat<'a> {
             cw20: Default::default(),
         };
 
-        let owner_acct = msg.owner_id.unwrap_or(info.sender);
-        assert!(
-            deps.api.addr_validate(owner_acct.as_str()).is_ok(),
-            "Invalid address"
-        );
+        let owner_id = if let Some(owner_id) = msg.owner_id {
+            deps.api.addr_validate(&owner_id)?
+        } else {
+            info.sender
+        };
 
         let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
             base_fee.u64()
@@ -49,7 +49,7 @@ impl<'a> CwCroncat<'a> {
 
         let config = Config {
             paused: false,
-            owner_id: owner_acct,
+            owner_id,
             // treasury_id: None,
             min_tasks_per_agent: 3,
             agent_active_indices: vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
@@ -69,6 +69,7 @@ impl<'a> CwCroncat<'a> {
                 .agent_nomination_duration
                 .unwrap_or(DEFAULT_NOMINATION_DURATION),
             limit: 100,
+            cw_rules_addr: deps.api.addr_validate(&msg.cw_rules_addr)?,
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
@@ -257,6 +258,7 @@ mod tests {
             owner_id: None,
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let info = mock_info("creator", &coins(1000, "meow"));
 

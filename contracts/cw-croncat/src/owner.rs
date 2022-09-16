@@ -418,6 +418,7 @@ mod tests {
             owner_id: None,
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let info = MessageInfo {
             sender: Addr::unchecked("creator"),
@@ -495,6 +496,7 @@ mod tests {
             owner_id: None,
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
@@ -556,6 +558,7 @@ mod tests {
             owner_id: None,
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let res_init = store
             .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)

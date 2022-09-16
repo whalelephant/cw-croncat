@@ -1,12 +1,10 @@
-use std::convert::TryInto;
-
 use crate::balancer::Balancer;
 use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, QueryRequest, Reply, Response,
-    StdResult, Storage, SubMsg, WasmQuery,
+    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
+    SubMsg,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
@@ -252,32 +250,32 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
+        let cfg: Config = self.config.load(deps.storage)?;
         let agent = self.check_agent(deps.as_ref(), &info)?;
 
         let some_task = self
             .tasks_with_rules
             .may_load(deps.storage, task_hash.to_owned().into_bytes())?;
-        if some_task.is_none() {
-            return Err(ContractError::NoTaskFound {});
-        }
-        let task = some_task.unwrap();
+        let task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-
+        let rules = if let Some(ref rules) = task.rules {
+            rules
+        } else {
+            return Err(ContractError::NoRulesForThisTask { task_hash });
+        };
         // Check rules
-        let rules = task.rules.as_ref().expect("No rules");
-        for (index, rule) in rules.iter().enumerate() {
-            let res: (bool, Option<String>) =
-                deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-                    contract_addr: rule.contract_addr.clone().to_string(),
-                    msg: rule.msg.clone(),
-                }))?;
-            if !res.0 {
-                return Err(ContractError::RulesNotReady {
-                    index: index.try_into().unwrap(),
-                });
-            }
-        }
+        let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
+            cfg.cw_rules_addr,
+            &cw_rules::msg::QueryMsg::QueryConstruct {
+                rules: rules.clone(),
+            },
+        )?;
+        if !res {
+            return Err(ContractError::RulesNotReady {
+                index: idx.unwrap(),
+            });
+        };
 
         // Check that this task can be executed in current slot
         let task_ready = if let Ok(Some(block)) = self
@@ -304,11 +302,10 @@ impl<'a> CwCroncat<'a> {
 
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
-        let actions = task.clone().actions;
+        let actions = task.actions.clone();
 
         // Add submessages for all actions
         // And calculate gas usages
-        let c: Config = self.config.load(deps.storage)?;
         let mut gas_used = 0;
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
@@ -317,18 +314,18 @@ impl<'a> CwCroncat<'a> {
                 gas_used += gas_limit;
             } else {
                 sub_msgs.push(sub_msg);
-                gas_used += c.gas_base_fee;
+                gas_used += cfg.gas_base_fee;
             }
         }
         // Task pays for gas even if it failed
         let mut agent = agent;
         let mut task = task;
-        let gas_used = coin(gas_used as u128, c.native_denom);
+        let gas_used = coin(gas_used as u128, cfg.native_denom);
         agent.balance.native.find_checked_add(&gas_used)?;
         task.total_deposit.native.find_checked_sub(&gas_used)?;
         // calculate agent base reward
-        task.total_deposit.native.find_checked_sub(&c.agent_fee)?;
-        agent.balance.native.find_checked_add(&c.agent_fee)?;
+        task.total_deposit.native.find_checked_sub(&cfg.agent_fee)?;
+        agent.balance.native.find_checked_add(&cfg.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
         self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
@@ -644,9 +641,10 @@ mod tests {
 
         let msg = InstantiateMsg {
             denom: NATIVE_DENOM.to_string(),
-            owner_id: Some(owner_addr.clone()),
+            owner_id: Some(owner_addr.to_string()),
             gas_base_fee: None,
             agent_nomination_duration: None,
+            cw_rules_addr: "todo".to_string(),
         };
         let cw_template_contract_addr = app
             //Must send some available balance for rewards
@@ -870,7 +868,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
+            "bc08cfc1bcd1986df3e299e3b6e4541dbd390b15c84fecffd2b5137e010fe18b".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1235,7 +1233,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
+            "bc08cfc1bcd1986df3e299e3b6e4541dbd390b15c84fecffd2b5137e010fe18b".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1365,7 +1363,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "c7905cb9e5d620ae61b06cae6fb2bf3afa0ba0b290c1d48da626d0b7f68c293c".to_string();
+            "dafb3c6f2a86e238a04cfe0d55e16b44d63a20c62e94699d389aabbe469e9d54".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {

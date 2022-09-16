@@ -669,13 +669,13 @@ mod tests {
     // use cosmwasm_std::testing::MockStorage;
     use crate::contract::GAS_BASE_FEE_JUNO;
     use cosmwasm_std::{
-        coin, coins, to_binary, Addr, BankMsg, Binary, CosmosMsg, Empty, StakingMsg, WasmMsg,
+        coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Action, Boundary, Rule};
+    use cw_croncat_core::types::{Action, Boundary, HasBalanceGte, Rule};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -718,9 +718,10 @@ mod tests {
 
         let msg = InstantiateMsg {
             denom: "atom".to_string(),
-            owner_id: Some(owner_addr.clone()),
+            owner_id: Some(owner_addr.to_string()),
             gas_base_fee: None,
             agent_nomination_duration: Some(360),
+            cw_rules_addr: "todo".to_string(),
         };
         let cw_template_contract_addr = app
             .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
@@ -1339,10 +1340,10 @@ mod tests {
                     msg,
                     gas_limit: Some(150_000),
                 }],
-                rules: Some(vec![Rule {
-                    contract_addr: "juno1v9753kdzphhur3g7wv846qgkvzkz9ys6qa0xlz467t3kvtrclfjsqee9x6".to_string(),
-                    msg: Binary::from_base64("eyJnZXRfYmFsYW5jZSI6eyJhZGRyZXNzIjoidXNlcjU2NzYiLCJkZW5vbSI6InVqdW5veCJ9fQ")?
-                }]),
+                rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                    address: "foo".to_string(),
+                    required_balance: coins(5, "bar").into(),
+                })]),
                 cw20_coins: vec![],
             },
         };

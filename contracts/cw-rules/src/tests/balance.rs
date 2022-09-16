@@ -1,5 +1,6 @@
 use cosmwasm_std::{coin, coins, to_binary, Addr, Binary, Empty, StdResult, Uint128};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
+use cw_croncat_core::types::HasBalanceGte;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use cw_utils::NativeBalance;
 
@@ -183,13 +184,13 @@ fn test_has_balance_native() -> StdResult<()> {
     let (app, contract_addr, _) = proper_instantiate();
 
     // Return true if address has more coins
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(
             900_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -198,13 +199,13 @@ fn test_has_balance_native() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return true if real and required balances are equal
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(
             1_000_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -213,13 +214,13 @@ fn test_has_balance_native() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return false if address has less coins
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(
             1_100_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -228,10 +229,10 @@ fn test_has_balance_native() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return false if address has zero coins
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1_000_000u128, "juno".to_string()))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -240,10 +241,10 @@ fn test_has_balance_native() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return false if the account doesn't exist and required_balance is not zero
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1u128, NATIVE_DENOM.to_string()))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -252,10 +253,10 @@ fn test_has_balance_native() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return true if required balance is zero
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(0u128, NATIVE_DENOM.to_string()))),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -271,13 +272,13 @@ fn test_has_balance_cw20() -> StdResult<()> {
     let (app, contract_addr, cw20_contract) = proper_instantiate();
 
     // Return true if address has more coins
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Cw20(Cw20CoinVerified {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(14u128),
         }),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -286,13 +287,13 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return true if real and required balances are equal
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Cw20(Cw20CoinVerified {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(15u128),
         }),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -301,13 +302,13 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return false if address has less coins
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANYONE.to_string(),
         required_balance: Balance::Cw20(Cw20CoinVerified {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(16u128),
         }),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -316,13 +317,13 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return false if the account doesn't exist and required_balance is not zero
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANOTHER.to_string(),
         required_balance: Balance::Cw20(Cw20CoinVerified {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(2u128),
         }),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
@@ -331,13 +332,13 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert_eq!(res.1, None);
 
     // Return true if required balance is zero
-    let msg = QueryMsg::HasBalanceGte {
+    let msg = QueryMsg::HasBalanceGte(HasBalanceGte {
         address: ANOTHER.to_string(),
         required_balance: Balance::Cw20(Cw20CoinVerified {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::zero(),
         }),
-    };
+    });
     let res: RuleResponse<Option<Binary>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)

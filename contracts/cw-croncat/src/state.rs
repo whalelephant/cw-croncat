@@ -30,6 +30,7 @@ pub struct Config {
     // The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     // Value is in seconds
     pub agent_nomination_duration: u16,
+    pub cw_rules_addr: Addr,
 
     // Economics
     pub agent_fee: Coin,

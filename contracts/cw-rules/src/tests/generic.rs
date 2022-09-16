@@ -1,15 +1,11 @@
-use cosmwasm_std::{to_binary, Addr, Binary, Empty};
+use cosmwasm_std::{to_binary, Addr, Binary, Empty, WasmQuery};
 use cw20::Cw20Coin;
 use cw4::Member;
-use cw_croncat_core::types::Rule;
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use serde_json::json;
 
-use crate::{
-    helpers::ValueOrdering,
-    msg::{InstantiateMsg, QueryMsg},
-    types::generic_query::{GenericQuery, ValueIndex},
-};
+use crate::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use generic_query::{GenericQuery, ValueIndex, ValueOrdering};
 
 const CREATOR_ADDR: &str = "creator";
 
@@ -100,16 +96,14 @@ fn test_generic() {
         ],
         ordering: ValueOrdering::UnitAbove,
         value: to_binary(&1).unwrap(),
+        contract_addr: cw4_addr.into_string(),
     };
-    let binary = to_binary(&generic_query).unwrap();
-    let msg = QueryMsg::QueryConstruct {
-        rules: vec![Rule {
-            contract_addr: cw4_addr.into_string(),
-            msg: binary,
-        }],
-    };
-    let res: bool = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res);
+    let msg = QueryMsg::GenericQuery(generic_query);
+    let ser = serde_json::to_string_pretty(&msg).unwrap();
+    println!("{ser}");
+    let res: RuleResponse<Option<Binary>> =
+        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.0);
 }
 
 #[test]
@@ -160,20 +154,22 @@ fn test_generic_json_repr() {
     })
     .unwrap();
     let generic_query_json = json!({
-        "msg": query_binary,
-        "gets": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
-        "ordering": "unit_above",
-        "value": to_binary(&1).unwrap()
+        "generic_query": {
+            "contract_addr": cw4_addr.to_string(),
+            "msg": query_binary,
+            "gets": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
+            "ordering": "unit_above",
+            "value": to_binary(&1).unwrap(),
+        }
     });
-    let binary: Binary = Binary(generic_query_json.to_string().into_bytes());
-    let msg = QueryMsg::QueryConstruct {
-        rules: vec![Rule {
-            contract_addr: cw4_addr.into_string(),
-            msg: binary,
-        }],
-    };
-    let res: bool = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res);
+    let msg = generic_query_json.to_string().into_bytes();
+    let request = WasmQuery::Smart {
+        contract_addr: contract_addr.into(),
+        msg: Binary(msg),
+    }
+    .into();
+    let res: RuleResponse<Option<Binary>> = app.wrap().query(&request).unwrap();
+    assert!(res.0);
 }
 
 #[test]
@@ -221,6 +217,7 @@ fn test_generic_bigint() {
         gets: vec![ValueIndex::Key("total_supply".to_string())],
         ordering: ValueOrdering::UnitAbove,
         value: to_binary("2012").unwrap(),
+        contract_addr: cw20_addr.into_string(),
     };
     // what we get here is :
     // pub struct TokenInfoResponse {
@@ -229,13 +226,8 @@ fn test_generic_bigint() {
     //     pub decimals: u8,
     //     pub total_supply: Uint128,
     // }
-    let binary = to_binary(&generic_query).unwrap();
-    let msg = QueryMsg::QueryConstruct {
-        rules: vec![Rule {
-            contract_addr: cw20_addr.into_string(),
-            msg: binary,
-        }],
-    };
-    let res: bool = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res);
+    let msg = QueryMsg::GenericQuery(generic_query);
+    let res: RuleResponse<Option<Binary>> =
+        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.0);
 }
