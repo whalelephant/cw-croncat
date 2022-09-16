@@ -18,7 +18,7 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 // default for juno
 pub(crate) const GAS_BASE_FEE_JUNO: u64 = 400_000;
 
-#[cfg(not(feature = "library"))]
+// #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
     pub fn instantiate(
         &self,
