@@ -17,20 +17,7 @@ then
     AGENT=$2
     USER=$3
 else 
-    OWNER=cw-croncat-test-owner
-    AGENT=cw-croncat-test-agent
-    USER=cw-croncat-test-user
-
-    junod keys show $OWNER 2> /dev/null || junod keys add $OWNER
-    junod keys show $AGENT 2> /dev/null || junod keys add $AGENT
-    junod keys show $USER 2> /dev/null || junod keys add $USER
-
-    JSON=$(jq -n --arg addr $(junod keys show -a $OWNER) '{ denom:"ujunox","address":$addr}') && \
-      curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
-    JSON=$(jq -n --arg addr $(junod keys show -a $AGENT) '{ denom:"ujunox","address":$addr}') && \
-      curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
-    JSON=$(jq -n --arg addr $(junod keys show -a $USER) '{ denom:"ujunox","address":$addr}') && \
-      curl -X POST --header "Content-Type: application/json" --data "$JSON" https://faucet.uni.juno.deuslabs.fi/credit && echo
+    . ./contract/cw-croncat/scripts/testnet_create_addresses.sh
 fi
 
 RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
@@ -47,8 +34,8 @@ REGISTER_AGENT='{"register_agent":{}}'
 junod tx wasm execute $CONTRACT "$REGISTER_AGENT" --from $AGENT $TXFLAG -y
 
 # Create a task
-STAKE='{"create_task":{"task":{"interval":"Immediate","boundary":null,"cw20_coins":[],"stop_on_fail":false,"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"1000000"}}}},"gas_limit":150000}],"rules":null}}}'
-junod tx wasm execute $CONTRACT "$STAKE" --amount 1000000ujunox --from $USER $TXFLAG -y
+STAKE='{"create_task":{"task":{"interval":"Immediate","boundary":null,"cw20_coins":[],"stop_on_fail":false,"actions":[{"msg":{"staking":{"delegate":{"validator":"juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn","amount":{"denom":"ujunox","amount":"10000"}}}},"gas_limit":150000}],"rules":null}}}'
+junod tx wasm execute $CONTRACT "$STAKE" --amount 10000ujunox --from $USER $TXFLAG -y
 
 # proxy_call
 sleep 10      # is needed to make sure this call in the next block 
