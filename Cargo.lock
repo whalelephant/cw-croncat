@@ -337,14 +337,13 @@ dependencies = [
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.12.1",
- "generic_query",
+ "generic-query",
  "hex",
  "schemars",
  "serde",
  "serde-json-wasm",
  "sha2 0.9.9",
  "thiserror",
- "voting",
 ]
 
 [[package]]
@@ -447,7 +446,7 @@ dependencies = [
  "cw4-group",
  "cw721",
  "cw721-base",
- "generic_query",
+ "generic-query",
  "schemars",
  "serde",
  "serde-cw-value",
@@ -854,7 +853,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "generic_query"
+name = "generic-query"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-std",

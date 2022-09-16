@@ -10,7 +10,27 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
-pub use voting::status::Status;
+// TODO: this library acting weird on linux and spawning "instantiate", "execute", "query", "reply" of "cw_core" here!!
+// pub use voting::status::Status;
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, Copy)]
+#[serde(rename_all = "snake_case")]
+#[repr(u8)]
+pub enum Status {
+    /// The proposal is open for voting.
+    Open,
+    /// The proposal has been rejected.
+    Rejected,
+    /// The proposal has been passed but has not been executed.
+    Passed,
+    /// The proposal has been passed and executed.
+    Executed,
+    /// The proposal has failed or expired and has been closed. A
+    /// proposal deposit refund has been issued if applicable.
+    Closed,
+    // The proposal has failed during execution
+    ExecutionFailed,
+}
+
 
 use crate::{
     error::CoreError,

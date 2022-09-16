@@ -2,14 +2,13 @@ use cosmwasm_std::{to_binary, Addr, Binary, Empty, Uint128};
 use cw20::Cw20Coin;
 use cw20_staked_balance_voting::msg::ActiveThreshold;
 use cw_core::state::ProposalModule;
-use cw_croncat_core::types::CheckProposalStatus;
+use cw_croncat_core::types::{CheckProposalStatus, Status};
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
     voting_strategy::VotingStrategy,
 };
 use voting::{
-    status::Status,
     threshold::{PercentageThreshold, Threshold},
     voting::{MultipleChoiceVote, Vote},
 };
