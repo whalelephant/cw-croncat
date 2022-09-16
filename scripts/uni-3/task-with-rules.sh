@@ -5,7 +5,7 @@ set -ex
 # cd "$(dirname "$0")/.."
 
 # Deploy cw_rules contract
-. ./scripts/cw-rules_deploy_testnet.sh
+. ./scripts/cw-rules-deploy.sh
 RULES_CONTRACT=$CONTRACT
 
 # Create wallets and make sure they have some JUNOX

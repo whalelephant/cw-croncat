@@ -23,7 +23,7 @@ and can delete them with:
 
 Run this script to remove old agent and Juno chain info, create new keys, deploy and instantiate the Croncat Manager contract, and add a simple payroll task that pays Alice and Bob a little bit of `stake` tokens every 3 blocks:
 
-    ./local_start.sh
+    ./start.sh
 
 A `junod` process is running in the background now, and we can start our agent.
 
@@ -40,13 +40,13 @@ cargo run go
 
 In a separate tab you can see the balances by running:
 
-    ./local_balances.sh
+    ./balances.sh
 
 If you run the previous scripted repeatedly you'll see the simple, automated payroll is operational.
 
 To stop the local Juno chain, you may run:
 
-    ./local_stop.sh
+    ./stop.sh
 
 ## Misc
 

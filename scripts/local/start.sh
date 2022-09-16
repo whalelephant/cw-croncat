@@ -6,7 +6,7 @@ rm -rf ~/.juno
 rm -rf ~/.croncatd
 
 cd "$(dirname "$0")"
-. ./local_init_vars.sh
+. ./init-vars.sh
 
 junod init croncat --chain-id croncat-0.0.1 --overwrite
 sleep 2
@@ -51,7 +51,7 @@ echo "Fund owner result: $FUND_RES"
 sleep 1
 
 # Upload the Croncat Manager contract
-RES=$(junod tx wasm store ../../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
+RES=$(junod tx wasm store ../../../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "Code ID: $CODE_ID"
 

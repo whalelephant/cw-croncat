@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd "$(dirname "$0")"
-. ./testnet_init_vars.sh
+. ./init-vars.sh
 
 if [ -z "$1" ]
 then
