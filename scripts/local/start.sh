@@ -6,6 +6,13 @@ rm -rf ~/.juno
 rm -rf ~/.croncatd
 
 cd "$(dirname "$0")"
+if [ -z "$1" ]
+then
+    echo "Must provide cw-rules contract address"
+    exit 1
+else 
+    cw_rules_addr=$1
+fi
 . ./init-vars.sh
 
 junod init croncat --chain-id croncat-0.0.1 --overwrite
@@ -41,7 +48,7 @@ junod start --grpc.address "127.0.0.1:9090" >/dev/null 2>&1 < /dev/null &
 sleep 3
 
 # Send funds from the validator to necessary parties
-FUND_RES=$(junod tx bank send $(junod keys show validator -a) $(junod keys show owner -a) 600000000000stake --chain-id croncat-0.0.1 -y)
+FUND_RES=$(junod tx bank send $(junod keys show validator -a) $(junod keys show owner -a) 600000000000stake --chain-id croncat-0.0.1 --sequence 1 -y)
 junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1 --sequence 2 -y
 junod tx bank send $(junod keys show validator -a) $(junod keys show user -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 3 -y
 junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 4 -y
@@ -51,7 +58,7 @@ echo "Fund owner result: $FUND_RES"
 sleep 1
 
 # Upload the Croncat Manager contract
-RES=$(junod tx wasm store ../../../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
+RES=$(junod tx wasm store ../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "Code ID: $CODE_ID"
 
