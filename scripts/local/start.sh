@@ -55,9 +55,9 @@ junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 6
 junod tx bank send $(junod keys show validator -a) $(junod keys show alice -a) 1stake --chain-id croncat-0.0.1  --sequence 5 -y
 junod tx bank send $(junod keys show validator -a) $(junod keys show bob -a) 1stake --chain-id croncat-0.0.1  --sequence 6 -y
 echo "Fund owner result: $FUND_RES"
-sleep 5
-
+sleep 1
 # Upload the Croncat Manager contract
+echo "wasm store cw_croncat.wasm..."
 RES=$(junod tx wasm store ../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "Code ID: $CODE_ID"
@@ -65,7 +65,7 @@ echo "Code ID: $CODE_ID"
 # Instantiate
 echo "Instantiating cw_croncat contract..."
 
-INIT='{"denom":"stake"}'
+INIT='{"denom":"stake","cw_rules_addr":"$cw_rules_addr"}'
 junod tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG --no-admin -y
 CONTRACT=$(junod query wasm list-contract-by-code $CODE_ID $NODE --output json | jq -r '.contracts[-1]')
 echo "Croncat Manager contract address: $CONTRACT"
