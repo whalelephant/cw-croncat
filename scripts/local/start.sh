@@ -39,26 +39,29 @@ BOB_SEED_PHRASE="book obey ensure swarm ill drink blind process trend certain ki
 junod keys show bob 2> /dev/null || echo $BOB_SEED_PHRASE | junod keys add bob --recover
 
 junod add-genesis-account $(junod keys show validator -a) 10000000000000000000000000stake
-junod gentx validator 1000000000000000stake --chain-id croncat-0.0.1 --chain-id croncat-0.0.1
+junod gentx validator 1000000000000000stake --chain-id croncat-0.0.1
 junod collect-gentxs
 sleep 1
 
+echo "Starting grpc..."
 # Start the Juno chain, making sure we have gRPC
 junod start --grpc.address "127.0.0.1:9090" >/dev/null 2>&1 < /dev/null &
 sleep 3
+echo "Starting grpc done..."
 
 # Send funds from the validator to necessary parties
-FUND_RES=$(junod tx bank send $(junod keys show validator -a) $(junod keys show owner -a) 600000000000stake --chain-id croncat-0.0.1 --sequence 1 -y)
-junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1 --sequence 2 -y
-junod tx bank send $(junod keys show validator -a) $(junod keys show user -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 3 -y
-junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1  --sequence 4 -y
-junod tx bank send $(junod keys show validator -a) $(junod keys show alice -a) 1stake --chain-id croncat-0.0.1  --sequence 5 -y
-junod tx bank send $(junod keys show validator -a) $(junod keys show bob -a) 1stake --chain-id croncat-0.0.1  --sequence 6 -y
+FUND_RES=$(junod tx bank send $(junod keys show validator -a) $(junod keys show owner -a) 600000000000stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct)
+junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct
+junod tx bank send $(junod keys show validator -a) $(junod keys show user -a) 600000000000stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct
+junod tx bank send $(junod keys show validator -a) $(junod keys show agent -a) 600000000000stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct
+junod tx bank send $(junod keys show validator -a) $(junod keys show alice -a) 1stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct
+junod tx bank send $(junod keys show validator -a) $(junod keys show bob -a) 1stake --chain-id croncat-0.0.1 -y --broadcast-mode block --sign-mode direct
 echo "Fund owner result: $FUND_RES"
 sleep 1
 # Upload the Croncat Manager contract
 echo "wasm store cw_croncat.wasm..."
-RES=$(junod tx wasm store ../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 --broadcast-mode block -y --output json -b block)
+RES=$(junod tx wasm store ../../artifacts/cw_croncat.wasm --from owner --node http://localhost:26657 --chain-id croncat-0.0.1 --gas-prices 0.1stake --gas auto --gas-adjustment 1.3 -y --broadcast-mode block --sign-mode direct --output json)
+#RES=$(junod tx wasm store ../../artifacts/cw_croncat.wasm --gas-prices 0.1stake --gas auto --gas-adjustment 1.3 -y -b block --chain-id croncat-0.0.1 --node 'http://localhost:26657/' --output json --from owner)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "Code ID: $CODE_ID"
 
