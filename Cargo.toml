@@ -4,6 +4,7 @@ members = [
   "contracts/cw-rules",
   "packages/cw-croncat-core",
   "packages/generic-query",
+  "packages/cw-rules-core"
 ]
 
 [profile.release]

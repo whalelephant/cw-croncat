@@ -1,7 +1,4 @@
-use cw_croncat_core::{
-    msg::QueryConstruct,
-    types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte},
-};
+use crate::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Rule};
 use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -25,12 +22,12 @@ pub enum QueryMsg {
         address: String,
         denom: String,
     },
-    GetCW20Balance {
+    GetCw20Balance {
         cw20_contract: String,
         address: String,
     },
     HasBalanceGte(HasBalanceGte),
-    CheckOwnerOfNFT(CheckOwnerOfNFT),
+    CheckOwnerOfNft(CheckOwnerOfNft),
     CheckProposalStatus(CheckProposalStatus),
     GenericQuery(GenericQuery),
     // Full evaluations
@@ -44,3 +41,8 @@ pub struct QueryMultiResponse {
 }
 
 pub type RuleResponse<T> = (bool, T);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueryConstruct {
+    pub rules: Vec<Rule>,
+}

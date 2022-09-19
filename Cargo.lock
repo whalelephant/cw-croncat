@@ -311,6 +311,8 @@ dependencies = [
  "cron_schedule",
  "cw-croncat-core",
  "cw-multi-test",
+ "cw-rules",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
@@ -332,11 +334,11 @@ dependencies = [
  "cosmwasm-storage",
  "cron_schedule",
  "cw-multi-test",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw2 0.13.4",
  "cw20 0.13.4",
  "cw20-base 0.12.1",
- "generic-query",
  "hex",
  "schemars",
  "serde",
@@ -434,6 +436,7 @@ dependencies = [
  "cw-multi-test",
  "cw-proposal-multiple",
  "cw-proposal-single",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
@@ -452,6 +455,18 @@ dependencies = [
  "serde_json",
  "thiserror",
  "voting",
+]
+
+[[package]]
+name = "cw-rules-core"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "cw20 0.13.4",
+ "generic-query",
+ "schemars",
+ "serde",
+ "serde-cw-value",
 ]
 
 [[package]]
@@ -856,7 +871,6 @@ name = "generic-query"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-std",
- "cw-multi-test",
  "schemars",
  "serde",
  "serde-cw-value",

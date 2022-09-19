@@ -672,10 +672,11 @@ mod tests {
         coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+    use cw_rules_core::types::{HasBalanceGte, Rule};
     // use crate::error::ContractError;
     use crate::helpers::CwTemplateContract;
     use cw_croncat_core::msg::{ExecuteMsg, GetBalancesResponse, InstantiateMsg, QueryMsg};
-    use cw_croncat_core::types::{Action, Boundary, HasBalanceGte, Rule};
+    use cw_croncat_core::types::{Action, Boundary};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -1391,6 +1392,109 @@ mod tests {
                 }
             }
         }
+        assert!(has_created_hash);
+        Ok(())
+    }
+
+    #[test]
+    fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+
+        let validator = String::from("you");
+        let amount = coin(3, "atom");
+        let stake = StakingMsg::Delegate { validator, amount };
+        let msg: CosmosMsg = stake.clone().into();
+
+        let with_rules_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: msg.clone(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                    address: "foo".to_string(),
+                    required_balance: coins(5, "bar").into(),
+                })]),
+                cw20_coins: vec![],
+            },
+        };
+
+        let without_rules_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg,
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+                cw20_coins: vec![],
+            },
+        };
+
+        // create a task
+        let res = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &with_rules_msg,
+                &coins(300010, "atom"),
+            )
+            .unwrap();
+
+        let res2 = app
+            .execute_contract(
+                Addr::unchecked(ANYONE),
+                contract_addr.clone(),
+                &without_rules_msg,
+                &coins(300010, "atom"),
+            )
+            .unwrap();
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        let tasks: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                &contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(tasks_with_rules.len(), 1);
+        assert_eq!(tasks.len(), 1);
+
+        let mut has_created_hash: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "with_rules" && a.value == "true" {
+                    has_created_hash = true;
+                }
+            }
+        }
+
+        res2.events.into_iter().any(|ev| {
+            ev.attributes
+                .into_iter()
+                .any(|attr| attr.key == "with_rules" && attr.value == "false")
+        });
         assert!(has_created_hash);
         Ok(())
     }

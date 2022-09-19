@@ -113,23 +113,23 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         if slot_items == (None, None) {
             return Ok(None);
         }
-        let mut num_block_tasks = Uint64::from(0u64);
-        let mut num_block_tasks_extra = Uint64::from(0u64);
+        let mut num_block_tasks = Uint64::zero();
+        let mut num_block_tasks_extra = Uint64::zero();
 
-        let mut num_cron_tasks = Uint64::from(0u64);
-        let mut num_cron_tasks_extra = Uint64::from(0u64);
+        let mut num_cron_tasks = Uint64::zero();
+        let mut num_cron_tasks_extra = Uint64::zero();
 
         match self.mode {
             BalancerMode::ActivationOrder => {
                 let activation_ordering = |total_tasks: u64| -> (Uint64, Uint64) {
                     if total_tasks < 1 {
-                        return (Uint64::from(0u64), Uint64::from(0u64));
+                        return (Uint64::zero(), Uint64::zero());
                     }
                     if total_tasks <= active.len() as u64 {
                         let agent_tasks_total = 1u64.saturating_sub(
                             agent_index.saturating_sub(total_tasks.saturating_sub(1)),
                         );
-                        (agent_tasks_total.into(), agent_tasks_total.into())
+                        (agent_tasks_total.into(), Uint64::zero())
                     } else {
                         let leftover = total_tasks % agent_count;
 
@@ -297,19 +297,9 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 mod tests {
     use super::*;
     use crate::contract::GAS_BASE_FEE_JUNO;
-    use crate::error::ContractError;
-    use crate::helpers::CwTemplateContract;
-    use cosmwasm_std::testing::{
-        mock_dependencies_with_balance, mock_env, mock_info, MockStorage, MOCK_CONTRACT_ADDR,
-    };
-    use cosmwasm_std::{
-        coin, coins, from_slice, Addr, BlockInfo, Coin, CosmosMsg, Empty, StakingMsg,
-    };
-    use cw_croncat_core::types::{Agent, SlotType, Task};
-
-    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
-    use cw_croncat_core::types::{Action, Boundary, Interval};
-    use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
+    use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
+    use cosmwasm_std::{coins, Addr, Coin};
+    use cw_croncat_core::types::SlotType;
 
     use crate::CwCroncat;
     const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";

@@ -6,6 +6,7 @@ use cosmwasm_std::{
     has_coins, Addr, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Storage,
     SubMsg,
 };
+use cw_storage_plus::Bound;
 use std::ops::Div;
 
 use crate::ContractError::AgentNotRegistered;
@@ -81,9 +82,27 @@ impl<'a> CwCroncat<'a> {
             });
         }
         // Get all tasks (the final None means no limit when we take)
-        let slot_items = self.get_current_slot_items(&env.block, deps.storage, None);
+        let block_slots = self
+            .block_slots
+            .range(
+                deps.storage,
+                None,
+                Some(Bound::inclusive(env.block.height)),
+                cosmwasm_std::Order::Ascending,
+            )
+            .count();
 
-        if slot_items == (None, None) {
+        let time_slots = self
+            .time_slots
+            .range(
+                deps.storage,
+                None,
+                Some(Bound::inclusive(env.block.time.nanos())),
+                cosmwasm_std::Order::Ascending,
+            )
+            .count();
+
+        if (block_slots, time_slots) == (0, 0) {
             return Ok(None);
         }
 
@@ -93,7 +112,7 @@ impl<'a> CwCroncat<'a> {
             &self.config,
             &self.agent_active_queue,
             account_id,
-            slot_items,
+            (Some(block_slots as u64), Some(time_slots as u64)),
         )
     }
 
