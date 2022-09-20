@@ -7,11 +7,12 @@ set -e
 if [ "$1" = "" ]; then
   echo "Usage: $0 1 arg required - rules address"
   exit
+  else 
+    cw_rules_addr=$1
 fi
 
 CHAIN_ID="testing"
 RPC="http://localhost:26657/"
-TXFLAG="--gas-prices 0.1STAKE --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
 BINARY="docker exec -i juno-node-1 junod"
 DIR=$(pwd)
 JUNO_DIR="$HOME/juno"
@@ -21,6 +22,8 @@ DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
 WASM="artifacts/$DIR_NAME_SNAKE.wasm"
 STAKE_TOKEN=ujunox
 STAKE=${STAKE_TOKEN:-ustake}
+TXFLAG="--gas-prices 0.1$STAKE --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
+
 # Reset
 NoColor='\033[0m'       # Text Reset
 # Regular Colors
@@ -40,7 +43,7 @@ if [ ! -f "$WASM" ]; then
   docker run --rm -v "$(pwd)":/code \
     --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
     --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-    cosmwasm/rust-optimizer:0.12.6
+    cosmwasm/rust-optimizer:0.12.8
 fi
 
 #Initialize docker yes/no
@@ -80,6 +83,7 @@ fi
 # move binary to docker container
 cd $DIR
 docker cp "artifacts/$DIR_NAME_SNAKE.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE.wasm"
+echo "${Cyan}Wasm file: $DIR_NAME_SNAKE" 
 cd $JUNO_DIR
 
 # wait for chain starting before contract storing
@@ -87,8 +91,8 @@ cd $JUNO_DIR
 # send them some coins
 VALIDATOR_ADDR=$($BINARY keys show validator --address)
 VALIDATOR_BALANCE=$($BINARY q bank balances $($BINARY keys show validator --address))
-echo "${Cyan}Validator :" $VALIDATOR_ADDR $"{NoColor}"
-echo "${Green}Validator Balance :" $VALIDATOR_BALANCE $"{NoColor}"
+echo "${Cyan}Validator :" $VALIDATOR_ADDR "${NoColor}"
+echo "${Green}Validator Balance :" $VALIDATOR_BALANCE "${NoColor}"
 
 ALICE_ADDR=$($BINARY keys show alice --address)
 BOB_ADDR=$($BINARY keys show bob --address)
@@ -139,13 +143,18 @@ echo "${Green}Starting grpc done!${NoColor}"
 
 #---------------------------------------------------------------------------
 echo "${Yellow}Instantiating smart contract...${NoColor}"
-CONTRACT_CODE=$($BINARY tx wasm store "/$DIR_NAME_SNAKE.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
-echo "${Cyan}Instantiating smart contract done!${NoColor}"
-echo "${Cyan}CONTRACT_CODE :" $CONTRACT_CODE "${NoColor}"
+IRES=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --output json)
+CODE_ID=$(echo $IRES | jq -r '.logs[0].events[-1].attributes[0].value')
+echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
 
 INIT='{"denom":"$STAKE","cw_rules_addr":"$cw_rules_addr"}'
-$BINARY tx wasm instantiate $CONTRACT_CODE "$INIT" --from alice --label "croncat" $TXFLAG --no-admin -y
+echo "${Cyan}" $cw_rules_addr  "${NoColor}"
+echo "${Cyan}" $OWNER_ADDR  "${NoColor}"
+
+$BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
 
 # get smart contract address
-CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CONTRACT_CODE --output json | jq -r '.contracts[-1]')
-echo "Instantiating Smart Contract Done!"
+CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
+echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
+
+echo "${Cyan}Instantiating smart contract done!${NoColor}"
