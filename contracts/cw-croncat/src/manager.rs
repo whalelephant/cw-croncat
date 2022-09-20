@@ -2107,6 +2107,7 @@ mod tests {
     fn test_complete_task_with_rule() {
         let (mut app, cw_template_contract) = proper_instantiate();
         let contract_addr = cw_template_contract.addr();
+        let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
 
         let addr1 = String::from("addr1");
         let amount = coins(3, "atom");
@@ -2183,25 +2184,161 @@ mod tests {
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &ExecuteMsg::ProxyCall {
-                    task_hash: Some(String::from(
-                        "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7",
-                    )),
+                    task_hash: Some(String::from(task_hash)),
                 },
                 &[],
             )
             .unwrap();
 
-        assert!(res
-            .events
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
             .iter()
-            .any(|ev| ev.attributes.iter().any(|attr| attr.key == "task_hash"
-                && attr.value
-                    == "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7")));
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
         assert!(res.events.iter().any(|ev| ev
             .attributes
             .iter()
             .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_with_rules.is_empty());
+    }
+
+    #[test]
+    fn test_reschedule_task_with_rule() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
+
+        let addr1 = String::from("addr1");
+        let amount = coins(3, "atom");
+        let send = BankMsg::Send {
+            to_address: addr1,
+            amount,
+        };
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: send.clone().into(),
+                    gas_limit: None,
+                }],
+                rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                    address: String::from("addr2"),
+                    required_balance: coins(1, "atom").into(),
+                })]),
+                cw20_coins: vec![],
+            },
+        };
+
+        let attached_balance = 900058;
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, "atom"),
+        )
+        .unwrap();
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        app.update_block(add_little_time);
+
+        let agent_tasks: Option<AgentTaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetAgentTasks {
+                    account_id: String::from(AGENT0),
+                },
+            )
+            .unwrap();
+        assert!(agent_tasks.is_none());
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(tasks_with_rules.len(), 1);
+
+        app.send_tokens(
+            Addr::unchecked(ADMIN),
+            Addr::unchecked("addr2"),
+            &coins(1, "atom"),
+        )
+        .unwrap();
+
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .unwrap();
+
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(tasks_with_rules.len(), 1);
+
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
         let tasks_with_rules: Vec<TaskWithRulesResponse> = app
             .wrap()
             .query_wasm_smart(
