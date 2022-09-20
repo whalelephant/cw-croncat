@@ -112,12 +112,12 @@ pub struct CwCroncat<'a> {
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
 
-    pub tasks_with_rules: IndexedMap<'a, Vec<u8>, Task, TaskIndexes<'a>>,
+    pub tasks_with_rules: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
     pub tasks_with_rules_total: Item<'a, u64>,
 
     /// Store time and block based slots by the corresponding task hash
-    pub time_slots_rules: Map<'a, Vec<u8>, u64>,
-    pub block_slots_rules: Map<'a, Vec<u8>, u64>,
+    pub time_slots_rules: Map<'a, &'a [u8], u64>,
+    pub block_slots_rules: Map<'a, &'a [u8], u64>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's
@@ -241,16 +241,15 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn get_task_by_hash(
         &self,
         storage: &dyn Storage,
-        task_hash: Vec<u8>,
+        task_hash: &[u8],
     ) -> Result<Task, ContractError> {
-        let some_task = self.tasks.may_load(storage, &task_hash)?;
+        let some_task = self.tasks.may_load(storage, task_hash)?;
         if let Some(task) = some_task {
             Ok(task)
         } else {
             self.tasks_with_rules
                 .may_load(storage, task_hash)?
-                .map(Ok)
-                .ok_or(ContractError::NoTaskFound {})?
+                .ok_or(ContractError::NoTaskFound {})
         }
     }
 }

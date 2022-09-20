@@ -295,7 +295,7 @@ impl<'a> CwCroncat<'a> {
             with_rules = true;
             // Add task with rules
             self.tasks_with_rules
-                .update(deps.storage, item.to_hash_vec(), |old| match old {
+                .update(deps.storage, hash.as_bytes(), |old| match old {
                     Some(_) => Err(ContractError::CustomError {
                         val: "Task already exists".to_string(),
                     }),
@@ -318,22 +318,22 @@ impl<'a> CwCroncat<'a> {
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots_rules
-                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
                     self.time_slots_rules
-                        .save(deps.storage, item.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
             }
         } else {
             // Add task without rules
-            self.tasks
-                .update(deps.storage, &item.to_hash_vec(), |old| match old {
-                    Some(_) => Err(ContractError::CustomError {
-                        val: "Task already exists".to_string(),
-                    }),
-                    None => Ok(item.clone()),
-                })?;
+            let hash = item.to_hash_vec();
+            self.tasks.update(deps.storage, &hash, |old| match old {
+                Some(_) => Err(ContractError::CustomError {
+                    val: "Task already exists".to_string(),
+                }),
+                None => Ok(item),
+            })?;
 
             // Increment task totals
             let size_res = self.increment_tasks(deps.storage);
@@ -372,11 +372,11 @@ impl<'a> CwCroncat<'a> {
                     // has some data, simply push new hash
                     Some(data) => {
                         let mut s = data;
-                        s.push(item.to_hash_vec());
+                        s.push(hash);
                         Ok(s)
                     }
                     // No data, push new vec & hash
-                    None => Ok(vec![item.to_hash_vec()]),
+                    None => Ok(vec![hash]),
                 }
             };
 
@@ -467,12 +467,12 @@ impl<'a> CwCroncat<'a> {
             // Find a task with rules
             let task = self
                 .tasks_with_rules
-                .may_load(storage, hash_vec.clone())?
+                .may_load(storage, &hash_vec)?
                 .ok_or(ContractError::NoTaskFound {})?;
 
-            self.tasks_with_rules.remove(storage, hash_vec.clone())?;
-            self.time_slots_rules.remove(storage, hash_vec.clone());
-            self.block_slots_rules.remove(storage, hash_vec);
+            self.tasks_with_rules.remove(storage, &hash_vec)?;
+            self.time_slots_rules.remove(storage, &hash_vec);
+            self.block_slots_rules.remove(storage, &hash_vec);
 
             task
         };

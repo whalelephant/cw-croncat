@@ -213,7 +213,7 @@ impl<'a> CwCroncat<'a> {
         ok: bool,
     ) -> Result<Task, ContractError> {
         let task_hash = queue_item.task_hash.unwrap();
-        let mut task = self.get_task_by_hash(storage, task_hash.clone())?;
+        let mut task = self.get_task_by_hash(storage, &task_hash)?;
         if ok {
             let mut config = self.config.load(storage)?;
             let action_idx = queue_item.action_idx;
@@ -228,7 +228,11 @@ impl<'a> CwCroncat<'a> {
                 config.available_balance.cw20.find_checked_sub(&sent)?;
             };
             self.config.save(storage, &config)?;
-            self.tasks.save(storage, &task_hash, &task)?;
+            if task.with_rules() {
+                self.tasks_with_rules.save(storage, &task_hash, &task)?;
+            } else {
+                self.tasks.save(storage, &task_hash, &task)?;
+            }
         }
         Ok(task)
     }

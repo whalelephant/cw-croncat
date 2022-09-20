@@ -256,13 +256,34 @@ impl<'a> CwCroncat<'a> {
 
         let some_task = self
             .tasks_with_rules
-            .may_load(deps.storage, task_hash.to_owned().into_bytes())?;
+            .may_load(deps.storage, task_hash.as_bytes())?;
         let task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
+        // Check that this task can be executed in current slot
+        let task_ready = match task.interval {
+            Interval::Cron(_) => {
+                let block = self
+                    .time_slots_rules
+                    .load(deps.storage, task_hash.as_bytes())?;
+                env.block.height >= block
+            }
+            _ => {
+                let time = self
+                    .block_slots_rules
+                    .load(deps.storage, task_hash.as_bytes())?;
+                env.block.time.nanos() >= time
+            }
+        };
+        if !task_ready {
+            return Err(ContractError::CustomError {
+                val: "Task is not ready".to_string(),
+            });
+        }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
         let rules = if let Some(ref rules) = task.rules {
             rules
         } else {
+            // TODO: else should be unreachable
             return Err(ContractError::NoRulesForThisTask { task_hash });
         };
         // Check rules
@@ -277,29 +298,6 @@ impl<'a> CwCroncat<'a> {
                 index: idx.unwrap(),
             });
         };
-
-        // Check that this task can be executed in current slot
-        let task_ready = if let Ok(Some(block)) = self
-            .block_slots_rules
-            .may_load(deps.storage, task_hash.clone().into_bytes())
-        {
-            env.block.height >= block
-        } else if let Ok(Some(time)) = self
-            .time_slots_rules
-            .may_load(deps.storage, task_hash.clone().into_bytes())
-        {
-            env.block.time.nanos() >= time
-        } else {
-            // This shouldn't happen
-            return Err(ContractError::CustomError {
-                val: "Task doesn't have block or time slot".to_string(),
-            });
-        };
-        if !task_ready {
-            return Err(ContractError::CustomError {
-                val: "Wrong slot for this task".to_string(),
-            });
-        }
 
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
@@ -329,13 +327,14 @@ impl<'a> CwCroncat<'a> {
         agent.balance.native.find_checked_add(&cfg.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
-        self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
+        self.tasks_with_rules
+            .save(deps.storage, task_hash.as_bytes(), &task)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
             QueueItem {
                 action_idx: 0,
-                task_hash: Some(task_hash.as_bytes().to_vec()),
+                task_hash: Some(task_hash.into_bytes()),
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
                 agent_id: Some(info.sender.clone()),
@@ -414,11 +413,11 @@ impl<'a> CwCroncat<'a> {
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots_rules
-                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
                     self.time_slots_rules
-                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
             }
         } else {
@@ -2202,5 +2201,17 @@ mod tests {
             .attributes
             .iter()
             .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_with_rules.is_empty());
     }
 }
