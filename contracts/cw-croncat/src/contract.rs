@@ -3,7 +3,6 @@
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
 use crate::state::{Config, CwCroncat};
-use cosmwasm_std::Addr;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
@@ -72,7 +71,7 @@ impl<'a> CwCroncat<'a> {
                 .agent_nomination_duration
                 .unwrap_or(DEFAULT_NOMINATION_DURATION),
             limit: 100,
-            cw_rules_addr: Addr::unchecked(&msg.cw_rules_addr), // deps.api.addr_validate(&msg.cw_rules_addr)?,
+            cw_rules_addr: cosmwasm_std::Addr::unchecked(&msg.cw_rules_addr), // deps.api.addr_validate(&msg.cw_rules_addr)?,
         };
         set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
         self.config.save(deps.storage, &config)?;
