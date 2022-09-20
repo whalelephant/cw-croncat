@@ -2321,6 +2321,18 @@ mod tests {
             .unwrap();
         assert_eq!(tasks_with_rules.len(), 1);
 
+        // Shouldn't affect tasks without rules
+        let tasks_response: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_response.is_empty());
         let res = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
