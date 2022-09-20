@@ -80,8 +80,15 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
-        let res: Option<Task> = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
-
+        let res: Option<Task> = {
+            let task = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
+            if let Some(task) = task {
+                Some(task)
+            } else {
+                self.tasks_with_rules
+                    .may_load(deps.storage, task_hash.as_bytes())?
+            }
+        };
         Ok(res.map(Into::into))
     }
 
