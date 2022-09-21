@@ -477,6 +477,12 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage, &hash_vec)?
                 .ok_or(ContractError::NoTaskFound {})?;
 
+            if let Some(info) = info {
+                if !task.is_owner(info.sender) {
+                    return Err(ContractError::Unauthorized {});
+                }
+            }
+
             self.tasks_with_rules.remove(storage, &hash_vec)?;
             self.time_slots_rules.remove(storage, &hash_vec);
             self.block_slots_rules.remove(storage, &hash_vec);
