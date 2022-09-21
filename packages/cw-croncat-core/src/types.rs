@@ -3,33 +3,13 @@ use cosmwasm_std::{
     OverflowOperation::Sub, StdError, SubMsgResult, Timestamp, Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
-use cw20::{Balance, Cw20CoinVerified, Cw20ExecuteMsg};
-use generic_query::GenericQuery;
+use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
+use cw_rules_core::types::Rule;
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
-// TODO: this library acting weird on linux and spawning "instantiate", "execute", "query", "reply" of "cw_core" here!!
-// pub use voting::status::Status;
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, Copy)]
-#[serde(rename_all = "snake_case")]
-#[repr(u8)]
-pub enum Status {
-    /// The proposal is open for voting.
-    Open,
-    /// The proposal has been rejected.
-    Rejected,
-    /// The proposal has been passed but has not been executed.
-    Passed,
-    /// The proposal has been passed and executed.
-    Executed,
-    /// The proposal has failed or expired and has been closed. A
-    /// proposal deposit refund has been issued if applicable.
-    Closed,
-    // The proposal has failed during execution
-    ExecutionFailed,
-}
 
 use crate::{
     error::CoreError,
@@ -175,35 +155,6 @@ pub enum SlotType {
 //     // NOTE: Only allow static pre-defined query msg
 //     pub msg: Binary,
 // }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Rule {
-    HasBalanceGte(HasBalanceGte),
-    CheckOwnerOfNft(CheckOwnerOfNFT),
-    CheckProposalStatus(CheckProposalStatus),
-    GenericQuery(GenericQuery),
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct HasBalanceGte {
-    pub address: String,
-    pub required_balance: Balance,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct CheckOwnerOfNFT {
-    pub address: String,
-    pub nft_address: String,
-    pub token_id: String,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct CheckProposalStatus {
-    pub dao_address: String,
-    pub proposal_id: u64,
-    pub status: Status,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Action<T = Empty> {
@@ -721,6 +672,7 @@ mod tests {
     use cosmwasm_std::{
         coins, testing::mock_dependencies, Binary, IbcTimeout, Uint128, VoteOption,
     };
+    use cw_rules_core::types::HasBalanceGte;
     use hex::ToHex;
 
     #[test]

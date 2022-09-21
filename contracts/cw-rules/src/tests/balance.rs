@@ -1,10 +1,10 @@
 use cosmwasm_std::{coin, coins, to_binary, Addr, Binary, Empty, StdResult, Uint128};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
-use cw_croncat_core::types::HasBalanceGte;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+use cw_rules_core::types::HasBalanceGte;
 use cw_utils::NativeBalance;
 
-use crate::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
 
 pub fn contract_template() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
@@ -132,7 +132,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
     let (app, contract_addr, cw20_contract) = proper_instantiate();
 
     // Return coin
-    let msg = QueryMsg::GetCW20Balance {
+    let msg = QueryMsg::GetCw20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ANYONE.to_string(),
     };
@@ -144,7 +144,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
     assert_eq!(res.1.unwrap(), to_binary(&coin(15, &cw20_contract))?);
 
     // Return coin if balance is zero
-    let msg = QueryMsg::GetCW20Balance {
+    let msg = QueryMsg::GetCw20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ADMIN_CW20.to_string(),
     };
@@ -156,7 +156,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
     assert_eq!(res.1.unwrap(), to_binary(&coin(0, &cw20_contract))?);
 
     // If address doesn't exist, return coin with zero amount
-    let msg = QueryMsg::GetCW20Balance {
+    let msg = QueryMsg::GetCw20Balance {
         cw20_contract: cw20_contract.to_string(),
         address: ANOTHER.to_string(),
     };
@@ -168,7 +168,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
     assert_eq!(res.1.unwrap(), to_binary(&coin(0, &cw20_contract))?);
 
     // Error if called wrong cw20_contract
-    let msg = QueryMsg::GetCW20Balance {
+    let msg = QueryMsg::GetCw20Balance {
         cw20_contract: contract_addr.to_string(),
         address: ANYONE.to_string(),
     };

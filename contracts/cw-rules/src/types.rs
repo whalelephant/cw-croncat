@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 /// We can import dao but for simplicity we show what we support
 pub mod dao {
-    pub use cw_croncat_core::types::Status;
+    pub use cw_rules_core::types::Status;
 
     use super::*;
 

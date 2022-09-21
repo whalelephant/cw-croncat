@@ -6,9 +6,9 @@ use cosmwasm_std::{
     coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
     SubMsg,
 };
-use cw_croncat_core::msg::QueryConstruct;
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
+use cw_rules_core::msg::QueryConstruct;
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -256,50 +256,48 @@ impl<'a> CwCroncat<'a> {
 
         let some_task = self
             .tasks_with_rules
-            .may_load(deps.storage, task_hash.to_owned().into_bytes())?;
+            .may_load(deps.storage, task_hash.as_bytes())?;
         let task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
+        // Check that this task can be executed in current slot
+        let task_ready = match task.interval {
+            Interval::Cron(_) => {
+                let block = self
+                    .time_slots_rules
+                    .load(deps.storage, task_hash.as_bytes())?;
+                env.block.height >= block
+            }
+            _ => {
+                let time = self
+                    .block_slots_rules
+                    .load(deps.storage, task_hash.as_bytes())?;
+                env.block.time.nanos() >= time
+            }
+        };
+        if !task_ready {
+            return Err(ContractError::CustomError {
+                val: "Task is not ready".to_string(),
+            });
+        }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
         let rules = if let Some(ref rules) = task.rules {
             rules
         } else {
+            // TODO: else should be unreachable
             return Err(ContractError::NoRulesForThisTask { task_hash });
         };
         // Check rules
         let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
             cfg.cw_rules_addr,
-            &QueryConstruct {
+            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct {
                 rules: rules.clone(),
-            },
+            }),
         )?;
         if !res {
             return Err(ContractError::RulesNotReady {
                 index: idx.unwrap(),
             });
         };
-
-        // Check that this task can be executed in current slot
-        let task_ready = if let Ok(Some(block)) = self
-            .block_slots_rules
-            .may_load(deps.storage, task_hash.clone().into_bytes())
-        {
-            env.block.height >= block
-        } else if let Ok(Some(time)) = self
-            .time_slots_rules
-            .may_load(deps.storage, task_hash.clone().into_bytes())
-        {
-            env.block.time.nanos() >= time
-        } else {
-            // This shouldn't happen
-            return Err(ContractError::CustomError {
-                val: "Task doesn't have block or time slot".to_string(),
-            });
-        };
-        if !task_ready {
-            return Err(ContractError::CustomError {
-                val: "Wrong slot for this task".to_string(),
-            });
-        }
 
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
@@ -329,13 +327,14 @@ impl<'a> CwCroncat<'a> {
         agent.balance.native.find_checked_add(&cfg.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
-        self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
+        self.tasks_with_rules
+            .save(deps.storage, task_hash.as_bytes(), &task)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
             QueueItem {
                 action_idx: 0,
-                task_hash: Some(task_hash.as_bytes().to_vec()),
+                task_hash: Some(task_hash.into_bytes()),
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
                 agent_id: Some(info.sender.clone()),
@@ -414,11 +413,11 @@ impl<'a> CwCroncat<'a> {
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots_rules
-                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
                     self.time_slots_rules
-                        .save(deps.storage, task.to_hash_vec(), &next_id)?;
+                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
             }
         } else {
@@ -593,9 +592,13 @@ mod tests {
         Uint128, WasmMsg,
     };
     use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+    use cw_rules_core::types::{HasBalanceGte, Rule};
     // use cw20::Balance;
     use crate::helpers::CwTemplateContract;
-    use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
+    use cw_croncat_core::msg::{
+        AgentTaskResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse,
+        TaskWithRulesResponse,
+    };
     use cw_croncat_core::types::{Action, Boundary, Interval};
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
@@ -605,6 +608,15 @@ mod tests {
             crate::entry::query,
         )
         .with_reply(crate::entry::reply);
+        Box::new(contract)
+    }
+
+    pub fn cw_rules_template() -> Box<dyn Contract<Empty>> {
+        let contract = ContractWrapper::new(
+            cw_rules::contract::execute,
+            cw_rules::contract::instantiate,
+            cw_rules::contract::query,
+        );
         Box::new(contract)
     }
 
@@ -638,14 +650,25 @@ mod tests {
     fn proper_instantiate() -> (App, CwTemplateContract) {
         let mut app = mock_app();
         let cw_template_id = app.store_code(contract_template());
+        let cw_rules_id = app.store_code(cw_rules_template());
         let owner_addr = Addr::unchecked(ADMIN);
 
+        let cw_rules_addr = app
+            .instantiate_contract(
+                cw_rules_id,
+                owner_addr.clone(),
+                &cw_rules_core::msg::InstantiateMsg {},
+                &[],
+                "cw-rules",
+                None,
+            )
+            .unwrap();
         let msg = InstantiateMsg {
             denom: NATIVE_DENOM.to_string(),
             owner_id: Some(owner_addr.to_string()),
             gas_base_fee: None,
             agent_nomination_duration: None,
-            cw_rules_addr: "todo".to_string(),
+            cw_rules_addr: cw_rules_addr.to_string(),
         };
         let cw_template_contract_addr = app
             //Must send some available balance for rewards
@@ -869,7 +892,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
+            "7122ec27799d103d712fff6d1d68ae1e49141fde02926416a2f9ca9f3e98735e".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1234,7 +1257,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "dcbe1820cda5783a78afd66b68df4609c3fbce8e07f1f22c9585ae1ae5cf3289".to_string();
+            "7122ec27799d103d712fff6d1d68ae1e49141fde02926416a2f9ca9f3e98735e".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1364,7 +1387,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "c7905cb9e5d620ae61b06cae6fb2bf3afa0ba0b290c1d48da626d0b7f68c293c".to_string();
+            "29d22d2229b1388da3cf71ff0528c347561e11ee06877a983519eeb34fd67abb".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -2066,7 +2089,7 @@ mod tests {
         let res = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
-                contract_addr,
+                contract_addr.clone(),
                 &proxy_call_msg,
                 &vec![],
             )
@@ -2078,5 +2101,266 @@ mod tests {
                 .iter()
                 .any(|attr| attr.key == "no_task_agent_base_reward")
         }));
+    }
+
+    #[test]
+    fn test_complete_task_with_rule() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
+
+        let addr1 = String::from("addr1");
+        let amount = coins(3, "atom");
+        let send = BankMsg::Send {
+            to_address: addr1,
+            amount,
+        };
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Once,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: send.clone().into(),
+                    gas_limit: None,
+                }],
+                rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                    address: String::from("addr2"),
+                    required_balance: coins(1, "atom").into(),
+                })]),
+                cw20_coins: vec![],
+            },
+        };
+
+        let attached_balance = 900058;
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, "atom"),
+        )
+        .unwrap();
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        app.update_block(add_little_time);
+
+        let agent_tasks: Option<AgentTaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetAgentTasks {
+                    account_id: String::from(AGENT0),
+                },
+            )
+            .unwrap();
+        assert!(agent_tasks.is_none());
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(tasks_with_rules.len(), 1);
+        app.send_tokens(
+            Addr::unchecked(ADMIN),
+            Addr::unchecked("addr2"),
+            &coins(1, "atom"),
+        )
+        .unwrap();
+
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .unwrap();
+
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_with_rules.is_empty());
+    }
+
+    #[test]
+    fn test_reschedule_task_with_rule() {
+        let (mut app, cw_template_contract) = proper_instantiate();
+        let contract_addr = cw_template_contract.addr();
+        let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
+
+        let addr1 = String::from("addr1");
+        let amount = coins(3, "atom");
+        let send = BankMsg::Send {
+            to_address: addr1,
+            amount,
+        };
+        let create_task_msg = ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Immediate,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: send.clone().into(),
+                    gas_limit: None,
+                }],
+                rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+                    address: String::from("addr2"),
+                    required_balance: coins(1, "atom").into(),
+                })]),
+                cw20_coins: vec![],
+            },
+        };
+
+        let attached_balance = 900058;
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, "atom"),
+        )
+        .unwrap();
+
+        // quick agent register
+        let msg = ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        };
+        app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+            .unwrap();
+
+        app.update_block(add_little_time);
+
+        let agent_tasks: Option<AgentTaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetAgentTasks {
+                    account_id: String::from(AGENT0),
+                },
+            )
+            .unwrap();
+        assert!(agent_tasks.is_none());
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(tasks_with_rules.len(), 1);
+
+        app.send_tokens(
+            Addr::unchecked(ADMIN),
+            Addr::unchecked("addr2"),
+            &coins(1, "atom"),
+        )
+        .unwrap();
+
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .unwrap();
+
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(tasks_with_rules.len(), 1);
+
+        // Shouldn't affect tasks without rules
+        let tasks_response: Vec<TaskResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasks {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_response.is_empty());
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .unwrap();
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        assert!(res.events.iter().any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+        let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+            .wrap()
+            .query_wasm_smart(
+                contract_addr.clone(),
+                &QueryMsg::GetTasksWithRules {
+                    from_index: None,
+                    limit: None,
+                },
+            )
+            .unwrap();
+        assert!(tasks_with_rules.is_empty());
     }
 }

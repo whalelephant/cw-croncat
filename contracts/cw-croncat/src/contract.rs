@@ -80,6 +80,7 @@ impl<'a> CwCroncat<'a> {
         self.task_total.save(deps.storage, &Default::default())?;
         self.reply_index.save(deps.storage, &Default::default())?;
         self.agent_nomination_begin_time.save(deps.storage, &None)?;
+        self.tasks_with_rules_total.save(deps.storage, &0)?;
 
         // all instantiated data
         Ok(Response::new()
@@ -381,5 +382,19 @@ mod tests {
         //     .may_load(deps.as_mut().storage, msg.id)
         //     .unwrap();
         // assert!(queue_item4.is_some());
+    }
+
+    // TODO: make it for every item in cw_croncat
+    #[test]
+    pub fn tasks_with_rules_total_initialized() {
+        let mut deps = mock_dependencies_with_balance(&coins(200, ""));
+        let store = CwCroncat::default();
+        mock_init(&store, deps.as_mut()).unwrap();
+
+        let total = store
+            .tasks_with_rules_total
+            .may_load(deps.as_ref().storage)
+            .unwrap();
+        assert_eq!(total, Some(0));
     }
 }

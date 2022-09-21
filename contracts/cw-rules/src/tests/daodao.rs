@@ -2,18 +2,18 @@ use cosmwasm_std::{to_binary, Addr, Binary, Empty, Uint128};
 use cw20::Cw20Coin;
 use cw20_staked_balance_voting::msg::ActiveThreshold;
 use cw_core::state::ProposalModule;
-use cw_croncat_core::types::{CheckProposalStatus, Status};
 use cw_multi_test::{next_block, App, Contract, ContractWrapper, Executor};
 use cw_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
     voting_strategy::VotingStrategy,
 };
+use cw_rules_core::types::{CheckProposalStatus, Status};
 use voting::{
     threshold::{PercentageThreshold, Threshold},
     voting::{MultipleChoiceVote, Vote},
 };
 
-use crate::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
 
 const CREATOR_ADDR: &str = "creator";
 

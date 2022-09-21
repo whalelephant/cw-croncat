@@ -4,7 +4,7 @@ use cw4::Member;
 use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use serde_json::json;
 
-use crate::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
 use generic_query::{GenericQuery, ValueIndex, ValueOrdering};
 
 const CREATOR_ADDR: &str = "creator";
