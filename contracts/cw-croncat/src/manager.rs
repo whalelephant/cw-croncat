@@ -201,9 +201,6 @@ impl<'a> CwCroncat<'a> {
         let gas_used = coin(gas_used as u128, c.native_denom);
         agent.balance.native.find_checked_add(&gas_used)?;
         task.total_deposit.native.find_checked_sub(&gas_used)?;
-        // calculate agent base reward
-        task.total_deposit.native.find_checked_sub(&c.agent_fee)?;
-        agent.balance.native.find_checked_add(&c.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
         self.tasks.save(deps.storage, &hash, &task)?;
@@ -317,9 +314,6 @@ impl<'a> CwCroncat<'a> {
         let gas_used = coin(gas_used as u128, cfg.native_denom);
         agent.balance.native.find_checked_add(&gas_used)?;
         task.total_deposit.native.find_checked_sub(&gas_used)?;
-        // calculate agent base reward
-        task.total_deposit.native.find_checked_sub(&cfg.agent_fee)?;
-        agent.balance.native.find_checked_add(&cfg.agent_fee)?;
 
         self.agents.save(deps.storage, &info.sender, &agent)?;
         self.tasks_with_rules
