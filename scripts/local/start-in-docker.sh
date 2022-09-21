@@ -54,6 +54,7 @@ if [ "$2" = "-yes" ]; then
   # delete docker container
   echo "deleting container"
   docker rm -f $IMAGE_NAME 2>/dev/null
+  
   # build new docker container
   echo "${Yellow}Starting local network${NoColor}"
   STAKE_TOKEN=ujunox UNSAFE_CORS=true docker-compose up -d
@@ -61,15 +62,19 @@ if [ "$2" = "-yes" ]; then
 
   # add new users
   ALICE_SEED=$($BINARY keys mnemonic)
+  echo $ALICE_SEED
   echo $ALICE_SEED | $BINARY keys add alice --recover
 
   BOB_SEED=$($BINARY keys mnemonic)
+  echo $BOB_SEED
   echo $BOB_SEED | $BINARY keys add bob --recover
 
   OWNER_SEED=$($BINARY keys mnemonic)
+  echo $OWNER_SEED
   echo $OWNER_SEED | $BINARY keys add owner --recover
 
   AGENT_SEED=$($BINARY keys mnemonic)
+  echo $AGENT_SEED
   echo $AGENT_SEED | $BINARY keys add agent --recover
 
   USER_SEED=$($BINARY keys mnemonic)
@@ -136,12 +141,7 @@ echo "${Green}Agent Balance :" $AGENT_BALANCE "${NoColor}"
 USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address))
 echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
 
-#---------------------------------------------------------------------------
-echo "${Yellow}Starting grpc...${NoColor}"
-# Start the Juno chain, making sure we have gRPC
-$BINARY start --grpc.address "127.0.0.1:9090" >/dev/null 2>&1 </dev/null &
-sleep 3
-echo "${Green}Starting grpc done!${NoColor}"
+
 
 #---------------------------------------------------------------------------
 echo "${Yellow}Instantiating smart contract...${NoColor}"
