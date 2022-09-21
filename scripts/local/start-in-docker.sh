@@ -54,30 +54,27 @@ if [ "$2" = "-yes" ]; then
   # delete docker container
   echo "deleting container"
   docker rm -f $IMAGE_NAME 2>/dev/null
-  
+
   # build new docker container
   echo "${Yellow}Starting local network${NoColor}"
   STAKE_TOKEN=ujunox UNSAFE_CORS=true docker-compose up -d
   echo "Adding new users..."
 
   # add new users
-  ALICE_SEED=$($BINARY keys mnemonic)
-  echo $ALICE_SEED
+  ALICE_SEED="legend thunder embrace elegant tonight kid misery tragic merry design produce distance island city cancel shrimp dry eager shop scrub wait cigar tenant carry"
   echo $ALICE_SEED | $BINARY keys add alice --recover
 
-  BOB_SEED=$($BINARY keys mnemonic)
-  echo $BOB_SEED
+  BOB_SEED="market rent damage chief intact require company female van scout accident amazing thought patch hammer any arch stereo aerobic plastic ranch fluid maple place"
   echo $BOB_SEED | $BINARY keys add bob --recover
 
-  OWNER_SEED=$($BINARY keys mnemonic)
+  OWNER_SEED="scan quarter purchase hub enlist decade pumpkin young wisdom maple comic tooth surprise caution toe music universe skirt lady income decline sun steel pyramid"
   echo $OWNER_SEED
   echo $OWNER_SEED | $BINARY keys add owner --recover
 
-  AGENT_SEED=$($BINARY keys mnemonic)
-  echo $AGENT_SEED
+  AGENT_SEED="olive soup parade family educate congress hurt dwarf mom this position hungry unaware aunt swamp sunny analyst wrestle fashion main knife start coffee air"
   echo $AGENT_SEED | $BINARY keys add agent --recover
 
-  USER_SEED=$($BINARY keys mnemonic)
+  USER_SEED="fatigue runway knock radio sauce express poem novel will ski various merge dolphin actor immune sea muffin decade pass exclude staff require hazard toe"
   echo $USER_SEED | $BINARY keys add user --recover
 
   sleep 10
