@@ -1,4 +1,3 @@
-//use std::ops::Add;
 
 use crate::error::ContractError;
 use crate::helpers::GenericBalance;
