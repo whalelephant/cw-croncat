@@ -160,7 +160,7 @@ export type Interval = ("Once" | "Immediate") | {
 export type Rule = {
   has_balance_gte: HasBalanceGte;
 } | {
-  check_owner_of_nft: CheckOwnerOfNFT;
+  check_owner_of_nft: CheckOwnerOfNft;
 } | {
   check_proposal_status: CheckProposalStatus;
 } | {
@@ -311,7 +311,7 @@ export interface HasBalanceGte {
   required_balance: Balance;
   [k: string]: unknown;
 }
-export interface CheckOwnerOfNFT {
+export interface CheckOwnerOfNft {
   address: string;
   nft_address: string;
   token_id: string;

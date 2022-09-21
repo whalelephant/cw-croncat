@@ -1,9 +1,10 @@
 use crate::types::{
-    Action, AgentResponse, Boundary, BoundaryValidated, GenericBalance, Interval, Rule, Task,
+    Action, AgentResponse, Boundary, BoundaryValidated, GenericBalance, Interval, Task,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
+use cw_rules_core::types::Rule;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -402,12 +403,6 @@ pub struct GetSlotHashesResponse {
 pub struct GetSlotIdsResponse {
     pub time_ids: Vec<u64>,
     pub block_ids: Vec<u64>,
-}
-
-// cw_rules
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct QueryConstruct {
-    pub rules: Vec<Rule>,
 }
 
 #[cfg(test)]
