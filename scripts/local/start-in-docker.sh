@@ -68,7 +68,6 @@ if [ "$2" = "-yes" ]; then
   echo $BOB_SEED | $BINARY keys add bob --recover
 
   OWNER_SEED="scan quarter purchase hub enlist decade pumpkin young wisdom maple comic tooth surprise caution toe music universe skirt lady income decline sun steel pyramid"
-  echo $OWNER_SEED
   echo $OWNER_SEED | $BINARY keys add owner --recover
 
   AGENT_SEED="olive soup parade family educate congress hurt dwarf mom this position hungry unaware aunt swamp sunny analyst wrestle fashion main knife start coffee air"
@@ -146,7 +145,7 @@ IRES=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --ou
 CODE_ID=$(echo $IRES | jq -r '.logs[0].events[-1].attributes[0].value')
 echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
 
-INIT='{"denom":"'$STAKE'","cw_rules_addr":"$RULES_CONTRACT_ADDR"}'
+INIT='{"denom":"'$STAKE'","cw_rules_addr":"'$RULES_CONTRACT_ADDR'"}'
 echo "${Cyan} Rules Contract Addr:" $RULES_CONTRACT_ADDR "${NoColor}"
 
 $BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
