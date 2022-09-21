@@ -114,7 +114,7 @@
         }
       ]
     },
-    "CheckOwnerOfNFT": {
+    "CheckOwnerOfNft": {
       "type": "object",
       "required": [
         "address",
@@ -296,7 +296,7 @@
           ],
           "properties": {
             "check_owner_of_nft": {
-              "$ref": "#/definitions/CheckOwnerOfNFT"
+              "$ref": "#/definitions/CheckOwnerOfNft"
             }
           },
           "additionalProperties": false

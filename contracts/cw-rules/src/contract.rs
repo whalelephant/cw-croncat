@@ -1,5 +1,5 @@
-use cw_croncat_core::msg::QueryConstruct;
-use cw_croncat_core::types::{CheckOwnerOfNFT, CheckProposalStatus, HasBalanceGte, Rule};
+use cw_rules_core::msg::QueryConstruct;
+use cw_rules_core::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Rule};
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
 use serde_cw_value::Value;
@@ -16,7 +16,7 @@ use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
@@ -58,7 +58,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetBalance { address, denom } => {
             to_binary(&query_get_balance(deps, address, denom)?)
         }
-        QueryMsg::GetCW20Balance {
+        QueryMsg::GetCw20Balance {
             cw20_contract,
             address,
         } => to_binary(&query_get_cw20_balance(deps, cw20_contract, address)?),
@@ -66,7 +66,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             address,
             required_balance,
         }) => to_binary(&query_has_balance_gte(deps, address, required_balance)?),
-        QueryMsg::CheckOwnerOfNFT(CheckOwnerOfNFT {
+        QueryMsg::CheckOwnerOfNft(CheckOwnerOfNft {
             address,
             nft_address,
             token_id,
@@ -217,7 +217,7 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>
                 address,
                 required_balance,
             }) => query_has_balance_gte(deps, address, required_balance),
-            Rule::CheckOwnerOfNft(CheckOwnerOfNFT {
+            Rule::CheckOwnerOfNft(CheckOwnerOfNft {
                 address,
                 nft_address,
                 token_id,
