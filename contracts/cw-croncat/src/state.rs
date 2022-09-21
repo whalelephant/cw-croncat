@@ -199,8 +199,9 @@ impl<'a> CwCroncat<'a> {
     }
 
     pub fn increment_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
-        let val = self.task_total(storage)? + 1;
-        self.tasks_with_rules_total.save(storage, &val)?;
+        let val = self
+            .tasks_with_rules_total
+            .update(storage, |total| -> StdResult<u64> { Ok(total + 1) })?;
         Ok(val)
     }
 
