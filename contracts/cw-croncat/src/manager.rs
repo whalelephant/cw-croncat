@@ -35,12 +35,7 @@ impl<'a> CwCroncat<'a> {
         if slot.0.is_none() {
             // See if there are no cron (time-based) tasks to execute
             if slot.1.is_none() {
-                let base_reward = self.send_base_agent_reward(deps.storage, agent, &info)?;
-                // no task for slot
-                return Ok(Response::new()
-                    .add_attribute("method", "proxy_call")
-                    .add_attribute("agent", &info.sender)
-                    .add_attribute("no_task_agent_base_reward", base_reward.to_string()));
+                return Err(ContractError::NoTaskFound {});
             } else {
                 slot_type = SlotType::Cron;
                 slot_id = slot.1.unwrap();
@@ -838,18 +833,17 @@ mod tests {
         assert!(has_created_hash);
 
         // NoTasksForSlot
-        let res_no_tasks = app
+        let res_no_tasks: ContractError = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &proxy_call_msg,
                 &vec![],
             )
+            .unwrap_err()
+            .downcast()
             .unwrap();
-        assert!(res_no_tasks.events.iter().any(|ev| ev
-            .attributes
-            .iter()
-            .any(|attr| attr.key == "no_task_agent_base_reward" && attr.value == "5atom")),);
+        assert_eq!(res_no_tasks, ContractError::NoTaskFound {});
 
         // NOTE: Unless there's a way to fake a task getting removed but hash remains in slot,
         // this coverage is not mockable. There literally shouldn't be any code that allows
@@ -1754,19 +1748,18 @@ mod tests {
 
         app.update_block(add_little_time);
 
-        let res = app
+        let res: ContractError = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &ExecuteMsg::ProxyCall { task_hash: None },
                 &[],
             )
+            .unwrap_err()
+            .downcast()
             .unwrap();
-        // Sents only base reward
-        assert!(res.events.iter().any(|ev| ev
-            .attributes
-            .iter()
-            .any(|attr| attr.key == "no_task_agent_base_reward" && attr.value == "5atom")));
+        assert_eq!(res, ContractError::NoTaskFound {});
+
         Ok(())
     }
 
@@ -2086,21 +2079,17 @@ mod tests {
             .unwrap();
         assert!(task.is_none());
         app.update_block(add_little_time);
-        let res = app
+        let res: ContractError = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &proxy_call_msg,
                 &vec![],
             )
+            .unwrap_err()
+            .downcast()
             .unwrap();
-
-        assert!(res.events.iter().any(|event| {
-            event
-                .attributes
-                .iter()
-                .any(|attr| attr.key == "no_task_agent_base_reward")
-        }));
+        assert_eq!(res, ContractError::NoTaskFound {});
     }
 
     #[test]
