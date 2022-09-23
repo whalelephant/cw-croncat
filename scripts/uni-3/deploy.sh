@@ -2,7 +2,7 @@
 set -e
 
 cd "$(dirname "$0")"
-. ./testnet_init_vars.sh
+. ./init-vars.sh
 cd ../../..
 
 docker run --rm -v "$(pwd)":/code \
