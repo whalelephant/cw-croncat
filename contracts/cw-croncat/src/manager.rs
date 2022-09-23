@@ -35,12 +35,7 @@ impl<'a> CwCroncat<'a> {
         if slot.0.is_none() {
             // See if there are no cron (time-based) tasks to execute
             if slot.1.is_none() {
-                let base_reward = self.send_base_agent_reward(deps.storage, agent, &info)?;
-                // no task for slot
-                return Ok(Response::new()
-                    .add_attribute("method", "proxy_call")
-                    .add_attribute("agent", &info.sender)
-                    .add_attribute("no_task_agent_base_reward", base_reward.to_string()));
+                return Err(ContractError::NoTaskFound {});
             } else {
                 slot_type = SlotType::Cron;
                 slot_id = slot.1.unwrap();
