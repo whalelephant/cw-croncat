@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::traits::{BalancesOperations, ResultFailed};
+use cw_croncat_core::traits::ResultFailed;
 use cw_croncat_core::types::SlotType;
 
 // version info for migration info
@@ -23,15 +23,13 @@ impl<'a> CwCroncat<'a> {
     pub fn instantiate(
         &self,
         deps: DepsMut,
-        env: Env,
+        _env: Env,
         info: MessageInfo,
         msg: InstantiateMsg,
     ) -> Result<Response, ContractError> {
         // keep tally of balances initialized
-        let mut native = deps.querier.query_all_balances(&env.contract.address)?;
-        native.checked_add_coins(&info.funds)?;
         let available_balance = GenericBalance {
-            native,
+            native: info.funds,
             cw20: Default::default(),
         };
 

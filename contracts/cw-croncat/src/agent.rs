@@ -411,7 +411,9 @@ mod tests {
     use cosmwasm_std::{coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, Empty, StakingMsg};
     use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse};
     use cw_croncat_core::types::{Action, Interval};
-    use cw_multi_test::{App, AppBuilder, AppResponse, Contract, ContractWrapper, Executor};
+    use cw_multi_test::{
+        App, AppBuilder, AppResponse, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,
+    };
 
     pub fn contract_template() -> Box<dyn Contract<Empty>> {
         let contract = ContractWrapper::new(
@@ -704,6 +706,46 @@ mod tests {
         // block.time = block.time.plus_seconds(360);
         block.time = block.time.plus_seconds(420);
         block.height += 1;
+    }
+
+    #[test]
+    fn test_instantiate_sets_balance() {
+        let mut app = App::default();
+        let croncat_code = app.store_code(contract_template());
+
+        let sent_funds = coins(50, "ugrape");
+
+        app.sudo(SudoMsg::Bank(BankSudo::Mint {
+            to_address: "grapestem".to_string(),
+            amount: sent_funds.clone(),
+        }))
+        .unwrap();
+
+        let croncat = app
+            .instantiate_contract(
+                croncat_code,
+                Addr::unchecked("grapestem"),
+                &InstantiateMsg {
+                    denom: "grape".to_string(),
+                    cw_rules_addr: "grapestem".to_string(),
+                    owner_id: None,
+                    gas_base_fee: None,
+                    agent_nomination_duration: None,
+                },
+                &sent_funds,
+                "cw croncat",
+                None,
+            )
+            .unwrap();
+
+        let config: Config = from_slice(
+            &app.wrap()
+                .query_wasm_raw(&croncat, b"config")
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(config.available_balance.native, sent_funds)
     }
 
     #[test]
