@@ -39,13 +39,6 @@ Purple='\033[0;35m' # Purple
 Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
 
-wdir="$PWD"; [ "$PWD" = "/" ] && wdir=""
-case "$0" in
-  /*) SCRIPT_DIR="${0}";;
-  *) SCRIPT_DIR="$wdir/${0#./}";;
-esac
-SCRIPT_DIR="${SCRIPT_DIR%/*}"
-
 #Recreate artifacts
 if [ "$2" = "-yes" ]; then
   #Remove local artifacts folder
@@ -167,6 +160,3 @@ $BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXF
 CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
 echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
 echo "${Cyan}Instantiating smart contract done!${NoColor}"
-
-cd $SCRIPT_DIR
-. ./simple-payroll.sh
