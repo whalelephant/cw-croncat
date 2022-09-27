@@ -1,6 +1,8 @@
 #!/bin/sh
 #Usage exmaple
-#sudo ./scripts/local/start-in-docker.sh juno16g2rahf5846rxzp3fwlswy08fz8ccuwk03k57y  -no
+#Parameters:
+# --reset_artifacts --reset_container
+#sudo ./scripts/local/start-in-docker.sh juno16g2rahf5846rxzp3fwlswy08fz8ccuwk03k57y  -no -yes
 set -e
 
 # # script for lauching local juno network
@@ -17,6 +19,7 @@ BINARY="docker exec -i juno-node-1 junod"
 DIR=$(pwd)
 JUNO_DIR="$HOME/juno"
 DIR_NAME=$(basename "$PWD")
+SCRIPT_PATH=$(dirname `which $0`)
 IMAGE_NAME="juno-node-1"
 DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
 WASM="artifacts/$DIR_NAME_SNAKE.wasm"
@@ -36,17 +39,29 @@ Purple='\033[0;35m' # Purple
 Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
 
-# build optimized binary if it doesn't exist
-if [ ! -f "$WASM" ]; then
-  echo "building optimized binary..."
-  docker run --rm -v "$(pwd)":/code \
-    --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-    --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-    cosmwasm/rust-optimizer:0.12.8
-fi
+wdir="$PWD"; [ "$PWD" = "/" ] && wdir=""
+case "$0" in
+  /*) SCRIPT_DIR="${0}";;
+  *) SCRIPT_DIR="$wdir/${0#./}";;
+esac
+SCRIPT_DIR="${SCRIPT_DIR%/*}"
 
-#Initialize docker yes/no
+#Recreate artifacts
 if [ "$2" = "-yes" ]; then
+  #Remove local artifacts folder
+  echo "deleting artifacts..."
+  rm -rf "artifacts"
+  # build optimized binary if it doesn't exist
+  if [ ! -f "$WASM" ]; then
+    echo "building optimized binary..."
+    docker run --rm -v "$(pwd)":/code \
+      --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+      --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+      cosmwasm/rust-optimizer:0.12.8
+  fi
+fi
+#Recreate containers
+if [ "$3" = "-yes" ]; then
   # stop docker container
   cd $JUNO_DIR
   echo "stopping container..."
@@ -76,7 +91,7 @@ if [ "$2" = "-yes" ]; then
   USER_SEED="fatigue runway knock radio sauce express poem novel will ski various merge dolphin actor immune sea muffin decade pass exclude staff require hazard toe"
   echo $USER_SEED | $BINARY keys add user --recover
 
-  sleep 10
+  sleep 5
 fi
 
 # move binary to docker container
@@ -137,8 +152,6 @@ echo "${Green}Agent Balance :" $AGENT_BALANCE "${NoColor}"
 USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address))
 echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
 
-
-
 #---------------------------------------------------------------------------
 echo "${Yellow}Instantiating smart contract...${NoColor}"
 IRES=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --output json)
@@ -155,53 +168,5 @@ CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output js
 echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
 echo "${Cyan}Instantiating smart contract done!${NoColor}"
 
-echo "${Cyan}Creating simple payroll" "${NoColor}"
-# Create recurring payroll to alice and bob
-SIMPLE_PAYROLL='{
-  "create_task": {
-    "task": {
-      "interval": {
-        "Block": 3
-      },
-      "boundary": null,
-      "cw20_coins": [],
-      "stop_on_fail": false,
-      "actions": [
-        {
-          "msg": {
-            "bank": {
-              "send": {
-                "amount": [
-                  {
-                    "amount": "6",
-                    "denom": "'$STAKE'"
-                  }
-                ],
-                "to_address": "'$ALICE_ADDR'"
-              }
-            }
-          }
-        },
-        {
-          "msg": {
-            "bank": {
-              "send": {
-                "amount": [
-                  {
-                    "amount": "1",
-                    "denom": "'$STAKE'"
-                  }
-                ],
-                "to_address": "'$BOB_ADDR'"
-              }
-            }
-          }
-        }
-      ],
-      "rules": []
-    }
-  }
-}'
-echo $SIMPLE_PAYROLL
-$BINARY tx wasm execute $CONTRACT_ADDRESS "$SIMPLE_PAYROLL" --amount "20000000$STAKE" --from validator $TXFLAG -y
-echo "Done creating simple payroll"
+cd $SCRIPT_DIR
+. ./simple-payroll.sh
