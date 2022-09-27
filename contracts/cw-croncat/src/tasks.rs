@@ -412,10 +412,10 @@ impl<'a> CwCroncat<'a> {
     pub fn remove_task(
         &self,
         storage: &mut dyn Storage,
-        task_hash: String,
+        task_hash: &str,
         info: Option<MessageInfo>,
     ) -> Result<Response, ContractError> {
-        let hash_vec = task_hash.clone().into_bytes();
+        let hash_vec = task_hash.as_bytes().to_vec();
         let some_task = self.tasks.may_load(storage, &hash_vec)?;
 
         let task = if let Some(task) = some_task {
@@ -439,8 +439,7 @@ impl<'a> CwCroncat<'a> {
             for tid in time_ids {
                 let mut time_hashes = self.time_slots.may_load(storage, tid)?.unwrap_or_default();
                 if !time_hashes.is_empty() {
-                    time_hashes
-                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                    time_hashes.retain(|h| h != &hash_vec);
                 }
 
                 // save the updates, remove if slot no longer has hashes
@@ -458,8 +457,7 @@ impl<'a> CwCroncat<'a> {
             for bid in block_ids {
                 let mut block_hashes = self.block_slots.may_load(storage, bid)?.unwrap_or_default();
                 if !block_hashes.is_empty() {
-                    block_hashes
-                        .retain(|h| String::from_utf8(h.to_vec()).unwrap() != task_hash.clone());
+                    block_hashes.retain(|h| h != &hash_vec);
                 }
 
                 // save the updates, remove if slot no longer has hashes

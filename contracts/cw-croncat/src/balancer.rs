@@ -36,7 +36,7 @@ pub trait Balancer<'a> {
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
-        task_info: TaskInfo,
+        task_info: &TaskInfo,
     );
 }
 
@@ -272,7 +272,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
-        task_info: TaskInfo,
+        task_info: &TaskInfo,
     ) {
         if !task_info.task_is_extra.unwrap_or(false) && self.mode == BalancerMode::ActivationOrder {
             return;
@@ -281,11 +281,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         let mut conf: Config = config.load(storage).unwrap();
         let indices = conf.agent_active_indices.as_mut();
         let active = active_agents.load(storage).unwrap();
-        let agent_id = task_info.agent_id.unwrap();
+        let agent_id = &task_info.agent_id;
         let slot_kind = task_info.slot_kind;
         let agent_index = active
             .iter()
-            .position(|x| x == &agent_id)
+            .position(|x| x == agent_id)
             .expect("Agent is not active or not registered!") as u32;
 
         self.update_or_append(indices, (slot_kind, agent_index, 1));
@@ -299,7 +299,7 @@ mod tests {
     use crate::contract::GAS_BASE_FEE_JUNO;
     use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
     use cosmwasm_std::{coins, Addr, Coin};
-    use cw_croncat_core::types::SlotType;
+    use cw_croncat_core::types::{BoundaryValidated, Interval, SlotType};
 
     use crate::CwCroncat;
     const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
@@ -309,6 +309,23 @@ mod tests {
     const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
     const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
     const NATIVE_DENOM: &str = "atom";
+
+    fn default_task() -> Task {
+        Task {
+            owner_id: Addr::unchecked("bob"),
+            interval: Interval::Once,
+            boundary: BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            funds_withdrawn_recurring: Default::default(),
+            stop_on_fail: Default::default(),
+            total_deposit: Default::default(),
+            amount_for_one_task: Default::default(),
+            actions: Default::default(),
+            rules: Default::default(),
+        }
+    }
 
     fn mock_config() -> Config {
         Config {
@@ -519,10 +536,10 @@ mod tests {
             .unwrap();
 
         let task_info = TaskInfo {
-            task: None,
+            task: default_task(),
             task_hash: "".as_bytes().to_vec(),
             task_is_extra: Some(true),
-            agent_id: Some(Addr::unchecked(AGENT0)),
+            agent_id: Addr::unchecked(AGENT0),
             slot_kind: SlotType::Block,
         };
 
@@ -532,7 +549,7 @@ mod tests {
             &env,
             &store.config,
             &store.agent_active_queue,
-            task_info,
+            &task_info,
         );
 
         //Verify agent0 gets extra
@@ -638,10 +655,10 @@ mod tests {
             .unwrap();
 
         let task_info = TaskInfo {
-            task: None,
+            task: default_task(),
             task_hash: "".as_bytes().to_vec(),
             task_is_extra: Some(true),
-            agent_id: Some(Addr::unchecked(AGENT0)),
+            agent_id: Addr::unchecked(AGENT0),
             slot_kind: SlotType::Block,
         };
 
@@ -652,7 +669,7 @@ mod tests {
             &env,
             &store.config,
             &store.agent_active_queue,
-            task_info,
+            &task_info,
         );
 
         config = store.config.load(&mut deps.storage).unwrap();

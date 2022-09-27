@@ -1,4 +1,4 @@
-use crate::CwCroncat;
+use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{BlockInfo, Order, StdResult, Storage};
 pub use cw_croncat_core::types::Interval;
 use cw_croncat_core::types::SlotType;
@@ -59,27 +59,29 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn pop_slot_item(
         &mut self,
         storage: &mut dyn Storage,
-        slot: &u64,
-        kind: &SlotType,
-    ) -> Option<Vec<u8>> {
+        slot: u64,
+        kind: SlotType,
+    ) -> Result<Vec<u8>, ContractError> {
         let store = match kind {
             SlotType::Block => &self.block_slots,
             SlotType::Cron => &self.time_slots,
         };
 
-        let mut slot_data = store.may_load(storage, *slot).unwrap()?;
+        let mut slot_data = store
+            .may_load(storage, slot)?
+            .ok_or(ContractError::NoTaskFound {})?; // TODO: actually no slot
 
         // Get a single task hash, then retrieve task details
-        let hash = slot_data.pop();
+        let hash = slot_data.pop().ok_or(ContractError::NoTaskFound {})?;
 
         // Need to remove this slot if no hash's left
         if slot_data.is_empty() {
-            store.remove(storage, *slot);
+            store.remove(storage, slot);
         } else {
-            store.save(storage, *slot, &slot_data).ok()?;
+            store.save(storage, slot, &slot_data)?;
         }
 
-        hash
+        Ok(hash)
     }
 
     //     /// Gets 1 slot hash item, and removes the hash from storage
@@ -221,8 +223,8 @@ mod tests {
         // Empty slots
         store.time_slots.save(&mut deps.storage, 0, &vec![]).unwrap();
         store.block_slots.save(&mut deps.storage, 0, &vec![]).unwrap();
-        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &0, &SlotType::Cron));
-        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &0, &SlotType::Block));
+        assert_eq!(Err(ContractError::NoTaskFound{}), store.pop_slot_item(&mut deps.storage, 0, SlotType::Cron));
+        assert_eq!(Err(ContractError::NoTaskFound {  }), store.pop_slot_item(&mut deps.storage, 0, SlotType::Block));
 
         // Just checking mutiple tasks
         let multiple_tasks = vec![
@@ -233,12 +235,12 @@ mod tests {
         store.time_slots.save(&mut deps.storage, 1, &multiple_tasks).unwrap();
         store.block_slots.save(&mut deps.storage, 1, &multiple_tasks).unwrap();
         for task in multiple_tasks.iter().rev() {
-            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Cron).unwrap());
-            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Block).unwrap());
+            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, 1, SlotType::Cron).unwrap());
+            assert_eq!(*task, store.pop_slot_item(&mut deps.storage, 1, SlotType::Block).unwrap());
         }
 
         // Slot removed if no hash left
-        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Cron));
-        assert_eq!(None, store.pop_slot_item(&mut deps.storage, &1, &SlotType::Block));
+        assert_eq!(Err(ContractError::NoTaskFound{}), store.pop_slot_item(&mut deps.storage, 1, SlotType::Cron));
+        assert_eq!(Err(ContractError::NoTaskFound{}), store.pop_slot_item(&mut deps.storage, 1, SlotType::Block));
     }
 }
