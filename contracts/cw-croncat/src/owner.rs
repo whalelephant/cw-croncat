@@ -548,7 +548,10 @@ mod tests {
     fn move_balances_native() {
         let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
         let mut store = CwCroncat::default();
-        let info = mock_info("owner_id", &coins(1000, "meow"));
+        let info = mock_info(
+            "owner_id",
+            &vec![coin(200000000, "atom"), coin(1000, "meow")],
+        );
         let exist_bal = vec![Balance::from(coins(2, "atom"))];
         let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
         let money_bags = "owner_id".to_string();
