@@ -80,7 +80,7 @@ if [ "$2" = "-yes" ]; then
   USER_SEED="fatigue runway knock radio sauce express poem novel will ski various merge dolphin actor immune sea muffin decade pass exclude staff require hazard toe"
   echo $USER_SEED | $BINARY keys add user --recover
 
-  sleep 5
+  sleep 10
 fi
 
 # move binary to docker container
@@ -164,11 +164,19 @@ echo "${Cyan}CW20_ADDR :" $CW20_ADDR "${NoColor}"
 
 #Croncat
 INIT='{"denom":"'$STAKE'","cw_rules_addr":"'$RULES_CONTRACT_ADDR'"}'
-echo "${Cyan} Rules Contract Addr:" $RULES_CONTRACT_ADDR "${NoColor}"
-
 $BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
 
 # get smart contract address
 CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
 echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
 echo "${Cyan}Instantiating smart contracts done!${NoColor}"
+
+#Display all data
+echo ALICE_ADDR=$ALICE_ADDR
+echo BOB_ADDR=$BOB_ADDR
+echo OWNER_ADDR=$OWNER_ADDR
+echo USER_ADDR=$USER_ADDR
+echo AGENT_ADDR=$AGENT_ADDR
+echo RULES_CONTRACT_ADDR=$RULES_CONTRACT_ADDR
+echo CW20_ADDR=$CW20_ADDR
+echo CONTRACT_ADDRESS=$CONTRACT_ADDRESS

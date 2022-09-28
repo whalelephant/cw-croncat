@@ -54,3 +54,9 @@ RULES='{
 }'
 $BINARY tx wasm execute $CONTRACT_ADDRESS "$RULES" --amount "1700004$STAKE" --from validator $TXFLAG -y
 echo "${Cyan}Creating task with rule done!" "${NoColor}"
+
+echo "${Cyan}Transfer 5 memecoins rule to pass" "${NoColor}"
+
+CW20_TRANSFER='{"transfer": {"recipient": "'$BOB_ADDR'", "amount": "5"}}'
+$BINARY tx wasm execute $CW20_ADDR "$CW20_TRANSFER" --from validator $TXFLAG -y
+echo "${Cyan}Transfer 5 memecoins rule to pass done!" "${NoColor}"
