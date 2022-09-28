@@ -33,7 +33,7 @@ pub struct Config {
     pub cw_rules_addr: Addr,
 
     // Economics
-    pub agent_fee: Coin,
+    pub agent_fee: u64,
     pub gas_price: u32,
     pub gas_base_fee: u64,
     pub proxy_callback_gas: u32,

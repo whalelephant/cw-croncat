@@ -282,7 +282,7 @@ impl<'a> CwCroncat<'a> {
 
         // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;
-        item.verify_enough_balances(recurring)?;
+        item.verify_enough_balances(recurring, c.agent_fee)?;
 
         let hash = item.to_hash();
 
