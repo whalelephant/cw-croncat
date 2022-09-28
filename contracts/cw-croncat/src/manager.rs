@@ -3,10 +3,11 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg, Uint128,
+    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
+    SubMsg, Uint128,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
-use cw_croncat_core::types::{Agent, Interval, SlotType, Task, calculate_required_amount};
+use cw_croncat_core::types::{calculate_required_amount, Agent, Interval, SlotType, Task};
 use cw_rules_core::msg::QueryConstruct;
 
 impl<'a> CwCroncat<'a> {
@@ -22,7 +23,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
-        let agent = self.check_agent(deps.as_ref(), &info)?;
+        self.check_agent(deps.as_ref(), &info)?;
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
@@ -250,7 +251,7 @@ impl<'a> CwCroncat<'a> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
         let cfg: Config = self.config.load(deps.storage)?;
-        let agent = self.check_agent(deps.as_ref(), &info)?;
+        self.check_agent(deps.as_ref(), &info)?;
 
         let some_task = self
             .tasks_with_rules
@@ -382,7 +383,8 @@ impl<'a> CwCroncat<'a> {
                     gas_used += cfg.gas_base_fee;
                 }
             }
-            let price_amount = calculate_required_amount(Uint128::new(gas_used as u128), cfg.agent_fee);
+            let price_amount =
+                calculate_required_amount(Uint128::new(gas_used as u128), cfg.agent_fee);
             let price = coin(price_amount.u128(), cfg.native_denom);
             let mut agent = self.agents.may_load(deps.storage, &agent_id)?.unwrap();
             agent.balance.native.find_checked_add(&price)?;

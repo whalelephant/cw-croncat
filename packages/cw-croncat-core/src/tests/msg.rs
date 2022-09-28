@@ -62,7 +62,7 @@ fn everything_can_be_de_serealized() {
         min_tasks_per_agent: 5,
         agent_active_indices: vec![(SlotType::Block, 10, 5)],
         agents_eject_threshold: 5,
-        agent_fee: coin(5, "earth"),
+        agent_fee: 5,
         gas_price: 2,
         proxy_callback_gas: 3,
         slot_granularity: 1,
