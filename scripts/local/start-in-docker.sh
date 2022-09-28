@@ -5,14 +5,6 @@
 #sudo ./scripts/local/start-in-docker.sh juno16g2rahf5846rxzp3fwlswy08fz8ccuwk03k57y  -no -yes
 set -e
 
-# # script for lauching local juno network
-# if [ "$1" = "" ]; then
-#   echo "Usage: $0 1 arg required - rules address"
-#   exit
-#   else
-#     RULES_CONTRACT_ADDR=$1
-# fi
-
 CHAIN_ID="testing"
 RPC="http://localhost:26657/"
 BINARY="docker exec -i juno-node-1 junod"
@@ -38,9 +30,10 @@ Blue='\033[0;34m'   # Blue
 Purple='\033[0;35m' # Purple
 Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
+echo "$DIR/artifacts/cw20_base.wasm"
 
 #Recreate artifacts
-if [ "$2" = "-yes" ]; then
+if [ "$1" = "-yes" ]; then
   #Remove local artifacts folder
   echo "deleting artifacts..."
   rm -rf "artifacts"
@@ -52,9 +45,12 @@ if [ "$2" = "-yes" ]; then
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
       cosmwasm/rust-optimizer:0.12.8
   fi
+   #Download basic implementation of a cw20 
+  curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm" 
+ 
 fi
 #Recreate containers
-if [ "$3" = "-yes" ]; then
+if [ "$2" = "-yes" ]; then
   # stop docker container
   cd $JUNO_DIR
   echo "stopping container..."
@@ -90,7 +86,13 @@ fi
 # move binary to docker container
 cd $DIR
 docker cp "artifacts/$DIR_NAME_SNAKE.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE.wasm"
+docker cp "artifacts/cw_rules.wasm" "$IMAGE_NAME:/cw_rules.wasm"
+docker cp "artifacts/cw20_base.wasm" "$IMAGE_NAME:/cw20_base.wasm"
+
 echo "${Cyan}Wasm file: $DIR_NAME_SNAKE"
+echo "${Cyan}Wasm file: cw_rules.wasm"
+echo "${Cyan}Wasm file: cw20_base.wasm"
+
 cd $JUNO_DIR
 
 # wait for chain starting before contract storing
@@ -112,10 +114,6 @@ echo "${Cyan}Bob :" $BOB_ADDR "${NoColor}"
 echo "${Cyan}Owner :" $OWNER_ADDR "${NoColor}"
 echo "${Cyan}User :" $USER_ADDR "${NoColor}"
 echo "${Cyan}Agent :" $AGENT_ADDR "${NoColor}"
-
-if [ "$RULES_CONTRACT_ADDR" = "" ]; then
-  RULES_CONTRACT_ADDR=$VALIDATOR_ADDR
-fi
 
 # errors from this point
 
@@ -146,11 +144,25 @@ USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address))
 echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
 
 #---------------------------------------------------------------------------
-echo "${Yellow}Instantiating smart contract...${NoColor}"
-IRES=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --output json)
-CODE_ID=$(echo $IRES | jq -r '.logs[0].events[-1].attributes[0].value')
-echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
+echo "${Yellow}Instantiating smart contracts...${NoColor}"
+CODE_ID=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+RULES_ID=$($BINARY tx wasm store "/cw_rules.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+CW20_ID=$($BINARY tx wasm store "/cw20_base.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 
+echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
+echo "${Cyan}RULES_ID :" $RULES_ID "${NoColor}"
+echo "${Cyan}CW20_ID :" $CW20_ID "${NoColor}"
+
+$BINARY tx wasm instantiate $RULES_ID '{}' --from validator --label "cw_rules" $TXFLAG -y --no-admin
+RULES_CONTRACT_ADDR=$($BINARY q wasm list-contract-by-code $RULES_ID --output json | jq -r '.contracts[-1]')
+echo "${Cyan}RULES_CONTRACT_ADDR :" $RULES_CONTRACT_ADDR "${NoColor}"
+
+INIT_CW20='{"name": "memecoin", "symbol": "meme", "decimals": 4, "initial_balances": [{"address": "'$($BINARY keys show validator -a)'", "amount": "100000"}]}'
+$BINARY tx wasm instantiate $CW20_ID "$INIT_CW20" --from validator --label "memecoin" $TXFLAG -y --no-admin
+CW20_ADDR=$($BINARY q wasm list-contract-by-code $CW20_ID --output json | jq -r '.contracts[-1]')
+echo "${Cyan}CW20_ADDR :" $CW20_ADDR "${NoColor}"
+
+#Croncat
 INIT='{"denom":"'$STAKE'","cw_rules_addr":"'$RULES_CONTRACT_ADDR'"}'
 echo "${Cyan} Rules Contract Addr:" $RULES_CONTRACT_ADDR "${NoColor}"
 
@@ -159,4 +171,4 @@ $BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXF
 # get smart contract address
 CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
 echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
-echo "${Cyan}Instantiating smart contract done!${NoColor}"
+echo "${Cyan}Instantiating smart contracts done!${NoColor}"

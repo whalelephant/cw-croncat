@@ -1,14 +1,9 @@
 #!/bin/sh
 #Usage
 #sudo ./scripts/local/simple-payroll.sh juno16g2rahf5846rxzp3fwlswy08fz8ccuwk03k57y  -no -yes
-wdir="$PWD"; [ "$PWD" = "/" ] && wdir=""
-case "$0" in
-  /*) SCRIPT_DIR="${0}";;
-  *) SCRIPT_DIR="$wdir/${0#./}";;
-esac
-SCRIPT_DIR="${SCRIPT_DIR%/*}"
+DIR=$(pwd)
+. "$DIR/scripts/local/start-in-docker.sh"
 
-. "$SCRIPT_DIR/start-in-docker.sh"
 
 echo "${Cyan}Creating simple payroll" "${NoColor}"
 # Create recurring payroll to alice and bob
