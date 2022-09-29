@@ -876,7 +876,9 @@
           }
         },
         "agent_fee": {
-          "$ref": "#/definitions/Coin"
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
         },
         "agents_eject_threshold": {
           "type": "integer",

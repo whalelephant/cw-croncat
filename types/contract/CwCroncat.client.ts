@@ -263,7 +263,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     proxyCallbackGas,
     slotGranularity
   }: {
-    agentFee?: Coin;
+    agentFee?: number;
     agentsEjectThreshold?: number;
     gasPrice?: number;
     minTasksPerAgent?: number;
@@ -370,7 +370,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     proxyCallbackGas,
     slotGranularity
   }: {
-    agentFee?: Coin;
+    agentFee?: number;
     agentsEjectThreshold?: number;
     gasPrice?: number;
     minTasksPerAgent?: number;
