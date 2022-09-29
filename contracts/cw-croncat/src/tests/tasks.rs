@@ -35,7 +35,7 @@ fn mock_app() -> App {
     AppBuilder::new().build(|router, _, storage| {
         let accounts: Vec<(u128, String)> = vec![
             (100, ADMIN.to_string()),
-            (800_010, ANYONE.to_string()),
+            (1_000_000, ANYONE.to_string()),
             (u128::max_value(), VERY_RICH.to_string()),
         ];
         for (amt, address) in accounts.iter() {
@@ -173,7 +173,7 @@ fn query_get_tasks() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(315006, "atom"),
     )
     .unwrap();
 
@@ -235,7 +235,7 @@ fn query_get_tasks_pagination() {
             Addr::unchecked(VERY_RICH),
             contract_addr.clone(),
             &new_msg(amount),
-            &coins(300000 + 2 * amount, "atom"),
+            &coins(315000 + 2 * amount, "atom"),
         )
         .unwrap();
     }
@@ -421,7 +421,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap_err();
     assert_eq!(
@@ -515,7 +515,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(315006, "atom"),
     )
     .unwrap();
     let res_err = app
@@ -523,7 +523,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap_err();
     assert_eq!(
@@ -554,7 +554,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     cw20_coins: vec![],
                 },
             },
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap_err();
     assert_eq!(
@@ -601,7 +601,7 @@ fn check_task_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -631,7 +631,7 @@ fn check_task_create_success() -> StdResult<()> {
         assert_eq!(Interval::Immediate, t.interval);
         assert_eq!(None, t.boundary);
         assert_eq!(false, t.stop_on_fail);
-        assert_eq!(coins(300010, "atom"), t.total_deposit);
+        assert_eq!(coins(315006, "atom"), t.total_deposit);
         assert_eq!(task_id_str.clone(), t.task_hash);
     }
 
@@ -694,7 +694,7 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap();
 
@@ -782,7 +782,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &with_rules_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap();
 
@@ -791,7 +791,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &without_rules_msg,
-            &coins(300010, "atom"),
+            &coins(315006, "atom"),
         )
         .unwrap();
 
@@ -869,7 +869,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(315006, "atom"),
     )
     .unwrap();
 
@@ -978,7 +978,7 @@ fn check_refill_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(315006, "atom"),
     )
     .unwrap();
     // refill task
@@ -996,7 +996,7 @@ fn check_refill_create() -> StdResult<()> {
     let mut matches_new_totals: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "total_deposit" && a.value == r#"["300013atom"]"#.to_string() {
+            if a.key == "total_deposit" && a.value == r#"["315009atom"]"#.to_string() {
                 matches_new_totals = true;
             }
         }
@@ -1017,7 +1017,7 @@ fn check_refill_create() -> StdResult<()> {
 
     if let Some(t) = new_task {
         assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
-        assert_eq!(coins(300013, "atom"), t.total_deposit);
+        assert_eq!(coins(315009, "atom"), t.total_deposit);
     }
 
     // Check the balance has increased to include the new refilled total
@@ -1025,7 +1025,7 @@ fn check_refill_create() -> StdResult<()> {
         .wrap()
         .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
         .unwrap();
-    assert_eq!(coins(300013, "atom"), balances.available_balance.native);
+    assert_eq!(coins(315009, "atom"), balances.available_balance.native);
 
     Ok(())
 }
@@ -1055,7 +1055,8 @@ fn check_gas_minimum() {
         },
     };
     // create 1 token off task
-    let amount_for_one_task = gas_limit + 3;
+    let amount_for_one_task =
+        gas_limit + gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap() + 3;
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1094,6 +1095,10 @@ fn check_gas_default() {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = GAS_BASE_FEE_JUNO;
+    // let send = BankMsg::Send {
+    //     to_address: validator,
+    //     amount: vec![amount],
+    // };
 
     let create_task_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
@@ -1110,7 +1115,10 @@ fn check_gas_default() {
     };
     // create 1 token off task
     // for one task need gas + staking amount
-    let amount_for_one_task = gas_limit + 3;
+
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
+    let amount_for_one_task = gas_limit + agent_fee + 3;
+    println!("{:?}", amount_for_one_task);
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),

@@ -6,9 +6,7 @@ use crate::InstantiateMsg;
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, mock_info, MOCK_CONTRACT_ADDR,
 };
-use cosmwasm_std::{
-    coin, coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult,
-};
+use cosmwasm_std::{coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult};
 use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
 use cw_croncat_core::types::SlotType;
 const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
@@ -47,7 +45,7 @@ fn configure() {
     );
     assert_eq!(600, value.agents_eject_threshold);
     assert_eq!("atom", value.native_denom);
-    assert_eq!(coin(5, "atom"), value.agent_fee);
+    assert_eq!(5, value.agent_fee);
     assert_eq!(1, value.gas_price);
     assert_eq!(3, value.proxy_callback_gas);
     assert_eq!(60_000_000_000, value.slot_granularity);

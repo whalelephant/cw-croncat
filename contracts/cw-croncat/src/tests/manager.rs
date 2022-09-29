@@ -236,7 +236,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, NATIVE_DENOM),
+            &coins(315006, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -336,7 +336,7 @@ fn proxy_call_success() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(500010, NATIVE_DENOM),
+            &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -467,7 +467,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(500010, NATIVE_DENOM),
+            &coins(525006, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -522,14 +522,15 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         let mut attr_key: Option<String> = None;
         let mut attr_value: Option<String> = None;
         for e in res.clone().events {
-            for a in e.attributes {
+            for a in e.attributes.clone() {
                 if e.ty == "wasm" && a.clone().key == k.to_string() {
                     attr_key = Some(a.clone().key);
                     attr_value = Some(a.clone().value);
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "250005atom"
+                    && a.clone().value == "525006atom"
+                // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
                 }
@@ -589,7 +590,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(500010, NATIVE_DENOM),
+        &coins(525006, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -626,8 +627,10 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "250005atom"
+                    && a.clone().value == "525006atom"
+                // task didn't pay for the failed execution
                 {
+                    println!("value {:?}", a.clone().value);
                     has_submsg_method = true;
                 }
                 if e.ty == "reply" && a.clone().key == "mode" && a.clone().value == "handle_failure"
@@ -692,7 +695,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(500010, NATIVE_DENOM),
+            &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -820,7 +823,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(500010, NATIVE_DENOM),
+            &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -985,7 +988,7 @@ fn proxy_call_several_tasks() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(500_010, NATIVE_DENOM),
+        &coins(525000, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -993,7 +996,7 @@ fn proxy_call_several_tasks() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg2,
-        &coins(500_010, NATIVE_DENOM),
+        &coins(525000, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -1004,7 +1007,7 @@ fn proxy_call_several_tasks() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg3,
-        &coins(500_010, NATIVE_DENOM),
+        &coins(525000, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -1079,7 +1082,8 @@ fn test_proxy_call_with_bank_message() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let amount_for_one_task = gas_limit + 1000;
+    let amount_for_one_task =
+        gas_limit + gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap() + 1000;
     // create a task
     let res = app.execute_contract(
         Addr::unchecked(ANYONE),
@@ -1120,8 +1124,8 @@ fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
         amount: vec![amount],
     };
     let msg: CosmosMsg = send.clone().into();
-    let gas_limit = 150_000;
-    let agent_fee = 5;
+    let gas_limit: u64 = 150_000;
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
 
     let create_task_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
@@ -1211,8 +1215,8 @@ fn test_multi_action() {
         },
     };
     let gas_limit = GAS_BASE_FEE_JUNO;
-    let agent_fee = 5; // TODO: might change
-    let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + 4; // + 3 + 4 atoms sent
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
+    let amount_for_one_task = (gas_limit * 2) + agent_fee * 2 + 3 + 4; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1282,9 +1286,9 @@ fn test_balance_changes() {
         },
     };
     let gas_limit = GAS_BASE_FEE_JUNO;
-    let agent_fee = 5; // TODO: might change
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
     let extra = 50; // extra for checking refunds at task removal
-    let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + 4 + extra; // + 3 + 4 atoms sent
+    let amount_for_one_task = (gas_limit * 2) + agent_fee * 2 + 3 + 4 + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1367,7 +1371,7 @@ fn test_balance_changes() {
         .query_balance(AGENT1_BENEFICIARY, "atom")
         .unwrap();
     let contract_balance_after_withdraw = app.wrap().query_balance(&contract_addr, "atom").unwrap();
-    let expected_transfer_amount = Uint128::from((gas_limit * 2) + agent_fee);
+    let expected_transfer_amount = Uint128::from(gas_limit * 2 + agent_fee * 2);
     assert_eq!(
         beneficary_balance_after_withdraw.amount,
         beneficary_balance_before_withdraw.amount + expected_transfer_amount
@@ -1404,16 +1408,16 @@ fn test_no_reschedule_if_lack_balance() {
     };
 
     let gas_limit = GAS_BASE_FEE_JUNO;
-    let agent_fee = 5; // TODO: might change
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
     let extra = 50; // extra for checking nonzero task balance
-    let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + extra; // + 3 atoms sent
+    let amount_for_one_task = gas_limit + agent_fee + 3; // + 3 atoms sent
 
     // create a task
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task), "atom"),
+        &coins(u128::from(amount_for_one_task * 2 + extra - 3), "atom"),
     )
     .unwrap();
 
@@ -1454,7 +1458,7 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert_eq!(
         task.unwrap().total_deposit[0].amount,
-        Uint128::from(GAS_BASE_FEE_JUNO + extra)
+        Uint128::from(GAS_BASE_FEE_JUNO + agent_fee + extra)
     );
 
     app.update_block(add_little_time);

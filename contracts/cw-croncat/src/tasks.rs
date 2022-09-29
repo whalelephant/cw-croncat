@@ -220,7 +220,6 @@ impl<'a> CwCroncat<'a> {
                 val: "Create task paused".to_string(),
             });
         }
-
         let owner_id = info.sender;
         let cw20 = if !task.cw20_coins.is_empty() {
             let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(task.cw20_coins.len());
@@ -260,7 +259,6 @@ impl<'a> CwCroncat<'a> {
             actions: task.actions,
             rules: task.rules,
         };
-
         if !item.is_valid_msg_calculate_usage(
             deps.api,
             &env.contract.address,
@@ -268,6 +266,7 @@ impl<'a> CwCroncat<'a> {
             &c.owner_id,
             c.gas_base_fee,
             c.native_denom.clone(),
+            c.agent_fee,
         )? {
             return Err(ContractError::CustomError {
                 val: "Actions message unsupported or invalid message data".to_string(),
@@ -279,11 +278,9 @@ impl<'a> CwCroncat<'a> {
                 val: "Interval invalid".to_string(),
             });
         }
-
         // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;
-        item.verify_enough_balances(recurring, c.agent_fee)?;
-
+        item.verify_enough_balances(recurring)?;
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot

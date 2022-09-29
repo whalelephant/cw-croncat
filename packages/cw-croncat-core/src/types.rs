@@ -248,7 +248,7 @@ impl Task {
         self.to_hash().into_bytes()
     }
 
-    pub fn verify_enough_balances(&self, recurring: bool, agent_fee: u64) -> Result<(), CoreError> {
+    pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {
         let multiplier = Uint128::from(if recurring { 2u128 } else { 1u128 });
 
         let task_native_balance_uses = &self.amount_for_one_task.native;
@@ -259,7 +259,7 @@ impl Task {
                 .iter()
                 .find(|balance| balance.denom == coin.denom)
             {
-                if balance.amount < calculate_required_amount(coin.amount, agent_fee) * multiplier {
+                if balance.amount < coin.amount * multiplier {
                     return Err(CoreError::NotEnoughNative {
                         denom: coin.denom.clone(),
                         lack: coin.amount * multiplier - balance.amount,
@@ -316,6 +316,7 @@ impl Task {
     /// Validate the task actions only use the supported messages
     /// We're iterating over all actions
     /// so it's a great place for calculaing balance usages
+    #[allow(clippy::too_many_arguments)]
     pub fn is_valid_msg_calculate_usage(
         &mut self,
         api: &dyn Api,
@@ -324,6 +325,7 @@ impl Task {
         owner_id: &Addr,
         default_gas: u64,
         native_denom: String,
+        gas_fee: u64,
     ) -> Result<bool, CoreError> {
         // TODO: Chagne to default FALSE, once all messages are covered in tests
         let mut valid = true;
@@ -410,9 +412,10 @@ impl Task {
                 _ => (),
             }
         }
-        amount_for_one_task
-            .native
-            .find_checked_add(&coin(gas_amount as u128, native_denom))?;
+        amount_for_one_task.native.find_checked_add(&coin(
+            calculate_required_amount(gas_amount, gas_fee),
+            native_denom,
+        ))?;
         Ok(valid)
     }
 
@@ -441,9 +444,13 @@ impl Task {
 }
 
 /// Calculate the amount including agent_fee
-pub fn calculate_required_amount(amount: Uint128, agent_fee: u64) -> Uint128 {
-    let fee = amount.multiply_ratio(agent_fee, 100u128);
-    amount.checked_add(fee).unwrap()
+pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> u128 {
+    let fee = amount
+        .checked_mul(agent_fee)
+        .unwrap()
+        .checked_div(100u64)
+        .unwrap();
+    amount.checked_add(fee).unwrap() as u128
 }
 
 impl FindAndMutate<'_, Coin> for Vec<Coin> {

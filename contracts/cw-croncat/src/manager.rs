@@ -3,8 +3,7 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
-    SubMsg, Uint128,
+    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{calculate_required_amount, Agent, Interval, SlotType, Task};
@@ -383,19 +382,24 @@ impl<'a> CwCroncat<'a> {
                     gas_used += cfg.gas_base_fee;
                 }
             }
-            let price_amount =
-                calculate_required_amount(Uint128::new(gas_used as u128), cfg.agent_fee);
-            let price = coin(price_amount.u128(), cfg.native_denom);
+            let price_amount = calculate_required_amount(gas_used, cfg.agent_fee);
+            let price = coin(price_amount, cfg.native_denom);
             let mut agent = self.agents.may_load(deps.storage, &agent_id)?.unwrap();
             agent.balance.native.find_checked_add(&price)?;
             task.total_deposit.native.find_checked_sub(&price)?;
-            self.agents.save(deps.storage, &agent_id, &agent)?; // later save the task
+            self.agents.save(deps.storage, &agent_id, &agent)?;
+            if task.with_rules() {
+                self.tasks_with_rules
+                    .save(deps.storage, task_hash.as_bytes(), &task)?;
+            } else {
+                self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
+            }
         }
 
         // if non-recurring, exit
         if task.interval == Interval::Once
             || (task.stop_on_fail && queue_item.failed)
-            || task.verify_enough_balances(false, cfg.agent_fee).is_err()
+            || task.verify_enough_balances(false).is_err()
         {
             // Process task exit, if no future task can execute
             let rt = self.remove_task(deps.storage, task_hash, None);

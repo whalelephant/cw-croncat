@@ -394,7 +394,7 @@ fn test_cw20_negative() {
             Addr::unchecked(user),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(300_010_u128), "atom"),
+            &coins(u128::from(315_000_u128), "atom"),
         )
         .unwrap_err()
         .downcast()
@@ -423,7 +423,7 @@ fn test_cw20_negative() {
             Addr::unchecked(user),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(300_010_u128), "atom"),
+            &coins(u128::from(315_000_u128), "atom"),
         )
         .unwrap_err()
         .downcast()
