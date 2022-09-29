@@ -3,10 +3,11 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
+    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
+    SubMsg,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
-use cw_croncat_core::types::{calculate_required_amount, Agent, Interval, SlotType, Task};
+use cw_croncat_core::types::{calculate_required_amount, Action, Agent, Interval, SlotType, Task};
 use cw_rules_core::msg::QueryConstruct;
 
 impl<'a> CwCroncat<'a> {
@@ -177,31 +178,7 @@ impl<'a> CwCroncat<'a> {
         let actions = task.clone().actions;
         let self_addr = env.contract.address;
 
-        // // Add submessages for all actions
-        // // And calculate gas usages
-        // let mut gas_used = 0;
-        // let c: Config = self.config.load(deps.storage)?;
-        // for action in actions {
-        //     let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
-        //     if let Some(gas_limit) = action.gas_limit {
-        //         sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
-        //         gas_used += gas_limit;
-        //     } else {
-        //         sub_msgs.push(sub_msg);
-        //         gas_used += c.gas_base_fee;
-        //     }
-        // }
-
-        // // Task pays for gas even if it failed
-        // let mut agent = agent;
-        // let mut task = task;
-        // let gas_used = coin(gas_used as u128, c.native_denom);
-        // agent.balance.native.find_checked_add(&gas_used)?;
-        // task.total_deposit.native.find_checked_sub(&gas_used)?;
-
-        // self.agents.save(deps.storage, &info.sender, &agent)?;
-        // self.tasks.save(deps.storage, &hash, &task)?;
-
+        // Add submessages for all actions
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
             if let Some(gas_limit) = action.gas_limit {
@@ -297,33 +274,10 @@ impl<'a> CwCroncat<'a> {
             });
         };
 
+        // Add submessages for all actions
         let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
         let actions = task.actions.clone();
-
-        // // Add submessages for all actions
-        // // And calculate gas usages
-        // let mut gas_used = 0;
-        // for action in actions {
-        //     let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
-        //     if let Some(gas_limit) = action.gas_limit {
-        //         sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
-        //         gas_used += gas_limit;
-        //     } else {
-        //         sub_msgs.push(sub_msg);
-        //         gas_used += cfg.gas_base_fee;
-        //     }
-        // }
-        // // Task pays for gas even if it failed
-        // let mut agent = agent;
-        // let mut task = task;
-        // let gas_used = coin(gas_used as u128, cfg.native_denom);
-        // agent.balance.native.find_checked_add(&gas_used)?;
-        // task.total_deposit.native.find_checked_sub(&gas_used)?;
-
-        // self.agents.save(deps.storage, &info.sender, &agent)?;
-        // self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
-
         for action in actions {
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
             if let Some(gas_limit) = action.gas_limit {
@@ -370,24 +324,12 @@ impl<'a> CwCroncat<'a> {
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
 
-        let cfg = self.config.load(deps.storage)?;
         let agent_id = queue_item.agent_id.unwrap();
 
         if !queue_item.failed {
-            let mut gas_used = 0;
-            for action in task.actions.clone() {
-                if let Some(gas_limit) = action.gas_limit {
-                    gas_used += gas_limit;
-                } else {
-                    gas_used += cfg.gas_base_fee;
-                }
-            }
-            let price_amount = calculate_required_amount(gas_used, cfg.agent_fee);
-            let price = coin(price_amount, cfg.native_denom);
-            let mut agent = self.agents.may_load(deps.storage, &agent_id)?.unwrap();
-            agent.balance.native.find_checked_add(&price)?;
+            let price = self.manage_agent_success(deps.storage, task.actions.clone(), &agent_id)?;
+
             task.total_deposit.native.find_checked_sub(&price)?;
-            self.agents.save(deps.storage, &agent_id, &agent)?;
             if task.with_rules() {
                 self.tasks_with_rules
                     .save(deps.storage, task_hash.as_bytes(), &task)?;
@@ -481,21 +423,38 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("slot_kind", format!("{:?}", slot_kind)))
     }
 
-    // /// Internal management of agent slots and tasks
-    // pub(crate) fn manage_agent_missed_slot(
-    //     &self,
-    //     storage: &mut dyn Storage,
-    //     mut agent: Agent,
-    //     message: &MessageInfo,
-    // ) -> Result<(), ContractError> {
-    //     // // Increase number of tasks
-    //     // agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
+    /// Internal management of agent slots and tasks after successful proxy_call
+    pub(crate) fn manage_agent_success(
+        &self,
+        storage: &mut dyn Storage,
+        actions: Vec<Action>,
+        agent_id: &Addr,
+    ) -> Result<Coin, ContractError> {
+        let mut agent = self.agents.may_load(storage, agent_id)?.unwrap();
 
-    //     // Reset missed slot
-    //     agent.last_missed_slot = 0;
-    //     self.agents.save(storage, &message.sender, &agent)?;
-    //     Ok(())
-    // }
+        // Increase number of tasks
+        agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
+
+        // Reset missed slot
+        agent.last_missed_slot = 0;
+        self.agents.save(storage, agent_id, &agent)?;
+
+        // Calculate agent reward
+        let cfg = self.config.load(storage)?;
+        let mut gas_used = 0;
+        for action in actions {
+            if let Some(gas_limit) = action.gas_limit {
+                gas_used += gas_limit;
+            } else {
+                gas_used += cfg.gas_base_fee;
+            }
+        }
+        let price_amount = calculate_required_amount(gas_used, cfg.agent_fee);
+        let price = coin(price_amount, cfg.native_denom);
+        agent.balance.native.find_checked_add(&price)?;
+        self.agents.save(storage, agent_id, &agent)?;
+        Ok(price)
+    }
 
     fn check_ready_for_proxy_call(
         &self,
