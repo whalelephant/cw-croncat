@@ -747,7 +747,7 @@ mod tests {
             agent_fee: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
-            gas_price: None,
+            gas_for_one_native: None,
             proxy_callback_gas: None,
             slot_granularity: None,
         };
@@ -783,7 +783,7 @@ mod tests {
                 agent_fee: None,
                 min_tasks_per_agent: None,
                 agents_eject_threshold: None,
-                gas_price: None,
+                gas_for_one_native: None,
                 proxy_callback_gas: None,
                 slot_granularity: None,
             },
@@ -886,7 +886,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "7122ec27799d103d712fff6d1d68ae1e49141fde02926416a2f9ca9f3e98735e".to_string();
+            "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1251,7 +1251,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "7122ec27799d103d712fff6d1d68ae1e49141fde02926416a2f9ca9f3e98735e".to_string();
+            "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1381,7 +1381,7 @@ mod tests {
         let contract_addr = cw_template_contract.addr();
         let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
         let task_id_str =
-            "29d22d2229b1388da3cf71ff0528c347561e11ee06877a983519eeb34fd67abb".to_string();
+            "164329dc48b4d81075f82c823108d1f1f435af952d4697583b99a9f35962e211".to_string();
 
         // Doing this msg since its the easiest to guarantee success in reply
         let msg = CosmosMsg::Wasm(WasmMsg::Execute {

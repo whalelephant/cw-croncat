@@ -4,7 +4,8 @@ members = [
   "contracts/cw-rules",
   "packages/cw-croncat-core",
   "packages/generic-query",
-  "packages/cw-rules-core"
+  "packages/cw-rules-core",
+  "ci/gas-benchmark",
 ]
 
 [profile.release]

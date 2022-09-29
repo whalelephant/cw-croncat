@@ -71,7 +71,7 @@ pub enum ExecuteMsg {
         slot_granularity: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<Coin>,
-        gas_price: Option<u32>,
+        gas_for_one_native: Option<u64>,
         proxy_callback_gas: Option<u32>,
         min_tasks_per_agent: Option<u64>,
         agents_eject_threshold: Option<u64>,
@@ -160,7 +160,7 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
@@ -169,7 +169,7 @@ pub struct GetConfigResponse {
     pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: Coin,
-    pub gas_price: u32,
+    pub gas_for_one_native: u64,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,
@@ -466,7 +466,7 @@ mod tests {
             agent_active_indices: vec![(SlotType::Block, 10, 5)],
             agents_eject_threshold: 5,
             agent_fee: coin(5, "earth"),
-            gas_price: 2,
+            gas_for_one_native: 11,
             proxy_callback_gas: 3,
             slot_granularity: 1,
             native_denom: "juno".to_string(),

@@ -17,6 +17,7 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 // default for juno
 pub(crate) const GAS_BASE_FEE_JUNO: u64 = 400_000;
+pub(crate) const GAS_FOR_ONE_NATIVE_JUNO: u64 = 9;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -55,7 +56,7 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: Coin::new(5, msg.denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
-            gas_price: 1,
+            gas_for_one_native: GAS_FOR_ONE_NATIVE_JUNO,
             proxy_callback_gas: 3,
             gas_base_fee,
             slot_granularity: 60_000_000_000,
@@ -110,7 +111,7 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            .add_attribute("gas_price", config.gas_price.to_string())
+            .add_attribute("gas_price", config.gas_for_one_native.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity", config.slot_granularity.to_string()))
     }
@@ -283,7 +284,7 @@ mod tests {
         assert_eq!(600, value.agents_eject_threshold);
         assert_eq!("atom", value.native_denom);
         assert_eq!(coin(5, "atom"), value.agent_fee);
-        assert_eq!(1, value.gas_price);
+        assert_eq!(GAS_FOR_ONE_NATIVE_JUNO, value.gas_for_one_native);
         assert_eq!(3, value.proxy_callback_gas);
         assert_eq!(60_000_000_000, value.slot_granularity);
     }

@@ -146,10 +146,10 @@ impl<'a> CwCroncat<'a> {
         // Check if native token balance is sufficient for a few txns, in this case 4 txns
         // TODO: Adjust gas & costs based on real usage cost
         let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-        let unit_cost = c.gas_price * 4;
+        let unit_cost = (4 * c.gas_base_fee) / c.gas_for_one_native;
         if !has_coins(
             &agent_wallet_balances,
-            &Coin::new(u128::from(unit_cost), c.native_denom),
+            &Coin::new(unit_cost.into(), c.native_denom),
         ) || agent_wallet_balances.is_empty()
         {
             return Err(ContractError::CustomError {
@@ -782,7 +782,7 @@ mod tests {
             agent_fee: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
-            gas_price: None,
+            gas_for_one_native: None,
             proxy_callback_gas: None,
             slot_granularity: None,
         };
@@ -812,7 +812,7 @@ mod tests {
             agent_fee: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
-            gas_price: None,
+            gas_for_one_native: None,
             proxy_callback_gas: None,
             slot_granularity: None,
         };

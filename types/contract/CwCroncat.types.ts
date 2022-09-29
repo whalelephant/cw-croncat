@@ -234,7 +234,7 @@ export interface GetConfigResponse {
   agent_fee: Coin;
   agents_eject_threshold: number;
   cw_rules_addr: Addr;
-  gas_price: number;
+  gas_for_one_native: number;
   min_tasks_per_agent: number;
   native_denom: string;
   owner_id: Addr;
@@ -370,7 +370,7 @@ export type ExecuteMsg = {
   update_settings: {
     agent_fee?: Coin | null;
     agents_eject_threshold?: number | null;
-    gas_price?: number | null;
+    gas_for_one_native?: number | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
     paused?: boolean | null;
