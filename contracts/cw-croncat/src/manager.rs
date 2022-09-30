@@ -58,15 +58,12 @@ impl<'a> CwCroncat<'a> {
         }
 
         // Get the task details
-        // if no task, exit and reward agent.
+        // if no task, return error.
         let hash = some_hash.unwrap();
         let some_task = self.tasks.may_load(deps.storage, &hash)?;
         if some_task.is_none() {
             // NOTE: This could should never get reached, however we cover just in case
-            return Ok(Response::new()
-                .add_attribute("method", "proxy_call")
-                .add_attribute("agent", &info.sender)
-                .add_attribute("has_task", "false"));
+            return Err(ContractError::NoTaskFound {});
         }
 
         //Get agent tasks with extra(if exists) from balancer

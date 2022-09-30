@@ -431,6 +431,100 @@ fn proxy_call_success() -> StdResult<()> {
 }
 
 #[test]
+fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
+    let (mut app, cw_template_contract) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let to_address = String::from("not_you");
+    let amount = coin(1000, "atom");
+    let send = BankMsg::Send {
+        to_address,
+        amount: vec![amount],
+    };
+    let msg: CosmosMsg = send.clone().into();
+    let gas_limit = 150_000;
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Immediate,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg,
+                gas_limit: Some(gas_limit),
+            }],
+            rules: None,
+            cw20_coins: vec![],
+        },
+    };
+    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
+    let amount_for_one_task = gas_limit + agent_fee + 1000;
+    // create a task
+    let res = app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(u128::from(amount_for_one_task * 2), "atom"),
+    );
+    assert!(res.is_ok());
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    );
+    assert!(res.is_ok());
+
+    // Call proxy_call when there is no task, should fail
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall { task_hash: None },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::NoTaskFound {});
+
+    let beneficiary_balance_before_proxy_call = app
+        .wrap()
+        .query_balance(AGENT1_BENEFICIARY, NATIVE_DENOM)
+        .unwrap();
+    // Agent withdraws the reward
+    let res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &ExecuteMsg::WithdrawReward {},
+        &[],
+    );
+    assert!(res.is_ok());
+    let beneficiary_balance_after_proxy_call = app
+        .wrap()
+        .query_balance(AGENT1_BENEFICIARY, NATIVE_DENOM)
+        .unwrap();
+    assert_eq!(
+        (beneficiary_balance_after_proxy_call.amount
+            - beneficiary_balance_before_proxy_call.amount)
+            .u128(),
+        (agent_fee + gas_limit) as u128
+    );
+
+    Ok(())
+}
+
+#[test]
 fn proxy_callback_fail_cases() -> StdResult<()> {
     let (mut app, cw_template_contract) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
