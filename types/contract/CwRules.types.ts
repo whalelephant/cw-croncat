@@ -4,12 +4,15 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
+export type CheckOwnerOfNftResponse = [boolean, Binary | null];
+export type Binary = string;
 export interface CheckOwnerOfNft {
   address: string;
   nft_address: string;
   token_id: string;
   [k: string]: unknown;
 }
+export type CheckProposalStatusResponse = [boolean, Binary | null];
 export type Status = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
 export interface CheckProposalStatus {
   dao_address: string;
@@ -22,6 +25,10 @@ export type ExecuteMsg = {
     [k: string]: unknown;
   };
 };
+export type GenericQueryResponse = [boolean, Binary | null];
+export type GetBalanceResponse = [boolean, Binary | null];
+export type GetCw20BalanceResponse = [boolean, Binary | null];
+export type HasBalanceGteResponse = [boolean, Binary | null];
 export type Balance = {
   native: NativeBalance;
 } | {
@@ -63,9 +70,8 @@ export type ValueIndex = {
 } | {
   index: number;
 };
-export type Binary = string;
 export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
-export interface QueryConstruct {
+export interface QueryConstructResponse {
   rules: Rule[];
   [k: string]: unknown;
 }
@@ -75,6 +81,10 @@ export interface GenericQuery {
   msg: Binary;
   ordering: ValueOrdering;
   value: Binary;
+  [k: string]: unknown;
+}
+export interface QueryConstruct {
+  rules: Rule[];
   [k: string]: unknown;
 }
 export type QueryMsg = {

@@ -6,17 +6,13 @@
 
 import * as _0 from "./CwCroncat.types";
 import * as _1 from "./CwCroncat.client";
-import * as _2 from "./CwCroncat.react-query";
-import * as _3 from "./CwRules.types";
-import * as _4 from "./CwRules.client";
-import * as _5 from "./CwRules.react-query";
+import * as _2 from "./CwRules.types";
+import * as _3 from "./CwRules.client";
 export namespace contracts {
   export const CwCroncat = { ..._0,
-    ..._1,
-    ..._2
+    ..._1
   };
-  export const CwRules = { ..._3,
-    ..._4,
-    ..._5
+  export const CwRules = { ..._2,
+    ..._3
   };
 }

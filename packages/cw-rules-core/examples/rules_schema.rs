@@ -31,5 +31,56 @@ fn main() {
         &out_dir,
         "RuleResponse",
     );
+     export_schema_with_title(
+        &schema_for!(QueryConstruct),
+        &out_dir,
+        "QueryConstructResponse",
+    );
     export_schema_with_title(&schema_for!(Status), &out_dir, "ProposalStatus");
+    
+    export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "GetBalanceResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "GetCw20BalanceResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "CheckOwnerOfNftResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "HasBalanceGteResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "CheckProposalStatusResponse",
+    );
+      export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "GenericQueryResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "HasBalanceGteResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "CheckProposalStatusResponse",
+    );
+     export_schema_with_title(
+        &schema_for!((bool, Option<Binary>)),
+        &out_dir,
+        "CheckProposalStatusResponse",
+    );
 }
