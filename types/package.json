@@ -4,7 +4,7 @@
   "description": "codegen for contract",
   "main": "index.js",
   "scripts": {
-    "codegen": "cosmwasm-ts-codegen generate --plugin client --schema ../packages/cw-croncat-core/schema --out ./contract --name CW-CRONCAT --no-bundle"
+    "codegen": "cosmwasm-ts-codegen generate --plugin client --schema ../packages/cw-croncat-core/schema --out ./core --name CW-CRONCAT --plugin rulesclient --schema ../packages/cw-rules-core/schema --out ./rules --name CW-RULES --no-bundle"
   },
   "license": "MIT",
   "dependencies": {

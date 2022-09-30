@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CheckProposalStatus",
+  "type": "object",
+  "required": [
+    "dao_address",
+    "proposal_id",
+    "status"
+  ],
+  "properties": {
+    "dao_address": {
+      "type": "string"
+    },
+    "proposal_id": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "status": {
+      "$ref": "#/definitions/Status"
+    }
+  },
+  "definitions": {
+    "Status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "rejected",
+        "passed",
+        "executed",
+        "closed",
+        "execution_failed"
+      ]
+    }
+  }
+}
