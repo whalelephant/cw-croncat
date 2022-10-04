@@ -23,7 +23,7 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
-        self.check_agent(deps.as_ref(), &info)?;
+        self.check_and_update_agent(deps.storage, &info, &env)?;
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
@@ -213,7 +213,7 @@ impl<'a> CwCroncat<'a> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
 
         let cfg: Config = self.config.load(deps.storage)?;
-        self.check_agent(deps.as_ref(), &info)?;
+        self.check_and_update_agent(deps.storage, &info, &env)?;
 
         let some_task = self
             .tasks_with_rules
@@ -410,10 +410,6 @@ impl<'a> CwCroncat<'a> {
         // Increase number of tasks
         agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
 
-        // Reset missed slot
-        agent.last_missed_slot = 0;
-        self.agents.save(storage, agent_id, &agent)?;
-
         // Calculate agent reward
         let cfg = self.config.load(storage)?;
         let mut gas_used = 0;
@@ -456,19 +452,25 @@ impl<'a> CwCroncat<'a> {
         Ok(())
     }
 
-    fn check_agent(&self, deps: Deps, info: &MessageInfo) -> Result<Agent, ContractError> {
+    fn check_and_update_agent(&mut self, storage: &mut dyn Storage, info: &MessageInfo, env: &Env) -> Result<Agent, ContractError> {
         // only registered agent signed, because micropayments will benefit long term
-        let agent_opt = self.agents.may_load(deps.storage, &info.sender)?;
+        let agent_opt = self.agents.may_load(storage, &info.sender)?;
         if agent_opt.is_none() {
             return Err(ContractError::AgentNotRegistered {});
         }
-        let active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let active_agents: Vec<Addr> = self.agent_active_queue.load(storage)?;
 
         // make sure agent is active
         if !active_agents.contains(&info.sender) {
             return Err(ContractError::AgentNotRegistered {});
         }
-        Ok(agent_opt.unwrap())
+
+        // Update agent last_executed_slot
+        let mut agent = agent_opt.unwrap();
+        agent.last_executed_slot = env.block.height;
+        self.agents.save(storage, &info.sender, &agent)?;
+
+        Ok(agent)
     }
 
     // // Restrict bank msg so contract doesnt get drained

@@ -46,11 +46,9 @@ pub struct Agent {
     // stats
     pub total_tasks_executed: u64,
 
-    // Holds slot number of a missed slot.
-    // If other agents see an agent miss a slot, they store the missed slot number.
-    // If agent does a task later, this number is reset to zero.
-    // Example data: 1633890060000000000 or 0
-    pub last_missed_slot: u64,
+    // Holds slot number of the last slot when agent called proxy_call.
+    // If agent does a task, this number is set to the current block.
+    pub last_executed_slot: u64,
 
     // Timestamp of when agent first registered
     // Useful for rewarding agents for their patience while they are pending and operating service
@@ -66,7 +64,7 @@ pub struct AgentResponse {
     pub payable_account_id: Addr,
     pub balance: GenericBalance,
     pub total_tasks_executed: u64,
-    pub last_missed_slot: u64,
+    pub last_executed_slot: u64,
     pub register_start: Timestamp,
 }
 

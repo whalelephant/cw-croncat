@@ -34,7 +34,7 @@ impl<'a> CwCroncat<'a> {
             payable_account_id: a.payable_account_id,
             balance: a.balance,
             total_tasks_executed: a.total_tasks_executed,
-            last_missed_slot: a.last_missed_slot,
+            last_executed_slot: a.last_executed_slot,
             register_start: a.register_start,
         };
 
@@ -190,7 +190,7 @@ impl<'a> CwCroncat<'a> {
                             payable_account_id: payable_id,
                             balance: GenericBalance::default(),
                             total_tasks_executed: 0,
-                            last_missed_slot: 0,
+                            last_executed_slot: env.block.height,
                             // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
                             register_start: env.block.time,
                         })
