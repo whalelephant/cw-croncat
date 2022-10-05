@@ -38,6 +38,7 @@ fn main() -> Result<()> {
     register_agent(&mut orc, &agent_key)?;
     // TEST IT WORKS
     let _ = complete_simple_task(&mut orc, (&agent_key, &agent_addr), &user_key, &denom)?;
+
     let recurring_gas =
         complete_reccuring_one_action_task(&mut orc, (&agent_key, &agent_addr), &user_key, &denom)?;
     let multi_recurring_gas =

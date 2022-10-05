@@ -3,7 +3,7 @@ use cosm_orc::{
     orchestrator::cosm_orc::CosmOrc,
 };
 use cosmwasm_std::coins;
-use cw_croncat_core::types::{Action, Interval};
+use cw_croncat_core::types::{Action, Interval, Task};
 
 use crate::{helpers::query_balance, types::GasInformation, ALICE_ADDR, BOB_ADDR, CRONCAT_NAME};
 use anyhow::Result;
@@ -98,7 +98,7 @@ where
         user_key,
         vec![Coin {
             denom: denom.clone(),
-            amount: 1500000,
+            amount: 150000,
         }],
     )?;
 
@@ -193,7 +193,7 @@ where
         user_key,
         vec![Coin {
             denom: denom.clone(),
-            amount: 2500000,
+            amount: 260000,
         }],
     )?;
 
@@ -245,4 +245,20 @@ where
         native_balance_burned: before_pc - after_pc,
     };
     Ok([gas_information_1, gas_information_2, gas_information_3])
+}
+
+fn complete_tasks_for_n_times<S>(
+    orc: &mut CosmOrc,
+    (agent_key, agent_addr): (&SigningKey, S),
+    user_key: &SigningKey,
+    denom: S,
+    mut tasks: Vec<(Task, u64)>,
+) -> Result<Vec<Vec<GasInformation>>>
+where
+    S: Into<String>,
+{
+    let n = tasks
+        .iter()
+        .fold(0, |acc, (_task, repeats)| acc.max(*repeats));
+    todo!()
 }
