@@ -36,7 +36,6 @@ fn main() {
         &out_dir,
         "QueryConstructResponse",
     );
-    export_schema_with_title(&schema_for!(Status), &out_dir, "ProposalStatus");
 
     export_schema_with_title(
         &schema_for!((bool, Option<Binary>)),
