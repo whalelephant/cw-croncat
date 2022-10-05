@@ -32,7 +32,7 @@ fn main() {
         "RuleResponse",
     );
     export_schema_with_title(
-        &schema_for!(QueryConstruct),
+        &schema_for!((bool, Option<u64>)),
         &out_dir,
         "QueryConstructResponse",
     );
