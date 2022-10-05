@@ -3,8 +3,8 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
-    SubMsg,
+    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Order, Reply, Response, StdResult,
+    Storage, SubMsg,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{calculate_required_amount, Action, Agent, Interval, SlotType, Task};
@@ -452,7 +452,12 @@ impl<'a> CwCroncat<'a> {
         Ok(())
     }
 
-    fn check_and_update_agent(&mut self, storage: &mut dyn Storage, info: &MessageInfo, env: &Env) -> Result<Agent, ContractError> {
+    fn check_and_update_agent(
+        &mut self,
+        storage: &mut dyn Storage,
+        info: &MessageInfo,
+        env: &Env,
+    ) -> Result<Agent, ContractError> {
         // only registered agent signed, because micropayments will benefit long term
         let agent_opt = self.agents.may_load(storage, &info.sender)?;
         if agent_opt.is_none() {
@@ -540,4 +545,35 @@ impl<'a> CwCroncat<'a> {
     //     };
     //     return Ok(response)
     // } else {}
+
+    /// Helps manage and cleanup agents
+    /// Deletes agents which missed more than agents_eject_threshold slot
+    pub fn tick(&mut self, deps: DepsMut, env: Env) -> Result<Response, ContractError> {
+        let current_slot = env.block.height;
+        let cfg = self.config.load(deps.storage)?;
+        let mut attributes = vec![];
+        let mut submessages = vec![];
+        for agent_id in self
+            .agents
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<Addr>>>()?
+        {
+            let agent = self.agents.load(deps.storage, &agent_id)?;
+            if current_slot
+                > agent.last_executed_slot + cfg.agents_eject_threshold * cfg.slot_granularity
+            {
+                let resp = self
+                    .unregister_agent(deps.storage, &agent_id)
+                    .unwrap_or_default();
+                // Save attributes and messages
+                attributes.extend_from_slice(&resp.attributes);
+                submessages.extend_from_slice(&resp.messages);
+            }
+        }
+        let response = Response::new()
+            .add_attribute("method", "tick")
+            .add_attributes(attributes)
+            .add_submessages(submessages);
+        Ok(response)
+    }
 }

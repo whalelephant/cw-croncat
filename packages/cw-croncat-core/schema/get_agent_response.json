@@ -18,7 +18,7 @@
       "type": "object",
       "required": [
         "balance",
-        "last_missed_slot",
+        "last_executed_slot",
         "payable_account_id",
         "register_start",
         "status",
@@ -28,7 +28,7 @@
         "balance": {
           "$ref": "#/definitions/GenericBalance"
         },
-        "last_missed_slot": {
+        "last_executed_slot": {
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0

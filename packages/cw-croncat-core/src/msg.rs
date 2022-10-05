@@ -113,6 +113,7 @@ pub enum ExecuteMsg {
     WithdrawWalletBalance {
         cw20_amounts: Vec<Cw20Coin>,
     },
+    Tick {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
