@@ -7,18 +7,19 @@ set -e
 
 CHAIN_ID="testing"
 RPC="http://localhost:26657/"
-BINARY="docker exec -i juno-node-1 junod"
+BINARY="docker exec -i juno_node_1 junod"
 DIR=$(pwd)
 JUNO_DIR="$HOME/juno"
 DIR_NAME=$(basename "$PWD")
-SCRIPT_PATH=$(dirname `which $0`)
-IMAGE_NAME="juno-node-1"
+SCRIPT_PATH=$(dirname $(which $0))
+IMAGE_NAME="juno_node_1"
 DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
-WASM="artifacts/$DIR_NAME_SNAKE.wasm"
+WASM="artifacts/$DIR_NAME_SNAKE-aarch64.wasm"
 STAKE_TOKEN=ujunox
 STAKE=${STAKE_TOKEN:-ustake}
 TXFLAG="--gas-prices 0.075$STAKE --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
-
+RECREATE_ARTIFACTS=0
+RECREATE_CONTAINERS=0
 # Reset
 NoColor='\033[0m' # Text Reset
 # Regular Colors
@@ -32,8 +33,55 @@ Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
 echo "$DIR/artifacts/cw20_base.wasm"
 
+usage() {
+  printf "Usage: ./scripts/local/simple-payroll.sh -w -c"
+}
+flags() {
+  while test $# -gt 0; do
+    case "$1" in
+    -w | --recreate-artifacts)
+      RECREATE_ARTIFACTS=1
+      ;;
+    -c | --recreate-containers)
+      RECREATE_CONTAINERS=1
+      ;;
+    -a | --all)
+      RECREATE_ARTIFACTS=1
+      RECREATE_CONTAINERS=1
+      ;;
+    -\? | -h | --help)
+      usage
+      exit
+      ;;
+    --) # Stop option processing
+      usage
+      exit 1
+      ;;
+    -*)
+      usage
+      exit 1
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+    esac
+
+    # and here we shift to the next argument
+    shift
+  done
+}
+
+if [[ -z "$@" ]]; then
+  usage
+  exit
+else
+  flags "$@"
+fi
+echo $RECREATE_ARTIFACTS
+echo $RECREATE_CONTAINERS
 #Recreate artifacts
-if [ "$1" = "-yes" ]; then
+if [ $RECREATE_ARTIFACTS == 1 ]; then
   #Remove local artifacts folder
   echo "deleting artifacts..."
   rm -rf "artifacts"
@@ -43,14 +91,15 @@ if [ "$1" = "-yes" ]; then
     docker run --rm -v "$(pwd)":/code \
       --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      cosmwasm/rust-optimizer:0.12.8
+      --platform linux/arm64 \
+      cosmwasm/rust-optimizer-arm64:0.12.8
   fi
-   #Download basic implementation of a cw20 
-  curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm" 
- 
+  #Download basic implementation of a cw20
+  curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm"
+
 fi
 #Recreate containers
-if [ "$2" = "-yes" ]; then
+if [ $RECREATE_CONTAINERS == 1 ]; then
   # stop docker container
   cd $JUNO_DIR
   echo "stopping container..."
@@ -85,12 +134,12 @@ fi
 
 # move binary to docker container
 cd $DIR
-docker cp "artifacts/$DIR_NAME_SNAKE.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE.wasm"
-docker cp "artifacts/cw_rules.wasm" "$IMAGE_NAME:/cw_rules.wasm"
+docker cp "artifacts/$DIR_NAME_SNAKE-aarch64.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE-aarch64.wasm"
+docker cp "artifacts/cw_rules-aarch64.wasm" "$IMAGE_NAME:/cw_rules-aarch64.wasm"
 docker cp "artifacts/cw20_base.wasm" "$IMAGE_NAME:/cw20_base.wasm"
 
-echo "${Cyan}Wasm file: $DIR_NAME_SNAKE"
-echo "${Cyan}Wasm file: cw_rules.wasm"
+echo "${Cyan}Wasm file: $WASM"
+echo "${Cyan}Wasm file: cw_rules-aarch64.wasm"
 echo "${Cyan}Wasm file: cw20_base.wasm"
 
 cd $JUNO_DIR
@@ -145,8 +194,8 @@ echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
 
 #---------------------------------------------------------------------------
 echo "${Yellow}Instantiating smart contracts...${NoColor}"
-CODE_ID=$($BINARY tx wasm store /$DIR_NAME_SNAKE.wasm --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
-RULES_ID=$($BINARY tx wasm store "/cw_rules.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+CODE_ID=$($BINARY tx wasm store /$DIR_NAME_SNAKE-aarch64.wasm --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+RULES_ID=$($BINARY tx wasm store "/cw_rules-aarch64.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 CW20_ID=$($BINARY tx wasm store "/cw20_base.wasm" --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 
 echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
