@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    coin, Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
     OverflowOperation::Sub, StakingMsg, StdError, SubMsgResult, Timestamp, Uint128, Uint64,
     WasmMsg,
 };
@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
+    msg::TaskRequest,
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
@@ -205,6 +206,108 @@ impl Action {
 /// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
 pub type RuleResponse<T> = (bool, T);
 
+impl TaskRequest {
+    /// Validate the task actions only use the supported messages
+    /// We're iterating over all actions
+    /// so it's a great place for calculaing balance usages
+    pub fn is_valid_msg_calculate_usage(
+        &self,
+        api: &dyn Api,
+        self_addr: &Addr,
+        sender: &Addr,
+        owner_id: &Addr,
+        default_gas: u64,
+    ) -> Result<(GenericBalance, u64), CoreError> {
+        // TODO: Chagne to default FALSE, once all messages are covered in tests
+        let mut gas_amount: u64 = 0;
+        let mut amount_for_one_task = GenericBalance::default();
+
+        for action in self.actions.iter() {
+            // checked for cases, where task creator intentionaly tries to overflow
+            gas_amount = gas_amount
+                .checked_add(action.gas_limit.unwrap_or(default_gas))
+                .ok_or(CoreError::InvalidWasmMsg {})?;
+            match &action.msg {
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr,
+                    funds: _,
+                    msg,
+                }) => {
+                    // TODO: Is there any way sender can be "self" creating a malicious task?
+                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
+                    if contract_addr == self_addr && sender != owner_id {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                        match cw20_msg {
+                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            _ => {
+                                return Err(CoreError::InvalidAction {});
+                            }
+                        }
+                    }
+                }
+                CosmosMsg::Staking(StakingMsg::Delegate {
+                    validator: _,
+                    amount,
+                }) => {
+                    // Must attach enough balance for staking
+                    if amount.amount.is_zero() {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    amount_for_one_task.native.find_checked_add(amount)?;
+                }
+                // TODO: Allow send, as long as coverage of assets is correctly handled
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: _,
+                    amount,
+                }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
+                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
+                    // which is however much was passed in, like 1000000ujunox below:
+                    // junod tx wasm execute … … --amount 1000000ujunox
+                    if amount.iter().any(|coin| coin.amount.is_zero()) {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    amount_for_one_task.checked_add_native(amount)?;
+                }
+                CosmosMsg::Bank(_) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                CosmosMsg::Gov(GovMsg::Vote { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                // TODO: Setup better support for IBC
+                CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                // TODO: Check authZ messages
+                _ => (),
+            }
+        }
+        Ok((amount_for_one_task, gas_amount))
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Task {
     /// Entity responsible for this task, can change task details
@@ -313,109 +416,6 @@ impl Task {
         result
     }
 
-    /// Validate the task actions only use the supported messages
-    /// We're iterating over all actions
-    /// so it's a great place for calculaing balance usages
-    pub fn is_valid_msg_calculate_usage(
-        &mut self,
-        api: &dyn Api,
-        self_addr: &Addr,
-        sender: &Addr,
-        owner_id: &Addr,
-        default_gas: u64,
-        native_denom: String,
-    ) -> Result<bool, CoreError> {
-        // TODO: Chagne to default FALSE, once all messages are covered in tests
-        let mut valid = true;
-        let mut gas_amount: u64 = 0;
-        let amount_for_one_task = &mut self.amount_for_one_task;
-
-        for action in self.actions.iter() {
-            // checked for cases, where task creator intentionaly tries to overflow
-            gas_amount = gas_amount
-                .checked_add(action.gas_limit.unwrap_or(default_gas))
-                .ok_or(CoreError::InvalidWasmMsg {})?;
-            match &action.msg {
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr,
-                    funds: _,
-                    msg,
-                }) => {
-                    // TODO: Is there any way sender can be "self" creating a malicious task?
-                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                    if contract_addr == self_addr && sender != owner_id {
-                        valid = false;
-                    }
-                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
-                        match cw20_msg {
-                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
-                                amount_for_one_task
-                                    .cw20
-                                    .find_checked_add(&Cw20CoinVerified {
-                                        address: api.addr_validate(contract_addr)?,
-                                        amount,
-                                    })?
-                            }
-                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
-                                amount_for_one_task
-                                    .cw20
-                                    .find_checked_add(&Cw20CoinVerified {
-                                        address: api.addr_validate(contract_addr)?,
-                                        amount,
-                                    })?
-                            }
-                            _ => valid = false,
-                        }
-                    }
-                }
-                CosmosMsg::Staking(StakingMsg::Delegate {
-                    validator: _,
-                    amount,
-                }) => {
-                    // Must attach enough balance for staking
-                    if amount.amount.is_zero() {
-                        valid = false;
-                    }
-                    amount_for_one_task.native.find_checked_add(amount)?;
-                }
-                // TODO: Allow send, as long as coverage of assets is correctly handled
-                CosmosMsg::Bank(BankMsg::Send {
-                    to_address: _,
-                    amount,
-                }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
-                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
-                    // which is however much was passed in, like 1000000ujunox below:
-                    // junod tx wasm execute … … --amount 1000000ujunox
-                    if amount.iter().any(|coin| coin.amount.is_zero()) {
-                        valid = false;
-                    }
-                    amount_for_one_task.checked_add_native(amount)?;
-                }
-                CosmosMsg::Bank(BankMsg::Burn { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                CosmosMsg::Gov(GovMsg::Vote { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                // TODO: Setup better support for IBC
-                CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                // TODO: Check authZ messages
-                _ => (),
-            }
-        }
-        amount_for_one_task
-            .native
-            .find_checked_add(&coin(gas_amount as u128, native_denom))?;
-        Ok(valid)
-    }
-
     /// Get task gas total
     /// helper for getting total configured gas for this tasks actions
     pub fn to_gas_total(&self) -> u64 {
@@ -431,7 +431,7 @@ impl Task {
 
     /// Get whether the task is with rules
     pub fn with_rules(&self) -> bool {
-        self.rules.is_some() && !self.rules.as_ref().unwrap().is_empty()
+        self.rules.as_ref().map_or(false, |rules| !rules.is_empty())
     }
 
     /// Check if given Addr is the owner
@@ -688,18 +688,13 @@ mod tests {
 
     #[test]
     fn is_valid_msg_once_block_based() {
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Once,
-            boundary: BoundaryValidated {
-                start: Some(4),
-                end: Some(8),
-            },
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
+                end: Some(Uint64::from(8_u64)),
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -709,6 +704,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -717,25 +713,19 @@ mod tests {
                 &Addr::unchecked("bob"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]
     fn is_valid_msg_once_time_based() {
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Once,
-            boundary: BoundaryValidated {
-                start: Some(1_000_000_000),
-                end: Some(2_000_000_000),
-            },
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(1_000_000_000_u64)),
+                end: Some(Uint64::from(2_000_000_000_u64)),
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -745,6 +735,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -753,25 +744,16 @@ mod tests {
                 &Addr::unchecked("bob"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]
     fn is_valid_msg_recurring() {
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(10),
-            boundary: BoundaryValidated {
-                start: None,
-                end: None,
-            },
+            boundary: None,
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -781,6 +763,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -789,26 +772,20 @@ mod tests {
                 &Addr::unchecked("bob"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]
     fn is_valid_msg_wrong_account() {
         // Cannot create a task to execute on the cron manager when not the owner
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("alice"),
+        let task = TaskRequest {
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::Execute {
                     contract_addr: "alice".to_string(),
@@ -818,34 +795,31 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
-        assert!(!task
-            .is_valid_msg_calculate_usage(
+        assert_eq!(
+            CoreError::InvalidAction {},
+            task.is_valid_msg_calculate_usage(
                 &mock_dependencies().api,
                 &Addr::unchecked("alice"),
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .unwrap_err()
+        );
     }
 
     #[test]
     fn is_valid_msg_vote() {
         // A task with CosmosMsg::Gov Vote should return false
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Gov(GovMsg::Vote {
                     proposal_id: 0,
@@ -854,34 +828,31 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
-        assert!(!task
-            .is_valid_msg_calculate_usage(
+        assert_eq!(
+            CoreError::InvalidAction {},
+            task.is_valid_msg_calculate_usage(
                 &mock_dependencies().api,
                 &Addr::unchecked("alice"),
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .unwrap_err()
+        );
     }
 
     #[test]
     fn is_valid_msg_transfer() {
         // A task with CosmosMsg::Ibc Transfer should return false
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Ibc(IbcMsg::Transfer {
                     channel_id: "id".to_string(),
@@ -892,34 +863,29 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
-        assert!(!task
+        assert!(task
             .is_valid_msg_calculate_usage(
                 &mock_dependencies().api,
                 &Addr::unchecked("alice"),
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]
     fn is_valid_msg_burn() {
         // A task with CosmosMsg::Bank Burn should return false
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Burn {
                     amount: vec![Coin::new(10, "coin")],
@@ -927,34 +893,31 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
-        assert!(!task
-            .is_valid_msg_calculate_usage(
+        assert_eq!(
+            CoreError::InvalidAction {},
+            task.is_valid_msg_calculate_usage(
                 mock_dependencies().as_ref().api,
                 &Addr::unchecked("alice"),
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .unwrap_err()
+        );
     }
 
     #[test]
     fn is_valid_msg_send_doesnt_fail() {
         // A task with CosmosMsg::Bank Send should return true
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: Default::default(),
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Send {
                     to_address: "address".to_string(),
@@ -963,6 +926,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -971,29 +935,20 @@ mod tests {
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "coin".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]
     fn is_valid_msg_send_should_success() {
         // A task with CosmosMsg::Bank Send should return false
-        let mut task = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
-
-            owner_id: Addr::unchecked("bob"),
+        let task = TaskRequest {
             interval: Interval::Block(1),
-            boundary: BoundaryValidated {
-                start: Some(4),
+            boundary: Some(Boundary::Height {
+                start: Some(Uint64::from(4_u64)),
                 end: None,
-            },
+            }),
             stop_on_fail: false,
-            total_deposit: GenericBalance {
-                native: coins(10, "atom"),
-                cw20: Default::default(),
-            },
-            amount_for_one_task: Default::default(),
             actions: vec![Action {
                 msg: CosmosMsg::Bank(BankMsg::Send {
                     to_address: "address".to_string(),
@@ -1002,6 +957,7 @@ mod tests {
                 gas_limit: Some(5),
             }],
             rules: None,
+            cw20_coins: Default::default(),
         };
         assert!(task
             .is_valid_msg_calculate_usage(
@@ -1010,9 +966,8 @@ mod tests {
                 &Addr::unchecked("sender"),
                 &Addr::unchecked("bob"),
                 100,
-                "atom".to_string()
             )
-            .unwrap());
+            .is_ok());
     }
 
     #[test]

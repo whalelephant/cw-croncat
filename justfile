@@ -1,6 +1,9 @@
 test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
 
-deploy-local:
+check:
+	cargo fmt && cargo clippy -- -D warnings
+
+juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data
 	docker run --rm -d --name cosmwasm \
@@ -22,3 +25,8 @@ optimize:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.12.8
+
+download-deps:
+	mkdir -p artifacts
+	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
+# TODO: test dao-contracts

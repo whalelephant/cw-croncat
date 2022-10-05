@@ -198,9 +198,9 @@ impl<'a> CwCroncat<'a> {
         // Task pays for gas even if it failed
         let mut agent = agent;
         let mut task = task;
-        let gas_used = coin(gas_used as u128, c.native_denom);
-        agent.balance.native.find_checked_add(&gas_used)?;
-        task.total_deposit.native.find_checked_sub(&gas_used)?;
+        let native_used = coin((gas_used / c.gas_for_one_native) as u128, c.native_denom);
+        agent.balance.native.find_checked_add(&native_used)?;
+        task.total_deposit.native.find_checked_sub(&native_used)?;
         // calculate agent base reward
         task.total_deposit.native.find_checked_sub(&c.agent_fee)?;
         agent.balance.native.find_checked_add(&c.agent_fee)?;
@@ -314,9 +314,12 @@ impl<'a> CwCroncat<'a> {
         // Task pays for gas even if it failed
         let mut agent = agent;
         let mut task = task;
-        let gas_used = coin(gas_used as u128, cfg.native_denom);
-        agent.balance.native.find_checked_add(&gas_used)?;
-        task.total_deposit.native.find_checked_sub(&gas_used)?;
+        let native_used = coin(
+            (gas_used / cfg.gas_for_one_native) as u128,
+            cfg.native_denom,
+        );
+        agent.balance.native.find_checked_add(&native_used)?;
+        task.total_deposit.native.find_checked_sub(&native_used)?;
         // calculate agent base reward
         task.total_deposit.native.find_checked_sub(&cfg.agent_fee)?;
         agent.balance.native.find_checked_add(&cfg.agent_fee)?;
