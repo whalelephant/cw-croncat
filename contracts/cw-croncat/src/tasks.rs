@@ -677,7 +677,7 @@ mod tests {
 
     use std::convert::TryInto;
     // use cosmwasm_std::testing::MockStorage;
-    use crate::contract::GAS_BASE_FEE_JUNO;
+    use crate::contract::{GAS_BASE_FEE_JUNO, GAS_FOR_ONE_NATIVE_JUNO};
     use cosmwasm_std::{
         coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, WasmMsg,
     };
@@ -1147,9 +1147,7 @@ mod tests {
             )
             .unwrap_err();
         assert_eq!(
-            ContractError::CustomError {
-                val: "Actions message unsupported or invalid message data".to_string()
-            },
+            ContractError::CoreError(CoreError::InvalidAction {}),
             res_err.downcast().unwrap()
         );
 
@@ -1726,7 +1724,7 @@ mod tests {
             },
         };
         // create 1 token off task
-        let amount_for_one_task = gas_limit + 3;
+        let amount_for_one_task = gas_limit / GAS_FOR_ONE_NATIVE_JUNO + 3;
         let res: ContractError = app
             .execute_contract(
                 Addr::unchecked(ANYONE),
@@ -1781,7 +1779,7 @@ mod tests {
         };
         // create 1 token off task
         // for one task need gas + staking amount
-        let amount_for_one_task = gas_limit + 3;
+        let amount_for_one_task = gas_limit / GAS_FOR_ONE_NATIVE_JUNO + 3;
         let res: ContractError = app
             .execute_contract(
                 Addr::unchecked(ANYONE),

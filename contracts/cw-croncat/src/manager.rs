@@ -584,7 +584,7 @@ impl<'a> CwCroncat<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::contract::GAS_BASE_FEE_JUNO;
+    use crate::contract::{GAS_BASE_FEE_JUNO, GAS_FOR_ONE_NATIVE_JUNO};
     use cosmwasm_std::{
         coin, coins, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Empty, StakingMsg,
         Uint128, WasmMsg,
@@ -1116,7 +1116,7 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "250005atom"
+                        && a.clone().value == "472228atom"
                     {
                         has_submsg_method = true;
                     }
@@ -1215,7 +1215,7 @@ mod tests {
                     }
                     if e.ty == "transfer"
                         && a.clone().key == "amount"
-                        && a.clone().value == "250005atom"
+                        && a.clone().value == "472228atom"
                     {
                         has_submsg_method = true;
                     }
@@ -1879,7 +1879,8 @@ mod tests {
         let gas_limit = GAS_BASE_FEE_JUNO;
         let agent_fee = 5; // TODO: might change
         let extra = 50; // extra for checking refunds at task removal
-        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + 4 + extra; // + 3 + 4 atoms sent
+        let amount_for_one_task =
+            (gas_limit * 2) / GAS_FOR_ONE_NATIVE_JUNO + agent_fee + 3 + 4 + extra; // + 3 + 4 atoms sent
 
         // create a task
         app.execute_contract(
@@ -1963,7 +1964,8 @@ mod tests {
             .unwrap();
         let contract_balance_after_withdraw =
             app.wrap().query_balance(&contract_addr, "atom").unwrap();
-        let expected_transfer_amount = Uint128::from((gas_limit * 2) + agent_fee);
+        let expected_transfer_amount =
+            Uint128::from((gas_limit * 2) / GAS_FOR_ONE_NATIVE_JUNO + agent_fee);
         assert_eq!(
             beneficary_balance_after_withdraw.amount,
             beneficary_balance_before_withdraw.amount + expected_transfer_amount
@@ -2002,7 +2004,7 @@ mod tests {
         let gas_limit = GAS_BASE_FEE_JUNO;
         let agent_fee = 5; // TODO: might change
         let extra = 50; // extra for checking nonzero task balance
-        let amount_for_one_task = (gas_limit * 2) + agent_fee + 3 + extra; // + 3 atoms sent
+        let amount_for_one_task = (gas_limit * 2) / GAS_FOR_ONE_NATIVE_JUNO + agent_fee + 3 + extra; // + 3 atoms sent
 
         // create a task
         app.execute_contract(
@@ -2050,7 +2052,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             task.unwrap().total_deposit[0].amount,
-            Uint128::from(GAS_BASE_FEE_JUNO + extra)
+            Uint128::from(GAS_BASE_FEE_JUNO / GAS_FOR_ONE_NATIVE_JUNO + extra)
         );
 
         app.update_block(add_little_time);
@@ -2233,7 +2235,7 @@ mod tests {
             },
         };
 
-        let attached_balance = 900058;
+        let attached_balance = 133000;
         app.execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
@@ -2343,6 +2345,7 @@ mod tests {
             .attributes
             .iter()
             .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
         let tasks_with_rules: Vec<TaskWithRulesResponse> = app
             .wrap()
             .query_wasm_smart(

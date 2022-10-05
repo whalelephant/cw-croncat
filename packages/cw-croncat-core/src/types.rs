@@ -844,7 +844,7 @@ mod tests {
     }
 
     #[test]
-    fn is_valid_msg_transfer() {
+    fn is_valid_msg_ibc_transfer() {
         // A task with CosmosMsg::Ibc Transfer should return false
         let task = TaskRequest {
             interval: Interval::Block(5),
@@ -873,7 +873,7 @@ mod tests {
                 &Addr::unchecked("bob"),
                 100,
             )
-            .is_ok());
+            .is_err());
     }
 
     #[test]
