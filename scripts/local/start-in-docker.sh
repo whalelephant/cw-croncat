@@ -224,6 +224,7 @@ echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
 echo "${Cyan}Instantiating smart contracts done!${NoColor}"
 
 #Display all data
+echo "${Cyan}"
 echo ALICE_ADDR=$ALICE_ADDR
 echo BOB_ADDR=$BOB_ADDR
 echo OWNER_ADDR=$OWNER_ADDR
@@ -231,4 +232,4 @@ echo USER_ADDR=$USER_ADDR
 echo AGENT_ADDR=$AGENT_ADDR
 echo RULES_CONTRACT_ADDR=$RULES_CONTRACT_ADDR
 echo CW20_ADDR=$CW20_ADDR
-echo CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+echo CONTRACT_ADDRESS=$CONTRACT_ADDRESS$ "{NoColor}"
