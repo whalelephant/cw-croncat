@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { CheckOwnerOfNftResponse, Binary, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, ProposalStatus, Rule, ValueIndex, ValueOrdering, QueryConstructResponse, GenericQuery, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse } from "./CwRules.types";
+import { CheckOwnerOfNftResponse, Binary, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, QueryConstructResponse, Rule, ValueIndex, ValueOrdering, QueryConstruct, GenericQuery, QueryMsg, QueryMultiResponse, RuleResponse } from "./CwRules.types";
 export interface CwRulesReadOnlyInterface {
   contractAddress: string;
   getBalance: ({

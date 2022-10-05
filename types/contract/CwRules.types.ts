@@ -55,7 +55,7 @@ export interface Cw20CoinVerified {
 export interface InstantiateMsg {
   [k: string]: unknown;
 }
-export type ProposalStatus = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
+export type QueryConstructResponse = [boolean, number | null];
 export type Rule = {
   has_balance_gte: HasBalanceGte;
 } | {
@@ -71,7 +71,7 @@ export type ValueIndex = {
   index: number;
 };
 export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
-export interface QueryConstructResponse {
+export interface QueryConstruct {
   rules: Rule[];
   [k: string]: unknown;
 }
@@ -81,10 +81,6 @@ export interface GenericQuery {
   msg: Binary;
   ordering: ValueOrdering;
   value: Binary;
-  [k: string]: unknown;
-}
-export interface QueryConstruct {
-  rules: Rule[];
   [k: string]: unknown;
 }
 export type QueryMsg = {
