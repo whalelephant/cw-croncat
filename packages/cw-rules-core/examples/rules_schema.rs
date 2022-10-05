@@ -67,19 +67,4 @@ fn main() {
         &out_dir,
         "GenericQueryResponse",
     );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "HasBalanceGteResponse",
-    );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "CheckProposalStatusResponse",
-    );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "CheckProposalStatusResponse",
-    );
 }
