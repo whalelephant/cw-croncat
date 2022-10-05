@@ -27,7 +27,7 @@ fn main() {
     export_schema(&schema_for!(CheckProposalStatus), &out_dir);
 
     export_schema_with_title(
-        &schema_for!(RuleResponse<Option<Binary>>),
+        &schema_for!((bool, Option<Binary>)),
         &out_dir,
         "RuleResponse",
     );
