@@ -1772,3 +1772,180 @@ fn test_reschedule_task_with_rule() {
         .unwrap();
     assert!(tasks_with_rules.is_empty());
 }
+#[test]
+fn tick() {
+    let (mut app, cw_template_contract) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let change_settings_msg = ExecuteMsg::UpdateSettings {
+        paused: None,
+        owner_id: None,
+        agent_fee: None,
+        min_tasks_per_agent: None,
+        agents_eject_threshold: Some(100), // allow to miss 100 slots
+        gas_price: None,
+        proxy_callback_gas: None,
+        slot_granularity: Some(10), // each slot has 10 blocks
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &change_settings_msg,
+        &vec![],
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    // might need block advancement?!
+    app.update_block(add_little_time);
+
+    let tick_msg = ExecuteMsg::Tick {};
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &tick_msg,
+            &vec![],
+        )
+        .unwrap();
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "tick")));
+    assert!(!res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "unregister_agent")));
+
+    // The agent wasn't unregistered
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(agents.active.len(), 1);
+
+    app.update_block(add_1000_blocks);
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &tick_msg,
+            &vec![],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "tick")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "unregister_agent")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+
+    // The agent is unregistered
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert!(agents.active.is_empty());
+    assert!(agents.pending.is_empty());
+}
+
+#[test]
+fn tick_task() -> StdResult<()> {
+    let (mut app, cw_template_contract) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let change_settings_msg = ExecuteMsg::UpdateSettings {
+        paused: None,
+        owner_id: None,
+        agent_fee: None,
+        min_tasks_per_agent: None,
+        agents_eject_threshold: Some(100), // allow to miss 100 slots
+        gas_price: None,
+        proxy_callback_gas: None,
+        slot_granularity: Some(10), // each slot has 10 blocks
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &change_settings_msg,
+        &vec![],
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg_register = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &msg_register,
+        &[],
+    )
+    .unwrap();
+
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: contract_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::Tick {})?,
+        funds: coins(1, NATIVE_DENOM),
+    });
+
+    let create_task_with_tick_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Immediate,
+            boundary: Some(Boundary::Height {
+                start: None,
+                end: None,
+            }),
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg,
+                gas_limit: Some(250_000),
+            }],
+            rules: None,
+            cw20_coins: vec![],
+        },
+    };
+    // create a task
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_with_tick_msg,
+        &coins(600000, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // might need block advancement
+    app.update_block(add_little_time);
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall { task_hash: None },
+            &[],
+        )
+        .unwrap();
+    assert!(res.events.iter().any(|ev| ev.ty == "wasm"
+        && ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "method" && attr.value == "tick")));
+
+    Ok(())
+}
