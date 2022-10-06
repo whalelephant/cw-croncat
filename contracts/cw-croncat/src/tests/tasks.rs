@@ -1,80 +1,24 @@
-use crate::ContractError;
-use std::convert::TryInto;
-// use cosmwasm_std::testing::MockStorage;
 use crate::contract::GAS_BASE_FEE_JUNO;
+use crate::tests::helpers::proper_instantiate;
+use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, Empty, StakingMsg, StdResult, Uint128,
-    WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
 use cw_croncat_core::error::CoreError;
-use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cw_rules_core::types::{HasBalanceGte, Rule};
-// use crate::error::ContractError;
-use crate::helpers::CwTemplateContract;
 use cw_croncat_core::msg::{
-    ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, InstantiateMsg,
-    QueryMsg, TaskRequest, TaskResponse, TaskWithRulesResponse,
+    ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
+    TaskRequest, TaskResponse, TaskWithRulesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
+use cw_multi_test::Executor;
+use cw_rules_core::types::{HasBalanceGte, Rule};
+use std::convert::TryInto;
 
-pub fn contract_template() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::entry::execute,
-        crate::entry::instantiate,
-        crate::entry::query,
-    );
-    Box::new(contract)
-}
-
-const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-const NATIVE_DENOM: &str = "atom";
-
-fn mock_app() -> App {
-    AppBuilder::new().build(|router, _, storage| {
-        let accounts: Vec<(u128, String)> = vec![
-            (100, ADMIN.to_string()),
-            (800_010, ANYONE.to_string()),
-            (u128::max_value(), VERY_RICH.to_string()),
-        ];
-        for (amt, address) in accounts.iter() {
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(address),
-                    vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-        }
-    })
-}
-
-fn proper_instantiate() -> (App, CwTemplateContract) {
-    let mut app = mock_app();
-    let cw_template_id = app.store_code(contract_template());
-    let owner_addr = Addr::unchecked(ADMIN);
-
-    let msg = InstantiateMsg {
-        denom: "atom".to_string(),
-        owner_id: Some(owner_addr.to_string()),
-        gas_base_fee: None,
-        agent_nomination_duration: Some(360),
-        cw_rules_addr: "todo".to_string(),
-    };
-    let cw_template_contract_addr = app
-        .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
-        .unwrap();
-
-    let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
-
-    (app, cw_template_contract)
-}
+use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 
 #[test]
 fn query_task_hash_success() {
-    let (app, cw_template_contract) = proper_instantiate();
+    let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let to_address = String::from("you");
@@ -92,7 +36,7 @@ fn query_task_hash_success() {
         },
         stop_on_fail: false,
         total_deposit: GenericBalance {
-            native: coins(37, "atom"),
+            native: coins(37, NATIVE_DENOM),
             cw20: Default::default(),
         },
         amount_for_one_task: Default::default(),
@@ -121,7 +65,7 @@ fn query_task_hash_success() {
 
 #[test]
 fn query_validate_interval_success() {
-    let (app, cw_template_contract) = proper_instantiate();
+    let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let intervals: Vec<Interval> = vec![
@@ -146,11 +90,11 @@ fn query_validate_interval_success() {
 
 #[test]
 fn query_get_tasks() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -173,7 +117,7 @@ fn query_get_tasks() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(300010, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -204,7 +148,7 @@ fn query_get_tasks() {
 
 #[test]
 fn query_get_tasks_pagination() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
@@ -219,7 +163,7 @@ fn query_get_tasks_pagination() {
             actions: vec![Action {
                 msg: StakingMsg::Delegate {
                     validator: validator.clone(),
-                    amount: coin(amount, "atom"),
+                    amount: coin(amount, NATIVE_DENOM),
                 }
                 .into(),
                 gas_limit: Some(150_000),
@@ -235,7 +179,7 @@ fn query_get_tasks_pagination() {
             Addr::unchecked(VERY_RICH),
             contract_addr.clone(),
             &new_msg(amount),
-            &coins(300000 + 2 * amount, "atom"),
+            &coins(300000 + 2 * amount, NATIVE_DENOM),
         )
         .unwrap();
     }
@@ -357,11 +301,11 @@ fn query_get_tasks_pagination() {
 
 #[test]
 fn check_task_create_fail_cases() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -421,7 +365,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -472,7 +416,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     cw20_coins: vec![],
                 },
             },
-            &coins(13, "atom"),
+            &coins(13, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -500,7 +444,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     cw20_coins: vec![],
                 },
             },
-            &coins(13, "atom"),
+            &coins(13, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -515,7 +459,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(300010, NATIVE_DENOM),
     )
     .unwrap();
     let res_err = app
@@ -523,7 +467,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -554,7 +498,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     cw20_coins: vec![],
                 },
             },
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -571,11 +515,11 @@ fn check_task_create_fail_cases() -> StdResult<()> {
 
 #[test]
 fn check_task_create_success() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -601,7 +545,7 @@ fn check_task_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -631,7 +575,7 @@ fn check_task_create_success() -> StdResult<()> {
         assert_eq!(Interval::Immediate, t.interval);
         assert_eq!(None, t.boundary);
         assert_eq!(false, t.stop_on_fail);
-        assert_eq!(coins(300010, "atom"), t.total_deposit);
+        assert_eq!(coins(300010, NATIVE_DENOM), t.total_deposit);
         assert_eq!(task_id_str.clone(), t.task_hash);
     }
 
@@ -663,11 +607,11 @@ fn check_task_create_success() -> StdResult<()> {
 
 #[test]
 fn check_task_with_rules_create_success() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -694,7 +638,7 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -737,11 +681,11 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
 
 #[test]
 fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -782,7 +726,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &with_rules_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -791,7 +735,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &without_rules_msg,
-            &coins(300010, "atom"),
+            &coins(300010, NATIVE_DENOM),
         )
         .unwrap();
 
@@ -840,11 +784,11 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
 
 #[test]
 fn check_remove_create() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -869,7 +813,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(300010, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -933,7 +877,7 @@ fn check_remove_create() -> StdResult<()> {
         .wrap()
         .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
         .unwrap();
-    assert_eq!(balances.available_balance.native, vec![]);
+    assert_eq!(balances.available_balance.native, coins(1, NATIVE_DENOM));
 
     // Check the slots correctly removed the task
     let slot_ids: GetSlotIdsResponse = app
@@ -949,11 +893,11 @@ fn check_remove_create() -> StdResult<()> {
 
 #[test]
 fn check_refill_create() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
@@ -978,7 +922,7 @@ fn check_refill_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(300010, "atom"),
+        &coins(300010, NATIVE_DENOM),
     )
     .unwrap();
     // refill task
@@ -989,7 +933,7 @@ fn check_refill_create() -> StdResult<()> {
             &ExecuteMsg::RefillTaskBalance {
                 task_hash: task_id_str.clone(),
             },
-            &coins(3, "atom"),
+            &coins(3, NATIVE_DENOM),
         )
         .unwrap();
     // Assert returned event attributes include total
@@ -1017,7 +961,7 @@ fn check_refill_create() -> StdResult<()> {
 
     if let Some(t) = new_task {
         assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
-        assert_eq!(coins(300013, "atom"), t.total_deposit);
+        assert_eq!(coins(300013, NATIVE_DENOM), t.total_deposit);
     }
 
     // Check the balance has increased to include the new refilled total
@@ -1025,18 +969,21 @@ fn check_refill_create() -> StdResult<()> {
         .wrap()
         .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
         .unwrap();
-    assert_eq!(coins(300013, "atom"), balances.available_balance.native);
+    assert_eq!(
+        coins(300014, NATIVE_DENOM),
+        balances.available_balance.native
+    );
 
     Ok(())
 }
 
 #[test]
 fn check_gas_minimum() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = 150_000;
@@ -1061,7 +1008,7 @@ fn check_gas_minimum() {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+            &coins(u128::from(amount_for_one_task * 2 - 1), NATIVE_DENOM),
         )
         .unwrap_err()
         .downcast()
@@ -1069,7 +1016,7 @@ fn check_gas_minimum() {
     assert_eq!(
         res,
         ContractError::CoreError(CoreError::NotEnoughNative {
-            denom: "atom".to_string(),
+            denom: NATIVE_DENOM.to_string(),
             lack: Uint128::from(1u128)
         })
     );
@@ -1079,18 +1026,18 @@ fn check_gas_minimum() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), "atom"),
+        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
     );
     assert!(res.is_ok());
 }
 
 #[test]
 fn check_gas_default() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let validator = String::from("you");
-    let amount = coin(3, "atom");
+    let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = GAS_BASE_FEE_JUNO;
@@ -1116,7 +1063,7 @@ fn check_gas_default() {
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), "atom"),
+            &coins(u128::from(amount_for_one_task * 2 - 1), NATIVE_DENOM),
         )
         .unwrap_err()
         .downcast()
@@ -1124,7 +1071,7 @@ fn check_gas_default() {
     assert_eq!(
         res,
         ContractError::CoreError(CoreError::NotEnoughNative {
-            denom: "atom".to_string(),
+            denom: NATIVE_DENOM.to_string(),
             lack: Uint128::from(1u128)
         })
     );
@@ -1134,7 +1081,7 @@ fn check_gas_default() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), "atom"),
+        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
     );
     assert!(res.is_ok());
 }

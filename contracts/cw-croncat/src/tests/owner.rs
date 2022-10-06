@@ -1,5 +1,6 @@
 use crate::error::ContractError;
 use crate::state::CwCroncat;
+use crate::tests::helpers::NATIVE_DENOM;
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
 use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
 use cw20::Balance;
@@ -13,7 +14,7 @@ fn update_settings() {
     let mut store = CwCroncat::default();
 
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),
@@ -82,16 +83,16 @@ fn update_settings() {
 
 #[test]
 fn move_balances_auth_checks() {
-    let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
+    let mut deps = mock_dependencies_with_balance(&coins(200000000, NATIVE_DENOM));
     let mut store = CwCroncat::default();
     let info = mock_info("owner_id", &coins(1000, "meow"));
     let unauth_info = mock_info("michael_scott", &coins(2, "shrute_bucks"));
-    let exist_bal = vec![Balance::from(coins(2, "atom"))];
+    let exist_bal = vec![Balance::from(coins(2, NATIVE_DENOM))];
     let non_exist_bal = vec![Balance::from(coins(2, "shrute_bucks"))];
 
     // instantiate with owner, then add treasury
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),
@@ -144,19 +145,19 @@ fn move_balances_auth_checks() {
 
 #[test]
 fn move_balances_native() {
-    let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
+    let mut deps = mock_dependencies_with_balance(&coins(200000000, NATIVE_DENOM));
     let mut store = CwCroncat::default();
     let info = mock_info(
         "owner_id",
-        &vec![coin(200000000, "atom"), coin(1000, "meow")],
+        &vec![coin(200000000, NATIVE_DENOM), coin(1000, "meow")],
     );
-    let exist_bal = vec![Balance::from(coins(2, "atom"))];
-    let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
+    let exist_bal = vec![Balance::from(coins(2, NATIVE_DENOM))];
+    let spensive_bal = vec![Balance::from(coins(2000000000000, NATIVE_DENOM))];
     let money_bags = "owner_id".to_string();
 
     // instantiate with owner, then add treasury
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),
@@ -211,7 +212,7 @@ fn move_balances_native() {
         .unwrap();
     let balances: GetBalancesResponse = from_binary(&res_bal).unwrap();
     assert_eq!(
-        vec![coin(199999998, "atom"), coin(1000, "meow")],
+        vec![coin(199999998, NATIVE_DENOM), coin(1000, "meow")],
         balances.available_balance.native
     );
 }
@@ -219,11 +220,11 @@ fn move_balances_native() {
 // // TODO: Setup CW20 logic / balances!
 // #[test]
 // fn move_balances_cw() {
-//     let mut deps = mock_dependencies_with_balance(&coins(200000000, "atom"));
+//     let mut deps = mock_dependencies_with_balance(&coins(200000000, NATIVE_DENOM));
 //     let info = mock_info("owner_id", &vec![Balance::Cw20(1000, "meow")]);
 //     let money_bags = Addr::unchecked("money_bags");
-//     let exist_bal = vec![Balance::from(coins(2, "atom"))];
-//     let spensive_bal = vec![Balance::from(coins(2000000000000, "atom"))];
+//     let exist_bal = vec![Balance::from(coins(2, NATIVE_DENOM))];
+//     let spensive_bal = vec![Balance::from(coins(2000000000000, NATIVE_DENOM))];
 //     let non_exist_bal = vec![Balance::from(coins(2, "shrute_bucks"))];
 
 //     // instantiate with owner, then add treasury

@@ -1,5 +1,7 @@
 use crate::state::QueueItem;
 use crate::tests::helpers::mock_init;
+use crate::tests::helpers::AGENT0;
+use crate::tests::helpers::NATIVE_DENOM;
 use crate::ContractError;
 use crate::CwCroncat;
 use crate::InstantiateMsg;
@@ -11,14 +13,14 @@ use cosmwasm_std::{
 };
 use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
 use cw_croncat_core::types::SlotType;
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+
 #[test]
 fn configure() {
     let mut deps = mock_dependencies_with_balance(&coins(200, ""));
     let mut store = CwCroncat::default();
 
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),
@@ -46,8 +48,8 @@ fn configure() {
         value.agent_active_indices
     );
     assert_eq!(600, value.agents_eject_threshold);
-    assert_eq!("atom", value.native_denom);
-    assert_eq!(coin(5, "atom"), value.agent_fee);
+    assert_eq!(NATIVE_DENOM, value.native_denom);
+    assert_eq!(coin(5, NATIVE_DENOM), value.agent_fee);
     assert_eq!(1, value.gas_price);
     assert_eq!(3, value.proxy_callback_gas);
     assert_eq!(60_000_000_000, value.slot_granularity);

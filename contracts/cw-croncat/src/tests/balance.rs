@@ -1,18 +1,14 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
 use crate::contract::GAS_BASE_FEE_JUNO;
 use crate::state::{Config, TaskInfo};
+use crate::tests::helpers::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
 use cosmwasm_std::{coins, Addr, Coin};
 use cw_croncat_core::types::{GenericBalance, SlotType};
 
 use crate::CwCroncat;
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
-const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
-const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
-const AGENT3: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
-const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-const NATIVE_DENOM: &str = "atom";
+
+use super::helpers::{ADMIN, NATIVE_DENOM};
 
 fn mock_config() -> Config {
     Config {

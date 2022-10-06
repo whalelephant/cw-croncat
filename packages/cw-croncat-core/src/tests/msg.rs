@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[test]
-fn everything_can_be_de_serealized() {
+fn everything_can_be_de_serialized() {
     let generic_balance = GenericBalance {
         native: vec![coin(5, "test")],
         cw20: vec![Cw20CoinVerified {

@@ -1,10 +1,10 @@
 use crate::error::ContractError;
-use crate::helpers::CwTemplateContract;
 use crate::state::Config;
+use crate::tests::helpers::{add_little_time, proper_instantiate};
 use crate::CwCroncat;
 use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, DepsMut, Empty, MessageInfo, Response,
+    coin, coins, from_slice, Addr, BlockInfo, CosmosMsg, DepsMut, MessageInfo, Response,
     StakingMsg, StdResult, Storage,
 };
 use cw_croncat_core::msg::{
@@ -12,86 +12,13 @@ use cw_croncat_core::msg::{
     TaskResponse,
 };
 use cw_croncat_core::types::{Action, Agent, AgentResponse, AgentStatus, GenericBalance, Interval};
-use cw_multi_test::{
-    App, AppBuilder, AppResponse, BankSudo, Contract, ContractWrapper, Executor, SudoMsg,
+use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
+
+use super::helpers::{
+    contract_template, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY,
+    NATIVE_DENOM, PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4,
+    PARTICIPANT5, PARTICIPANT6,
 };
-
-pub fn contract_template() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::entry::execute,
-        crate::entry::instantiate,
-        crate::entry::query,
-    );
-    Box::new(contract)
-}
-
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
-const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
-const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
-const AGENT3: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
-const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-const PARTICIPANT0: &str = "cosmos1055rfv3fv0zxsp8h3x88mctnm7x9mlgmf4m4d6";
-const PARTICIPANT1: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
-const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
-const PARTICIPANT4: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const PARTICIPANT5: &str = "cosmos1k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
-const PARTICIPANT6: &str = "cosmos14a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
-const NATIVE_DENOM: &str = "atom";
-
-fn mock_app() -> App {
-    AppBuilder::new().build(|router, _, storage| {
-        let accounts: Vec<(u128, String)> = vec![
-            (2_000_000, ADMIN.to_string()),
-            (1, AGENT0.to_string()),
-            (2_000_000, AGENT1.to_string()),
-            (2_000_000, AGENT2.to_string()),
-            (2_000_000, AGENT3.to_string()),
-            (2_000_000, AGENT4.to_string()),
-            (500_0000, PARTICIPANT0.to_string()),
-            (500_0000, PARTICIPANT1.to_string()),
-            (500_0000, PARTICIPANT2.to_string()),
-            (500_0000, PARTICIPANT3.to_string()),
-            (500_0000, PARTICIPANT4.to_string()),
-            (500_0000, PARTICIPANT5.to_string()),
-            (500_0000, PARTICIPANT6.to_string()),
-            (2_000_000, AGENT_BENEFICIARY.to_string()),
-        ];
-        for (amt, address) in accounts.iter() {
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(address),
-                    vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-        }
-    })
-}
-
-fn proper_instantiate() -> (App, CwTemplateContract) {
-    let mut app = mock_app();
-    let cw_template_id = app.store_code(contract_template());
-    let owner_addr = Addr::unchecked(ADMIN);
-
-    let msg = InstantiateMsg {
-        denom: "atom".to_string(),
-        owner_id: Some(owner_addr.to_string()),
-        gas_base_fee: None,
-        agent_nomination_duration: Some(360),
-        cw_rules_addr: "todo".to_string(),
-    };
-    let cw_template_contract_addr = app
-        .instantiate_contract(cw_template_id, owner_addr, &msg, &[], "Manager", None)
-        .unwrap();
-
-    let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
-
-    (app, cw_template_contract)
-}
 
 fn get_task_total(app: &App, contract_addr: &Addr) -> usize {
     let res: Vec<TaskResponse> = app
@@ -297,12 +224,6 @@ fn get_agent_ids(app: &App, contract_addr: &Addr) -> (GetAgentIdsResponse, usize
     (res.clone(), res.active.len(), res.pending.len())
 }
 
-pub fn add_little_time(block: &mut BlockInfo) {
-    // block.time = block.time.plus_seconds(360);
-    block.time = block.time.plus_seconds(19);
-    block.height += 1;
-}
-
 pub fn add_one_duration_of_time(block: &mut BlockInfo) {
     // block.time = block.time.plus_seconds(360);
     block.time = block.time.plus_seconds(420);
@@ -351,7 +272,7 @@ fn test_instantiate_sets_balance() {
 
 #[test]
 fn register_agent_fail_cases() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     // start first register
@@ -365,7 +286,7 @@ fn register_agent_fail_cases() {
             Addr::unchecked(AGENT1),
             contract_addr.clone(),
             &msg,
-            &coins(37, "atom"),
+            &coins(37, NATIVE_DENOM),
         )
         .unwrap_err();
     assert_eq!(
@@ -413,7 +334,7 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_price: Some(1_000_000),
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -438,7 +359,7 @@ fn register_agent_fail_cases() {
 
 #[test]
 fn register_agent() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let blk_time = app.block_info().time;
 
@@ -502,7 +423,7 @@ fn register_agent() {
 
 #[test]
 fn update_agent() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     // start first register
@@ -542,7 +463,7 @@ fn update_agent() {
 
 #[test]
 fn unregister_agent() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     // start first register
@@ -613,7 +534,7 @@ fn unregister_agent() {
 
 #[test]
 fn withdraw_agent_balance() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     // start first register
@@ -665,7 +586,7 @@ fn withdraw_agent_balance() {
 
 #[test]
 fn accept_nomination_agent() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     // Register AGENT1, who immediately becomes active
@@ -801,21 +722,21 @@ fn accept_nomination_agent() {
 fn test_get_agent_status() {
     // Give the contract and the agents balances
     let mut deps = cosmwasm_std::testing::mock_dependencies_with_balances(&[
-        (&MOCK_CONTRACT_ADDR, &[coin(6000, "atom")]),
-        (&AGENT0, &[coin(2_000_000, "atom")]),
-        (&AGENT1, &[coin(2_000_000, "atom")]),
+        (&MOCK_CONTRACT_ADDR, &[coin(6000, NATIVE_DENOM)]),
+        (&AGENT0, &[coin(2_000_000, NATIVE_DENOM)]),
+        (&AGENT1, &[coin(2_000_000, NATIVE_DENOM)]),
     ]);
     let mut contract = CwCroncat::default();
 
     // Instantiate
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
     };
-    let mut info = mock_info(AGENT0, &coins(900_000, "atom"));
+    let mut info = mock_info(AGENT0, &coins(900_000, NATIVE_DENOM));
     let res_init = contract
         .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
         .unwrap();
@@ -890,7 +811,7 @@ fn test_get_agent_status() {
 
 #[test]
 fn test_query_get_agent_tasks() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let block_info = app.block_info();
     println!(
