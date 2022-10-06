@@ -11,7 +11,7 @@ After following directions, you should be able to run:
 
     junod version
 
-and see: `v9.0.0`
+and see: `v10.0.0`
 
 Ensure you have a relatively clean set of keys for your local Juno chain. You can see a list of keys by running:
 
