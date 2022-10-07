@@ -119,7 +119,7 @@ where
 {
     let denom = denom.into();
     let agent_addr = agent_addr.into();
-    let attach_per_action = GAS_BASE_FEE_JUNO / GAS_FOR_ONE_NATIVE_JUNO;
+    let attach_per_action = (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_FOR_ONE_NATIVE_JUNO;
     let num = tasks.len();
     for (task, extra_funds) in tasks {
         let amount = (task.actions.len() as u64 * attach_per_action + extra_funds) * 3;

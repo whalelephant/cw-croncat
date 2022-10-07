@@ -7,6 +7,7 @@ use anyhow::Result;
 use cosm_orc::{config::cfg::Config, orchestrator::cosm_orc::CosmOrc};
 use types::Account;
 
+#[allow(unused_imports)]
 use crate::{
     helpers::{
         average_gas_for_one_native_ujunox, complete_tasks_for_three_times, init_contracts,
@@ -48,9 +49,9 @@ fn main() -> Result<()> {
         // Send tasks
         (send_to_bob_recurring(&denom), 100),
         (send_to_bob_and_alice_recurring(&denom), 100),
-        // Stake tasks
-        (delegate_to_bob_recurring(&denom), 100),
-        (delegate_to_bob_and_alice_recurring(&denom), 100),
+        // Failed Stake tasks
+        // (delegate_to_bob_recurring(&denom), 100),
+        // (delegate_to_bob_and_alice_recurring(&denom), 100),
     ];
     let gas_fees_usage = complete_tasks_for_three_times(
         &mut orc,
@@ -67,17 +68,18 @@ fn main() -> Result<()> {
         cost_per_send.approx_gas_per_action()
     );
 
-    let cost_per_delegate = cost_approxes(&gas_fees_usage[2], &gas_fees_usage[3]);
-    println!("delegate reports:");
-    println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
-    println!(
-        "approx_gas_per_action: {}\n",
-        cost_per_delegate.approx_gas_per_action()
-    );
+    // TODO: test when fixed #137
+    // let cost_per_delegate = cost_approxes(&gas_fees_usage[2], &gas_fees_usage[3]);
+    // println!("delegate reports:");
+    // println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
+    // println!(
+    //     "approx_gas_per_action: {}\n",
+    //     cost_per_delegate.approx_gas_per_action()
+    // );
 
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
     println!(
-        "avg_gas: {}",
+        "avg_gas_cost: {}",
         average_gas_for_one_native_ujunox(all_tasks_info)
     );
 

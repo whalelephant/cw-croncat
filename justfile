@@ -27,9 +27,9 @@ optimize:
 		cosmwasm/workspace-optimizer:0.12.8
 
 download-deps:
-	mkdir -p artifacts
+	mkdir -p artifacts target
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO: test dao-contracts
 
 gas-benchmark: download-deps optimize juno-local
-	RUST_LOG=info cargo run gas-benchmark
+	RUST_LOG=info cargo run --bin gas-benchmark

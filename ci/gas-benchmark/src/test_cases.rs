@@ -109,6 +109,7 @@ pub(crate) fn send_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
     }
 }
 
+#[allow(unused)]
 pub(crate) fn delegate_to_bob_recurring(denom: &str) -> TaskRequest {
     TaskRequest {
         interval: Interval::Immediate,
@@ -126,6 +127,7 @@ pub(crate) fn delegate_to_bob_recurring(denom: &str) -> TaskRequest {
     }
 }
 
+#[allow(unused)]
 pub(crate) fn delegate_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
     let delegate_to_bob = Action {
         msg: cosmwasm_std::CosmosMsg::Staking(cosmwasm_std::StakingMsg::Delegate {
