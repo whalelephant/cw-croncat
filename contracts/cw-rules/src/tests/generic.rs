@@ -1,40 +1,13 @@
-use cosmwasm_std::{to_binary, Addr, Binary, Empty, WasmQuery};
+use cosmwasm_std::{to_binary, Addr, Binary, WasmQuery};
 use cw20::Cw20Coin;
 use cw4::Member;
-use cw_multi_test::{App, Contract, ContractWrapper, Executor};
+use cw_multi_test::{App, Executor};
 use serde_json::json;
 
 use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
 use generic_query::{GenericQuery, ValueIndex, ValueOrdering};
 
-const CREATOR_ADDR: &str = "creator";
-
-fn cw_rules_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::contract::execute,
-        crate::contract::instantiate,
-        crate::contract::query,
-    );
-    Box::new(contract)
-}
-
-fn cw4_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cw4_group::contract::execute,
-        cw4_group::contract::instantiate,
-        cw4_group::contract::query,
-    );
-    Box::new(contract)
-}
-
-pub fn cw20_template() -> Box<dyn Contract<Empty>> {
-    let cw20 = ContractWrapper::new(
-        cw20_base::contract::execute,
-        cw20_base::contract::instantiate,
-        cw20_base::contract::query,
-    );
-    Box::new(cw20)
-}
+use crate::tests::helpers::{cw20_template, cw4_contract, cw_rules_contract, CREATOR_ADDR};
 
 #[test]
 fn test_generic() {
