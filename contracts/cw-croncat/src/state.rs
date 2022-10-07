@@ -69,10 +69,10 @@ pub struct QueueItem {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskInfo {
-    pub task: Option<Task>,
+    pub task: Task,
     pub task_hash: Vec<u8>,
     pub task_is_extra: Option<bool>,
-    pub agent_id: Option<Addr>,
+    pub agent_id: Addr,
     pub slot_kind: SlotType,
 }
 

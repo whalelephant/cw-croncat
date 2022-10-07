@@ -1,7 +1,7 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
 use crate::contract::GAS_BASE_FEE_JUNO;
 use crate::state::{Config, TaskInfo};
-use crate::tests::helpers::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
+use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
 use cosmwasm_std::{coins, Addr};
 use cw_croncat_core::types::{GenericBalance, SlotType};
@@ -219,10 +219,10 @@ fn test_check_valid_agents_get_extra_tasks_eq_mode() {
         .unwrap();
 
     let task_info = TaskInfo {
-        task: None,
+        task: default_task(),
         task_hash: "".as_bytes().to_vec(),
         task_is_extra: Some(true),
-        agent_id: Some(Addr::unchecked(AGENT0)),
+        agent_id: Addr::unchecked(AGENT0),
         slot_kind: SlotType::Block,
     };
 
@@ -232,7 +232,7 @@ fn test_check_valid_agents_get_extra_tasks_eq_mode() {
         &env,
         &store.config,
         &store.agent_active_queue,
-        task_info,
+        &task_info,
     );
 
     //Verify agent0 gets extra
@@ -338,10 +338,10 @@ fn test_on_task_completed() {
         .unwrap();
 
     let task_info = TaskInfo {
-        task: None,
+        task: default_task(),
         task_hash: "".as_bytes().to_vec(),
         task_is_extra: Some(true),
-        agent_id: Some(Addr::unchecked(AGENT0)),
+        agent_id: Addr::unchecked(AGENT0),
         slot_kind: SlotType::Block,
     };
 
@@ -352,7 +352,7 @@ fn test_on_task_completed() {
         &env,
         &store.config,
         &store.agent_active_queue,
-        task_info,
+        &task_info,
     );
 
     config = store.config.load(&mut deps.storage).unwrap();

@@ -141,7 +141,7 @@ impl<'a> CwCroncat<'a> {
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
             ExecuteMsg::RemoveTask { task_hash } => {
-                self.remove_task(deps.storage, task_hash, Some(info))
+                self.remove_task(deps.storage, &task_hash, Some(info))
             }
             ExecuteMsg::RefillTaskBalance { task_hash } => self.refill_task(deps, info, task_hash),
             ExecuteMsg::RefillTaskCw20Balance {

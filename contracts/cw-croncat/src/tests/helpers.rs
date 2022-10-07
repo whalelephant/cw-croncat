@@ -4,7 +4,10 @@ use cosmwasm_std::{
     Addr, BlockInfo, DepsMut, Empty, Response,
 };
 use cw20::Cw20Coin;
-use cw_croncat_core::msg::InstantiateMsg;
+use cw_croncat_core::{
+    msg::InstantiateMsg,
+    types::{BoundaryValidated, Interval, Task},
+};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
 use crate::{helpers::CwTemplateContract, ContractError, CwCroncat};
@@ -165,4 +168,21 @@ pub fn add_one_duration_of_time(block: &mut BlockInfo) {
     // block.time = block.time.plus_seconds(360);
     block.time = block.time.plus_seconds(420);
     block.height += 1;
+}
+
+pub fn default_task() -> Task {
+    Task {
+        owner_id: Addr::unchecked("bob"),
+        interval: Interval::Once,
+        boundary: BoundaryValidated {
+            start: None,
+            end: None,
+        },
+        funds_withdrawn_recurring: Default::default(),
+        stop_on_fail: Default::default(),
+        total_deposit: Default::default(),
+        amount_for_one_task: Default::default(),
+        actions: Default::default(),
+        rules: Default::default(),
+    }
 }

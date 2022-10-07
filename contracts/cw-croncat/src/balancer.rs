@@ -36,7 +36,7 @@ pub trait Balancer<'a> {
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
-        task_info: TaskInfo,
+        task_info: &TaskInfo,
     );
 }
 
@@ -272,7 +272,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         _env: &Env,
         config: &Item<'a, Config>,
         active_agents: &Item<'a, Vec<Addr>>,
-        task_info: TaskInfo,
+        task_info: &TaskInfo,
     ) {
         if !task_info.task_is_extra.unwrap_or(false) && self.mode == BalancerMode::ActivationOrder {
             return;
@@ -281,11 +281,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         let mut conf: Config = config.load(storage).unwrap();
         let indices = conf.agent_active_indices.as_mut();
         let active = active_agents.load(storage).unwrap();
-        let agent_id = task_info.agent_id.unwrap();
+        let agent_id = &task_info.agent_id;
         let slot_kind = task_info.slot_kind;
         let agent_index = active
             .iter()
-            .position(|x| x == &agent_id)
+            .position(|x| x == agent_id)
             .expect("Agent is not active or not registered!") as u32;
 
         self.update_or_append(indices, (slot_kind, agent_index, 1));

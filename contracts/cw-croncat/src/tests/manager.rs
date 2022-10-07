@@ -152,17 +152,18 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     assert!(has_created_hash);
 
     // NoTasksForSlot
-    let res_no_tasks: ContractError = app
+    let res_no_tasks = app
         .execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &proxy_call_msg,
             &vec![],
         )
-        .unwrap_err()
-        .downcast()
         .unwrap();
-    assert_eq!(res_no_tasks, ContractError::NoTaskFound {});
+    assert!(res_no_tasks.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "has_task" && attr.value == "false")));
 
     // NOTE: Unless there's a way to fake a task getting removed but hash remains in slot,
     // this coverage is not mockable. There literally shouldn't be any code that allows
@@ -387,17 +388,18 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
     assert!(res.is_ok());
 
     // Call proxy_call when there is no task, should fail
-    let res: ContractError = app
+    let res = app
         .execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall { task_hash: None },
             &[],
         )
-        .unwrap_err()
-        .downcast()
         .unwrap();
-    assert_eq!(res, ContractError::NoTaskFound {});
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "has_task" && attr.value == "false")));
 
     let beneficiary_balance_before_proxy_call = app
         .wrap()
@@ -1155,17 +1157,18 @@ fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
 
     app.update_block(add_little_time);
 
-    let res: ContractError = app
+    let res = app
         .execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall { task_hash: None },
             &[],
         )
-        .unwrap_err()
-        .downcast()
         .unwrap();
-    assert_eq!(res, ContractError::NoTaskFound {});
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "has_task" && attr.value == "false")));
 
     Ok(())
 }
@@ -1495,17 +1498,18 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert!(task.is_none());
     app.update_block(add_little_time);
-    let res: ContractError = app
+    let res = app
         .execute_contract(
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &proxy_call_msg,
             &vec![],
         )
-        .unwrap_err()
-        .downcast()
         .unwrap();
-    assert_eq!(res, ContractError::NoTaskFound {});
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "has_task" && attr.value == "false")));
 }
 
 #[test]
