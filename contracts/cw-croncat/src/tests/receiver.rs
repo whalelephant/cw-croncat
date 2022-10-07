@@ -1,112 +1,15 @@
+use crate::tests::helpers::{add_little_time, proper_instantiate};
 use crate::ContractError;
-use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BlockInfo, CosmosMsg, Empty, StdError, Uint128, WasmMsg,
-};
+use cosmwasm_std::{coins, to_binary, Addr, CosmosMsg, StdError, Uint128, WasmMsg};
 use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
 use cw_croncat_core::error::CoreError;
-use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-// use cw20::Balance;
-use crate::helpers::CwTemplateContract;
 use cw_croncat_core::msg::{
-    ExecuteMsg, GetWalletBalancesResponse, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse,
+    ExecuteMsg, GetWalletBalancesResponse, QueryMsg, TaskRequest, TaskResponse,
 };
 use cw_croncat_core::types::{Action, Interval};
+use cw_multi_test::Executor;
 
-pub fn contract_template() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::entry::execute,
-        crate::entry::instantiate,
-        crate::entry::query,
-    )
-    .with_reply(crate::entry::reply);
-    Box::new(contract)
-}
-
-pub fn cw20_template() -> Box<dyn Contract<Empty>> {
-    let cw20 = ContractWrapper::new(
-        cw20_base::contract::execute,
-        cw20_base::contract::instantiate,
-        cw20_base::contract::query,
-    );
-    Box::new(cw20)
-}
-
-const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
-const AGENT1_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const NATIVE_DENOM: &str = "atom";
-
-fn mock_app() -> App {
-    AppBuilder::new().build(|router, _, storage| {
-        let accounts: Vec<(u128, String)> = vec![
-            (6_000_000, ADMIN.to_string()),
-            (500_000, ANYONE.to_string()),
-            (2_000_000, AGENT0.to_string()),
-            (2_000_000, AGENT1_BENEFICIARY.to_string()),
-        ];
-        for (amt, address) in accounts.iter() {
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(address),
-                    vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-        }
-    })
-}
-
-fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
-    let mut app = mock_app();
-    let cw_template_id = app.store_code(contract_template());
-    let owner_addr = Addr::unchecked(ADMIN);
-
-    let msg = InstantiateMsg {
-        denom: NATIVE_DENOM.to_string(),
-        owner_id: Some(owner_addr.to_string()),
-        gas_base_fee: None,
-        agent_nomination_duration: None,
-        cw_rules_addr: "todo".to_string(),
-    };
-    let cw_template_contract_addr = app
-        //Must send some available balance for rewards
-        .instantiate_contract(
-            cw_template_id,
-            owner_addr.clone(),
-            &msg,
-            &coins(2_000_000, NATIVE_DENOM),
-            "Manager",
-            None,
-        )
-        .unwrap();
-
-    let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
-
-    let cw20_id = app.store_code(cw20_template());
-    let msg = cw20_base::msg::InstantiateMsg {
-        name: "test".to_string(),
-        symbol: "tset".to_string(),
-        decimals: 6,
-        initial_balances: vec![Cw20Coin {
-            address: ANYONE.to_string(),
-            amount: 10u128.into(),
-        }],
-        mint: None,
-        marketing: None,
-    };
-    let cw20_addr = app
-        .instantiate_contract(cw20_id, owner_addr, &msg, &[], "Fungible-tokens", None)
-        .unwrap();
-    (app, cw_template_contract, cw20_addr)
-}
-
-pub fn add_little_time(block: &mut BlockInfo) {
-    // block.time = block.time.plus_seconds(360);
-    block.time = block.time.plus_seconds(19);
-    block.height += 1;
-}
+use super::helpers::{AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM};
 
 #[test]
 fn test_cw20_action() {
@@ -159,14 +62,14 @@ fn test_cw20_action() {
         Addr::unchecked(user),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(300_010_u128), "atom"),
+        &coins(u128::from(300_010_u128), NATIVE_DENOM),
     )
     .unwrap();
 
     // quick agent register
     {
         let msg = ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+            payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
         };
         app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
             .unwrap();
@@ -286,7 +189,7 @@ fn test_cw20_balances() {
             Addr::unchecked(user),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(300_010_u128), "atom"),
+            &coins(u128::from(300_010_u128), NATIVE_DENOM),
         )
         .unwrap();
     let task_hash = resp
@@ -367,7 +270,7 @@ fn test_cw20_negative() {
             Addr::unchecked(user),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(300_010_u128), "atom"),
+            &coins(u128::from(300_010_u128), NATIVE_DENOM),
         )
         .unwrap_err()
         .downcast()

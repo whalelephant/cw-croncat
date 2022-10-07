@@ -1,5 +1,7 @@
 use crate::state::QueueItem;
 use crate::tests::helpers::mock_init;
+use crate::tests::helpers::AGENT0;
+use crate::tests::helpers::NATIVE_DENOM;
 use crate::ContractError;
 use crate::CwCroncat;
 use crate::InstantiateMsg;
@@ -9,14 +11,14 @@ use cosmwasm_std::testing::{
 use cosmwasm_std::{coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult};
 use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
 use cw_croncat_core::types::SlotType;
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+
 #[test]
 fn configure() {
     let mut deps = mock_dependencies_with_balance(&coins(200, ""));
     let mut store = CwCroncat::default();
 
     let msg = InstantiateMsg {
-        denom: "atom".to_string(),
+        denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
         agent_nomination_duration: Some(360),

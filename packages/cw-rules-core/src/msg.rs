@@ -39,7 +39,6 @@ pub enum QueryMsg {
 pub struct QueryMultiResponse {
     pub data: Vec<String>,
 }
-
 pub type RuleResponse<T> = (bool, T);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

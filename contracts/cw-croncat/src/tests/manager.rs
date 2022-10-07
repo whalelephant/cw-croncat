@@ -1,120 +1,21 @@
 use crate::contract::GAS_BASE_FEE_JUNO;
+use crate::tests::helpers::{add_little_time, add_one_duration_of_time, proper_instantiate};
 use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, BlockInfo, Coin, CosmosMsg, Empty, StakingMsg,
-    StdResult, Uint128, WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
-use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cw_rules_core::types::{HasBalanceGte, Rule};
-// use cw20::Balance;
-use crate::helpers::CwTemplateContract;
 use cw_croncat_core::msg::{
-    AgentTaskResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TaskRequest, TaskResponse,
-    TaskWithRulesResponse,
+    AgentTaskResponse, ExecuteMsg, QueryMsg, TaskRequest, TaskResponse, TaskWithRulesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, Interval};
+use cw_multi_test::Executor;
+use cw_rules_core::types::{HasBalanceGte, Rule};
 
-pub fn contract_template() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::entry::execute,
-        crate::entry::instantiate,
-        crate::entry::query,
-    )
-    .with_reply(crate::entry::reply);
-    Box::new(contract)
-}
-
-pub fn cw_rules_template() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cw_rules::contract::execute,
-        cw_rules::contract::instantiate,
-        cw_rules::contract::query,
-    );
-    Box::new(contract)
-}
-
-const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
-const AGENT1_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-const NATIVE_DENOM: &str = "atom";
-
-fn mock_app() -> App {
-    AppBuilder::new().build(|router, _, storage| {
-        let accounts: Vec<(u128, String)> = vec![
-            (6_000_000, ADMIN.to_string()),
-            (500_000, ANYONE.to_string()),
-            (2_000_000, AGENT0.to_string()),
-            (2_000_000, AGENT1_BENEFICIARY.to_string()),
-        ];
-        for (amt, address) in accounts.iter() {
-            router
-                .bank
-                .init_balance(
-                    storage,
-                    &Addr::unchecked(address),
-                    vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
-                )
-                .unwrap();
-        }
-    })
-}
-
-fn proper_instantiate() -> (App, CwTemplateContract) {
-    let mut app = mock_app();
-    let cw_template_id = app.store_code(contract_template());
-    let cw_rules_id = app.store_code(cw_rules_template());
-    let owner_addr = Addr::unchecked(ADMIN);
-
-    let cw_rules_addr = app
-        .instantiate_contract(
-            cw_rules_id,
-            owner_addr.clone(),
-            &cw_rules_core::msg::InstantiateMsg {},
-            &[],
-            "cw-rules",
-            None,
-        )
-        .unwrap();
-    let msg = InstantiateMsg {
-        denom: NATIVE_DENOM.to_string(),
-        owner_id: Some(owner_addr.to_string()),
-        gas_base_fee: None,
-        agent_nomination_duration: None,
-        cw_rules_addr: cw_rules_addr.to_string(),
-    };
-    let cw_template_contract_addr = app
-        //Must send some available balance for rewards
-        .instantiate_contract(
-            cw_template_id,
-            owner_addr,
-            &msg,
-            &coins(1, NATIVE_DENOM),
-            "Manager",
-            None,
-        )
-        .unwrap();
-
-    let cw_template_contract = CwTemplateContract(cw_template_contract_addr);
-
-    (app, cw_template_contract)
-}
-
-pub fn add_little_time(block: &mut BlockInfo) {
-    // block.time = block.time.plus_seconds(360);
-    block.time = block.time.plus_seconds(19);
-    block.height += 1;
-}
-
-pub fn add_one_duration_of_time(block: &mut BlockInfo) {
-    // block.time = block.time.plus_seconds(360);
-    block.time = block.time.plus_seconds(420);
-    block.height += 1;
-}
+use super::helpers::{ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM};
 
 #[test]
 fn proxy_call_fail_cases() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let validator = String::from("you");
@@ -225,7 +126,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -300,7 +201,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
 // TODO: TestCov: Total balance updated
 #[test]
 fn proxy_call_success() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
@@ -352,7 +253,7 @@ fn proxy_call_success() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -526,7 +427,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
 
 #[test]
 fn proxy_callback_fail_cases() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
@@ -577,7 +478,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -756,7 +657,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
 
 #[test]
 fn proxy_callback_block_slots() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
@@ -805,7 +706,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -884,7 +785,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
 
 #[test]
 fn proxy_callback_time_slots() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
@@ -933,7 +834,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1012,7 +913,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
 
 #[test]
 fn proxy_call_several_tasks() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
 
@@ -1107,7 +1008,7 @@ fn proxy_call_several_tasks() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1151,11 +1052,11 @@ fn proxy_call_several_tasks() -> StdResult<()> {
 
 #[test]
 fn test_proxy_call_with_bank_message() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let to_address = String::from("not_you");
-    let amount = coin(1000, "atom");
+    let amount = coin(1000, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address,
         amount: vec![amount],
@@ -1183,13 +1084,13 @@ fn test_proxy_call_with_bank_message() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), "atom"),
+        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
     );
     assert!(res.is_ok());
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1208,11 +1109,11 @@ fn test_proxy_call_with_bank_message() -> StdResult<()> {
 }
 #[test]
 fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let to_address = String::from("not_you");
-    let amount = coin(600_000, "atom");
+    let amount = coin(600_000, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address,
         amount: vec![amount],
@@ -1241,13 +1142,13 @@ fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), "atom"),
+        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
     );
     assert!(res.is_err()); //Will fail, abount of send > then task.total_deposit
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1271,18 +1172,18 @@ fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
 
 #[test]
 fn test_multi_action() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let addr1 = String::from("addr1");
     let addr2 = String::from("addr2");
-    let amount = coins(3, "atom");
+    let amount = coins(3, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr1,
         amount,
     };
     let msg1: CosmosMsg = send.into();
-    let amount = coins(4, "atom");
+    let amount = coins(4, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr2,
         amount,
@@ -1317,13 +1218,13 @@ fn test_multi_action() {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task), "atom"),
+        &coins(u128::from(amount_for_one_task), NATIVE_DENOM),
     )
     .unwrap();
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1342,18 +1243,18 @@ fn test_multi_action() {
 
 #[test]
 fn test_balance_changes() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let addr1 = String::from("addr1");
     let addr2 = String::from("addr2");
-    let amount = coins(3, "atom");
+    let amount = coins(3, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr1,
         amount,
     };
     let msg1: CosmosMsg = send.into();
-    let amount = coins(4, "atom");
+    let amount = coins(4, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr2,
         amount,
@@ -1389,13 +1290,13 @@ fn test_balance_changes() {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task), "atom"),
+        &coins(u128::from(amount_for_one_task), NATIVE_DENOM),
     )
     .unwrap();
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1403,9 +1304,11 @@ fn test_balance_changes() {
     app.update_block(add_little_time);
 
     // checking changes to contract balances and to the task creator
-    let contract_balance_before_proxy_call =
-        app.wrap().query_balance(&contract_addr, "atom").unwrap();
-    let admin_balance_before_proxy_call = app.wrap().query_balance(ADMIN, "atom").unwrap();
+    let contract_balance_before_proxy_call = app
+        .wrap()
+        .query_balance(&contract_addr, NATIVE_DENOM)
+        .unwrap();
+    let admin_balance_before_proxy_call = app.wrap().query_balance(ADMIN, NATIVE_DENOM).unwrap();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -1414,33 +1317,35 @@ fn test_balance_changes() {
         &vec![],
     )
     .unwrap();
-    let contract_balance_after_proxy_call =
-        app.wrap().query_balance(&contract_addr, "atom").unwrap();
+    let contract_balance_after_proxy_call = app
+        .wrap()
+        .query_balance(&contract_addr, NATIVE_DENOM)
+        .unwrap();
     assert_eq!(
         contract_balance_after_proxy_call.amount,
         contract_balance_before_proxy_call.amount - Uint128::from(extra + 3 + 4)
     );
-    let admin_balance_after_proxy_call = app.wrap().query_balance(ADMIN, "atom").unwrap();
+    let admin_balance_after_proxy_call = app.wrap().query_balance(ADMIN, NATIVE_DENOM).unwrap();
     assert_eq!(
         admin_balance_after_proxy_call.amount,
         admin_balance_before_proxy_call.amount + Uint128::from(extra)
     );
 
     // checking balances of recipients
-    let balance_addr1 = app.wrap().query_balance("addr1", "atom").unwrap();
+    let balance_addr1 = app.wrap().query_balance("addr1", NATIVE_DENOM).unwrap();
     assert_eq!(
         balance_addr1,
         Coin {
-            denom: "atom".to_string(),
+            denom: NATIVE_DENOM.to_string(),
             amount: Uint128::from(3_u128),
         }
     );
 
-    let balance_addr2 = app.wrap().query_balance("addr2", "atom").unwrap();
+    let balance_addr2 = app.wrap().query_balance("addr2", NATIVE_DENOM).unwrap();
     assert_eq!(
         balance_addr2,
         Coin {
-            denom: "atom".to_string(),
+            denom: NATIVE_DENOM.to_string(),
             amount: Uint128::from(4_u128),
         }
     );
@@ -1448,10 +1353,12 @@ fn test_balance_changes() {
     // checking balance of agent and contract after withdrawal
     let beneficary_balance_before_withdraw = app
         .wrap()
-        .query_balance(AGENT1_BENEFICIARY, "atom")
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
         .unwrap();
-    let contract_balance_before_withdraw =
-        app.wrap().query_balance(&contract_addr, "atom").unwrap();
+    let contract_balance_before_withdraw = app
+        .wrap()
+        .query_balance(&contract_addr, NATIVE_DENOM)
+        .unwrap();
     let withdraw_msg = ExecuteMsg::WithdrawReward {};
     app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -1462,8 +1369,13 @@ fn test_balance_changes() {
     .unwrap();
     let beneficary_balance_after_withdraw = app
         .wrap()
-        .query_balance(AGENT1_BENEFICIARY, "atom")
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
         .unwrap();
+    let contract_balance_after_withdraw = app
+        .wrap()
+        .query_balance(&contract_addr, NATIVE_DENOM)
+        .unwrap();
+
     let contract_balance_after_withdraw = app.wrap().query_balance(&contract_addr, "atom").unwrap();
     let expected_transfer_amount = Uint128::from(gas_limit * 2 + agent_fee * 2);
     assert_eq!(
@@ -1478,11 +1390,11 @@ fn test_balance_changes() {
 
 #[test]
 fn test_no_reschedule_if_lack_balance() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let addr1 = String::from("addr1");
-    let amount = coins(3, "atom");
+    let amount = coins(3, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr1,
         amount,
@@ -1517,7 +1429,7 @@ fn test_no_reschedule_if_lack_balance() {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1599,12 +1511,12 @@ fn test_no_reschedule_if_lack_balance() {
 
 #[test]
 fn test_complete_task_with_rule() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
 
     let addr1 = String::from("addr1");
-    let amount = coins(3, "atom");
+    let amount = coins(3, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr1,
         amount,
@@ -1620,7 +1532,7 @@ fn test_complete_task_with_rule() {
             }],
             rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
-                required_balance: coins(1, "atom").into(),
+                required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
             cw20_coins: vec![],
         },
@@ -1631,13 +1543,13 @@ fn test_complete_task_with_rule() {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(attached_balance, "atom"),
+        &coins(attached_balance, NATIVE_DENOM),
     )
     .unwrap();
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1669,7 +1581,7 @@ fn test_complete_task_with_rule() {
     app.send_tokens(
         Addr::unchecked(ADMIN),
         Addr::unchecked("addr2"),
-        &coins(1, "atom"),
+        &coins(1, NATIVE_DENOM),
     )
     .unwrap();
 
@@ -1708,12 +1620,12 @@ fn test_complete_task_with_rule() {
 
 #[test]
 fn test_reschedule_task_with_rule() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
 
     let addr1 = String::from("addr1");
-    let amount = coins(3, "atom");
+    let amount = coins(3, NATIVE_DENOM);
     let send = BankMsg::Send {
         to_address: addr1,
         amount,
@@ -1729,7 +1641,7 @@ fn test_reschedule_task_with_rule() {
             }],
             rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
-                required_balance: coins(1, "atom").into(),
+                required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
             cw20_coins: vec![],
         },
@@ -1740,13 +1652,13 @@ fn test_reschedule_task_with_rule() {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(attached_balance, "atom"),
+        &coins(attached_balance, NATIVE_DENOM),
     )
     .unwrap();
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -1779,7 +1691,7 @@ fn test_reschedule_task_with_rule() {
     app.send_tokens(
         Addr::unchecked(ADMIN),
         Addr::unchecked("addr2"),
-        &coins(1, "atom"),
+        &coins(1, NATIVE_DENOM),
     )
     .unwrap();
 

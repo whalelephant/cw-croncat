@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryConstructResponse",
+  "type": "array",
+  "items": [
+    {
+      "type": "boolean"
+    },
+    {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  ],
+  "maxItems": 2,
+  "minItems": 2
+}
