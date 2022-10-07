@@ -42,7 +42,8 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -78,7 +79,8 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -114,7 +116,8 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -151,7 +154,8 @@ fn is_valid_msg_wrong_account() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -187,7 +191,8 @@ fn is_valid_msg_vote() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -225,7 +230,8 @@ fn is_valid_msg_transfer() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -260,7 +266,8 @@ fn is_valid_msg_burn() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -296,7 +303,8 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "coin".to_string()
+            "coin".to_string(),
+            5,
         )
         .unwrap());
 }
@@ -335,7 +343,8 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             100,
-            "atom".to_string()
+            "atom".to_string(),
+            5,
         )
         .unwrap());
 }

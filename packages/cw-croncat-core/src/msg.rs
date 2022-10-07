@@ -70,7 +70,7 @@ pub enum ExecuteMsg {
         owner_id: Option<String>,
         slot_granularity: Option<u64>,
         paused: Option<bool>,
-        agent_fee: Option<Coin>,
+        agent_fee: Option<u64>,
         gas_price: Option<u32>,
         proxy_callback_gas: Option<u32>,
         min_tasks_per_agent: Option<u64>,
@@ -160,7 +160,7 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
@@ -168,7 +168,7 @@ pub struct GetConfigResponse {
     pub min_tasks_per_agent: u64,
     pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
-    pub agent_fee: Coin,
+    pub agent_fee: u64,
     pub gas_price: u32,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
@@ -403,4 +403,10 @@ pub struct GetSlotHashesResponse {
 pub struct GetSlotIdsResponse {
     pub time_ids: Vec<u64>,
     pub block_ids: Vec<u64>,
+}
+
+// cw_rules
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct QueryConstruct {
+    pub rules: Vec<Rule>,
 }

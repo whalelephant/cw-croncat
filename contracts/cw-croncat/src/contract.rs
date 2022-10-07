@@ -3,7 +3,7 @@ use crate::helpers::GenericBalance;
 use crate::state::{Config, CwCroncat};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -54,7 +54,7 @@ impl<'a> CwCroncat<'a> {
             agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
             available_balance,
             staked_balance: GenericBalance::default(),
-            agent_fee: Coin::new(5, msg.denom.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
+            agent_fee: 5,
             gas_price: 1,
             proxy_callback_gas: 3,
             gas_base_fee,

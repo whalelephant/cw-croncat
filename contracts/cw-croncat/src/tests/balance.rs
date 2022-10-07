@@ -3,7 +3,7 @@ use crate::contract::GAS_BASE_FEE_JUNO;
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
-use cosmwasm_std::{coins, Addr, Coin};
+use cosmwasm_std::{coins, Addr};
 use cw_croncat_core::types::{GenericBalance, SlotType};
 
 use crate::CwCroncat;
@@ -20,7 +20,7 @@ fn mock_config() -> Config {
         agents_eject_threshold: 600, // how many slots an agent can miss before being ejected. 10 * 60 = 1hr
         available_balance: GenericBalance::default(),
         staked_balance: GenericBalance::default(),
-        agent_fee: Coin::new(5, NATIVE_DENOM.clone()), // TODO: CHANGE AMOUNT HERE!!! 0.0005 Juno (2000 tasks = 1 Juno)
+        agent_fee: 5,
         gas_price: 1,
         gas_base_fee: GAS_BASE_FEE_JUNO,
         proxy_callback_gas: 3,

@@ -316,6 +316,7 @@ impl Task {
     /// Validate the task actions only use the supported messages
     /// We're iterating over all actions
     /// so it's a great place for calculaing balance usages
+    #[allow(clippy::too_many_arguments)]
     pub fn is_valid_msg_calculate_usage(
         &mut self,
         api: &dyn Api,
@@ -324,6 +325,7 @@ impl Task {
         owner_id: &Addr,
         default_gas: u64,
         native_denom: String,
+        gas_fee: u64,
     ) -> Result<bool, CoreError> {
         // TODO: Chagne to default FALSE, once all messages are covered in tests
         let mut valid = true;
@@ -410,9 +412,10 @@ impl Task {
                 _ => (),
             }
         }
-        amount_for_one_task
-            .native
-            .find_checked_add(&coin(gas_amount as u128, native_denom))?;
+        amount_for_one_task.native.find_checked_add(&coin(
+            calculate_required_amount(gas_amount, gas_fee),
+            native_denom,
+        ))?;
         Ok(valid)
     }
 
@@ -438,6 +441,16 @@ impl Task {
     pub fn is_owner(&self, addr: Addr) -> bool {
         self.owner_id == addr
     }
+}
+
+/// Calculate the amount including agent_fee
+pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> u128 {
+    let fee = amount
+        .checked_mul(agent_fee)
+        .unwrap()
+        .checked_div(100u64)
+        .unwrap();
+    amount.checked_add(fee).unwrap() as u128
 }
 
 impl FindAndMutate<'_, Coin> for Vec<Coin> {

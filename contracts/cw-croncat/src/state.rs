@@ -1,5 +1,5 @@
 use crate::{balancer::RoundRobinBalancer, ContractError};
-use cosmwasm_std::{Addr, Coin, StdResult, Storage, Timestamp};
+use cosmwasm_std::{Addr, StdResult, Storage, Timestamp};
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
@@ -33,7 +33,7 @@ pub struct Config {
     pub cw_rules_addr: Addr,
 
     // Economics
-    pub agent_fee: Coin,
+    pub agent_fee: u64,
     pub gas_price: u32,
     pub gas_base_fee: u64,
     pub proxy_callback_gas: u32,
