@@ -784,6 +784,7 @@ dependencies = [
 name = "cw-rules-core"
 version = "0.1.0"
 dependencies = [
+ "cosmwasm-schema",
  "cosmwasm-std",
  "cw20 0.13.4",
  "generic-query",

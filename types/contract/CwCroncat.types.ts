@@ -231,7 +231,7 @@ export interface GetBalancesResponse {
 }
 export interface GetConfigResponse {
   agent_active_indices: [SlotType, number, number][];
-  agent_fee: Coin;
+  agent_fee: number;
   agents_eject_threshold: number;
   cw_rules_addr: Addr;
   gas_for_one_native: number;
@@ -368,7 +368,7 @@ export interface Cw20Coin {
 }
 export type ExecuteMsg = {
   update_settings: {
-    agent_fee?: Coin | null;
+    agent_fee?: number | null;
     agents_eject_threshold?: number | null;
     gas_for_one_native?: number | null;
     min_tasks_per_agent?: number | null;

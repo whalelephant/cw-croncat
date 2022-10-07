@@ -110,3 +110,18 @@ cargo run -- help
 ### `0.0.1`
 
 Initial setup
+
+
+Schema Update
+```bash
+./build.sh
+```
+Intall yarn packages
+```bash
+yarn --cwd ./types install --frozen-lockfile
+```
+
+Generate typescript files
+```bash
+yarn --cwd ./types codegen
+```

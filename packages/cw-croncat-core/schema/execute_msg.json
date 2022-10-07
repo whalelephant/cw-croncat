@@ -12,14 +12,12 @@
           "type": "object",
           "properties": {
             "agent_fee": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/Coin"
-                },
-                {
-                  "type": "null"
-                }
-              ]
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
             },
             "agents_eject_threshold": {
               "type": [
