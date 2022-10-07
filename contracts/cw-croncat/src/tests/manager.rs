@@ -1,13 +1,16 @@
 use crate::contract::GAS_BASE_FEE_JUNO;
-use crate::tests::helpers::{add_little_time, add_one_duration_of_time, proper_instantiate};
+use crate::tests::helpers::{
+    add_1000_blocks, add_little_time, add_one_duration_of_time, proper_instantiate,
+};
 use crate::ContractError;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
 use cw_croncat_core::msg::{
-    AgentTaskResponse, ExecuteMsg, QueryMsg, TaskRequest, TaskResponse, TaskWithRulesResponse,
+    AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest, TaskResponse,
+    TaskWithRulesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval};
+use cw_croncat_core::types::{Action, AgentResponse, Boundary, Interval};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Rule};
 
@@ -58,58 +61,6 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         res_err.downcast().unwrap()
     );
 
-    // Create task paused
-    let change_settings_msg = ExecuteMsg::UpdateSettings {
-        paused: Some(true),
-        owner_id: None,
-        // treasury_id: None,
-        agent_fee: None,
-        min_tasks_per_agent: None,
-        agents_eject_threshold: None,
-        gas_price: None,
-        proxy_callback_gas: None,
-        slot_granularity: None,
-    };
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &change_settings_msg,
-        &vec![],
-    )
-    .unwrap();
-    let res_err = app
-        .execute_contract(
-            Addr::unchecked(ANYONE),
-            contract_addr.clone(),
-            &proxy_call_msg,
-            &vec![],
-        )
-        .unwrap_err();
-    assert_eq!(
-        ContractError::CustomError {
-            val: "Contract paused".to_string()
-        },
-        res_err.downcast().unwrap()
-    );
-    // Set it back
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &ExecuteMsg::UpdateSettings {
-            paused: Some(false),
-            owner_id: None,
-            // treasury_id: None,
-            agent_fee: None,
-            min_tasks_per_agent: None,
-            agents_eject_threshold: None,
-            gas_price: None,
-            proxy_callback_gas: None,
-            slot_granularity: None,
-        },
-        &vec![],
-    )
-    .unwrap();
-
     // AgentNotRegistered
     let res_err = app
         .execute_contract(
@@ -131,6 +82,86 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
 
+    // Create task paused
+    let change_settings_msg = ExecuteMsg::UpdateSettings {
+        paused: Some(true),
+        owner_id: None,
+        // treasury_id: None,
+        agent_fee: None,
+        min_tasks_per_agent: None,
+        agents_eject_threshold: None,
+        gas_price: None,
+        proxy_callback_gas: None,
+        slot_granularity: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &change_settings_msg,
+        &vec![],
+    )
+    .unwrap();
+
+    let agent_before_proxy_call: Option<AgentResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: String::from(AGENT0),
+            },
+        )
+        .unwrap();
+
+    // proxy_call in the next block
+    app.update_block(add_little_time);
+    let res_err = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap_err();
+    assert_eq!(
+        ContractError::CustomError {
+            val: "Contract paused".to_string()
+        },
+        res_err.downcast().unwrap()
+    );
+    let agent_after_proxy_call: Option<AgentResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: String::from(AGENT0),
+            },
+        )
+        .unwrap();
+    // last_executed_slot for this agent didn't change since proxy_call failed
+    assert!(
+        agent_after_proxy_call.unwrap().last_executed_slot
+            == agent_before_proxy_call.unwrap().last_executed_slot
+    );
+
+    // Set it back
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateSettings {
+            paused: Some(false),
+            owner_id: None,
+            // treasury_id: None,
+            agent_fee: None,
+            min_tasks_per_agent: None,
+            agents_eject_threshold: None,
+            gas_price: None,
+            proxy_callback_gas: None,
+            slot_granularity: None,
+        },
+        &vec![],
+    )
+    .unwrap();
+
     // create task, so any slot actually exists
     let res = app
         .execute_contract(
@@ -151,7 +182,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     }
     assert!(has_created_hash);
 
-    // NoTasksForSlot
+    // The slot doesn't have tasks
     let res_no_tasks = app
         .execute_contract(
             Addr::unchecked(AGENT0),
@@ -269,6 +300,16 @@ fn proxy_call_success() -> StdResult<()> {
     // might need block advancement?!
     app.update_block(add_little_time);
 
+    let agent_before_proxy_call: Option<AgentResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: String::from(AGENT0),
+            },
+        )
+        .unwrap();
+
     // execute proxy_call
     let res = app
         .execute_contract(
@@ -278,6 +319,22 @@ fn proxy_call_success() -> StdResult<()> {
             &vec![],
         )
         .unwrap();
+
+    let agent_after_proxy_call: Option<AgentResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: String::from(AGENT0),
+            },
+        )
+        .unwrap();
+    // Check that last_executed_slot for this agent increased after proxy_call
+    assert!(
+        agent_after_proxy_call.unwrap().last_executed_slot
+            == agent_before_proxy_call.unwrap().last_executed_slot + 1
+    );
+
     let mut has_required_attributes: bool = true;
     let mut has_submsg_method: bool = false;
     let mut has_reply_success: bool = false;
@@ -1772,11 +1829,13 @@ fn test_reschedule_task_with_rule() {
         .unwrap();
     assert!(tasks_with_rules.is_empty());
 }
+
 #[test]
 fn tick() {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
+    // Change settings, the agent can miss 1000 blocks
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
@@ -1797,12 +1856,12 @@ fn tick() {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
 
-    // might need block advancement?!
+    // need block advancement
     app.update_block(add_little_time);
 
     let tick_msg = ExecuteMsg::Tick {};
@@ -1855,7 +1914,7 @@ fn tick() {
         .iter()
         .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
 
-    // The agent is unregistered
+    // The agent missed 1001 blocks and he was unregistered
     let agents: GetAgentIdsResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
@@ -1866,14 +1925,14 @@ fn tick() {
 
 #[test]
 fn tick_task() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
         agent_fee: None,
-        min_tasks_per_agent: None,
+        min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(100), // allow to miss 100 slots
         gas_price: None,
         proxy_callback_gas: None,
@@ -1889,7 +1948,7 @@ fn tick_task() -> StdResult<()> {
 
     // quick agent register
     let msg_register = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -1899,7 +1958,16 @@ fn tick_task() -> StdResult<()> {
     )
     .unwrap();
 
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+    // Another agent
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &msg_register,
+        &[],
+    )
+    .unwrap();
+
+    let msg_tick = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: contract_addr.to_string(),
         msg: to_binary(&ExecuteMsg::Tick {})?,
         funds: coins(1, NATIVE_DENOM),
@@ -1914,14 +1982,39 @@ fn tick_task() -> StdResult<()> {
             }),
             stop_on_fail: false,
             actions: vec![Action {
-                msg,
+                msg: msg_tick.clone(),
                 gas_limit: Some(250_000),
             }],
             rules: None,
             cw20_coins: vec![],
         },
     };
-    // create a task
+    // create a task with tick
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_with_tick_msg,
+        &coins(800000, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    let create_task_with_tick_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: Some(Boundary::Height {
+                start: None,
+                end: None,
+            }),
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: msg_tick,
+                gas_limit: Some(250_000),
+            }],
+            rules: None,
+            cw20_coins: vec![],
+        },
+    };
+    // create a second task so that another agent can be registered
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1932,6 +2025,24 @@ fn tick_task() -> StdResult<()> {
 
     // might need block advancement
     app.update_block(add_little_time);
+
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(agents.active.len(), 2);
+    assert!(agents.pending.is_empty());
+
+    // block advancement, ANYONE agent didn't execute any task
+    app.update_block(add_1000_blocks);
 
     let res = app
         .execute_contract(
@@ -1946,6 +2057,23 @@ fn tick_task() -> StdResult<()> {
             .attributes
             .iter()
             .any(|attr| attr.key == "method" && attr.value == "tick")));
+    assert!(res.events.iter().any(|ev| ev.ty == "wasm"
+        && ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "account_id" && attr.value == ANYONE)));
+    assert!(!res.events.iter().any(|ev| ev.ty == "wasm"
+        && ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(agents.active.len(), 1);
+    assert!(agents.pending.is_empty());
 
     Ok(())
 }
