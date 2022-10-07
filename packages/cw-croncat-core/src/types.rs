@@ -218,7 +218,6 @@ impl TaskRequest {
         owner_id: &Addr,
         default_gas: u64,
     ) -> Result<(GenericBalance, u64), CoreError> {
-        // TODO: Chagne to default FALSE, once all messages are covered in tests
         let mut gas_amount: u64 = 0;
         let mut amount_for_one_task = GenericBalance::default();
 

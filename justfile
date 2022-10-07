@@ -30,3 +30,6 @@ download-deps:
 	mkdir -p artifacts
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO: test dao-contracts
+
+gas-benchmark: download-deps juno-local
+	RUST_LOG=info cargo gas-benchmark

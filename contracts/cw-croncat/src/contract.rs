@@ -16,8 +16,8 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 // default for juno
-pub(crate) const GAS_BASE_FEE_JUNO: u64 = 400_000;
-pub(crate) const GAS_FOR_ONE_NATIVE_JUNO: u64 = 9;
+pub const GAS_BASE_FEE_JUNO: u64 = 400_000;
+pub const GAS_FOR_ONE_NATIVE_JUNO: u64 = 9;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {

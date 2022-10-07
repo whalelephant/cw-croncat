@@ -1395,6 +1395,7 @@ dependencies = [
  "anyhow",
  "cosm-orc",
  "cosmwasm-std",
+ "cw-croncat",
  "cw-croncat-core",
  "cw-rules-core",
  "env_logger",

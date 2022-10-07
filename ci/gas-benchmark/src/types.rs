@@ -12,3 +12,20 @@ pub(crate) struct GasInformation {
     pub gas_used: u64,
     pub native_balance_burned: u128,
 }
+
+#[derive(Debug)]
+pub(crate) struct ApproxGasCosts {
+    pub gas_per_action: u64,
+    pub gas_for_proxy_call: u64,
+    pub gas_for_task_unregister: u64,
+}
+
+impl ApproxGasCosts {
+    pub(crate) fn approx_base_gas(&self) -> u64 {
+        self.gas_for_proxy_call + self.gas_for_task_unregister
+    }
+
+    pub(crate) fn approx_gas_per_action(&self) -> u64 {
+        self.gas_per_action
+    }
+}
