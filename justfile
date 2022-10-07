@@ -32,4 +32,4 @@ download-deps:
 # TODO: test dao-contracts
 
 gas-benchmark: download-deps juno-local
-	RUST_LOG=info cargo gas-benchmark
+	RUST_LOG=info cargo run gas-benchmark
