@@ -1,3 +1,4 @@
+use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::GAS_BASE_FEE_JUNO;
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
@@ -13,7 +14,6 @@ use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Rule};
 use std::convert::TryInto;
-use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 
 #[test]
 fn query_task_hash_success() {
@@ -969,7 +969,7 @@ fn check_refill_create() -> StdResult<()> {
         .query_wasm_smart(&contract_addr.clone(), &QueryMsg::GetBalances {})
         .unwrap();
     assert_eq!(
-        coins(315009, NATIVE_DENOM),
+        coins(315010, NATIVE_DENOM),
         balances.available_balance.native
     );
 

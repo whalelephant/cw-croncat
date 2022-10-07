@@ -333,7 +333,7 @@ fn proxy_call_success() -> StdResult<()> {
 
 #[test]
 fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
-    let (mut app, cw_template_contract) = proper_instantiate();
+    let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
     let to_address = String::from("not_you");
@@ -371,7 +371,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT1_BENEFICIARY.to_string()),
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
     };
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
@@ -401,7 +401,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
 
     let beneficiary_balance_before_proxy_call = app
         .wrap()
-        .query_balance(AGENT1_BENEFICIARY, NATIVE_DENOM)
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
         .unwrap();
     // Agent withdraws the reward
     let res = app.execute_contract(
@@ -413,7 +413,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
     assert!(res.is_ok());
     let beneficiary_balance_after_proxy_call = app
         .wrap()
-        .query_balance(AGENT1_BENEFICIARY, NATIVE_DENOM)
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
         .unwrap();
     assert_eq!(
         (beneficiary_balance_after_proxy_call.amount
@@ -1376,7 +1376,6 @@ fn test_balance_changes() {
         .query_balance(&contract_addr, NATIVE_DENOM)
         .unwrap();
 
-    let contract_balance_after_withdraw = app.wrap().query_balance(&contract_addr, "atom").unwrap();
     let expected_transfer_amount = Uint128::from(gas_limit * 2 + agent_fee * 2);
     assert_eq!(
         beneficary_balance_after_withdraw.amount,
