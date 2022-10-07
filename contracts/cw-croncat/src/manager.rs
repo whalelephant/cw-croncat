@@ -3,7 +3,8 @@ use crate::error::ContractError;
 use crate::helpers::ReplyMsgParser;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage, SubMsg,
+    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Reply, Response, StdResult, Storage,
+    SubMsg,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{calculate_required_amount, Action, Agent, Interval, SlotType, Task};
@@ -32,29 +33,29 @@ impl<'a> CwCroncat<'a> {
             (Some(slot_id), _) => {
                 let kind = SlotType::Block;
                 (slot_id, kind)
-            },
+            }
             (None, Some(slot_id)) => {
                 let kind = SlotType::Cron;
                 (slot_id, kind)
-            },
+            }
             (None, None) => {
                 return Ok(Response::new()
-                .add_attribute("method", "proxy_call")
-                .add_attribute("agent", &info.sender)
-                .add_attribute("has_task", "false"));
+                    .add_attribute("method", "proxy_call")
+                    .add_attribute("agent", &info.sender)
+                    .add_attribute("has_task", "false"));
             }
         };
 
-        let hash = self.pop_slot_item(deps.storage, slot_id, slot_type)?;
+        let some_hash = self.pop_slot_item(deps.storage, slot_id, slot_type)?;
 
         // Get the task details
         // if no task, return error.
-        let hash = some_hash.unwrap();
-        let some_task = self.tasks.may_load(deps.storage, &hash)?;
-        if some_task.is_none() {
-            // NOTE: This could should never get reached, however we cover just in case
+        let hash = if let Some(hash) = some_hash {
+            hash
+        } else {
             return Err(ContractError::NoTaskFound {});
-        }
+        };
+        let task = self.tasks.load(deps.storage, &hash)?;
 
         //Get agent tasks with extra(if exists) from balancer
         let balancer_result = self
@@ -323,11 +324,13 @@ impl<'a> CwCroncat<'a> {
             }
         }
 
+        // Parse interval into a future timestamp, then convert to a slot
+        let (next_id, slot_kind) = task.interval.next(&env, task.boundary);
+
         // if non-recurring, exit
         if task.interval == Interval::Once
             || (task.stop_on_fail && queue_item.failed)
             || task.verify_enough_balances(false).is_err()
-
             // If the next interval comes back 0, then this task should not schedule again
             || next_id == 0
         {

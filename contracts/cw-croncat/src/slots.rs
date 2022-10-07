@@ -1,4 +1,4 @@
-use crate::{ContractError, CwCroncat};
+use crate::CwCroncat;
 use cosmwasm_std::{BlockInfo, Order, StdResult, Storage};
 pub use cw_croncat_core::types::Interval;
 use cw_croncat_core::types::SlotType;
@@ -61,27 +61,28 @@ impl<'a> CwCroncat<'a> {
         storage: &mut dyn Storage,
         slot: u64,
         kind: SlotType,
-    ) -> Result<Vec<u8>, ContractError> {
+    ) -> StdResult<Option<Vec<u8>>> {
         let store = match kind {
             SlotType::Block => &self.block_slots,
             SlotType::Cron => &self.time_slots,
         };
 
-        let mut slot_data = store
-            .may_load(storage, slot)?
-            .ok_or(ContractError::NoTaskFound {})?; // TODO: actually no slot
+        let slot_data = store.may_load(storage, slot)?;
 
         // Get a single task hash, then retrieve task details
-        let hash = slot_data.pop().ok_or(ContractError::NoTaskFound {})?;
+        if let Some(mut slots) = slot_data {
+            let hash = slots.pop();
 
-        // Need to remove this slot if no hash's left
-        if slot_data.is_empty() {
-            store.remove(storage, slot);
+            // Need to remove this slot if no hash's left
+            if slots.is_empty() {
+                store.remove(storage, slot);
+            } else {
+                store.save(storage, slot, &slots)?;
+            }
+            Ok(hash)
         } else {
-            store.save(storage, slot, &slot_data)?;
+            Ok(None)
         }
-
-        Ok(hash)
     }
 
     //     /// Gets 1 slot hash item, and removes the hash from storage

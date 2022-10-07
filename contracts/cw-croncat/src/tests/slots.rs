@@ -327,12 +327,12 @@ fn slot_items_pop() {
         .save(&mut deps.storage, 0, &vec![])
         .unwrap();
     assert_eq!(
-        None,
-        store.pop_slot_item(&mut deps.storage, &0, &SlotType::Cron)
+        Ok(None),
+        store.pop_slot_item(&mut deps.storage, 0, SlotType::Cron)
     );
     assert_eq!(
-        None,
-        store.pop_slot_item(&mut deps.storage, &0, &SlotType::Block)
+        Ok(None),
+        store.pop_slot_item(&mut deps.storage, 0, SlotType::Block)
     );
 
     // Just checking mutiple tasks
@@ -353,24 +353,26 @@ fn slot_items_pop() {
         assert_eq!(
             *task,
             store
-                .pop_slot_item(&mut deps.storage, &1, &SlotType::Cron)
+                .pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
+                .unwrap()
                 .unwrap()
         );
         assert_eq!(
             *task,
             store
-                .pop_slot_item(&mut deps.storage, &1, &SlotType::Block)
+                .pop_slot_item(&mut deps.storage, 1, SlotType::Block)
+                .unwrap()
                 .unwrap()
         );
     }
 
     // Slot removed if no hash left
     assert_eq!(
-        None,
-        store.pop_slot_item(&mut deps.storage, &1, &SlotType::Cron)
+        Ok(None),
+        store.pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
     );
     assert_eq!(
-        None,
-        store.pop_slot_item(&mut deps.storage, &1, &SlotType::Block)
+        Ok(None),
+        store.pop_slot_item(&mut deps.storage, 1, SlotType::Block)
     );
 }
