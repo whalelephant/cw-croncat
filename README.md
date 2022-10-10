@@ -74,29 +74,29 @@ git clone git@github.com:CronCats/croncat-rs.git
 cd croncat-rs
 ```
 
-Before registering an agent modify `config.uni-3.yaml` to include `CRONCAT_ADDRESS` in `contract_address` field.
+Before registering an agent modify `config.uni-5.yaml` to include `CRONCAT_ADDRESS` in `contract_address` field.
 
 Create and store new agent address
 ```bash
-cargo run -- --chain-id uni-3 generate-mnemonic --new-name new-agent
+cargo run -- --chain-id uni-5 generate-mnemonic --new-name new-agent
 AGENT_ADDR=juno123agentaddress
 ```
 Refill `new-agent` balance before using it, so that the agent has some ujunox for `register-agent` and `proxy-call`s.
 
 Register an agent:
 ```bash
-cargo run -- --chain-id uni-3 register-agent --sender-name new-agent payable-account-id
+cargo run -- --chain-id uni-5 register-agent --sender-name new-agent payable-account-id
 ```
 Here `payable-account-id` is optional address of the account that receives agent reward.
 
 Start daemon:
 ```bash
-cargo run -- --chain-id uni-3 daemon --sender-name new-agent
+cargo run -- --chain-id uni-5 daemon --sender-name new-agent
 ```
 
 Unregister the agent:
 ```bash
-cargo run -- --chain-id uni-3 unregister-agent --sender-name new-agent
+cargo run -- --chain-id uni-5 unregister-agent --sender-name new-agent
 ```
 > Default `new-name` and `sender-name` is `agent`.
 
@@ -109,19 +109,16 @@ cargo run -- help
 
 ### `0.0.1`
 
-Initial setup
-
-
 Schema Update
 ```bash
 ./build.sh
 ```
-Intall yarn packages
+Install yarn packages
 ```bash
 yarn --cwd ./types install --frozen-lockfile
 ```
 
-Generate typescript files
+Generate TypeScript files
 ```bash
 yarn --cwd ./types codegen
 ```

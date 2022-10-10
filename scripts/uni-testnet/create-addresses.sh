@@ -27,9 +27,9 @@ junod keys show $USER 2> /dev/null || junod keys add $USER
 FAUCET_SEED_PHRASE="very priority voice drink cloud advance wait pave dose useful erode proud just absorb east eyebrow unaware prize old brand above arrow east aim"
 junod keys show cw-croncat-faucet 2> /dev/null || echo $FAUCET_SEED_PHRASE | junod keys add cw-croncat-faucet --recover
 
-junod tx bank send cw-croncat-faucet $(junod keys show "$OWNER" -a) "$OWNER_BALANCE"ujunox $NODE --chain-id uni-3
-junod tx bank send cw-croncat-faucet $(junod keys show "$AGENT" -a) "$AGENT_BALANCE"ujunox $NODE --chain-id uni-3
-junod tx bank send cw-croncat-faucet $(junod keys show "$USER" -a) "$USER_BALANCE"ujunox $NODE --chain-id uni-3
+junod tx bank send cw-croncat-faucet $(junod keys show "$OWNER" -a) "$OWNER_BALANCE"ujunox $NODE --chain-id uni-5
+junod tx bank send cw-croncat-faucet $(junod keys show "$AGENT" -a) "$AGENT_BALANCE"ujunox $NODE --chain-id uni-5
+junod tx bank send cw-croncat-faucet $(junod keys show "$USER" -a) "$USER_BALANCE"ujunox $NODE --chain-id uni-5
 
 junod query bank balances $(junod keys show cw-croncat-faucet -a) $NODE
 junod query bank balances $(junod keys show "$OWNER" -a) $NODE

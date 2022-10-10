@@ -8,7 +8,7 @@ docker run --rm -v "$(pwd)":/code \
   cosmwasm/rust-optimizer:0.12.6
 
 NODE="--node https://rpc.uni.juno.deuslabs.fi:443"
-TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-3 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
+TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 
 
 if [ -z "$1"]
