@@ -26,7 +26,7 @@ fn everything_can_be_de_serialized() {
         payable_account_id: Addr::unchecked("test"),
         balance: generic_balance.clone(),
         total_tasks_executed: 0,
-        last_missed_slot: 3,
+        last_executed_slot: 3,
         register_start: Timestamp::from_nanos(5),
     }
     .into();
@@ -122,7 +122,7 @@ fn everything_can_be_de_serialized() {
         payable_account_id: Addr::unchecked("bob"),
         balance: generic_balance.clone(),
         total_tasks_executed: 2,
-        last_missed_slot: 2,
+        last_executed_slot: 2,
         register_start: Timestamp::from_nanos(5),
     })
     .into();
