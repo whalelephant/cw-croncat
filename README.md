@@ -20,6 +20,9 @@ of how to develop.
 to the world, once you are ready to deploy it on a running blockchain.
 
 ## Commands
+```bash
+cd contracts/cw-croncat/scripts
+```
 
 ```bash
 # For building + fmt
