@@ -8,7 +8,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw_croncat_core::traits::ResultFailed;
-use cw_croncat_core::types::SlotType;
+use cw_croncat_core::types::{GasFraction, SlotType};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -17,7 +17,7 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 // default for juno
 pub const GAS_BASE_FEE_JUNO: u64 = 400_000;
-pub const GAS_FOR_ONE_NATIVE_JUNO: u64 = 9;
+pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -56,7 +56,10 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_for_one_native: GAS_FOR_ONE_NATIVE_JUNO,
+            gas_fraction: GasFraction {
+                numerator: 1,
+                denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
+            },
             proxy_callback_gas: 3,
             gas_base_fee,
             slot_granularity: 60_000_000_000,
@@ -111,7 +114,7 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            .add_attribute("gas_price", config.gas_for_one_native.to_string())
+            //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity", config.slot_granularity.to_string()))
     }

@@ -17,6 +17,7 @@ fn update_settings() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
     };
@@ -37,7 +38,7 @@ fn update_settings() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -95,6 +96,7 @@ fn move_balances_auth_checks() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
     };
@@ -110,7 +112,7 @@ fn move_balances_auth_checks() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -160,6 +162,7 @@ fn move_balances_native() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
     };
@@ -175,7 +178,7 @@ fn move_balances_native() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
     };

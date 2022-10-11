@@ -26,7 +26,7 @@ impl<'a> CwCroncat<'a> {
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
             agent_fee: c.agent_fee,
-            gas_for_one_native: c.gas_for_one_native,
+            gas_fraction: c.gas_fraction,
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity: c.slot_granularity,
             cw_rules_addr: c.cw_rules_addr,
@@ -76,7 +76,7 @@ impl<'a> CwCroncat<'a> {
                 slot_granularity,
                 paused,
                 agent_fee,
-                gas_for_one_native,
+                gas_fraction,
                 proxy_callback_gas,
                 min_tasks_per_agent,
                 agents_eject_threshold,
@@ -102,8 +102,8 @@ impl<'a> CwCroncat<'a> {
                         if let Some(paused) = paused {
                             config.paused = paused;
                         }
-                        if let Some(gas_for_one_native) = gas_for_one_native {
-                            config.gas_for_one_native = gas_for_one_native;
+                        if let Some(gas_fraction) = gas_fraction {
+                            config.gas_fraction = gas_fraction;
                         }
                         if let Some(proxy_callback_gas) = proxy_callback_gas {
                             config.proxy_callback_gas = proxy_callback_gas;
@@ -147,7 +147,7 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", c.native_denom)
             .add_attribute("agent_fee", c.agent_fee.to_string())
-            .add_attribute("gas_price", c.gas_for_one_native.to_string())
+            //.add_attribute("gas_price", c.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity", c.slot_granularity.to_string()))
     }

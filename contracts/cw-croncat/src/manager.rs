@@ -424,8 +424,8 @@ impl<'a> CwCroncat<'a> {
                 gas_used += cfg.gas_base_fee;
             }
         }
-        let price_amount =
-            calculate_required_amount(gas_used / cfg.gas_for_one_native, cfg.agent_fee);
+        let gas_amount = calculate_required_amount(gas_used, cfg.agent_fee)?;
+        let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
         let price = coin(price_amount, cfg.native_denom);
         agent.balance.native.find_checked_add(&price)?;
         self.agents.save(storage, agent_id, &agent)?;

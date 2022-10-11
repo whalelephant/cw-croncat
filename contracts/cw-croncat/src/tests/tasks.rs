@@ -1,5 +1,5 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
-use crate::contract::{GAS_BASE_FEE_JUNO, GAS_FOR_ONE_NATIVE_JUNO};
+use crate::contract::{GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
@@ -347,7 +347,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         // treasury_id: None,
         agent_fee: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
         min_tasks_per_agent: None,
@@ -383,7 +383,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             // treasury_id: None,
             agent_fee: None,
             agents_eject_threshold: None,
-            gas_for_one_native: None,
+            gas_fraction: None,
             proxy_callback_gas: None,
             slot_granularity: None,
             min_tasks_per_agent: None,
@@ -997,10 +997,8 @@ fn check_gas_minimum() {
         },
     };
     // create 1 token off task
-    let amount_for_one_task = (gas_limit
-        + gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap())
-        / GAS_FOR_ONE_NATIVE_JUNO
-        + 2;
+    let amount_for_one_task =
+        ((gas_limit + gas_limit * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO) + 3;
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1061,7 +1059,7 @@ fn check_gas_default() {
     // for one task need gas + staking amount
 
     let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
-    let amount_for_one_task = (gas_limit + agent_fee) / GAS_FOR_ONE_NATIVE_JUNO + 3;
+    let amount_for_one_task = (gas_limit + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3;
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),

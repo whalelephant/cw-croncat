@@ -23,4 +23,7 @@ pub enum CoreError {
 
     #[error("Actions message unsupported or invalid message data")]
     InvalidAction {},
+
+    #[error("Invalid gas input")]
+    InvalidGas {},
 }

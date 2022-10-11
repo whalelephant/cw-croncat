@@ -440,13 +440,12 @@ impl Task {
 }
 
 /// Calculate the amount including agent_fee
-pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> u128 {
-    let fee = amount
+pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
+    amount
         .checked_mul(agent_fee)
-        .unwrap()
-        .checked_div(100u64)
-        .unwrap();
-    amount.checked_add(fee).unwrap() as u128
+        .and_then(|n| n.checked_div(100))
+        .and_then(|n| n.checked_add(amount))
+        .ok_or(CoreError::InvalidGas {})
 }
 
 impl FindAndMutate<'_, Coin> for Vec<Coin> {
@@ -683,5 +682,29 @@ impl Intervals for Interval {
                 s.is_ok()
             }
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct GasFraction {
+    pub numerator: u64,
+    pub denominator: u64,
+}
+
+impl GasFraction {
+    pub fn is_valid(&self) -> bool {
+        self.denominator != 0 && self.numerator != 0
+    }
+
+    pub fn calculate(&self, extra_num: u64, extra_denom: u64) -> Result<u128, CoreError> {
+        let numerator = self
+            .numerator
+            .checked_mul(extra_num)
+            .ok_or(CoreError::InvalidGas {})?;
+        let denominator = self
+            .denominator
+            .checked_mul(extra_denom)
+            .ok_or(CoreError::InvalidGas {})?;
+        Ok((numerator / denominator) as u128)
     }
 }

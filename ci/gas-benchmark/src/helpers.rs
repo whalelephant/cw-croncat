@@ -1,6 +1,6 @@
 use crate::{
     types::{Account, GasInformation},
-    CRONCAT_NAME, RULES_NAME,
+    CRONCAT_NAME, CW20_NAME, RULES_NAME,
 };
 use anyhow::Result;
 use cosm_orc::{
@@ -11,14 +11,16 @@ use cosm_orc::{
     orchestrator::cosm_orc::CosmOrc,
 };
 use cosmwasm_std::Binary;
-use cw_croncat::contract::{GAS_BASE_FEE_JUNO, GAS_FOR_ONE_NATIVE_JUNO};
+use cw20::Cw20Coin;
+use cw_croncat::contract::{GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use cw_croncat_core::msg::TaskRequest;
 use cw_rules_core::msg::RuleResponse;
 
 pub(crate) fn init_contracts(
     orc: &mut CosmOrc,
     key: &SigningKey,
-    addr: &str,
+    admin_addr: &str,
+    user_addr: &str,
     denom: impl Into<String>,
 ) -> Result<()> {
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), true)?;
@@ -32,15 +34,16 @@ pub(crate) fn init_contracts(
         "rules_init",
         &rules_msg,
         key,
-        Some(addr.to_owned()),
+        Some(admin_addr.to_owned()),
         vec![],
     )?;
 
     let croncat_msg = cw_croncat_core::msg::InstantiateMsg {
         denom: denom.into(),
         cw_rules_addr: rules_res.address,
-        owner_id: Some(addr.to_owned()),
+        owner_id: Some(admin_addr.to_owned()),
         gas_base_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: None,
     };
 
@@ -49,7 +52,28 @@ pub(crate) fn init_contracts(
         "croncat_init",
         &croncat_msg,
         key,
-        Some(addr.to_owned()),
+        Some(admin_addr.to_owned()),
+        vec![],
+    )?;
+
+    let cw20_msg = cw20_base::msg::InstantiateMsg {
+        name: "Croncat".to_string(),
+        symbol: "cct".to_string(),
+        decimals: 3,
+        initial_balances: vec![Cw20Coin {
+            address: user_addr.to_owned(),
+            amount: 100_000_u128.into(),
+        }],
+        mint: None,
+        marketing: None,
+    };
+
+    orc.instantiate(
+        CW20_NAME,
+        "cw20_init",
+        &cw20_msg,
+        key,
+        Some(admin_addr.to_owned()),
         vec![],
     )?;
 
@@ -120,7 +144,7 @@ where
     let denom = denom.into();
     let agent_addr = agent_addr.into();
     let attach_per_action =
-        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_FOR_ONE_NATIVE_JUNO;
+        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let num = tasks.len();
     for (task, extra_funds) in tasks {
         let amount = (task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
@@ -204,4 +228,15 @@ pub(crate) fn average_u64_slice(array: &[u64]) -> u64 {
     let sum: u64 = array.iter().sum();
     let count = array.len() as u64;
     sum / count
+}
+
+pub(crate) fn refill_cw20(orc: &mut CosmOrc, user_key: &SigningKey, amount: u128) -> Result<()> {
+    let croncat_addr = orc.contract_map.address(CRONCAT_NAME)?;
+    let msg = cw20_base::msg::ExecuteMsg::Send {
+        contract: croncat_addr,
+        amount: amount.into(),
+        msg: Binary::default(),
+    };
+    orc.execute(CW20_NAME, "refill_cw20", &msg, user_key, vec![])?;
+    Ok(())
 }

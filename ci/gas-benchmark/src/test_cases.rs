@@ -2,7 +2,8 @@ use cosm_orc::{
     config::{cfg::Coin, key::SigningKey},
     orchestrator::cosm_orc::CosmOrc,
 };
-use cosmwasm_std::{coin, coins};
+use cosmwasm_std::{coin, coins, to_binary};
+use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::TaskRequest,
     types::{Action, Interval},
@@ -86,17 +87,19 @@ pub(crate) fn send_to_bob_recurring(denom: &str) -> TaskRequest {
 
 pub(crate) fn send_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
     let send_to_bob = Action {
-        msg: cosmwasm_std::CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+        msg: cosmwasm_std::BankMsg::Send {
             to_address: BOB_ADDR.to_owned(),
             amount: coins(1, denom),
-        }),
+        }
+        .into(),
         gas_limit: None,
     };
     let send_to_alice = Action {
-        msg: cosmwasm_std::CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+        msg: cosmwasm_std::BankMsg::Send {
             to_address: ALICE_ADDR.to_owned(),
             amount: coins(2, denom),
-        }),
+        }
+        .into(),
         gas_limit: None,
     };
     TaskRequest {
@@ -106,6 +109,78 @@ pub(crate) fn send_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
         actions: vec![send_to_bob, send_to_alice],
         rules: None,
         cw20_coins: vec![],
+    }
+}
+
+pub(crate) fn send_cw20_to_bob_recurring(cw20_addr: &str, times: u128) -> TaskRequest {
+    let amount_bob: u128 = 1;
+    let amount = amount_bob;
+    let msg = cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: BOB_ADDR.to_owned(),
+        amount: amount_bob.into(),
+    };
+    let send_cw20_to_bob = Action {
+        msg: cosmwasm_std::WasmMsg::Execute {
+            contract_addr: cw20_addr.to_owned(),
+            msg: to_binary(&msg).unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![send_cw20_to_bob],
+        rules: None,
+        cw20_coins: vec![Cw20Coin {
+            address: cw20_addr.to_owned(),
+            amount: (times * amount).into(),
+        }],
+    }
+}
+
+pub(crate) fn send_cw20_to_bob_and_alice_recurring(cw20_addr: &str, times: u128) -> TaskRequest {
+    let amount_bob: u128 = 1;
+    let amount_alice: u128 = 2;
+    let amount = amount_alice + amount_bob;
+    let msg = cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: BOB_ADDR.to_owned(),
+        amount: amount_bob.into(),
+    };
+    let send_cw20_to_bob = Action {
+        msg: cosmwasm_std::WasmMsg::Execute {
+            contract_addr: cw20_addr.to_owned(),
+            msg: to_binary(&msg).unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let msg = cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: ALICE_ADDR.to_owned(),
+        amount: amount_bob.into(),
+    };
+    let send_cw20_to_alice = Action {
+        msg: cosmwasm_std::WasmMsg::Execute {
+            contract_addr: cw20_addr.to_owned(),
+            msg: to_binary(&msg).unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![send_cw20_to_bob, send_cw20_to_alice],
+        rules: None,
+        cw20_coins: vec![Cw20Coin {
+            address: cw20_addr.to_owned(),
+            amount: (times * amount).into(),
+        }],
     }
 }
 
@@ -127,6 +202,7 @@ pub(crate) fn delegate_to_bob_recurring(denom: &str) -> TaskRequest {
     }
 }
 
+// TODO: fix refund
 #[allow(unused)]
 pub(crate) fn delegate_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
     let delegate_to_bob = Action {

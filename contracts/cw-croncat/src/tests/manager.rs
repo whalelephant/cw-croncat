@@ -1,4 +1,4 @@
-use crate::contract::{GAS_BASE_FEE_JUNO, GAS_FOR_ONE_NATIVE_JUNO};
+use crate::contract::{GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{add_little_time, add_one_duration_of_time, proper_instantiate};
 use crate::ContractError;
 use cosmwasm_std::{
@@ -66,7 +66,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -102,7 +102,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             agent_fee: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
-            gas_for_one_native: None,
+            gas_fraction: None,
             proxy_callback_gas: None,
             slot_granularity: None,
         },
@@ -421,7 +421,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
         (beneficiary_balance_after_proxy_call.amount
             - beneficiary_balance_before_proxy_call.amount)
             .u128(),
-        ((agent_fee + gas_limit - 1) / GAS_FOR_ONE_NATIVE_JUNO) as u128
+        ((agent_fee + gas_limit) / GAS_DENOMINATOR_DEFAULT_JUNO) as u128
     );
 
     Ok(())
@@ -1286,7 +1286,8 @@ fn test_balance_changes() {
     let gas_limit = GAS_BASE_FEE_JUNO;
     let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
     let extra = 50; // extra for checking refunds at task removal
-    let amount_for_one_task = (gas_limit + agent_fee) * 2 / GAS_FOR_ONE_NATIVE_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
+    let amount_for_one_task =
+        (gas_limit + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1326,12 +1327,12 @@ fn test_balance_changes() {
         .unwrap();
     assert_eq!(
         contract_balance_after_proxy_call.amount,
-        contract_balance_before_proxy_call.amount - Uint128::from(extra + 3 + 5)
+        contract_balance_before_proxy_call.amount - Uint128::from(extra + 3 + 4)
     );
     let admin_balance_after_proxy_call = app.wrap().query_balance(ADMIN, NATIVE_DENOM).unwrap();
     assert_eq!(
         admin_balance_after_proxy_call.amount,
-        admin_balance_before_proxy_call.amount + Uint128::from(extra + 1)
+        admin_balance_before_proxy_call.amount + Uint128::from(extra)
     );
 
     // checking balances of recipients
@@ -1380,7 +1381,7 @@ fn test_balance_changes() {
         .unwrap();
 
     let expected_transfer_amount =
-        Uint128::from((gas_limit + agent_fee) * 2 / GAS_FOR_ONE_NATIVE_JUNO - 1);
+        Uint128::from((gas_limit + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO);
     assert_eq!(
         beneficary_balance_after_withdraw.amount,
         beneficary_balance_before_withdraw.amount + expected_transfer_amount
@@ -1419,7 +1420,7 @@ fn test_no_reschedule_if_lack_balance() {
     let gas_limit = GAS_BASE_FEE_JUNO;
     let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
     let extra = 50; // extra for checking nonzero task balance
-    let amount_for_one_task = (gas_limit + agent_fee) / GAS_FOR_ONE_NATIVE_JUNO + 3; // + 3 atoms sent
+    let amount_for_one_task = (gas_limit + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3; // + 3 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1467,7 +1468,7 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert_eq!(
         task.unwrap().total_deposit[0].amount,
-        Uint128::from((GAS_BASE_FEE_JUNO + agent_fee) / GAS_FOR_ONE_NATIVE_JUNO + extra)
+        Uint128::from((GAS_BASE_FEE_JUNO + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + extra)
     );
 
     app.update_block(add_little_time);
@@ -1772,4 +1773,153 @@ fn test_reschedule_task_with_rule() {
         )
         .unwrap();
     assert!(tasks_with_rules.is_empty());
+}
+
+#[test]
+fn testing_fee_works() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let addr1 = String::from("addr1");
+    let amount = coins(3, NATIVE_DENOM);
+    let send = BankMsg::Send {
+        to_address: addr1.clone(),
+        amount: amount.clone(),
+    };
+    let bank_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Immediate,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: send.into(),
+                gas_limit: None,
+            }],
+            rules: None,
+            cw20_coins: vec![],
+        },
+    };
+    let delegate = StakingMsg::Delegate {
+        validator: addr1,
+        amount: amount[0].clone(),
+    };
+    let delegate_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Immediate,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: delegate.into(),
+                gas_limit: None,
+            }],
+            rules: None,
+            cw20_coins: vec![],
+        },
+    };
+    let attach_per_action =
+        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let extra = 100;
+    let amount_for_three = (attach_per_action * 3) as u128 + extra;
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &bank_msg,
+        &coins(amount_for_three, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &delegate_msg,
+        &coins(amount_for_three, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let tasks: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasks {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+        .into_iter()
+        .map(|task| (task.total_deposit, task.actions))
+        .collect();
+    println!("tasks: {tasks:?}");
+
+    let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &proxy_call_msg,
+        &[],
+    )
+    .unwrap();
+
+    app.update_block(add_little_time);
+    let tasks: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasks {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+        .into_iter()
+        .map(|task| (task.total_deposit, task.actions))
+        .collect();
+    println!("tasks: {tasks:?}");
+
+    let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &proxy_call_msg,
+        &[],
+    )
+    .unwrap();
+
+    app.update_block(add_little_time);
+    let tasks: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasks {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+        .into_iter()
+        .map(|task| (task.total_deposit, task.actions))
+        .collect();
+    println!("tasks: {tasks:?}");
+
+    let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &proxy_call_msg,
+        &[],
+    )
+    .unwrap();
 }

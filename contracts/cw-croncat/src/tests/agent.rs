@@ -11,7 +11,9 @@ use cw_croncat_core::msg::{
     AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg, TaskRequest,
     TaskResponse,
 };
-use cw_croncat_core::types::{Action, Agent, AgentResponse, AgentStatus, GenericBalance, Interval};
+use cw_croncat_core::types::{
+    Action, Agent, AgentResponse, AgentStatus, GasFraction, GenericBalance, Interval,
+};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{
@@ -252,6 +254,7 @@ fn test_instantiate_sets_balance() {
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
                 gas_base_fee: None,
+                gas_fraction: None,
                 agent_nomination_duration: None,
             },
             &sent_funds,
@@ -304,7 +307,7 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -334,7 +337,10 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_for_one_native: Some(1),
+        gas_fraction: Some(GasFraction {
+            numerator: 1,
+            denominator: 1,
+        }),
         proxy_callback_gas: None,
         slot_granularity: None,
     };
@@ -739,6 +745,7 @@ fn test_get_agent_status() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_base_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
     };

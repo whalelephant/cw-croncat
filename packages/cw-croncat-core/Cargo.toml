@@ -28,5 +28,5 @@ sha2 = "0.9"
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }
 cw-multi-test = { version = "0.13", features = ["staking"] }
-cw20-base = { version = "0.12", features = ["library"] }
+cw20-base = { version = "0.13", features = ["library"] }
 serde-json-wasm = "0.4.1"

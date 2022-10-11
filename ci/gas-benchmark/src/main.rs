@@ -7,6 +7,10 @@ use anyhow::Result;
 use cosm_orc::{config::cfg::Config, orchestrator::cosm_orc::CosmOrc};
 use types::Account;
 
+use crate::{
+    helpers::refill_cw20,
+    test_cases::{send_cw20_to_bob_and_alice_recurring, send_cw20_to_bob_recurring},
+};
 #[allow(unused_imports)]
 use crate::{
     helpers::{
@@ -22,6 +26,7 @@ use crate::{
 
 const RULES_NAME: &str = "cw_rules";
 const CRONCAT_NAME: &str = "cw_croncat";
+const CW20_NAME: &str = "cw20_base";
 const BOB_ADDR: &str = "juno14vhcdsyf83ngsrrqc92kmw8q9xakqjm0ff2dpn";
 const ALICE_ADDR: &str = "juno1l8hl8e0ut8jdaecxwazs9m32ak02ez4rssq4wl";
 
@@ -38,10 +43,12 @@ fn main() -> Result<()> {
 
     let (admin_key, admin_addr) = key_addr_from_account(admin_account);
     let (agent_key, agent_addr) = key_addr_from_account(agent_account);
-    let (user_key, _user_addr) = key_addr_from_account(user_account);
+    let (user_key, user_addr) = key_addr_from_account(user_account);
 
-    init_contracts(&mut orc, &admin_key, &admin_addr, &denom)?;
+    init_contracts(&mut orc, &admin_key, &admin_addr, &user_addr, &denom)?;
     register_agent(&mut orc, &agent_key)?;
+    let cw20_addr = orc.contract_map.address(CW20_NAME)?;
+    refill_cw20(&mut orc, &user_key, 100_000)?;
     // TEST IT WORKS
     let _ = complete_simple_task(&mut orc, (&agent_key, &agent_addr), &user_key, &denom)?;
 
@@ -49,6 +56,9 @@ fn main() -> Result<()> {
         // Send tasks
         (send_to_bob_recurring(&denom), 100),
         (send_to_bob_and_alice_recurring(&denom), 100),
+        // wasm(CW20 send) tasks
+        (send_cw20_to_bob_recurring(&cw20_addr, 3), 100),
+        (send_cw20_to_bob_and_alice_recurring(&cw20_addr, 3), 100),
         // Failed Stake tasks
         // (delegate_to_bob_recurring(&denom), 100),
         // (delegate_to_bob_and_alice_recurring(&denom), 100),
@@ -68,8 +78,16 @@ fn main() -> Result<()> {
         cost_per_send.approx_gas_per_action()
     );
 
+    let cost_per_cw20 = cost_approxes(&gas_fees_usage[2], &gas_fees_usage[3]);
+    println!("wasm reports:");
+    println!("approx_base_gas: {}", cost_per_cw20.approx_base_gas());
+    println!(
+        "approx_gas_per_action: {}\n",
+        cost_per_cw20.approx_gas_per_action()
+    );
+
     // TODO: test when fixed #137
-    // let cost_per_delegate = cost_approxes(&gas_fees_usage[2], &gas_fees_usage[3]);
+    // let cost_per_delegate = cost_approxes(&gas_fees_usage[4], &gas_fees_usage[5]);
     // println!("delegate reports:");
     // println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
     // println!(
@@ -78,6 +96,7 @@ fn main() -> Result<()> {
     // );
 
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
+    println!("all_tasks: {all_tasks_info:?}");
     println!(
         "avg_gas_cost: {}",
         average_gas_for_one_native_ujunox(all_tasks_info)

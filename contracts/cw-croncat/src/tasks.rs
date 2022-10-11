@@ -262,10 +262,11 @@ impl<'a> CwCroncat<'a> {
             &c.owner_id,
             c.gas_base_fee,
         )?;
-        amount_for_one_task.native.find_checked_add(&coin(
-            calculate_required_amount(gas_amount / c.gas_for_one_native, c.agent_fee),
-            &c.native_denom,
-        ))?;
+        let gas_price = calculate_required_amount(gas_amount, c.agent_fee)?;
+        let price = c.gas_fraction.calculate(gas_price, 1)?;
+        amount_for_one_task
+            .native
+            .find_checked_add(&coin(price, &c.native_denom))?;
 
         let item = Task {
             funds_withdrawn_recurring: Uint128::zero(),
