@@ -201,7 +201,7 @@ export interface Croncat {
 }
 export interface Agent {
   balance: GenericBalance;
-  last_missed_slot: number;
+  last_executed_slot: number;
   payable_account_id: Addr;
   register_start: Timestamp;
   total_tasks_executed: number;
@@ -250,7 +250,7 @@ export interface GetAgentIdsResponse {
 }
 export interface AgentResponse {
   balance: GenericBalance;
-  last_missed_slot: number;
+  last_executed_slot: number;
   payable_account_id: Addr;
   register_start: Timestamp;
   status: AgentStatus;
@@ -437,6 +437,10 @@ export type ExecuteMsg = {
 } | {
   withdraw_wallet_balance: {
     cw20_amounts: Cw20Coin[];
+    [k: string]: unknown;
+  };
+} | {
+  tick: {
     [k: string]: unknown;
   };
 };

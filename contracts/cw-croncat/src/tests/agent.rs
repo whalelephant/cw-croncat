@@ -393,7 +393,7 @@ fn register_agent() {
     );
     assert_eq!(GenericBalance::default(), agent_info.balance);
     assert_eq!(0, agent_info.total_tasks_executed);
-    assert_eq!(0, agent_info.last_missed_slot);
+    assert_eq!(12345, agent_info.last_executed_slot);
     assert_eq!(blk_time, agent_info.register_start);
 
     // test fail if try to re-register
