@@ -16,7 +16,7 @@ docker run --rm -v "$(pwd)":/code \
 Set up these variables, so that you don't have to type in node, chain id and gas-price details every time you execute commands.
 ```bash
 NODE="--node https://rpc.uni.juno.deuslabs.fi:443"
-TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-3 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
+TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 ```
 Specify your addresses, which will be responsible for owner of the contract, agent and the user, who creates tasks:
 ```bash
@@ -46,7 +46,7 @@ JSON=$(jq -n --arg addr $(junod keys show -a $USER) '{ denom:"ujunox","address":
 ```
 
 # Store the code
-Store the code to the uni-3 testnet:
+Store the code to the uni-5 testnet:
 ```bash
 RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
