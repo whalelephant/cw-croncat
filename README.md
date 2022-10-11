@@ -7,6 +7,8 @@
   </p>
 </div>
 
+[![codecov](https://codecov.io/gh/CronCats/cw-croncat/branch/main/graph/badge.svg?token=JU1C4RK7X4)](https://codecov.io/gh/CronCats/cw-croncat)
+
 ## ALPHA: 
 
 #### This repo is in early develop stage - use at your own risk!
