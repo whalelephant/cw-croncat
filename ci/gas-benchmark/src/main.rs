@@ -96,7 +96,6 @@ fn main() -> Result<()> {
     // );
 
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
-    println!("all_tasks: {all_tasks_info:?}");
     println!(
         "avg_gas_cost: {}",
         average_gas_for_one_native_ujunox(all_tasks_info)
