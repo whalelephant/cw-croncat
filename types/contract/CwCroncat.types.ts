@@ -234,13 +234,18 @@ export interface GetConfigResponse {
   agent_fee: number;
   agents_eject_threshold: number;
   cw_rules_addr: Addr;
-  gas_for_one_native: number;
+  gas_fraction: GasFraction;
   min_tasks_per_agent: number;
   native_denom: string;
   owner_id: Addr;
   paused: boolean;
   proxy_callback_gas: number;
   slot_granularity: number;
+  [k: string]: unknown;
+}
+export interface GasFraction {
+  denominator: number;
+  numerator: number;
   [k: string]: unknown;
 }
 export interface GetAgentIdsResponse {
@@ -370,7 +375,7 @@ export type ExecuteMsg = {
   update_settings: {
     agent_fee?: number | null;
     agents_eject_threshold?: number | null;
-    gas_for_one_native?: number | null;
+    gas_fraction?: GasFraction | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
     paused?: boolean | null;
@@ -514,6 +519,7 @@ export interface InstantiateMsg {
   cw_rules_addr: string;
   denom: string;
   gas_base_fee?: Uint64 | null;
+  gas_fraction?: GasFraction | null;
   owner_id?: string | null;
   [k: string]: unknown;
 }

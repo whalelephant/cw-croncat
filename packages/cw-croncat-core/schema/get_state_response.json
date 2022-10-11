@@ -551,6 +551,25 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
+    "GasFraction": {
+      "type": "object",
+      "required": [
+        "denominator",
+        "numerator"
+      ],
+      "properties": {
+        "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "numerator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
     "GenericQuery": {
       "type": "object",
       "required": [
@@ -588,7 +607,7 @@
         "agent_fee",
         "agents_eject_threshold",
         "cw_rules_addr",
-        "gas_for_one_native",
+        "gas_fraction",
         "min_tasks_per_agent",
         "native_denom",
         "owner_id",
@@ -633,10 +652,8 @@
         "cw_rules_addr": {
           "$ref": "#/definitions/Addr"
         },
-        "gas_for_one_native": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
+        "gas_fraction": {
+          "$ref": "#/definitions/GasFraction"
         },
         "min_tasks_per_agent": {
           "type": "integer",
