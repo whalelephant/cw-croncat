@@ -12,8 +12,8 @@ use cosm_orc::{
 };
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
-use cw_croncat::contract::{GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use cw_croncat_core::msg::TaskRequest;
+use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use cw_croncat_core::msg::{TaskRequest, TaskResponse};
 use cw_rules_core::msg::RuleResponse;
 
 pub(crate) fn init_contracts(
@@ -42,9 +42,10 @@ pub(crate) fn init_contracts(
         denom: denom.into(),
         cw_rules_addr: rules_res.address,
         owner_id: Some(admin_addr.to_owned()),
-        gas_base_fee: None,
+        gas_action_fee: None,
         gas_fraction: None,
         agent_nomination_duration: None,
+        gas_base_fee: None,
     };
 
     orc.instantiate(
@@ -144,7 +145,7 @@ where
     let denom = denom.into();
     let agent_addr = agent_addr.into();
     let attach_per_action =
-        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
+        (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let prefixes: Vec<String> = tasks
         .iter()
         .map(|(_, _, prefix)| (*prefix).to_owned())
@@ -183,6 +184,20 @@ where
             .map(|prefix| format!("{prefix}_middle_proxy_call"))
             .collect(),
     )?;
+
+    // check that all of the tasks still active
+    let query_res = orc.query(
+        CRONCAT_NAME,
+        &cw_croncat_core::msg::QueryMsg::GetTasks {
+            from_index: None,
+            limit: None,
+        },
+    )?;
+    let tasks: Vec<TaskResponse> = query_res.data()?;
+    if tasks.len() != tasks.len() {
+        return Err(anyhow::anyhow!("{} tasks finihsed too early", tasks.len()));
+    }
+
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
     let third_proxys = proxy_call_for_n_times(
         orc,
@@ -193,6 +208,19 @@ where
             .map(|prefix| format!("{prefix}_last_proxy_call"))
             .collect(),
     )?;
+    // check that all of the tasks got unregistered
+    let query_res = orc.query(
+        CRONCAT_NAME,
+        &cw_croncat_core::msg::QueryMsg::GetTasks {
+            from_index: None,
+            limit: None,
+        },
+    )?;
+    let tasks: Vec<TaskResponse> = query_res.data()?;
+    if !tasks.is_empty() {
+        return Err(anyhow::anyhow!("{} tasks not finihsed", tasks.len()));
+    }
+
     let res = first_proxys
         .into_iter()
         .zip(second_proxys.into_iter())
@@ -222,7 +250,6 @@ pub(crate) fn proxy_call_for_n_times(
         let gas_information = GasInformation {
             gas_used: res.res.gas_used,
             native_balance_burned: before_pc - after_pc,
-            log: res.res.log,
         };
         gas_infos.push(gas_information);
     }

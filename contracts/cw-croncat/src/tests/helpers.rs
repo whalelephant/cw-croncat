@@ -34,10 +34,11 @@ pub fn mock_init(store: &CwCroncat, deps: DepsMut<Empty>) -> Result<Response, Co
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
-        gas_base_fee: None,
+        gas_action_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
+        gas_base_fee: None,
     };
     let info = mock_info("creator", &coins(1000, "meow"));
     store.instantiate(deps, mock_env(), info.clone(), msg)
@@ -122,11 +123,12 @@ pub fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
         .unwrap();
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
+        cw_rules_addr: cw_rules_addr.to_string(),
         owner_id: Some(owner_addr.to_string()),
         gas_base_fee: None,
+        gas_action_fee: None,
         gas_fraction: None,
         agent_nomination_duration: None,
-        cw_rules_addr: cw_rules_addr.to_string(),
     };
     let cw_template_contract_addr = app
         //Must send some available balance for rewards

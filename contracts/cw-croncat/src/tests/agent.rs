@@ -253,9 +253,10 @@ fn test_instantiate_sets_balance() {
                 denom: "grape".to_string(),
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
-                gas_base_fee: None,
+                gas_action_fee: None,
                 gas_fraction: None,
                 agent_nomination_duration: None,
+                gas_base_fee: None,
             },
             &sent_funds,
             "cw croncat",
@@ -310,6 +311,8 @@ fn register_agent_fail_cases() {
         gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
 
     app.execute_contract(
@@ -343,6 +346,8 @@ fn register_agent_fail_cases() {
         }),
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
 
     app.execute_contract(
@@ -744,10 +749,11 @@ fn test_get_agent_status() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
-        gas_base_fee: None,
+        gas_action_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
+        gas_base_fee: None,
     };
     let mut info = mock_info(AGENT0, &coins(900_000, NATIVE_DENOM));
     let res_init = contract

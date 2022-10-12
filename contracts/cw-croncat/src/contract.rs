@@ -15,8 +15,13 @@ const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
-// default for juno
-pub const GAS_BASE_FEE_JUNO: u64 = 400_000;
+/// default for juno
+/// This based on non-wasm operations, wasm ops seem impossible to predict
+pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
+/// Gas cost per single action
+pub const GAS_ACTION_FEE_JUNO: u64 = 200_000;
+/// We can't store gas_price as floats inside cosmwasm
+/// so insted of something like 0.1 we use GasFraction{1/10}
 pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
 
 // #[cfg(not(feature = "library"))]
@@ -38,6 +43,12 @@ impl<'a> CwCroncat<'a> {
             deps.api.addr_validate(&owner_id)?
         } else {
             info.sender
+        };
+
+        let gas_action_fee = if let Some(action_fee) = msg.gas_action_fee {
+            action_fee.u64()
+        } else {
+            GAS_ACTION_FEE_JUNO
         };
 
         let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
@@ -62,6 +73,7 @@ impl<'a> CwCroncat<'a> {
             },
             proxy_callback_gas: 3,
             gas_base_fee,
+            gas_action_fee,
             slot_granularity: 60_000_000_000,
             native_denom: msg.denom,
             cw20_whitelist: vec![],

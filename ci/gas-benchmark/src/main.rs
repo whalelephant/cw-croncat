@@ -9,7 +9,10 @@ use types::Account;
 
 use crate::{
     helpers::refill_cw20,
-    test_cases::{send_cw20_to_bob_and_alice_recurring, send_cw20_to_bob_recurring},
+    test_cases::{
+        delegate_to_validator, delegate_to_validator_twice, send_cw20_to_bob_and_alice_recurring,
+        send_cw20_to_bob_recurring,
+    },
 };
 #[allow(unused_imports)]
 use crate::{
@@ -71,9 +74,19 @@ fn main() -> Result<()> {
             100,
             "send_two_cw20",
         ),
+        (delegate_to_validator(&denom), 100, "delegate_once"),
+        (delegate_to_validator_twice(&denom), 100, "delegate_twice"),
         // Failed Stake tasks
-        // (delegate_to_bob_recurring(&denom), 100),
-        // (delegate_to_bob_and_alice_recurring(&denom), 100),
+        (
+            delegate_to_bob_recurring(&denom),
+            100,
+            "failed_delegate_once",
+        ),
+        (
+            delegate_to_bob_and_alice_recurring(&denom),
+            100,
+            "failed_delegate_twice",
+        ),
     ];
     let gas_fees_usage = complete_tasks_for_three_times(
         &mut orc,
@@ -98,14 +111,21 @@ fn main() -> Result<()> {
         cost_per_cw20.approx_gas_per_action()
     );
 
-    // TODO: test when fixed #137
-    // let cost_per_delegate = cost_approxes(&gas_fees_usage[4], &gas_fees_usage[5]);
-    // println!("delegate reports:");
-    // println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
-    // println!(
-    //     "approx_gas_per_action: {}\n",
-    //     cost_per_delegate.approx_gas_per_action()
-    // );
+    let cost_per_delegate = cost_approxes(&gas_fees_usage[4], &gas_fees_usage[5]);
+    println!("delegate reports:");
+    println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
+    println!(
+        "approx_gas_per_action: {}\n",
+        cost_per_delegate.approx_gas_per_action()
+    );
+
+    let cost_per_delegate = cost_approxes(&gas_fees_usage[6], &gas_fees_usage[7]);
+    println!("failed delegate reports:");
+    println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
+    println!(
+        "approx_gas_per_action: {}\n",
+        cost_per_delegate.approx_gas_per_action()
+    );
 
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
     println!(

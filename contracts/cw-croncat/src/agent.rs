@@ -146,7 +146,7 @@ impl<'a> CwCroncat<'a> {
         // Check if native token balance is sufficient for a few txns, in this case 4 txns
         // TODO: Adjust gas & costs based on real usage cost
         let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-        let gas_cost = calculate_required_amount(c.gas_base_fee, c.agent_fee)?;
+        let gas_cost = calculate_required_amount(c.gas_action_fee, c.agent_fee)?;
         let unit_cost = c.gas_fraction.calculate(4 * gas_cost, 1)?;
         if !has_coins(
             &agent_wallet_balances,

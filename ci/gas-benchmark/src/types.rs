@@ -11,7 +11,6 @@ pub(crate) struct Account {
 pub(crate) struct GasInformation {
     pub gas_used: u64,
     pub native_balance_burned: u128,
-    pub log: String,
 }
 
 #[derive(Debug)]

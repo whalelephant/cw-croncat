@@ -223,15 +223,16 @@ impl TaskRequest {
         self_addr: &Addr,
         sender: &Addr,
         owner_id: &Addr,
-        default_gas: u64,
+        base_gas: u64,
+        action_gas: u64,
     ) -> Result<(GenericBalance, u64), CoreError> {
-        let mut gas_amount: u64 = 0;
+        let mut gas_amount: u64 = base_gas;
         let mut amount_for_one_task = GenericBalance::default();
 
         for action in self.actions.iter() {
             // checked for cases, where task creator intentionaly tries to overflow
             gas_amount = gas_amount
-                .checked_add(action.gas_limit.unwrap_or(default_gas))
+                .checked_add(action.gas_limit.unwrap_or(action_gas))
                 .ok_or(CoreError::InvalidWasmMsg {})?;
             match &action.msg {
                 CosmosMsg::Wasm(WasmMsg::Execute {
@@ -426,14 +427,15 @@ impl Task {
     /// helper for getting total configured gas for this tasks actions
     pub fn get_submsgs_with_total_gas(
         &self,
-        default_gas: u64,
+        base_gas: u64,
+        action_gas: u64,
         next_idx: u64,
     ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
-        let mut gas: u64 = 0;
+        let mut gas: u64 = base_gas;
         let mut sub_msgs = Vec::with_capacity(self.actions.len());
         for action in self.actions.iter() {
             gas = gas
-                .checked_add(action.gas_limit.unwrap_or(default_gas))
+                .checked_add(action.gas_limit.unwrap_or(action_gas))
                 .ok_or(CoreError::InvalidGas {})?;
             let sub_msg: SubMsg = SubMsg::reply_always(action.msg.clone(), next_idx);
             if let Some(gas_limit) = action.gas_limit {

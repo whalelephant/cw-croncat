@@ -261,6 +261,7 @@ impl<'a> CwCroncat<'a> {
             owner_id,
             &c.owner_id,
             c.gas_base_fee,
+            c.gas_action_fee,
         )?;
         let gas_price = calculate_required_amount(gas_amount, c.agent_fee)?;
         let price = c.gas_fraction.calculate(gas_price, 1)?;

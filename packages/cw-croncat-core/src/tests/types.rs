@@ -39,6 +39,7 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .is_ok());
 }
@@ -70,6 +71,7 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             5,
+            5,
         )
         .is_ok());
 }
@@ -97,6 +99,7 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("alice2"),
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
+            5,
             5,
         )
         .is_ok());
@@ -131,6 +134,7 @@ fn is_valid_msg_wrong_account() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .unwrap_err()
     );
@@ -164,6 +168,7 @@ fn is_valid_msg_vote() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .unwrap_err()
     );
@@ -199,6 +204,7 @@ fn is_valid_msg_transfer() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .unwrap_err()
     );
@@ -231,6 +237,7 @@ fn is_valid_msg_burn() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .unwrap_err()
     );
@@ -263,6 +270,7 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .is_ok());
 }
@@ -294,6 +302,7 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5
         )
         .is_ok());
 }

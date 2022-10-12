@@ -76,6 +76,8 @@ impl<'a> CwCroncat<'a> {
                 slot_granularity,
                 paused,
                 agent_fee,
+                gas_base_fee,
+                gas_action_fee,
                 gas_fraction,
                 proxy_callback_gas,
                 min_tasks_per_agent,
@@ -101,6 +103,12 @@ impl<'a> CwCroncat<'a> {
                         }
                         if let Some(paused) = paused {
                             config.paused = paused;
+                        }
+                        if let Some(gas_base_fee) = gas_base_fee {
+                            config.gas_base_fee = gas_base_fee.u64();
+                        }
+                        if let Some(gas_action_fee) = gas_action_fee {
+                            config.gas_action_fee = gas_action_fee.u64();
                         }
                         if let Some(gas_fraction) = gas_fraction {
                             config.gas_fraction = gas_fraction;
