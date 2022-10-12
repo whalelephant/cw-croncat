@@ -64,6 +64,7 @@ where
     let gas_information = GasInformation {
         gas_used: res.res.gas_used,
         native_balance_burned: before_pc - after_pc,
+        log: res.res.log,
     };
     Ok(gas_information)
 }

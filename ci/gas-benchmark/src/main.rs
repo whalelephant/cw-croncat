@@ -54,11 +54,23 @@ fn main() -> Result<()> {
 
     let tasks = vec![
         // Send tasks
-        (send_to_bob_recurring(&denom), 100),
-        (send_to_bob_and_alice_recurring(&denom), 100),
+        (send_to_bob_recurring(&denom), 100, "send_one_native"),
+        (
+            send_to_bob_and_alice_recurring(&denom),
+            100,
+            "send_two_native",
+        ),
         // wasm(CW20 send) tasks
-        (send_cw20_to_bob_recurring(&cw20_addr, 3), 100),
-        (send_cw20_to_bob_and_alice_recurring(&cw20_addr, 3), 100),
+        (
+            send_cw20_to_bob_recurring(&cw20_addr, 3),
+            100,
+            "send_single_cw20",
+        ),
+        (
+            send_cw20_to_bob_and_alice_recurring(&cw20_addr, 3),
+            100,
+            "send_two_cw20",
+        ),
         // Failed Stake tasks
         // (delegate_to_bob_recurring(&denom), 100),
         // (delegate_to_bob_and_alice_recurring(&denom), 100),

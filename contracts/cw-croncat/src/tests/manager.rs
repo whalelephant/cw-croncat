@@ -526,7 +526,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "525006atom"
+                    && a.clone().value == "495840atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -624,10 +624,9 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "525006atom"
+                    && a.clone().value == "495840atom"
                 // task didn't pay for the failed execution
                 {
-                    println!("value {:?}", a.clone().value);
                     has_submsg_method = true;
                 }
                 if e.ty == "reply" && a.clone().key == "mode" && a.clone().value == "handle_failure"

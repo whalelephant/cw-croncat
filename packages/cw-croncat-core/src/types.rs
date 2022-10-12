@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
-    OverflowOperation::Sub, StakingMsg, StdError, SubMsgResult, Timestamp, Uint128, Uint64,
+    OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp, Uint128, Uint64,
     WasmMsg,
 };
 use cron_schedule::Schedule;
@@ -58,6 +58,13 @@ pub struct Agent {
     // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
     // Example data: 1633890060000000000 or 0
     pub register_start: Timestamp,
+}
+
+impl Agent {
+    pub fn update(&mut self) {
+        self.total_tasks_executed = self.total_tasks_executed.saturating_add(1);
+        self.last_missed_slot = 0;
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -417,16 +424,46 @@ impl Task {
 
     /// Get task gas total
     /// helper for getting total configured gas for this tasks actions
-    pub fn to_gas_total(&self) -> u64 {
+    pub fn get_submsgs_with_total_gas(
+        &self,
+        default_gas: u64,
+        next_idx: u64,
+    ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
         let mut gas: u64 = 0;
-
-        // tally all the gases
+        let mut sub_msgs = Vec::with_capacity(self.actions.len());
         for action in self.actions.iter() {
-            gas = gas.saturating_add(action.gas_limit.unwrap_or(0));
+            gas = gas
+                .checked_add(action.gas_limit.unwrap_or(default_gas))
+                .ok_or(CoreError::InvalidGas {})?;
+            let sub_msg: SubMsg = SubMsg::reply_always(action.msg.clone(), next_idx);
+            if let Some(gas_limit) = action.gas_limit {
+                sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
+            } else {
+                sub_msgs.push(sub_msg);
+            }
         }
-
-        gas
+        Ok((sub_msgs, gas))
     }
+
+    /// Calculate gas usage for this task
+    // pub fn calculate_gas_usage(
+    //     &self,
+    //     cfg: &Config,
+    //     actions: &[Action],
+    // ) -> Result<Coin, ContractError> {
+    //     let mut gas_used = 0;
+    //     for action in actions {
+    //         if let Some(gas_limit) = action.gas_limit {
+    //             gas_used += gas_limit;
+    //         } else {
+    //             gas_used += cfg.gas_base_fee;
+    //         }
+    //     }
+    //     let gas_amount = calculate_required_amount(gas_used, cfg.agent_fee)?;
+    //     let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
+    //     let price = coin(price_amount, &cfg.native_denom);
+    //     Ok(price)
+    // }
 
     /// Get whether the task is with rules
     pub fn with_rules(&self) -> bool {

@@ -136,7 +136,7 @@ pub(crate) fn complete_tasks_for_three_times<S>(
     (agent_key, agent_addr): (&SigningKey, S),
     user_key: &SigningKey,
     denom: S,
-    tasks: Vec<(TaskRequest, u64)>,
+    tasks: Vec<(TaskRequest, u64, &str)>,
 ) -> Result<Vec<[GasInformation; 3]>>
 where
     S: Into<String>,
@@ -145,13 +145,16 @@ where
     let agent_addr = agent_addr.into();
     let attach_per_action =
         (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
-    let num = tasks.len();
-    for (task, extra_funds) in tasks {
+    let prefixes: Vec<String> = tasks
+        .iter()
+        .map(|(_, _, prefix)| (*prefix).to_owned())
+        .collect();
+    for (task, extra_funds, prefix) in tasks {
         let amount = (task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
         let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
         orc.execute(
             CRONCAT_NAME,
-            "create_task",
+            &format!("{prefix}_create_task"),
             &msg,
             user_key,
             vec![Coin {
@@ -165,20 +168,31 @@ where
         orc,
         (agent_key, agent_addr.clone()),
         denom.clone(),
-        num,
-        "first_proxy_call",
+        prefixes
+            .iter()
+            .map(|prefix| format!("{prefix}_first_proxy_call"))
+            .collect(),
     )?;
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
     let second_proxys = proxy_call_for_n_times(
         orc,
         (agent_key, agent_addr.clone()),
         denom.clone(),
-        num,
-        "middle_proxy_call",
+        prefixes
+            .iter()
+            .map(|prefix| format!("{prefix}_middle_proxy_call"))
+            .collect(),
     )?;
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
-    let third_proxys =
-        proxy_call_for_n_times(orc, (agent_key, agent_addr), denom, num, "last_proxy_call")?;
+    let third_proxys = proxy_call_for_n_times(
+        orc,
+        (agent_key, agent_addr),
+        denom,
+        prefixes
+            .iter()
+            .map(|prefix| format!("{prefix}_last_proxy_call"))
+            .collect(),
+    )?;
     let res = first_proxys
         .into_iter()
         .zip(second_proxys.into_iter())
@@ -192,15 +206,14 @@ pub(crate) fn proxy_call_for_n_times(
     orc: &mut CosmOrc,
     (agent_key, agent_addr): (&SigningKey, String),
     denom: String,
-    n: usize,
-    op_name: &str,
+    op_names: Vec<String>,
 ) -> Result<Vec<GasInformation>> {
-    let mut gas_infos = Vec::with_capacity(n);
-    for _ in 0..n {
+    let mut gas_infos = Vec::with_capacity(op_names.len());
+    for name in op_names.iter() {
         let before_pc = query_balance(orc, agent_addr.clone(), denom.clone())?;
         let res = orc.execute(
             CRONCAT_NAME,
-            op_name,
+            name,
             &cw_croncat_core::msg::ExecuteMsg::ProxyCall { task_hash: None },
             agent_key,
             vec![],
@@ -209,6 +222,7 @@ pub(crate) fn proxy_call_for_n_times(
         let gas_information = GasInformation {
             gas_used: res.res.gas_used,
             native_balance_burned: before_pc - after_pc,
+            log: res.res.log,
         };
         gas_infos.push(gas_information);
     }

@@ -6,13 +6,13 @@ use crate::state::{Config, QueueItem};
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg, SubMsgResult,
-    WasmMsg,
+    coin, to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg,
+    SubMsgResult, WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
-use cw_croncat_core::types::AgentStatus;
+use cw_croncat_core::types::{calculate_required_amount, AgentStatus};
 pub use cw_croncat_core::types::{GenericBalance, Task};
 //use regex::Regex;
 use schemars::JsonSchema;
@@ -236,6 +236,19 @@ impl<'a> CwCroncat<'a> {
         }
         Ok(task)
     }
+}
+
+/// Generate submsgs for this proxy call and
+pub(crate) fn proxy_call_submsgs_price(
+    task: &Task,
+    cfg: Config,
+    next_idx: u64,
+) -> Result<(Vec<SubMsg>, Coin), ContractError> {
+    let (sub_msgs, gas_total) = task.get_submsgs_with_total_gas(cfg.gas_base_fee, next_idx)?;
+    let gas_amount = calculate_required_amount(gas_total, cfg.agent_fee)?;
+    let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
+    let price = coin(price_amount, cfg.native_denom);
+    Ok((sub_msgs, price))
 }
 
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers

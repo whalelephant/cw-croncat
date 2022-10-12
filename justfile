@@ -29,7 +29,7 @@ optimize:
 download-deps:
 	mkdir -p artifacts target
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
-# TODO: test dao-contracts
+# TODO?: test dao-contracts
 
 gas-benchmark: download-deps optimize juno-local
 	RUST_LOG=info cargo run --bin gas-benchmark
