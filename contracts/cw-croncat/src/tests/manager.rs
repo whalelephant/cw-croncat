@@ -1,4 +1,4 @@
-use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{add_little_time, add_one_duration_of_time, proper_instantiate};
 use crate::ContractError;
 use cosmwasm_std::{
@@ -363,14 +363,16 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
-    let amount_for_one_task = gas_limit + agent_fee + 1000;
+    let gas_for_one = GAS_BASE_FEE_JUNO + gas_limit;
+    let amount_for_one_task = gas_for_one / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let agent_fee = amount_for_one_task * 5 / 100;
+    let amount_with_fee = gas_limit + agent_fee + 1000;
     // create a task
     let res = app.execute_contract(
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), "atom"),
+        &coins(u128::from(amount_with_fee * 2), "atom"),
     );
     assert!(res.is_ok());
 
@@ -425,7 +427,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
         (beneficiary_balance_after_proxy_call.amount
             - beneficiary_balance_before_proxy_call.amount)
             .u128(),
-        ((agent_fee + gas_limit) / GAS_DENOMINATOR_DEFAULT_JUNO) as u128
+        ((amount_for_one_task + agent_fee) as u128)
     );
 
     Ok(())
@@ -530,7 +532,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "495840atom"
+                    && a.clone().value == "460840atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -628,7 +630,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "495840atom"
+                    && a.clone().value == "460840atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1286,11 +1288,11 @@ fn test_balance_changes() {
             cw20_coins: vec![],
         },
     };
-    let gas_limit = GAS_ACTION_FEE_JUNO;
-    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
+    let gas_for_one = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
+    let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking refunds at task removal
     let amount_for_one_task =
-        (gas_limit + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
+        (gas_for_one + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1384,7 +1386,7 @@ fn test_balance_changes() {
         .unwrap();
 
     let expected_transfer_amount =
-        Uint128::from((gas_limit + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO);
+        Uint128::from((gas_for_one + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO);
     assert_eq!(
         beneficary_balance_after_withdraw.amount,
         beneficary_balance_before_withdraw.amount + expected_transfer_amount
@@ -1420,10 +1422,10 @@ fn test_no_reschedule_if_lack_balance() {
         },
     };
 
-    let gas_limit = GAS_ACTION_FEE_JUNO;
-    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
+    let gas_for_one = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
+    let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking nonzero task balance
-    let amount_for_one_task = (gas_limit + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3; // + 3 atoms sent
+    let amount_for_one_task = (gas_for_one + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3; // + 3 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1471,7 +1473,7 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert_eq!(
         task.unwrap().total_deposit[0].amount,
-        Uint128::from((GAS_ACTION_FEE_JUNO + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + extra)
+        Uint128::from((gas_for_one + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + extra)
     );
 
     app.update_block(add_little_time);
@@ -1655,7 +1657,7 @@ fn test_reschedule_task_with_rule() {
         },
     };
 
-    let attached_balance = 100058;
+    let attached_balance = 150058;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1819,8 +1821,8 @@ fn testing_fee_works() {
             cw20_coins: vec![],
         },
     };
-    let attach_per_action =
-        (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let total_gas = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
+    let attach_per_action = (total_gas + (total_gas * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let extra = 100;
     let amount_for_three = (attach_per_action * 3) as u128 + extra;
 
