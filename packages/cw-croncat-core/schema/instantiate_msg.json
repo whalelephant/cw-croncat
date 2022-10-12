@@ -21,6 +21,16 @@
     "denom": {
       "type": "string"
     },
+    "gas_action_fee": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint64"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "gas_base_fee": {
       "anyOf": [
         {

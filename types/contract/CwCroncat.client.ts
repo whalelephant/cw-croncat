@@ -256,6 +256,8 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   updateSettings: ({
     agentFee,
     agentsEjectThreshold,
+    gasActionFee,
+    gasBaseFee,
     gasFraction,
     minTasksPerAgent,
     ownerId,
@@ -265,6 +267,8 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   }: {
     agentFee?: number;
     agentsEjectThreshold?: number;
+    gasActionFee?: Uint64;
+    gasBaseFee?: Uint64;
     gasFraction?: GasFraction;
     minTasksPerAgent?: number;
     ownerId?: string;
@@ -363,6 +367,8 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
   updateSettings = async ({
     agentFee,
     agentsEjectThreshold,
+    gasActionFee,
+    gasBaseFee,
     gasFraction,
     minTasksPerAgent,
     ownerId,
@@ -372,6 +378,8 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
   }: {
     agentFee?: number;
     agentsEjectThreshold?: number;
+    gasActionFee?: Uint64;
+    gasBaseFee?: Uint64;
     gasFraction?: GasFraction;
     minTasksPerAgent?: number;
     ownerId?: string;
@@ -383,6 +391,8 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
       update_settings: {
         agent_fee: agentFee,
         agents_eject_threshold: agentsEjectThreshold,
+        gas_action_fee: gasActionFee,
+        gas_base_fee: gasBaseFee,
         gas_fraction: gasFraction,
         min_tasks_per_agent: minTasksPerAgent,
         owner_id: ownerId,

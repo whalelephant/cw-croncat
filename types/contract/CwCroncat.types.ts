@@ -375,6 +375,8 @@ export type ExecuteMsg = {
   update_settings: {
     agent_fee?: number | null;
     agents_eject_threshold?: number | null;
+    gas_action_fee?: Uint64 | null;
+    gas_base_fee?: Uint64 | null;
     gas_fraction?: GasFraction | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
@@ -518,6 +520,7 @@ export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   cw_rules_addr: string;
   denom: string;
+  gas_action_fee?: Uint64 | null;
   gas_base_fee?: Uint64 | null;
   gas_fraction?: GasFraction | null;
   owner_id?: string | null;

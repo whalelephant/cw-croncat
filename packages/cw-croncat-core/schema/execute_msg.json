@@ -27,6 +27,26 @@
               "format": "uint64",
               "minimum": 0.0
             },
+            "gas_action_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_base_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "gas_fraction": {
               "anyOf": [
                 {
