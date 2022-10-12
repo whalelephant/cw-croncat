@@ -1288,11 +1288,11 @@ fn test_balance_changes() {
             cw20_coins: vec![],
         },
     };
-    let gas_for_one = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
+    let gas_for_one = GAS_BASE_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 2);
     let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking refunds at task removal
     let amount_for_one_task =
-        (gas_for_one + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
+        (gas_for_one + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 + 4 + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1385,8 +1385,7 @@ fn test_balance_changes() {
         .query_balance(&contract_addr, NATIVE_DENOM)
         .unwrap();
 
-    let expected_transfer_amount =
-        Uint128::from((gas_for_one + agent_fee) * 2 / GAS_DENOMINATOR_DEFAULT_JUNO);
+    let expected_transfer_amount = Uint128::from(amount_for_one_task - extra - 3 - 4);
     assert_eq!(
         beneficary_balance_after_withdraw.amount,
         beneficary_balance_before_withdraw.amount + expected_transfer_amount

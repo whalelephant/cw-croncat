@@ -271,7 +271,6 @@ impl<'a> CwCroncat<'a> {
                 failed: false,
             },
         )?;
-
         // TODO: Add supported msgs if not a SubMessage?
         // Add the messages, reply handler responsible for task rescheduling
         let final_res = Response::new()
