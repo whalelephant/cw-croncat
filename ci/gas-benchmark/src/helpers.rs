@@ -12,7 +12,7 @@ use cosm_orc::{
 };
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
-use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use cw_croncat_core::msg::{TaskRequest, TaskResponse};
 use cw_rules_core::msg::RuleResponse;
 
@@ -144,6 +144,7 @@ where
 {
     let denom = denom.into();
     let agent_addr = agent_addr.into();
+    let base_attach = GAS_BASE_FEE_JUNO / GAS_DENOMINATOR_DEFAULT_JUNO;
     let attach_per_action =
         (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let prefixes: Vec<String> = tasks
@@ -151,7 +152,8 @@ where
         .map(|(_, _, prefix)| (*prefix).to_owned())
         .collect();
     for (task, extra_funds, prefix) in tasks {
-        let amount = (task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
+        let amount =
+            (base_attach + task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
         let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
         orc.execute(
             CRONCAT_NAME,
