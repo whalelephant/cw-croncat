@@ -99,6 +99,10 @@ fn main() -> Result<()> {
     println!("bank send reports:");
     println!("approx_base_gas: {}", cost_per_send.approx_base_gas());
     println!(
+        "approx_gas_for_unregister: {}",
+        cost_per_send.approx_gas_for_unregister()
+    );
+    println!(
         "approx_gas_per_action: {}\n",
         cost_per_send.approx_gas_per_action()
     );
@@ -106,6 +110,10 @@ fn main() -> Result<()> {
     let cost_per_cw20 = cost_approxes(&gas_fees_usage[2], &gas_fees_usage[3]);
     println!("wasm reports:");
     println!("approx_base_gas: {}", cost_per_cw20.approx_base_gas());
+    println!(
+        "approx_gas_for_unregister: {}",
+        cost_per_cw20.approx_gas_for_unregister()
+    );
     println!(
         "approx_gas_per_action: {}\n",
         cost_per_cw20.approx_gas_per_action()
@@ -115,16 +123,27 @@ fn main() -> Result<()> {
     println!("delegate reports:");
     println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
     println!(
+        "approx_gas_for_unregister: {}",
+        cost_per_delegate.approx_gas_for_unregister()
+    );
+    println!(
         "approx_gas_per_action: {}\n",
         cost_per_delegate.approx_gas_per_action()
     );
 
-    let cost_per_delegate = cost_approxes(&gas_fees_usage[6], &gas_fees_usage[7]);
+    let cost_per_failed_delegate = cost_approxes(&gas_fees_usage[6], &gas_fees_usage[7]);
     println!("failed delegate reports:");
-    println!("approx_base_gas: {}", cost_per_delegate.approx_base_gas());
+    println!(
+        "approx_base_gas: {}",
+        cost_per_failed_delegate.approx_base_gas()
+    );
+    println!(
+        "approx_gas_for_unregister: {}",
+        cost_per_failed_delegate.approx_gas_for_unregister()
+    );
     println!(
         "approx_gas_per_action: {}\n",
-        cost_per_delegate.approx_gas_per_action()
+        cost_per_failed_delegate.approx_gas_per_action()
     );
 
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();

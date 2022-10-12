@@ -28,4 +28,8 @@ impl ApproxGasCosts {
     pub(crate) fn approx_gas_per_action(&self) -> u64 {
         self.gas_per_action
     }
+
+    pub(crate) fn approx_gas_for_unregister(&self) -> u64 {
+        self.gas_for_task_unregister
+    }
 }

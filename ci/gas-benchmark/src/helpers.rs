@@ -144,7 +144,8 @@ where
 {
     let denom = denom.into();
     let agent_addr = agent_addr.into();
-    let base_attach = GAS_BASE_FEE_JUNO / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let base_attach =
+        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let attach_per_action =
         (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let prefixes: Vec<String> = tasks

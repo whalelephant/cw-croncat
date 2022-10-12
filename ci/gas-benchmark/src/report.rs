@@ -20,8 +20,16 @@ pub(crate) fn cost_approxes(
     }
     let gas_for_proxy_call = average_u64_slice(&diffs);
     let diffs = [
-        one_action.last().unwrap().gas_used - gas_for_proxy_call - gas_per_action,
-        two_actions.last().unwrap().gas_used - gas_for_proxy_call - gas_per_action * 2,
+        one_action
+            .last()
+            .unwrap()
+            .gas_used
+            .saturating_sub(gas_for_proxy_call + gas_per_action),
+        two_actions
+            .last()
+            .unwrap()
+            .gas_used
+            .saturating_sub(gas_for_proxy_call + gas_per_action * 2),
     ];
     let gas_for_task_unregister = average_u64_slice(&diffs);
     ApproxGasCosts {
