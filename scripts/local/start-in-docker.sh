@@ -35,7 +35,7 @@ Blue='\033[0;34m'   # Blue
 Purple='\033[0;35m' # Purple
 Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
-echo "$DIR/artifacts/cw20_base.wasm"
+
 
 usage() {
   printf "Usage: ./scripts/local/simple-payroll.sh -w -c"

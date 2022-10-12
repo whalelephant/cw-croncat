@@ -1,15 +1,33 @@
 #!/bin/bash
 set -e
+WASM_POSTFIX="-aarch64"
+DIR=$(pwd)
+JUNO_DIR="$HOME/juno"
+DIR_NAME=$(basename "$PWD")
+SCRIPT_PATH=$(dirname $(which $0))
+NODE="--node https://rpc.uni.juno.deuslabs.fi:443"
+TXFLAG="--node https://rpc.uni.juno.deuslabs.fi:443 --chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 
-cd "$(dirname "$0")"
-. ./init-vars.sh
+# Reset
+NoColor='\033[0m' # Text Reset
+# Regular Colors
+Black='\033[0;30m'  # Black
+Red='\033[0;31m'    # Red
+Green='\033[0;32m'  # Green
+Yellow='\033[0;33m' # {Yellow}
+Blue='\033[0;34m'   # Blue
+Purple='\033[0;35m' # Purple
+Cyan='\033[0;36m'   # Cyan
+White='\033[0;37m'  # White
+
+
 cd ../../..
 
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  --platform linux/amd64 \
-  cosmwasm/workspace-optimizer:0.12.6
+  --platform linux/arm64 \
+  cosmwasm/workspace-optimizer:0.12.8
 
 if [ "$#" -eq 3 ]
 then
@@ -17,11 +35,20 @@ then
     AGENT=$2
     USER=$3
 else 
-    . ./contract/cw-croncat/scripts/testnet_create_addresses.sh
+    . ./contract/cw-croncat/scripts/init_addresses.sh
 fi
 
-RES=$(junod tx wasm store artifacts/cw_croncat.wasm --from $OWNER $TXFLAG -y --output json -b block)
-CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
+# move binary to docker container
+cd $DIR
+docker cp "artifacts/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm"
+docker cp "artifacts/cw_rules$WASM_POSTFIX.wasm" "$IMAGE_NAME:/cw_rules$WASM_POSTFIX.wasm"
+docker cp "artifacts/cw20_base.wasm" "$IMAGE_NAME:/cw20_base.wasm"
+
+echo "${Cyan}Wasm file: $WASM"
+echo "${Cyan}Wasm file: cw_rules$WASM_POSTFIX.wasm"
+echo "${Cyan}Wasm file: cw20_base.wasm"
+
+cd $JUNO_DIR
 
 # Instantiate
 INIT='{"denom":"ujunox"}'
