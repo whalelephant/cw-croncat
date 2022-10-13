@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
-
 ./scripts/build.sh
 
-./scripts/uni-testnet/base/init_vars.sh
+. ./scripts/uni-testnet/base/init-vars.sh
+
 
 
 usage() {
@@ -46,14 +46,20 @@ flags() {
 }
 
 if [[ -z "$@" ]]; then
-  usage
-  exit
+  RECREATE_ARTIFACTS=0
+  RECREATE_CONTAINERS=0
 else
   flags "$@"
 fi
+if [[ -z "$RECREATE_ARTIFACTS" ]]; then
+  RECREATE_ARTIFACTS=0
+fi
+if [[ -z "$RECREATE_CONTAINERS" ]]; then
+  RECREATE_CONTAINERS=0
+fi
 echo "RECREATE_ARTIFACTS " $RECREATE_ARTIFACTS
 echo "RECREATE_CONTAINERS " $RECREATE_CONTAINERS
-echo $RECREATE_CONTAINERS
+
 #Recreate artifacts
 if [ $RECREATE_ARTIFACTS == 1 ]; then
   #Remove local artifacts folder
@@ -74,46 +80,43 @@ if [ $RECREATE_ARTIFACTS == 1 ]; then
 fi
 #Recreate containers
 if [ $RECREATE_CONTAINERS == 1 ]; then
-  . ./init_addresses.sh
+  . $SCRIPT_PATH/base/init-addresses.sh
 fi
 
-# move binary to docker container
-cd $DIR
-docker cp "artifacts/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm" "$IMAGE_NAME:/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm"
-docker cp "artifacts/cw_rules$WASM_POSTFIX.wasm" "$IMAGE_NAME:/cw_rules$WASM_POSTFIX.wasm"
-docker cp "artifacts/cw20_base.wasm" "$IMAGE_NAME:/cw20_base.wasm"
 
 echo "${Cyan}Wasm file: $WASM"
 echo "${Cyan}Wasm file: cw_rules$WASM_POSTFIX.wasm"
 echo "${Cyan}Wasm file: cw20_base.wasm"
 
-. ./base/balances.sh
+. $SCRIPT_PATH/base/balances.sh
 
 #---------------------------------------------------------------------------
+
 echo "${Yellow}Instantiating smart contracts...${NoColor}"
-CODE_ID=$($BINARY tx wasm store /$DIR_NAME_SNAKE$WASM_POSTFIX.wasm --from $OWNER $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
-RULES_ID=$($BINARY tx wasm store "/cw_rules$WASM_POSTFIX.wasm" --from $OWNER $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
-CW20_ID=$($BINARY tx wasm store "/cw20_base.wasm" --from $OWNER $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+RES=$(junod tx wasm store artifacts/cw_croncat$WASM_POSTFIX.wasm --from owner $TXFLAG -y --output json -b block)
+CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
+RULES_ID=$($BINARY tx wasm store artifacts/cw_rules$WASM_POSTFIX.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[0].value')
+CW20_ID=$($BINARY tx wasm store artifacts/cw20_base.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[0].value')
 
 echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
 echo "${Cyan}RULES_ID :" $RULES_ID "${NoColor}"
 echo "${Cyan}CW20_ID :" $CW20_ID "${NoColor}"
 
-$BINARY tx wasm instantiate $RULES_ID '{}' --from $OWNER --label "cw_rules" $TXFLAG -y --no-admin
-RULES_CONTRACT_ADDR=$($BINARY q wasm list-contract-by-code $RULES_ID --output json | jq -r '.contracts[-1]')
+$BINARY tx wasm instantiate $RULES_ID '{}' --from owner --label "cw_rules" $TXFLAG -y --no-admin
+RULES_CONTRACT_ADDR=$($BINARY q wasm list-contract-by-code $RULES_ID $NODE --output json | jq -r '.contracts[-1]')
 echo "${Cyan}RULES_CONTRACT_ADDR :" $RULES_CONTRACT_ADDR "${NoColor}"
 
-INIT_CW20='{"name": "memecoin", "symbol": "meme", "decimals": 4, "initial_balances": [{"address": "'$($BINARY keys show $OWNER -a)'", "amount": "100000"}]}'
-$BINARY tx wasm instantiate $CW20_ID "$INIT_CW20" --from $OWNER --label "memecoin" $TXFLAG -y --no-admin
-CW20_ADDR=$($BINARY q wasm list-contract-by-code $CW20_ID --output json | jq -r '.contracts[-1]')
+INIT_CW20='{"name": "memecoin", "symbol": "meme", "decimals": 4, "initial_balances": [{"address": "'$($BINARY keys show owner -a)'", "amount": "100000"}]}'
+$BINARY tx wasm instantiate $CW20_ID "$INIT_CW20" --from owner --label "memecoin" $TXFLAG -y --no-admin
+CW20_ADDR=$($BINARY q wasm list-contract-by-code $CW20_ID $NODE --output json | jq -r '.contracts[-1]')
 echo "${Cyan}CW20_ADDR :" $CW20_ADDR "${NoColor}"
 
 #Croncat
 INIT='{"denom":"'$STAKE'","cw_rules_addr":"'$RULES_CONTRACT_ADDR'"}'
-$BINARY tx wasm instantiate $CODE_ID "$INIT" --from $OWNER --label "croncat" $TXFLAG -y --no-admin
+$BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
 
 # get smart contract address
-CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID --output json | jq -r '.contracts[-1]')
+CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $CODE_ID $NODE --output json | jq -r '.contracts[-1]')
 echo "${Cyan}CONTRACT_ADDRESS :" $CONTRACT_ADDRESS "${NoColor}"
 echo "${Cyan}Instantiating smart contracts done!${NoColor}"
 

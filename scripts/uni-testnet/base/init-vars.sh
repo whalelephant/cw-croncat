@@ -1,6 +1,5 @@
 #!/bin/bash
 CHAIN_ID="uni-5"
-RPC="http://localhost:26657/"
 BINARY="junod"
 PLATFORM="-arm64"
 WASM_POSTFIX="-aarch64"
@@ -16,7 +15,7 @@ STAKE=${STAKE_TOKEN:-ustake}
 TXFLAG="--gas-prices 0.075$STAKE --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
 RECREATE_ARTIFACTS=0
 RECREATE_CONTAINERS=0
-RPC="https://rpc.uni.juno.deuslabs.fi:443"
+RPC="https://juno-testnet-rpc.polkachu.com:443"
 NODE="--node $RPC"
 TXFLAG="--node $RPC --chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 
