@@ -140,7 +140,7 @@ exports.CwCroncatQueryClient = CwCroncatQueryClient;
 class CwCroncatClient extends CwCroncatQueryClient {
     constructor(client, sender, contractAddress) {
         super(client, contractAddress);
-        this.updateSettings = ({ agentFee, agentsEjectThreshold, gasActionFee, gasBaseFee, gasFraction, minTasksPerAgent, ownerId, paused, proxyCallbackGas, slotGranularity }, fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
+        this.updateSettings = ({ agentFee, agentsEjectThreshold, gasPrice, minTasksPerAgent, ownerId, paused, proxyCallbackGas, slotGranularityBlock, slotGranularityTime }, fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
             return yield this.client.execute(this.sender, this.contractAddress, {
                 update_settings: {
                     agent_fee: agentFee,
@@ -152,7 +152,8 @@ class CwCroncatClient extends CwCroncatQueryClient {
                     owner_id: ownerId,
                     paused,
                     proxy_callback_gas: proxyCallbackGas,
-                    slot_granularity: slotGranularity
+                    slot_granularity_block: slotGranularityBlock,
+                    slot_granularity_time: slotGranularityTime
                 }
             }, fee, memo, funds);
         });

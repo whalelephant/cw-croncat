@@ -523,6 +523,160 @@ fn interval_get_next_block_by_offset() {
 }
 
 #[test]
+fn interval_get_next_cron_time() {
+    // (input, input, outcome, outcome)
+    // test the case when slot_granularity_time == 1
+    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_797_420_000_000_000, // current time in nanos is 1571797419879305533
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_797_441_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("* 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_799_600_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_799_615_000_000_000,
+            SlotType::Cron,
+        ),
+        // with start
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_471_799_600_000_000_000),
+                end: None,
+            },
+            1_571_799_615_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_571_799_600_000_000_000),
+                end: None,
+            },
+            1_571_799_615_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_571_799_700_000_000_000),
+                end: None,
+            },
+            1_571_803_215_000_000_000,
+            SlotType::Cron,
+        ),
+    ];
+    for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
+        let env = mock_env();
+        // CHECK IT!
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, 1);
+        assert_eq!(outcome_time, &next_id);
+        assert_eq!(outcome_slot_kind, &slot_kind);
+    }
+
+    // slot_granularity_time == 120_000_000_000 ~ 2 minutes
+    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1571797320000000000, // current time in nanos is 1571797419879305533
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1571797440000000000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("* 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_799_600_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            1_571_799_600_000_000_000,
+            SlotType::Cron,
+        ),
+        // with start
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_471_799_600_000_000_000),
+                end: None,
+            },
+            1_571_799_600_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_571_799_600_000_000_000),
+                end: None,
+            },
+            1_571_799_600_000_000_000,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            BoundaryValidated {
+                start: Some(1_571_799_700_000_000_000),
+                end: None,
+            },
+            1_571_803_200_000_000_000,
+            SlotType::Cron,
+        ),
+    ];
+    for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
+        let env = mock_env();
+        // CHECK IT!
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, 120_000_000_000);
+        assert_eq!(outcome_time, &next_id);
+        assert_eq!(outcome_slot_kind, &slot_kind);
+    }
+}
+
+#[test]
 fn slot_items_get_current() {
     let mut deps = mock_dependencies_with_balance(&coins(200, ""));
     let store = CwCroncat::default();

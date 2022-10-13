@@ -723,7 +723,7 @@ fn get_next_block_by_offset(
     (slot_for_final_block, SlotType::Block)
 }
 
-fn get_cron_time(
+fn get_next_cron_time(
     env: &Env,
     boundary: BoundaryValidated,
     crontab: &str,
@@ -737,7 +737,7 @@ fn get_cron_time(
     };
     let schedule = Schedule::from_str(crontab).unwrap();
     let next_ts = schedule.next_after(&current_ts).unwrap();
-    //(next_ts, SlotType::Cron)
+    // (next_ts, SlotType::Cron)
     (
         next_ts.saturating_sub(next_ts % slot_granularity_time),
         SlotType::Cron,
@@ -760,7 +760,9 @@ impl Intervals for Interval {
             }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
-            Interval::Cron(crontab) => get_cron_time(env, boundary, crontab, slot_granularity_time),
+            Interval::Cron(crontab) => {
+                get_next_cron_time(env, boundary, crontab, slot_granularity_time)
+            }
             // return the block within a specific range that can be triggered 1 or more times based on block heights.
             // Uses block offset (Example: Block(100) will trigger every 100 blocks)
             // So either:
