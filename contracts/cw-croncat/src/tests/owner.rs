@@ -41,7 +41,8 @@ fn update_settings() {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_block: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
@@ -118,7 +119,8 @@ fn move_balances_auth_checks() {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_block: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
@@ -187,7 +189,8 @@ fn move_balances_native() {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_block: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };

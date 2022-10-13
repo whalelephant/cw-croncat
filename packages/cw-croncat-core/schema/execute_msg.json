@@ -85,7 +85,15 @@
               "format": "uint32",
               "minimum": 0.0
             },
-            "slot_granularity": {
+            "slot_granularity_block": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "slot_granularity_time": {
               "type": [
                 "integer",
                 "null"

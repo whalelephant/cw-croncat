@@ -302,7 +302,13 @@ impl<'a> CwCroncat<'a> {
         let agent_id = queue_item.agent_id.unwrap();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = task.interval.next(&env, task.boundary);
+        let cfg: Config = self.config.load(deps.storage)?;
+        let (next_id, slot_kind) = task.interval.next(
+            &env,
+            task.boundary,
+            cfg.slot_granularity_block,
+            cfg.slot_granularity_time,
+        );
 
         // if non-recurring, exit
         if task.interval == Interval::Once
@@ -503,7 +509,7 @@ impl<'a> CwCroncat<'a> {
         {
             let agent = self.agents.load(deps.storage, &agent_id)?;
             if current_slot
-                > agent.last_executed_slot + cfg.agents_eject_threshold * cfg.slot_granularity
+                > agent.last_executed_slot + cfg.agents_eject_threshold * cfg.slot_granularity_block
             {
                 let resp = self
                     .unregister_agent(deps.storage, &agent_id)

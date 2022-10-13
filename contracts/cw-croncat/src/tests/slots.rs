@@ -12,6 +12,7 @@ use cw_croncat_core::{
 #[test]
 fn interval_get_next_block_limited() {
     // (input, input, outcome, outcome)
+    // test the case when slot_granularity_block == 1
     let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
         // Once cases
         (
@@ -91,8 +92,146 @@ fn interval_get_next_block_limited() {
     for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
         let env = mock_env();
         // CHECK IT!
-        let (next_id, slot_kind) = interval.next(&env, boundary.clone());
-        println!("next_id {:?}, slot_kind {:?}", next_id, slot_kind);
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, 1);
+        assert_eq!(outcome_block, &next_id);
+        assert_eq!(outcome_slot_kind, &slot_kind);
+    }
+
+    // check with slot_granularity_block = 5
+    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        // Once cases
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: Some(12351),
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: Some(12348),
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12352),
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12355),
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12346),
+            },
+            12345,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12340),
+            },
+            0,
+            SlotType::Block,
+        ),
+        // Immediate cases
+        (
+            Interval::Immediate,
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Immediate,
+            BoundaryValidated {
+                start: Some(12351),
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: Some(12348),
+                end: None,
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12352),
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Once,
+            BoundaryValidated {
+                start: None,
+                end: Some(12355),
+            },
+            12350,
+            SlotType::Block,
+        ),
+        (
+            Interval::Immediate,
+            BoundaryValidated {
+                start: None,
+                end: Some(12346),
+            },
+            12345,
+            SlotType::Block,
+        ),
+        (
+            Interval::Immediate,
+            BoundaryValidated {
+                start: None,
+                end: Some(12340),
+            },
+            0,
+            SlotType::Block,
+        ),
+    ];
+    for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
+        let env = mock_env();
+        // CHECK IT!
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 5, 1);
         assert_eq!(outcome_block, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
     }
@@ -101,6 +240,7 @@ fn interval_get_next_block_limited() {
 #[test]
 fn interval_get_next_block_by_offset() {
     // (input, input, outcome, outcome)
+    // test the case when slot_granularity_block == 1
     let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
         // strictly modulo cases
         (
@@ -157,7 +297,7 @@ fn interval_get_next_block_by_offset() {
             100000,
             SlotType::Block,
         ),
-        // modulo + boundary start
+        // with start
         (
             Interval::Block(1),
             BoundaryValidated {
@@ -235,7 +375,148 @@ fn interval_get_next_block_by_offset() {
     for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
         let env = mock_env();
         // CHECK IT!
-        let (next_id, slot_kind) = interval.next(&env, boundary.clone());
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, 1);
+        assert_eq!(outcome_block, &next_id);
+        assert_eq!(outcome_slot_kind, &slot_kind);
+    }
+
+    // check with slot_granularity_block = 7
+    // the slot number is the number of the first block in the block
+    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        // strictly modulo cases
+        (
+            Interval::Block(1),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12341,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(10),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12348,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12397,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(1000),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            12999,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(10000),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            19999,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100000),
+            BoundaryValidated {
+                start: None,
+                end: None,
+            },
+            99995,
+            SlotType::Block,
+        ),
+        // modulo + boundary start
+        (
+            Interval::Block(1),
+            BoundaryValidated {
+                start: Some(12348),
+                end: None,
+            },
+            12348,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(10),
+            BoundaryValidated {
+                start: Some(12360),
+                end: None,
+            },
+            12355,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(10),
+            BoundaryValidated {
+                start: Some(12364),
+                end: None,
+            },
+            12369,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            BoundaryValidated {
+                start: Some(12364),
+                end: None,
+            },
+            12397,
+            SlotType::Block,
+        ),
+        // modulo + boundary end
+        (
+            Interval::Block(1),
+            BoundaryValidated {
+                start: None,
+                end: Some(12345),
+            },
+            12341,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(10),
+            BoundaryValidated {
+                start: None,
+                end: Some(12355),
+            },
+            12348,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            BoundaryValidated {
+                start: None,
+                end: Some(12355),
+            },
+            12299,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            BoundaryValidated {
+                start: None,
+                end: Some(12300),
+            },
+            0,
+            SlotType::Block,
+        ),
+    ];
+    for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
+        let env = mock_env();
+        // CHECK IT!
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 7, 1);
         assert_eq!(outcome_block, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
     }

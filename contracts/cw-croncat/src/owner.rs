@@ -28,7 +28,8 @@ impl<'a> CwCroncat<'a> {
             agent_fee: c.agent_fee,
             gas_fraction: c.gas_fraction,
             proxy_callback_gas: c.proxy_callback_gas,
-            slot_granularity: c.slot_granularity,
+            slot_granularity_block: c.slot_granularity_block,
+            slot_granularity_time: c.slot_granularity_time,
             cw_rules_addr: c.cw_rules_addr,
         })
     }
@@ -73,7 +74,8 @@ impl<'a> CwCroncat<'a> {
         match payload {
             ExecuteMsg::UpdateSettings {
                 owner_id,
-                slot_granularity,
+                slot_granularity_block,
+                slot_granularity_time,
                 paused,
                 agent_fee,
                 gas_base_fee,
@@ -98,8 +100,11 @@ impl<'a> CwCroncat<'a> {
                         //     config.treasury_id = Some(treasury_id);
                         // }
 
-                        if let Some(slot_granularity) = slot_granularity {
-                            config.slot_granularity = slot_granularity;
+                        if let Some(slot_granularity_block) = slot_granularity_block {
+                            config.slot_granularity_block = slot_granularity_block;
+                        }
+                        if let Some(slot_granularity_time) = slot_granularity_time {
+                            config.slot_granularity_time = slot_granularity_time;
                         }
                         if let Some(paused) = paused {
                             config.paused = paused;
@@ -157,7 +162,11 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("agent_fee", c.agent_fee.to_string())
             //.add_attribute("gas_price", c.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
-            .add_attribute("slot_granularity", c.slot_granularity.to_string()))
+            .add_attribute(
+                "slot_granularity_block",
+                c.slot_granularity_block.to_string(),
+            )
+            .add_attribute("slot_granularity_time", c.slot_granularity_time.to_string()))
     }
 
     /// Move Balance

@@ -92,7 +92,8 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_block: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
@@ -158,7 +159,8 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             agents_eject_threshold: None,
             gas_fraction: None,
             proxy_callback_gas: None,
-            slot_granularity: None,
+            slot_granularity_block: None,
+            slot_granularity_time: None,
             gas_base_fee: None,
             gas_action_fee: None,
         },
@@ -1850,7 +1852,8 @@ fn tick() {
         agents_eject_threshold: Some(100), // allow to miss 100 slots
         gas_action_fee: None,
         proxy_callback_gas: None,
-        slot_granularity: Some(10), // each slot has 10 blocks
+        slot_granularity_block: Some(10), // each slot has 10 blocks
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_fraction: None,
     };
@@ -1943,7 +1946,8 @@ fn tick_task() -> StdResult<()> {
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(100), // allow to miss 100 slots
         proxy_callback_gas: None,
-        slot_granularity: Some(10), // each slot has 10 blocks
+        slot_granularity_block: Some(10), // each slot has 10 blocks
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
         gas_fraction: None,

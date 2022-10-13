@@ -868,7 +868,8 @@
         "owner_id",
         "paused",
         "proxy_callback_gas",
-        "slot_granularity"
+        "slot_granularity_block",
+        "slot_granularity_time"
       ],
       "properties": {
         "agent_active_indices": {
@@ -929,7 +930,12 @@
           "format": "uint32",
           "minimum": 0.0
         },
-        "slot_granularity": {
+        "slot_granularity_block": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "slot_granularity_time": {
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0

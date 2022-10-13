@@ -74,7 +74,8 @@ impl<'a> CwCroncat<'a> {
             proxy_callback_gas: 3,
             gas_base_fee,
             gas_action_fee,
-            slot_granularity: 60_000_000_000,
+            slot_granularity_time: 60_000_000_000,
+            slot_granularity_block: 1,
             native_denom: msg.denom,
             cw20_whitelist: vec![],
             // TODO: ????
@@ -128,7 +129,14 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("agent_fee", config.agent_fee.to_string())
             //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
-            .add_attribute("slot_granularity", config.slot_granularity.to_string()))
+            .add_attribute(
+                "slot_granularity_time",
+                config.slot_granularity_time.to_string(),
+            )
+            .add_attribute(
+                "slot_granularity_block",
+                config.slot_granularity_block.to_string(),
+            ))
     }
 
     pub fn execute(
