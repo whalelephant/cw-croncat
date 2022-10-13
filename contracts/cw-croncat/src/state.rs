@@ -6,7 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GenericBalance, SlotType};
+use cw_croncat_core::types::{Agent, GasFraction, GenericBalance, SlotType};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
@@ -34,8 +34,9 @@ pub struct Config {
 
     // Economics
     pub agent_fee: u64,
-    pub gas_price: u32,
+    pub gas_fraction: GasFraction,
     pub gas_base_fee: u64,
+    pub gas_action_fee: u64,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
 

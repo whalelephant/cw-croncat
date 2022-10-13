@@ -1,5 +1,5 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
-use crate::contract::GAS_BASE_FEE_JUNO;
+use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
@@ -347,10 +347,12 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         // treasury_id: None,
         agent_fee: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
         min_tasks_per_agent: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -383,10 +385,12 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             // treasury_id: None,
             agent_fee: None,
             agents_eject_threshold: None,
-            gas_price: None,
+            gas_fraction: None,
             proxy_callback_gas: None,
             slot_granularity: None,
             min_tasks_per_agent: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
         },
         &vec![],
     )
@@ -398,31 +402,27 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         funds: vec![],
         msg: to_binary(&change_settings_msg.clone())?,
     });
-    let res_err = app
-        .execute_contract(
-            Addr::unchecked(ANYONE),
-            contract_addr.clone(),
-            &ExecuteMsg::CreateTask {
-                task: TaskRequest {
-                    interval: Interval::Once,
-                    boundary: None,
-                    stop_on_fail: false,
-                    actions: vec![Action {
-                        msg: action_self.clone(),
-                        gas_limit: Some(150_000),
-                    }],
-                    rules: None,
-                    cw20_coins: vec![],
-                },
+    let res_err = app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Once,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: action_self.clone(),
+                    gas_limit: Some(150_000),
+                }],
+                rules: None,
+                cw20_coins: vec![],
             },
-            &coins(13, NATIVE_DENOM),
-        )
-        .unwrap_err();
-    assert_eq!(
-        ContractError::CustomError {
-            val: "Actions message unsupported or invalid message data".to_string()
         },
-        res_err.downcast().unwrap()
+        &coins(13, NATIVE_DENOM),
+    );
+    assert_eq!(
+        ContractError::CoreError(CoreError::InvalidAction {}),
+        res_err.unwrap_err().downcast().unwrap()
     );
 
     // Interval invalid
@@ -986,6 +986,7 @@ fn check_gas_minimum() {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = 150_000;
+    let base_gas = GAS_BASE_FEE_JUNO;
 
     let create_task_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
@@ -1001,14 +1002,15 @@ fn check_gas_minimum() {
         },
     };
     // create 1 token off task
-    let amount_for_one_task =
-        gas_limit + gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap() + 3;
+    let gas_for_two = (base_gas + gas_limit) * 2;
+    let enough_for_two =
+        u128::from((gas_for_two + gas_for_two * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 * 2);
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), NATIVE_DENOM),
+            &coins(enough_for_two - 1, NATIVE_DENOM),
         )
         .unwrap_err()
         .downcast()
@@ -1026,7 +1028,7 @@ fn check_gas_minimum() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
+        &coins(enough_for_two, NATIVE_DENOM),
     );
     assert!(res.is_ok());
 }
@@ -1040,7 +1042,8 @@ fn check_gas_default() {
     let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
-    let gas_limit = GAS_BASE_FEE_JUNO;
+    let gas_limit = GAS_ACTION_FEE_JUNO;
+    let base_gas = GAS_BASE_FEE_JUNO;
     // let send = BankMsg::Send {
     //     to_address: validator,
     //     amount: vec![amount],
@@ -1062,15 +1065,15 @@ fn check_gas_default() {
     // create 1 token off task
     // for one task need gas + staking amount
 
-    let agent_fee = gas_limit.checked_mul(5).unwrap().checked_div(100).unwrap();
-    let amount_for_one_task = gas_limit + agent_fee + 3;
-    println!("{:?}", amount_for_one_task);
+    let gas_for_two = (base_gas + gas_limit) * 2;
+    let enough_for_two =
+        u128::from((gas_for_two + gas_for_two * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 * 2);
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(u128::from(amount_for_one_task * 2 - 1), NATIVE_DENOM),
+            &coins(enough_for_two - 1, NATIVE_DENOM),
         )
         .unwrap_err()
         .downcast()
@@ -1088,7 +1091,7 @@ fn check_gas_default() {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2), NATIVE_DENOM),
+        &coins(enough_for_two, NATIVE_DENOM),
     );
     assert!(res.is_ok());
 }

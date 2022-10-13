@@ -20,3 +20,6 @@
 **/artifacts
 .lock
 .yarn-error.log
+
+# Gas reports
+gas_reports/

@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
-use cosmwasm_std::Storage;
+use cosmwasm_std::{coin, Storage};
 use cosmwasm_std::{
     to_binary, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
     Uint128, WasmMsg,
@@ -11,8 +11,10 @@ use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithRulesResponse,
 };
-use cw_croncat_core::traits::{BalancesOperations, Intervals};
-use cw_croncat_core::types::{BoundaryValidated, GenericBalance, SlotType, Task};
+use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
+use cw_croncat_core::types::{
+    calculate_required_amount, BoundaryValidated, GenericBalance, SlotType, Task,
+};
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -220,10 +222,11 @@ impl<'a> CwCroncat<'a> {
                 val: "Create task paused".to_string(),
             });
         }
-        let owner_id = info.sender;
+
+        let owner_id = &info.sender;
         let cw20 = if !task.cw20_coins.is_empty() {
             let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(task.cw20_coins.len());
-            for coin in task.cw20_coins {
+            for coin in &task.cw20_coins {
                 cw20.push(Cw20CoinVerified {
                     address: deps.api.addr_validate(&coin.address)?,
                     amount: coin.amount,
@@ -232,7 +235,7 @@ impl<'a> CwCroncat<'a> {
             // update user balances
             self.balances.update(
                 deps.storage,
-                &owner_id,
+                owner_id,
                 |balances| -> Result<_, ContractError> {
                     let mut balances = balances.unwrap_or_default();
 
@@ -245,7 +248,28 @@ impl<'a> CwCroncat<'a> {
             vec![]
         };
         let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
-        let mut item = Task {
+
+        if !task.interval.is_valid() {
+            return Err(ContractError::CustomError {
+                val: "Interval invalid".to_string(),
+            });
+        }
+
+        let (mut amount_for_one_task, gas_amount) = task.is_valid_msg_calculate_usage(
+            deps.api,
+            &env.contract.address,
+            owner_id,
+            &c.owner_id,
+            c.gas_base_fee,
+            c.gas_action_fee,
+        )?;
+        let gas_price = calculate_required_amount(gas_amount, c.agent_fee)?;
+        let price = c.gas_fraction.calculate(gas_price, 1)?;
+        amount_for_one_task
+            .native
+            .find_checked_add(&coin(price, &c.native_denom))?;
+
+        let item = Task {
             funds_withdrawn_recurring: Uint128::zero(),
             owner_id: owner_id.clone(),
             interval: task.interval,
@@ -255,32 +279,22 @@ impl<'a> CwCroncat<'a> {
                 native: info.funds.clone(),
                 cw20,
             },
-            amount_for_one_task: Default::default(),
+            amount_for_one_task,
             actions: task.actions,
             rules: task.rules,
         };
-        if !item.is_valid_msg_calculate_usage(
-            deps.api,
-            &env.contract.address,
-            &owner_id,
-            &c.owner_id,
-            c.gas_base_fee,
-            c.native_denom.clone(),
-            c.agent_fee,
-        )? {
-            return Err(ContractError::CustomError {
-                val: "Actions message unsupported or invalid message data".to_string(),
-            });
-        }
 
-        if !item.interval.is_valid() {
-            return Err(ContractError::CustomError {
-                val: "Interval invalid".to_string(),
-            });
-        }
         // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;
         item.verify_enough_balances(recurring)?;
+        // Add the attached balance into available_balance
+        let c = self
+            .config
+            .update(deps.storage, |mut c| -> Result<_, ContractError> {
+                c.available_balance.checked_add_native(&info.funds)?;
+                Ok(c)
+            })?;
+
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
@@ -293,10 +307,9 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        let mut with_rules = false;
+        let with_rules = item.with_rules();
         // Add task to catalog
-        if item.with_rules() {
-            with_rules = true;
+        if with_rules {
             // Add task with rules
             self.tasks_with_rules
                 .update(deps.storage, hash.as_bytes(), |old| match old {
@@ -313,10 +326,6 @@ impl<'a> CwCroncat<'a> {
                     val: "Problem incrementing task total".to_string(),
                 });
             }
-
-            let mut c: Config = c;
-            c.available_balance.checked_add_native(&info.funds)?;
-            self.config.save(deps.storage, &c)?;
 
             // Based on slot kind, put into block or cron slots
             match slot_kind {
@@ -348,10 +357,6 @@ impl<'a> CwCroncat<'a> {
             }
             let size = size_res.unwrap();
 
-            // Add the attached balance into available_balance
-            let mut c: Config = c;
-            c.available_balance.checked_add_native(&info.funds)?;
-
             // If the creation of this task means we'd like another agent, update config
             // TODO: should we do it for tasks with rules
             let min_tasks_per_agent = c.min_tasks_per_agent;
@@ -367,8 +372,6 @@ impl<'a> CwCroncat<'a> {
                         .save(deps.storage, &Some(env.block.time))?;
                 }
             }
-
-            self.config.save(deps.storage, &c)?;
 
             // Get previous task hashes in slot, add as needed
             let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {

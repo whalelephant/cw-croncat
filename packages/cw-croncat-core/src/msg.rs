@@ -1,5 +1,5 @@
 use crate::types::{
-    Action, AgentResponse, Boundary, BoundaryValidated, GenericBalance, Interval, Task,
+    Action, AgentResponse, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
@@ -60,6 +60,8 @@ pub struct InstantiateMsg {
     pub cw_rules_addr: String,
     pub owner_id: Option<String>,
     pub gas_base_fee: Option<Uint64>,
+    pub gas_action_fee: Option<Uint64>,
+    pub gas_fraction: Option<GasFraction>,
     pub agent_nomination_duration: Option<u16>,
 }
 
@@ -71,7 +73,9 @@ pub enum ExecuteMsg {
         slot_granularity: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<u64>,
-        gas_price: Option<u32>,
+        gas_base_fee: Option<Uint64>,
+        gas_action_fee: Option<Uint64>,
+        gas_fraction: Option<GasFraction>,
         proxy_callback_gas: Option<u32>,
         min_tasks_per_agent: Option<u64>,
         agents_eject_threshold: Option<u64>,
@@ -170,7 +174,7 @@ pub struct GetConfigResponse {
     pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
     pub agent_fee: u64,
-    pub gas_price: u32,
+    pub gas_fraction: GasFraction,
     pub proxy_callback_gas: u32,
     pub slot_granularity: u64,
     pub native_denom: String,

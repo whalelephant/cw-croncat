@@ -331,6 +331,7 @@ fn test_cw20_negative() {
         .unwrap_err()
         .downcast()
         .unwrap();
+    println!("resp: {resp:?}");
     assert!(matches!(
                 resp,
                 ContractError::CoreError(CoreError::NotEnoughCw20 { lack, .. }) if lack == Uint128::from(10_u128)));

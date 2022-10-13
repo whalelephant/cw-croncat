@@ -15,10 +15,12 @@ fn update_settings() {
 
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
+        cw_rules_addr: "todo".to_string(),
         owner_id: None,
         gas_base_fee: None,
+        gas_action_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
-        cw_rules_addr: "todo".to_string(),
     };
     let info = MessageInfo {
         sender: Addr::unchecked("creator"),
@@ -37,9 +39,11 @@ fn update_settings() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
 
     // non-owner fails
@@ -94,9 +98,11 @@ fn move_balances_auth_checks() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
-        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
+        gas_base_fee: None,
     };
     let res_init = store
         .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
@@ -110,9 +116,11 @@ fn move_balances_auth_checks() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
     let info_setting = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store
@@ -159,9 +167,11 @@ fn move_balances_native() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
-        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
+        gas_base_fee: None,
     };
     let res_init = store
         .instantiate(deps.as_mut(), mock_env(), info.clone(), msg)
@@ -175,9 +185,11 @@ fn move_balances_native() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
     let info_settings = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store

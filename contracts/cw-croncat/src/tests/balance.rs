@@ -1,10 +1,10 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
-use crate::contract::GAS_BASE_FEE_JUNO;
+use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
 use cosmwasm_std::{coins, Addr};
-use cw_croncat_core::types::{GenericBalance, SlotType};
+use cw_croncat_core::types::{GasFraction, GenericBalance, SlotType};
 
 use crate::CwCroncat;
 
@@ -21,8 +21,11 @@ fn mock_config() -> Config {
         available_balance: GenericBalance::default(),
         staked_balance: GenericBalance::default(),
         agent_fee: 5,
-        gas_price: 1,
-        gas_base_fee: GAS_BASE_FEE_JUNO,
+        gas_fraction: GasFraction {
+            numerator: 1,
+            denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
+        },
+        gas_action_fee: GAS_ACTION_FEE_JUNO,
         proxy_callback_gas: 3,
         slot_granularity: 60_000_000_000,
         native_denom: NATIVE_DENOM.to_owned(),
@@ -30,6 +33,7 @@ fn mock_config() -> Config {
         agent_nomination_duration: 9,
         limit: 100,
         cw_rules_addr: Addr::unchecked("todo"),
+        gas_base_fee: GAS_BASE_FEE_JUNO,
     }
 }
 #[test]
