@@ -1,10 +1,11 @@
 use crate::{
     error::CoreError,
-    types::{Action, BoundaryValidated, GenericBalance, Interval, Task},
+    msg::TaskRequest,
+    types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task},
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
-    IbcTimeout, StdError, Timestamp, Uint128, VoteOption, WasmMsg,
+    IbcTimeout, StdError, Timestamp, Uint128, Uint64, VoteOption, WasmMsg,
 };
 use cw20::Cw20CoinVerified;
 use cw_rules_core::types::{HasBalanceGte, Rule};
@@ -13,18 +14,13 @@ use sha2::{Digest, Sha256};
 
 #[test]
 fn is_valid_msg_once_block_based() {
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Once,
-        boundary: BoundaryValidated {
-            start: Some(4),
-            end: Some(8),
-        },
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
+            end: Some(Uint64::from(8u64)),
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "alice".to_string(),
@@ -34,6 +30,7 @@ fn is_valid_msg_once_block_based() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -41,27 +38,21 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("alice2"),
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .is_ok());
 }
 
 #[test]
 fn is_valid_msg_once_time_based() {
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Once,
-        boundary: BoundaryValidated {
-            start: Some(1_000_000_000),
-            end: Some(2_000_000_000),
-        },
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(1_000_000_000_u64)),
+            end: Some(Uint64::from(2_000_000_000_u64)),
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "alice".to_string(),
@@ -71,6 +62,7 @@ fn is_valid_msg_once_time_based() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -78,27 +70,18 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("alice2"),
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
+            5,
             5,
         )
-        .unwrap());
+        .is_ok());
 }
 
 #[test]
 fn is_valid_msg_recurring() {
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(10),
-        boundary: BoundaryValidated {
-            start: None,
-            end: None,
-        },
+        boundary: None,
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "alice".to_string(),
@@ -108,6 +91,7 @@ fn is_valid_msg_recurring() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -115,28 +99,22 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("alice2"),
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
+            5,
             5,
         )
-        .unwrap());
+        .is_ok());
 }
 
 #[test]
 fn is_valid_msg_wrong_account() {
     // Cannot create a task to execute on the cron manager when not the owner
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("alice"),
+    let task = TaskRequest {
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "alice".to_string(),
@@ -146,35 +124,32 @@ fn is_valid_msg_wrong_account() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
-    assert!(!task
-        .is_valid_msg_calculate_usage(
+    assert_eq!(
+        CoreError::InvalidAction {},
+        task.is_valid_msg_calculate_usage(
             &mock_dependencies().api,
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .unwrap_err()
+    );
 }
 
 #[test]
 fn is_valid_msg_vote() {
     // A task with CosmosMsg::Gov Vote should return false
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Gov(GovMsg::Vote {
                 proposal_id: 0,
@@ -183,35 +158,32 @@ fn is_valid_msg_vote() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
-    assert!(!task
-        .is_valid_msg_calculate_usage(
+    assert_eq!(
+        CoreError::InvalidAction {},
+        task.is_valid_msg_calculate_usage(
             &mock_dependencies().api,
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .unwrap_err()
+    );
 }
 
 #[test]
 fn is_valid_msg_transfer() {
     // A task with CosmosMsg::Ibc Transfer should return false
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Ibc(IbcMsg::Transfer {
                 channel_id: "id".to_string(),
@@ -222,35 +194,32 @@ fn is_valid_msg_transfer() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
-    assert!(!task
-        .is_valid_msg_calculate_usage(
+    assert_eq!(
+        CoreError::InvalidAction {},
+        task.is_valid_msg_calculate_usage(
             &mock_dependencies().api,
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .unwrap_err()
+    );
 }
 
 #[test]
 fn is_valid_msg_burn() {
     // A task with CosmosMsg::Bank Burn should return false
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Bank(BankMsg::Burn {
                 amount: vec![Coin::new(10, "coin")],
@@ -258,35 +227,32 @@ fn is_valid_msg_burn() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
-    assert!(!task
-        .is_valid_msg_calculate_usage(
+    assert_eq!(
+        CoreError::InvalidAction {},
+        task.is_valid_msg_calculate_usage(
             mock_dependencies().as_ref().api,
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .unwrap_err()
+    );
 }
 
 #[test]
 fn is_valid_msg_send_doesnt_fail() {
     // A task with CosmosMsg::Bank Send should return true
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: Default::default(),
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Bank(BankMsg::Send {
                 to_address: "address".to_string(),
@@ -295,6 +261,7 @@ fn is_valid_msg_send_doesnt_fail() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -302,31 +269,22 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "coin".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .is_ok());
 }
 
 #[test]
 fn is_valid_msg_send_should_success() {
     // A task with CosmosMsg::Bank Send should return false
-    let mut task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
-
-        owner_id: Addr::unchecked("bob"),
+    let task = TaskRequest {
         interval: Interval::Block(1),
-        boundary: BoundaryValidated {
-            start: Some(4),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(4u64)),
             end: None,
-        },
+        }),
         stop_on_fail: false,
-        total_deposit: GenericBalance {
-            native: coins(10, "atom"),
-            cw20: Default::default(),
-        },
-        amount_for_one_task: Default::default(),
         actions: vec![Action {
             msg: CosmosMsg::Bank(BankMsg::Send {
                 to_address: "address".to_string(),
@@ -335,6 +293,7 @@ fn is_valid_msg_send_should_success() {
             gas_limit: Some(5),
         }],
         rules: None,
+        cw20_coins: Default::default(),
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -342,11 +301,10 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
-            100,
-            "atom".to_string(),
             5,
+            5
         )
-        .unwrap());
+        .is_ok());
 }
 
 #[test]

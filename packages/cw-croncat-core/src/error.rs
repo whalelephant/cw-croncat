@@ -20,4 +20,10 @@ pub enum CoreError {
 
     #[error("invalid cosmwasm message")]
     InvalidWasmMsg {},
+
+    #[error("Actions message unsupported or invalid message data")]
+    InvalidAction {},
+
+    #[error("Invalid gas input")]
+    InvalidGas {},
 }

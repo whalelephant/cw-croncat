@@ -1,13 +1,12 @@
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::helpers::ReplyMsgParser;
+use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    coin, Addr, Coin, Deps, DepsMut, Empty, Env, MessageInfo, Order, Reply, Response, StdResult,
-    Storage, SubMsg,
+    Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
-use cw_croncat_core::types::{calculate_required_amount, Action, Agent, Interval, SlotType, Task};
+use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 use cw_rules_core::msg::QueryConstruct;
 
 impl<'a> CwCroncat<'a> {
@@ -22,8 +21,9 @@ impl<'a> CwCroncat<'a> {
         env: Env,
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
+        let agent = self.check_agent(deps.as_ref().storage, &info)?;
 
-        self.check_and_update_agent(deps.storage, &info, &env)?;
+        let cfg: Config = self.config.load(deps.storage)?;
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
@@ -55,7 +55,6 @@ impl<'a> CwCroncat<'a> {
         } else {
             return Err(ContractError::NoTaskFound {});
         };
-        let task = self.tasks.load(deps.storage, &hash)?;
 
         //Get agent tasks with extra(if exists) from balancer
         let balancer_result = self
@@ -159,22 +158,19 @@ impl<'a> CwCroncat<'a> {
         //     .checked_sub_coins(&task_cw20_balance_uses)?;
         // Setup submessages for actions for this task
         // Each submessage in storage, computes & stores the "next" reply to allow for chained message processing.
-        let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
-        let next_idx = self.rq_next_id(deps.storage)?;
-        let actions = task.clone().actions;
-        let self_addr = env.contract.address;
 
         // Add submessages for all actions
-        for action in actions {
-            let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
-            if let Some(gas_limit) = action.gas_limit {
-                sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
-            } else {
-                sub_msgs.push(sub_msg);
-            }
-        }
-
+        let next_idx = self.rq_next_id(deps.storage)?;
+        let mut task = self.tasks.load(deps.storage, &hash)?;
+        let mut agent = agent;
+        agent.update(env.block.height);
+        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
+        task.total_deposit.native.find_checked_sub(&fee_price)?;
+        agent.balance.native.find_checked_add(&fee_price)?;
+        self.tasks.save(deps.storage, &hash, &task)?;
+        self.agents.save(deps.storage, &info.sender, &agent)?;
         // Keep track for later scheduling
+        let self_addr = env.contract.address;
         self.rq_push(
             deps.storage,
             QueueItem {
@@ -211,10 +207,10 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
+        let agent = self.check_agent(deps.as_ref().storage, &info)?;
+        let hash = task_hash.as_bytes();
 
         let cfg: Config = self.config.load(deps.storage)?;
-        self.check_and_update_agent(deps.storage, &info, &env)?;
-
         let some_task = self
             .tasks_with_rules
             .may_load(deps.storage, task_hash.as_bytes())?;
@@ -223,15 +219,11 @@ impl<'a> CwCroncat<'a> {
         // Check that this task can be executed in current slot
         let task_ready = match task.interval {
             Interval::Cron(_) => {
-                let block = self
-                    .time_slots_rules
-                    .load(deps.storage, task_hash.as_bytes())?;
+                let block = self.time_slots_rules.load(deps.storage, hash)?;
                 env.block.height >= block
             }
             _ => {
-                let time = self
-                    .block_slots_rules
-                    .load(deps.storage, task_hash.as_bytes())?;
+                let time = self.block_slots_rules.load(deps.storage, hash)?;
                 env.block.time.nanos() >= time
             }
         };
@@ -249,7 +241,7 @@ impl<'a> CwCroncat<'a> {
         };
         // Check rules
         let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
-            cfg.cw_rules_addr,
+            &cfg.cw_rules_addr,
             &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct {
                 rules: rules.clone(),
             }),
@@ -261,17 +253,15 @@ impl<'a> CwCroncat<'a> {
         };
 
         // Add submessages for all actions
-        let mut sub_msgs: Vec<SubMsg<Empty>> = vec![];
         let next_idx = self.rq_next_id(deps.storage)?;
-        let actions = task.actions.clone();
-        for action in actions {
-            let sub_msg: SubMsg = SubMsg::reply_always(action.msg, next_idx);
-            if let Some(gas_limit) = action.gas_limit {
-                sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
-            } else {
-                sub_msgs.push(sub_msg);
-            }
-        }
+        let mut task = self.tasks_with_rules.load(deps.storage, hash)?;
+        let mut agent = agent;
+        agent.update(env.block.height);
+        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
+        task.total_deposit.native.find_checked_sub(&fee_price)?;
+        agent.balance.native.find_checked_add(&fee_price)?;
+        self.tasks_with_rules.save(deps.storage, hash, &task)?;
+        self.agents.save(deps.storage, &info.sender, &agent)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
@@ -284,7 +274,6 @@ impl<'a> CwCroncat<'a> {
                 failed: false,
             },
         )?;
-
         // TODO: Add supported msgs if not a SubMessage?
         // Add the messages, reply handler responsible for task rescheduling
         let final_res = Response::new()
@@ -303,7 +292,7 @@ impl<'a> CwCroncat<'a> {
         deps: DepsMut,
         env: Env,
         msg: Reply,
-        mut task: Task,
+        task: Task,
         queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
         let task_hash = task.to_hash();
@@ -311,18 +300,6 @@ impl<'a> CwCroncat<'a> {
         // let out_of_funds = call_total_balance > task.total_deposit;
 
         let agent_id = queue_item.agent_id.unwrap();
-
-        if !queue_item.failed {
-            let price = self.manage_agent_success(deps.storage, task.actions.clone(), &agent_id)?;
-
-            task.total_deposit.native.find_checked_sub(&price)?;
-            if task.with_rules() {
-                self.tasks_with_rules
-                    .save(deps.storage, task_hash.as_bytes(), &task)?;
-            } else {
-                self.tasks.save(deps.storage, task_hash.as_bytes(), &task)?;
-            }
-        }
 
         // Parse interval into a future timestamp, then convert to a slot
         let (next_id, slot_kind) = task.interval.next(&env, task.boundary);
@@ -398,35 +375,6 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("slot_kind", format!("{:?}", slot_kind)))
     }
 
-    /// Internal management of agent slots and tasks after successful proxy_call
-    pub(crate) fn manage_agent_success(
-        &self,
-        storage: &mut dyn Storage,
-        actions: Vec<Action>,
-        agent_id: &Addr,
-    ) -> Result<Coin, ContractError> {
-        let mut agent = self.agents.may_load(storage, agent_id)?.unwrap();
-
-        // Increase number of tasks
-        agent.total_tasks_executed = agent.total_tasks_executed.saturating_add(1);
-
-        // Calculate agent reward
-        let cfg = self.config.load(storage)?;
-        let mut gas_used = 0;
-        for action in actions {
-            if let Some(gas_limit) = action.gas_limit {
-                gas_used += gas_limit;
-            } else {
-                gas_used += cfg.gas_base_fee;
-            }
-        }
-        let price_amount = calculate_required_amount(gas_used, cfg.agent_fee);
-        let price = coin(price_amount, cfg.native_denom);
-        agent.balance.native.find_checked_add(&price)?;
-        self.agents.save(storage, agent_id, &agent)?;
-        Ok(price)
-    }
-
     fn check_ready_for_proxy_call(
         &self,
         deps: Deps,
@@ -452,29 +400,24 @@ impl<'a> CwCroncat<'a> {
         Ok(())
     }
 
-    fn check_and_update_agent(
+    fn check_agent(
         &mut self,
-        storage: &mut dyn Storage,
+        storage: &dyn Storage,
         info: &MessageInfo,
-        env: &Env,
     ) -> Result<Agent, ContractError> {
         // only registered agent signed, because micropayments will benefit long term
-        let agent_opt = self.agents.may_load(storage, &info.sender)?;
-        if agent_opt.is_none() {
-            return Err(ContractError::AgentNotRegistered {});
-        }
+        let agent = match self.agents.may_load(storage, &info.sender)? {
+            Some(agent) => agent,
+            None => {
+                return Err(ContractError::AgentNotRegistered {});
+            }
+        };
         let active_agents: Vec<Addr> = self.agent_active_queue.load(storage)?;
 
         // make sure agent is active
         if !active_agents.contains(&info.sender) {
             return Err(ContractError::AgentNotRegistered {});
         }
-
-        // Update agent last_executed_slot
-        let mut agent = agent_opt.unwrap();
-        agent.last_executed_slot = env.block.height;
-        self.agents.save(storage, &info.sender, &agent)?;
-
         Ok(agent)
     }
 

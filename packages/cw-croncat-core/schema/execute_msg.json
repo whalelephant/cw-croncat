@@ -27,13 +27,35 @@
               "format": "uint64",
               "minimum": 0.0
             },
-            "gas_price": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint32",
-              "minimum": 0.0
+            "gas_action_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_base_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_fraction": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/GasFraction"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "min_tasks_per_agent": {
               "type": [
@@ -451,7 +473,7 @@
       ]
     },
     "Binary": {
-      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>",
+      "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
       "type": "string"
     },
     "Boundary": {
@@ -796,6 +818,25 @@
     "Empty": {
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
+    },
+    "GasFraction": {
+      "type": "object",
+      "required": [
+        "denominator",
+        "numerator"
+      ],
+      "properties": {
+        "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "numerator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
     },
     "GenericQuery": {
       "type": "object",

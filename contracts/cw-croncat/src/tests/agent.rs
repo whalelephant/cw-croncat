@@ -11,7 +11,9 @@ use cw_croncat_core::msg::{
     AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg, TaskRequest,
     TaskResponse,
 };
-use cw_croncat_core::types::{Action, Agent, AgentResponse, AgentStatus, GenericBalance, Interval};
+use cw_croncat_core::types::{
+    Action, Agent, AgentResponse, AgentStatus, GasFraction, GenericBalance, Interval,
+};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{
@@ -251,8 +253,10 @@ fn test_instantiate_sets_balance() {
                 denom: "grape".to_string(),
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
-                gas_base_fee: None,
+                gas_action_fee: None,
+                gas_fraction: None,
                 agent_nomination_duration: None,
+                gas_base_fee: None,
             },
             &sent_funds,
             "cw croncat",
@@ -304,9 +308,11 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: None,
+        gas_fraction: None,
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
 
     app.execute_contract(
@@ -334,9 +340,14 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_price: Some(1_000_000),
+        gas_fraction: Some(GasFraction {
+            numerator: 1,
+            denominator: 1,
+        }),
         proxy_callback_gas: None,
         slot_granularity: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
     };
 
     app.execute_contract(
@@ -344,6 +355,12 @@ fn register_agent_fail_cases() {
         contract_addr.clone(),
         &payload_2,
         &[],
+    )
+    .unwrap();
+    app.send_tokens(
+        Addr::unchecked(AGENT0),
+        Addr::unchecked(AGENT1),
+        &coins(1_900_000, "atom"),
     )
     .unwrap();
     let rereg_err = app
@@ -732,9 +749,11 @@ fn test_get_agent_status() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
-        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
+        gas_base_fee: None,
     };
     let mut info = mock_info(AGENT0, &coins(900_000, NATIVE_DENOM));
     let res_init = contract

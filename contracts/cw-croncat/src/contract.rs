@@ -8,15 +8,21 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw_croncat_core::traits::ResultFailed;
-use cw_croncat_core::types::SlotType;
+use cw_croncat_core::types::{GasFraction, SlotType};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
-// default for juno
-pub(crate) const GAS_BASE_FEE_JUNO: u64 = 400_000;
+/// default for juno
+/// This based on non-wasm operations, wasm ops seem impossible to predict
+pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
+/// Gas cost per single action
+pub const GAS_ACTION_FEE_JUNO: u64 = 200_000;
+/// We can't store gas_price as floats inside cosmwasm
+/// so insted of something like 0.1 we use GasFraction{1/10}
+pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -39,6 +45,12 @@ impl<'a> CwCroncat<'a> {
             info.sender
         };
 
+        let gas_action_fee = if let Some(action_fee) = msg.gas_action_fee {
+            action_fee.u64()
+        } else {
+            GAS_ACTION_FEE_JUNO
+        };
+
         let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
             base_fee.u64()
         } else {
@@ -55,9 +67,13 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_price: 1,
+            gas_fraction: GasFraction {
+                numerator: 1,
+                denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
+            },
             proxy_callback_gas: 3,
             gas_base_fee,
+            gas_action_fee,
             slot_granularity: 60_000_000_000,
             native_denom: msg.denom,
             cw20_whitelist: vec![],
@@ -110,7 +126,7 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            .add_attribute("gas_price", config.gas_price.to_string())
+            //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity", config.slot_granularity.to_string()))
     }

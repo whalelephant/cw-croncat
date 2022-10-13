@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    coin, Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
-    OverflowOperation::Sub, StakingMsg, StdError, SubMsgResult, Timestamp, Uint128, Uint64,
+    Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp, Uint128, Uint64,
     WasmMsg,
 };
 use cron_schedule::Schedule;
@@ -14,6 +14,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
+    msg::TaskRequest,
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
@@ -55,6 +56,13 @@ pub struct Agent {
     // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
     // Example data: 1633890060000000000 or 0
     pub register_start: Timestamp,
+}
+
+impl Agent {
+    pub fn update(&mut self, last_executed_slot: u64) {
+        self.total_tasks_executed = self.total_tasks_executed.saturating_add(1);
+        self.last_executed_slot = last_executed_slot;
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -155,7 +163,7 @@ pub enum SlotType {
 //     pub msg: Binary,
 // }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Action<T = Empty> {
     // NOTE: Only allow static pre-defined query msg
     /// Supported CosmosMsgs only!
@@ -202,6 +210,108 @@ impl Action {
 
 /// The response required by all rule queries. Bool is needed for croncat, T allows flexible rule engine
 pub type RuleResponse<T> = (bool, T);
+
+impl TaskRequest {
+    /// Validate the task actions only use the supported messages
+    /// We're iterating over all actions
+    /// so it's a great place for calculaing balance usages
+    pub fn is_valid_msg_calculate_usage(
+        &self,
+        api: &dyn Api,
+        self_addr: &Addr,
+        sender: &Addr,
+        owner_id: &Addr,
+        base_gas: u64,
+        action_gas: u64,
+    ) -> Result<(GenericBalance, u64), CoreError> {
+        let mut gas_amount: u64 = base_gas;
+        let mut amount_for_one_task = GenericBalance::default();
+
+        for action in self.actions.iter() {
+            // checked for cases, where task creator intentionaly tries to overflow
+            gas_amount = gas_amount
+                .checked_add(action.gas_limit.unwrap_or(action_gas))
+                .ok_or(CoreError::InvalidWasmMsg {})?;
+            match &action.msg {
+                CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr,
+                    funds: _,
+                    msg,
+                }) => {
+                    // TODO: Is there any way sender can be "self" creating a malicious task?
+                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
+                    if contract_addr == self_addr && sender != owner_id {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                        match cw20_msg {
+                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                                amount_for_one_task
+                                    .cw20
+                                    .find_checked_add(&Cw20CoinVerified {
+                                        address: api.addr_validate(contract_addr)?,
+                                        amount,
+                                    })?
+                            }
+                            _ => {
+                                return Err(CoreError::InvalidAction {});
+                            }
+                        }
+                    }
+                }
+                CosmosMsg::Staking(StakingMsg::Delegate {
+                    validator: _,
+                    amount,
+                }) => {
+                    // Must attach enough balance for staking
+                    if amount.amount.is_zero() {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    amount_for_one_task.native.find_checked_add(amount)?;
+                }
+                // TODO: Allow send, as long as coverage of assets is correctly handled
+                CosmosMsg::Bank(BankMsg::Send {
+                    to_address: _,
+                    amount,
+                }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
+                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
+                    // which is however much was passed in, like 1000000ujunox below:
+                    // junod tx wasm execute … … --amount 1000000ujunox
+                    if amount.iter().any(|coin| coin.amount.is_zero()) {
+                        return Err(CoreError::InvalidAction {});
+                    }
+                    amount_for_one_task.checked_add_native(amount)?;
+                }
+                CosmosMsg::Bank(_) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                CosmosMsg::Gov(GovMsg::Vote { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                // TODO: Setup better support for IBC
+                CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
+                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
+                    return Err(CoreError::InvalidAction {});
+                }
+                // TODO: Check authZ messages
+                _ => (),
+            }
+        }
+        Ok((amount_for_one_task, gas_amount))
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Task {
@@ -311,128 +421,53 @@ impl Task {
         result
     }
 
-    /// Validate the task actions only use the supported messages
-    /// We're iterating over all actions
-    /// so it's a great place for calculaing balance usages
-    #[allow(clippy::too_many_arguments)]
-    pub fn is_valid_msg_calculate_usage(
-        &mut self,
-        api: &dyn Api,
-        self_addr: &Addr,
-        sender: &Addr,
-        owner_id: &Addr,
-        default_gas: u64,
-        native_denom: String,
-        gas_fee: u64,
-    ) -> Result<bool, CoreError> {
-        // TODO: Chagne to default FALSE, once all messages are covered in tests
-        let mut valid = true;
-        let mut gas_amount: u64 = 0;
-        let amount_for_one_task = &mut self.amount_for_one_task;
-
-        for action in self.actions.iter() {
-            // checked for cases, where task creator intentionaly tries to overflow
-            gas_amount = gas_amount
-                .checked_add(action.gas_limit.unwrap_or(default_gas))
-                .ok_or(CoreError::InvalidWasmMsg {})?;
-            match &action.msg {
-                CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr,
-                    funds: _,
-                    msg,
-                }) => {
-                    // TODO: Is there any way sender can be "self" creating a malicious task?
-                    // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                    if contract_addr == self_addr && sender != owner_id {
-                        valid = false;
-                    }
-                    if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
-                        match cw20_msg {
-                            Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
-                                amount_for_one_task
-                                    .cw20
-                                    .find_checked_add(&Cw20CoinVerified {
-                                        address: api.addr_validate(contract_addr)?,
-                                        amount,
-                                    })?
-                            }
-                            Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
-                                amount_for_one_task
-                                    .cw20
-                                    .find_checked_add(&Cw20CoinVerified {
-                                        address: api.addr_validate(contract_addr)?,
-                                        amount,
-                                    })?
-                            }
-                            _ => valid = false,
-                        }
-                    }
-                }
-                CosmosMsg::Staking(StakingMsg::Delegate {
-                    validator: _,
-                    amount,
-                }) => {
-                    // Must attach enough balance for staking
-                    if amount.amount.is_zero() {
-                        valid = false;
-                    }
-                    amount_for_one_task.native.find_checked_add(amount)?;
-                }
-                // TODO: Allow send, as long as coverage of assets is correctly handled
-                CosmosMsg::Bank(BankMsg::Send {
-                    to_address: _,
-                    amount,
-                }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
-                    // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
-                    // which is however much was passed in, like 1000000ujunox below:
-                    // junod tx wasm execute … … --amount 1000000ujunox
-                    if amount.iter().any(|coin| coin.amount.is_zero()) {
-                        valid = false;
-                    }
-                    amount_for_one_task.checked_add_native(amount)?;
-                }
-                CosmosMsg::Bank(BankMsg::Burn { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                CosmosMsg::Gov(GovMsg::Vote { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                // TODO: Setup better support for IBC
-                CosmosMsg::Ibc(IbcMsg::Transfer { .. }) => {
-                    // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                    valid = false;
-                }
-                // TODO: Check authZ messages
-                _ => (),
-            }
-        }
-        amount_for_one_task.native.find_checked_add(&coin(
-            calculate_required_amount(gas_amount, gas_fee),
-            native_denom,
-        ))?;
-        Ok(valid)
-    }
-
     /// Get task gas total
     /// helper for getting total configured gas for this tasks actions
-    pub fn to_gas_total(&self) -> u64 {
-        let mut gas: u64 = 0;
-
-        // tally all the gases
+    pub fn get_submsgs_with_total_gas(
+        &self,
+        base_gas: u64,
+        action_gas: u64,
+        next_idx: u64,
+    ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
+        let mut gas: u64 = base_gas;
+        let mut sub_msgs = Vec::with_capacity(self.actions.len());
         for action in self.actions.iter() {
-            gas = gas.saturating_add(action.gas_limit.unwrap_or(0));
+            gas = gas
+                .checked_add(action.gas_limit.unwrap_or(action_gas))
+                .ok_or(CoreError::InvalidGas {})?;
+            let sub_msg: SubMsg = SubMsg::reply_always(action.msg.clone(), next_idx);
+            if let Some(gas_limit) = action.gas_limit {
+                sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
+            } else {
+                sub_msgs.push(sub_msg);
+            }
         }
-
-        gas
+        Ok((sub_msgs, gas))
     }
+
+    /// Calculate gas usage for this task
+    // pub fn calculate_gas_usage(
+    //     &self,
+    //     cfg: &Config,
+    //     actions: &[Action],
+    // ) -> Result<Coin, ContractError> {
+    //     let mut gas_used = 0;
+    //     for action in actions {
+    //         if let Some(gas_limit) = action.gas_limit {
+    //             gas_used += gas_limit;
+    //         } else {
+    //             gas_used += cfg.gas_base_fee;
+    //         }
+    //     }
+    //     let gas_amount = calculate_required_amount(gas_used, cfg.agent_fee)?;
+    //     let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
+    //     let price = coin(price_amount, &cfg.native_denom);
+    //     Ok(price)
+    // }
 
     /// Get whether the task is with rules
     pub fn with_rules(&self) -> bool {
-        self.rules.is_some() && !self.rules.as_ref().unwrap().is_empty()
+        self.rules.as_ref().map_or(false, |rules| !rules.is_empty())
     }
 
     /// Check if given Addr is the owner
@@ -442,13 +477,12 @@ impl Task {
 }
 
 /// Calculate the amount including agent_fee
-pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> u128 {
-    let fee = amount
+pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
+    amount
         .checked_mul(agent_fee)
-        .unwrap()
-        .checked_div(100u64)
-        .unwrap();
-    amount.checked_add(fee).unwrap() as u128
+        .and_then(|n| n.checked_div(100))
+        .and_then(|n| n.checked_add(amount))
+        .ok_or(CoreError::InvalidGas {})
 }
 
 impl FindAndMutate<'_, Coin> for Vec<Coin> {
@@ -685,5 +719,29 @@ impl Intervals for Interval {
                 s.is_ok()
             }
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct GasFraction {
+    pub numerator: u64,
+    pub denominator: u64,
+}
+
+impl GasFraction {
+    pub fn is_valid(&self) -> bool {
+        self.denominator != 0 && self.numerator != 0
+    }
+
+    pub fn calculate(&self, extra_num: u64, extra_denom: u64) -> Result<u128, CoreError> {
+        let numerator = self
+            .numerator
+            .checked_mul(extra_num)
+            .ok_or(CoreError::InvalidGas {})?;
+        let denominator = self
+            .denominator
+            .checked_mul(extra_denom)
+            .ok_or(CoreError::InvalidGas {})?;
+        Ok((numerator / denominator) as u128)
     }
 }
