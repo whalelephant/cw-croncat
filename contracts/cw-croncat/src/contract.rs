@@ -151,8 +151,8 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::UpdateAgent { payable_account_id } => {
                 self.update_agent(deps, info, env, payable_account_id)
             }
-            ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps, info, env),
-            ExecuteMsg::WithdrawReward {} => self.withdraw_agent_balance(deps, info, env),
+            ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps.storage, &info.sender),
+            ExecuteMsg::WithdrawReward {} => self.withdraw_agent_balance(deps, &info.sender),
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 
             ExecuteMsg::CreateTask { task } => self.create_task(deps, info, env, task),
@@ -172,6 +172,7 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::WithdrawWalletBalance {
                 cw20_amounts: cw20_balances,
             } => self.withdraw_wallet_balances(deps, info, cw20_balances),
+            ExecuteMsg::Tick {} => self.tick(deps, env),
         }
     }
 

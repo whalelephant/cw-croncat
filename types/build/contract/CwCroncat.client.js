@@ -245,6 +245,11 @@ class CwCroncatClient extends CwCroncatQueryClient {
                 }
             }, fee, memo, funds);
         });
+        this.tick = (fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
+            return yield this.client.execute(this.sender, this.contractAddress, {
+                tick: {}
+            }, fee, memo, funds);
+        });
         this.client = client;
         this.sender = sender;
         this.contractAddress = contractAddress;
@@ -262,6 +267,7 @@ class CwCroncatClient extends CwCroncatQueryClient {
         this.proxyCall = this.proxyCall.bind(this);
         this.receive = this.receive.bind(this);
         this.withdrawWalletBalance = this.withdrawWalletBalance.bind(this);
+        this.tick = this.tick.bind(this);
     }
 }
 exports.CwCroncatClient = CwCroncatClient;

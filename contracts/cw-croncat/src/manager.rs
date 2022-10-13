@@ -2,7 +2,9 @@ use crate::balancer::Balancer;
 use crate::error::ContractError;
 use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
-use cosmwasm_std::{Addr, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, Storage};
+use cosmwasm_std::{
+    Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
+};
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
 use cw_rules_core::msg::QueryConstruct;
@@ -19,9 +21,10 @@ impl<'a> CwCroncat<'a> {
         env: Env,
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
-        let agent = self.check_agent(deps.as_ref(), &info)?;
+        let agent = self.check_agent(deps.as_ref().storage, &info)?;
 
         let cfg: Config = self.config.load(deps.storage)?;
+
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
         let slot = self.get_current_slot_items(&env.block, deps.storage, Some(1));
@@ -160,7 +163,7 @@ impl<'a> CwCroncat<'a> {
         let next_idx = self.rq_next_id(deps.storage)?;
         let mut task = self.tasks.load(deps.storage, &hash)?;
         let mut agent = agent;
-        agent.update();
+        agent.update(env.block.height);
         let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
         task.total_deposit.native.find_checked_sub(&fee_price)?;
         agent.balance.native.find_checked_add(&fee_price)?;
@@ -204,7 +207,7 @@ impl<'a> CwCroncat<'a> {
         task_hash: String,
     ) -> Result<Response, ContractError> {
         self.check_ready_for_proxy_call(deps.as_ref(), &info)?;
-        let agent = self.check_agent(deps.as_ref(), &info)?;
+        let agent = self.check_agent(deps.as_ref().storage, &info)?;
         let hash = task_hash.as_bytes();
 
         let cfg: Config = self.config.load(deps.storage)?;
@@ -253,7 +256,7 @@ impl<'a> CwCroncat<'a> {
         let next_idx = self.rq_next_id(deps.storage)?;
         let mut task = self.tasks_with_rules.load(deps.storage, hash)?;
         let mut agent = agent;
-        agent.update();
+        agent.update(env.block.height);
         let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
         task.total_deposit.native.find_checked_sub(&fee_price)?;
         agent.balance.native.find_checked_add(&fee_price)?;
@@ -397,15 +400,19 @@ impl<'a> CwCroncat<'a> {
         Ok(())
     }
 
-    fn check_agent(&self, deps: Deps, info: &MessageInfo) -> Result<Agent, ContractError> {
+    fn check_agent(
+        &mut self,
+        storage: &dyn Storage,
+        info: &MessageInfo,
+    ) -> Result<Agent, ContractError> {
         // only registered agent signed, because micropayments will benefit long term
-        let agent = match self.agents.may_load(deps.storage, &info.sender)? {
+        let agent = match self.agents.may_load(storage, &info.sender)? {
             Some(agent) => agent,
             None => {
                 return Err(ContractError::AgentNotRegistered {});
             }
         };
-        let active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let active_agents: Vec<Addr> = self.agent_active_queue.load(storage)?;
 
         // make sure agent is active
         if !active_agents.contains(&info.sender) {
@@ -481,4 +488,35 @@ impl<'a> CwCroncat<'a> {
     //     };
     //     return Ok(response)
     // } else {}
+
+    /// Helps manage and cleanup agents
+    /// Deletes agents which missed more than agents_eject_threshold slot
+    pub fn tick(&mut self, deps: DepsMut, env: Env) -> Result<Response, ContractError> {
+        let current_slot = env.block.height;
+        let cfg = self.config.load(deps.storage)?;
+        let mut attributes = vec![];
+        let mut submessages = vec![];
+        for agent_id in self
+            .agents
+            .keys(deps.storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<Addr>>>()?
+        {
+            let agent = self.agents.load(deps.storage, &agent_id)?;
+            if current_slot
+                > agent.last_executed_slot + cfg.agents_eject_threshold * cfg.slot_granularity
+            {
+                let resp = self
+                    .unregister_agent(deps.storage, &agent_id)
+                    .unwrap_or_default();
+                // Save attributes and messages
+                attributes.extend_from_slice(&resp.attributes);
+                submessages.extend_from_slice(&resp.messages);
+            }
+        }
+        let response = Response::new()
+            .add_attribute("method", "tick")
+            .add_attributes(attributes)
+            .add_submessages(submessages);
+        Ok(response)
+    }
 }

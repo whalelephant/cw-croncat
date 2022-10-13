@@ -34,7 +34,7 @@ impl<'a> CwCroncat<'a> {
             payable_account_id: a.payable_account_id,
             balance: a.balance,
             total_tasks_executed: a.total_tasks_executed,
-            last_missed_slot: a.last_missed_slot,
+            last_executed_slot: a.last_executed_slot,
             register_start: a.register_start,
         };
 
@@ -191,7 +191,7 @@ impl<'a> CwCroncat<'a> {
                             payable_account_id: payable_id,
                             balance: GenericBalance::default(),
                             total_tasks_executed: 0,
-                            last_missed_slot: 0,
+                            last_executed_slot: env.block.height,
                             // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
                             register_start: env.block.time,
                         })
@@ -247,11 +247,11 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn withdraw_balances(
         &self,
         storage: &mut dyn Storage,
-        info: MessageInfo,
+        agent_id: &Addr,
     ) -> Result<Vec<SubMsg>, ContractError> {
         let mut agent = self
             .agents
-            .may_load(storage, &info.sender)?
+            .may_load(storage, agent_id)?
             .ok_or(AgentNotRegistered {})?;
 
         // This will send all token balances to Agent
@@ -261,7 +261,7 @@ impl<'a> CwCroncat<'a> {
         config
             .available_balance
             .checked_sub_native(&balances.native)?;
-        self.agents.save(storage, &info.sender, &agent)?;
+        self.agents.save(storage, agent_id, &agent)?;
         self.config.save(storage, &config)?;
 
         Ok(messages)
@@ -271,14 +271,13 @@ impl<'a> CwCroncat<'a> {
     pub fn withdraw_agent_balance(
         &self,
         deps: DepsMut,
-        info: MessageInfo,
-        _env: Env,
+        agent_id: &Addr,
     ) -> Result<Response, ContractError> {
-        let messages = self.withdraw_balances(deps.storage, info.clone())?;
+        let messages = self.withdraw_balances(deps.storage, agent_id)?;
 
         Ok(Response::new()
             .add_attribute("method", "withdraw_agent_balance")
-            .add_attribute("account_id", info.sender)
+            .add_attribute("account_id", agent_id)
             .add_submessages(messages))
     }
 
@@ -351,43 +350,40 @@ impl<'a> CwCroncat<'a> {
     /// Withdraws all reward balances to the agent payable account id.
     pub fn unregister_agent(
         &self,
-        deps: DepsMut,
-        info: MessageInfo,
-        _env: Env,
+        storage: &mut dyn Storage,
+        agent_id: &Addr,
     ) -> Result<Response, ContractError> {
         // Get withdraw messages, if any
         // NOTE: Since this also checks if agent exists, safe to not have redundant logic
-        let messages = self.withdraw_balances(deps.storage, info.clone())?;
-        let agent_id = info.sender;
-        self.agents.remove(deps.storage, &agent_id);
+        let messages = self.withdraw_balances(storage, agent_id)?;
+        self.agents.remove(storage, agent_id);
 
         // Remove from the list of active agents if the agent in this list
         let mut active_agents: Vec<Addr> = self
             .agent_active_queue
-            .may_load(deps.storage)?
+            .may_load(storage)?
             .unwrap_or_default();
-        if let Some(index) = active_agents.iter().position(|addr| *addr == agent_id) {
+        if let Some(index) = active_agents.iter().position(|addr| *addr == *agent_id) {
             //Notify the balancer agent has been removed, to rebalance itself
             self.balancer.on_agent_unregister(
-                deps.storage,
+                storage,
                 &self.config,
                 &self.agent_active_queue,
                 agent_id.clone(),
             );
             active_agents.remove(index);
 
-            self.agent_active_queue.save(deps.storage, &active_agents)?;
+            self.agent_active_queue.save(storage, &active_agents)?;
         } else {
             // Agent can't be both in active and pending vector
             // Remove from the pending queue
             let mut pending_agents: Vec<Addr> = self
                 .agent_pending_queue
-                .may_load(deps.storage)?
+                .may_load(storage)?
                 .unwrap_or_default();
-            if let Some(index) = pending_agents.iter().position(|addr| *addr == agent_id) {
+            if let Some(index) = pending_agents.iter().position(|addr| addr == agent_id) {
                 pending_agents.remove(index);
-                self.agent_pending_queue
-                    .save(deps.storage, &pending_agents)?;
+                self.agent_pending_queue.save(storage, &pending_agents)?;
             }
         }
 

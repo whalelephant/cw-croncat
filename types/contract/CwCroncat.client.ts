@@ -337,6 +337,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
   }: {
     cw20Amounts: Cw20Coin[];
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  tick: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
 export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatInterface {
   client: SigningCosmWasmClient;
@@ -362,6 +363,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     this.proxyCall = this.proxyCall.bind(this);
     this.receive = this.receive.bind(this);
     this.withdrawWalletBalance = this.withdrawWalletBalance.bind(this);
+    this.tick = this.tick.bind(this);
   }
 
   updateSettings = async ({
@@ -537,6 +539,11 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
       withdraw_wallet_balance: {
         cw20_amounts: cw20Amounts
       }
+    }, fee, memo, funds);
+  };
+  tick = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      tick: {}
     }, fee, memo, funds);
   };
 }

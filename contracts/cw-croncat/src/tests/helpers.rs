@@ -174,6 +174,12 @@ pub fn add_one_duration_of_time(block: &mut BlockInfo) {
     block.height += 1;
 }
 
+pub fn add_1000_blocks(block: &mut BlockInfo) {
+    // block.time = block.time.plus_seconds(360);
+    block.time = block.time.plus_seconds(10);
+    block.height += 1000;
+}
+
 pub fn default_task() -> Task {
     Task {
         owner_id: Addr::unchecked("bob"),
