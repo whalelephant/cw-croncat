@@ -9,6 +9,8 @@ use cw_croncat_core::{
     types::{BoundaryValidated, Interval, SlotType},
 };
 
+use super::helpers::TWO_MINUTES;
+
 #[test]
 fn interval_get_next_block_limited() {
     // (input, input, outcome, outcome)
@@ -533,7 +535,7 @@ fn interval_get_next_cron_time() {
                 start: None,
                 end: None,
             },
-            1_571_797_420_000_000_000, // current time in nanos is 1571797419879305533
+            1_571_797_420_000_000_000, // current time in nanos is 1_571_797_419_879_305_533
             SlotType::Cron,
         ),
         (
@@ -591,6 +593,47 @@ fn interval_get_next_cron_time() {
             1_571_803_215_000_000_000,
             SlotType::Cron,
         ),
+        // cases when a boundary has end
+        // current slot is the end slot
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_419_879_305_533),
+            },
+            1_571_797_419_879_305_533,
+            SlotType::Cron,
+        ),
+        // the next slot is after the end, return end slot
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_419_879_305_535),
+            },
+            1_571_797_419_879_305_535,
+            SlotType::Cron,
+        ),
+        // next slot in boundaries
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_420_000_000_000),
+            },
+            1_571_797_420_000_000_000,
+            SlotType::Cron,
+        ),
+        // the task has ended
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_419_879_305_532),
+            },
+            0,
+            SlotType::Cron,
+        ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
         let env = mock_env();
@@ -608,7 +651,9 @@ fn interval_get_next_cron_time() {
                 start: None,
                 end: None,
             },
-            1571797320000000000, // current time in nanos is 1571797419879305533
+            // the timestamp is in the current slot, so we take the next slot
+            1_571_797_420_000_000_000_u64.saturating_sub(1_571_797_420_000_000_000 % TWO_MINUTES)
+                + TWO_MINUTES, // current time in nanos is 1_571_797_419_879_305_533
             SlotType::Cron,
         ),
         (
@@ -617,7 +662,7 @@ fn interval_get_next_cron_time() {
                 start: None,
                 end: None,
             },
-            1571797440000000000,
+            1_571_797_440_000_000_000,
             SlotType::Cron,
         ),
         (
@@ -666,11 +711,52 @@ fn interval_get_next_cron_time() {
             1_571_803_200_000_000_000,
             SlotType::Cron,
         ),
+        // cases when a boundary has end
+        // boundary end in the current slot
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_419_879_305_535),
+            },
+            1_571_797_320_000_000_000,
+            SlotType::Cron,
+        ),
+        // next slot in boundaries
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_560_000_000_000),
+            },
+            1_571_797_440_000_000_000,
+            SlotType::Cron,
+        ),
+        // next slot after the end, return end slot
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_420_000_000_000),
+            },
+            1_571_797_320_000_000_000,
+            SlotType::Cron,
+        ),
+        // the task has ended
+        (
+            Interval::Cron("* * * * * *".to_string()),
+            BoundaryValidated {
+                start: None,
+                end: Some(1_571_797_419_879_305_532),
+            },
+            0,
+            SlotType::Cron,
+        ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
         let env = mock_env();
         // CHECK IT!
-        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, 120_000_000_000);
+        let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1, TWO_MINUTES);
         assert_eq!(outcome_time, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
     }

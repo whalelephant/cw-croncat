@@ -723,6 +723,8 @@ fn get_next_block_by_offset(
     (slot_for_final_block, SlotType::Block)
 }
 
+// Get the slot number (in nanos) of the next task according to boundaries
+// Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
     boundary: BoundaryValidated,
@@ -730,18 +732,35 @@ fn get_next_cron_time(
     slot_granularity_time: u64,
 ) -> (u64, SlotType) {
     let current_block_ts = env.block.time.nanos();
-    // TODO: get current timestamp within boundary
+    let current_block_slot =
+        current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
+
+    // get earliest possible time
     let current_ts = match boundary.start {
         Some(ts) if current_block_ts < ts => ts,
         _ => current_block_ts,
     };
+
+    // receive time from schedule, calculate slot for this time
     let schedule = Schedule::from_str(crontab).unwrap();
     let next_ts = schedule.next_after(&current_ts).unwrap();
-    // (next_ts, SlotType::Cron)
-    (
-        next_ts.saturating_sub(next_ts % slot_granularity_time),
-        SlotType::Cron,
-    )
+    let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
+
+    // put task in the next slot if next_ts_slot in the current slot
+    let next_slot = if next_ts_slot == current_block_slot {
+        next_ts_slot + slot_granularity_time
+    } else {
+        next_ts_slot
+    };
+
+    match boundary.end {
+        Some(end) if current_block_ts > end => (0, SlotType::Cron),
+        Some(end) => {
+            let end_slot = end.saturating_sub(end % slot_granularity_time);
+            (u64::min(end_slot, next_slot), SlotType::Cron)
+        }
+        _ => (next_slot, SlotType::Cron),
+    }
 }
 
 impl Intervals for Interval {
