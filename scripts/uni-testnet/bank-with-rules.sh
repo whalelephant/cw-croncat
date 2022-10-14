@@ -1,25 +1,19 @@
 . ./scripts/uni-testnet/base/init-vars.sh
-if [ -z "$1" ]
-then
-    echo "Must provide contract address"
-    exit 1
-elif [ -z "$2" ]
-then
-    echo "Must provide user address"
-    exit 1
-elif [ -z "$3" ]
-then
-    echo "Must provide dao address"
-    exit 1
+if [ -z "$1" ]; then
+  echo "Must provide contract address"
+  exit 1
+elif [ -z "$2" ]; then
+  echo "Must provide user address"
+  exit 1
+elif [ -z "$3" ]; then
+  echo "Must provide dao address"
+  exit 1
 
 fi
 
- CONTRACT="$1"
-    USR="$2"
-    DAO="$3"
-echo \ $CONTRACT
-echo $USR
-echo $DAO
+CONTRACT="$1"
+USR="$2"
+DAO="$3"
 
 
 MSG='{"get_balance":{"address":"'$USR'","denom":"ujunox"}}'
@@ -63,4 +57,3 @@ DAODAO='{
 }'
 
 junod tx wasm execute $CONTRACT "$DAODAO" --amount 1000000ujunox --from signer $TXFLAG -y
-
