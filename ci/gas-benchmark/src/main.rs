@@ -14,7 +14,7 @@ use crate::{
         register_agent,
     },
     report::{
-        average_gas_for_one_native_ujunox, average_gas_for_proxy_call, cost_approxes,
+        average_base_gas_for_proxy_call, average_gas_for_one_native_ujunox, cost_approxes,
         max_gas_non_wasm_action,
     },
     test_cases::{
@@ -163,8 +163,8 @@ fn main() -> Result<()> {
         max_gas_non_wasm_action(&non_wasm_reports)
     );
     println!(
-        "average_gas_for_proxy_call: {}",
-        average_gas_for_proxy_call(&together_reports)
+        "average_base_gas_for_proxy_call: {}",
+        average_base_gas_for_proxy_call(&together_reports)
     );
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
     println!(

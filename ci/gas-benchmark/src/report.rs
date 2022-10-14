@@ -56,7 +56,7 @@ pub(crate) fn max_gas_non_wasm_action(reports: &[ApproxGasCosts]) -> u64 {
         .fold(0, |cur, r| r.max_gas_per_action.max(cur))
 }
 
-pub(crate) fn average_gas_for_proxy_call(reports: &[ApproxGasCosts]) -> u64 {
+pub(crate) fn average_base_gas_for_proxy_call(reports: &[ApproxGasCosts]) -> u64 {
     let arr: Vec<u64> = reports
         .iter()
         .map(|r| r.gas_for_proxy_call + r.gas_for_task_unregister)
