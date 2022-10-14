@@ -288,7 +288,7 @@ impl<'a> CwCroncat<'a> {
         let recurring = item.interval != Interval::Once;
         item.verify_enough_balances(recurring)?;
         // Add the attached balance into available_balance
-        let c = self
+        let cfg = self
             .config
             .update(deps.storage, |mut c| -> Result<_, ContractError> {
                 c.available_balance.checked_add_native(&info.funds)?;
