@@ -8,7 +8,6 @@ elif [ -z "$2" ]; then
 elif [ -z "$3" ]; then
   echo "Must provide dao address"
   exit 1
-
 fi
 
 CONTRACT="$1"
