@@ -219,11 +219,11 @@ impl<'a> CwCroncat<'a> {
         // Check that this task can be executed in current slot
         let task_ready = match task.interval {
             Interval::Cron(_) => {
-                let block = self.time_slots_rules.load(deps.storage, hash)?;
+                let block = self.time_map_rules.load(deps.storage, hash)?;
                 env.block.height >= block
             }
             _ => {
-                let time = self.block_slots_rules.load(deps.storage, hash)?;
+                let time = self.block_map_rules.load(deps.storage, hash)?;
                 env.block.time.nanos() >= time
             }
         };
@@ -333,11 +333,11 @@ impl<'a> CwCroncat<'a> {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_slots_rules
+                    self.block_map_rules
                         .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_slots_rules
+                    self.time_map_rules
                         .save(deps.storage, task_hash.as_bytes(), &next_id)?;
                 }
             }

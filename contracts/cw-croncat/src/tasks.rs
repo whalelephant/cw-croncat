@@ -330,11 +330,11 @@ impl<'a> CwCroncat<'a> {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_slots_rules
+                    self.block_map_rules
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_slots_rules
+                    self.time_map_rules
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
             }
@@ -483,8 +483,8 @@ impl<'a> CwCroncat<'a> {
 
             self.tasks_with_rules.remove(storage, &hash_vec)?;
             match task.interval {
-                Interval::Cron(_) => self.time_slots_rules.remove(storage, &hash_vec),
-                _ => self.block_slots_rules.remove(storage, &hash_vec),
+                Interval::Cron(_) => self.time_map_rules.remove(storage, &hash_vec),
+                _ => self.block_map_rules.remove(storage, &hash_vec),
             }
 
             task

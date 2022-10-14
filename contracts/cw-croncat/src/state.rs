@@ -116,9 +116,9 @@ pub struct CwCroncat<'a> {
     pub tasks_with_rules: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
     pub tasks_with_rules_total: Item<'a, u64>,
 
-    /// Store time and block based slots by the corresponding task hash
-    pub time_slots_rules: Map<'a, &'a [u8], u64>,
-    pub block_slots_rules: Map<'a, &'a [u8], u64>,
+    /// Time and block based maps by the corresponding task hash
+    pub time_map_rules: Map<'a, &'a [u8], u64>,
+    pub block_map_rules: Map<'a, &'a [u8], u64>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's
@@ -173,8 +173,8 @@ impl<'a> CwCroncat<'a> {
             tasks_with_rules_total: Item::new("tasks_with_rules_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
-            time_slots_rules: Map::new("time_slots_rules"),
-            block_slots_rules: Map::new("block_slots_rules"),
+            time_map_rules: Map::new("time_slots_rules"),
+            block_map_rules: Map::new("block_slots_rules"),
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
