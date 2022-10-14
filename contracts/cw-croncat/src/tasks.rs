@@ -482,8 +482,10 @@ impl<'a> CwCroncat<'a> {
             }
 
             self.tasks_with_rules.remove(storage, &hash_vec)?;
-            self.time_slots_rules.remove(storage, &hash_vec);
-            self.block_slots_rules.remove(storage, &hash_vec);
+            match task.interval {
+                Interval::Cron(_) => self.time_slots_rules.remove(storage, &hash_vec),
+                _ => self.block_slots_rules.remove(storage, &hash_vec),
+            }
 
             task
         };

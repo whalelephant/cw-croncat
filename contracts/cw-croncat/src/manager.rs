@@ -232,7 +232,6 @@ impl<'a> CwCroncat<'a> {
                 val: "Task is not ready".to_string(),
             });
         }
-        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
         let rules = if let Some(ref rules) = task.rules {
             rules
         } else {
