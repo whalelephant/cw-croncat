@@ -1,5 +1,7 @@
 [package]
 name = "cw-rules-core"
+description = "CronCat rules logic for tasks that require conditions"
+license = "MIT OR Apache-2.0"
 version = "0.1.0"
 edition = "2021"
 
