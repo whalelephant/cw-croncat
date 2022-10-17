@@ -10,7 +10,7 @@ RPC="http://localhost:26657/"
 BINARY="docker exec -i juno_node_1 junod"
 PLATFORM="-arm64"
 WASM_POSTFIX="-aarch64"
-DIR=$(pwd)
+DIR="$( dirname -- "${BASH_SOURCE[0]}"; )/../.."
 JUNO_DIR="$HOME/juno"
 DIR_NAME=$(basename "$PWD")
 SCRIPT_PATH=$(dirname $(which $0))
@@ -37,7 +37,7 @@ White='\033[0;37m'  # White
 echo "$DIR/artifacts/cw20_base.wasm"
 
 usage() {
-  printf "Usage: ./scripts/local/simple-payroll.sh -w -c"
+  printf '%s\n' "Usage: ./scripts/local/simple-payroll.sh -w -c"
 }
 flags() {
   while test $# -gt 0; do
@@ -75,12 +75,8 @@ flags() {
   done
 }
 
-if [[ -z "$@" ]]; then
-  usage
-  exit
-else
-  flags "$@"
-fi
+flags "$@"
+
 echo $RECREATE_ARTIFACTS
 echo $RECREATE_CONTAINERS
 #Recreate artifacts
@@ -232,4 +228,4 @@ echo USER_ADDR=$USER_ADDR
 echo AGENT_ADDR=$AGENT_ADDR
 echo RULES_CONTRACT_ADDR=$RULES_CONTRACT_ADDR
 echo CW20_ADDR=$CW20_ADDR
-echo CONTRACT_ADDRESS=$CONTRACT_ADDRESS$ "{NoColor}"
+echo CONTRACT_ADDRESS=$CONTRACT_ADDRESS"${NoColor}"
