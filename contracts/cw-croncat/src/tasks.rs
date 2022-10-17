@@ -470,24 +470,7 @@ impl<'a> CwCroncat<'a> {
             task
         } else {
             // Find a task with rules
-            let task = self
-                .tasks_with_rules
-                .may_load(storage, &hash_vec)?
-                .ok_or(ContractError::NoTaskFound {})?;
-
-            if let Some(info) = info {
-                if !task.is_owner(info.sender) {
-                    return Err(ContractError::Unauthorized {});
-                }
-            }
-
-            self.tasks_with_rules.remove(storage, &hash_vec)?;
-            match task.interval {
-                Interval::Cron(_) => self.time_map_rules.remove(storage, &hash_vec),
-                _ => self.block_map_rules.remove(storage, &hash_vec),
-            }
-
-            task
+            self.pop_task_with_rule(storage, hash_vec, info)?
         };
 
         // return any remaining total_cw20_deposit to the owner
@@ -518,6 +501,29 @@ impl<'a> CwCroncat<'a> {
         } else {
             Ok(Response::new().add_attribute("method", "remove_task"))
         }
+    }
+
+    fn pop_task_with_rule(
+        &self,
+        storage: &mut dyn Storage,
+        hash_vec: Vec<u8>,
+        info: Option<MessageInfo>,
+    ) -> Result<Task, ContractError> {
+        let task = self
+            .tasks_with_rules
+            .may_load(storage, &hash_vec)?
+            .ok_or(ContractError::NoTaskFound {})?;
+        if let Some(info) = info {
+            if !task.is_owner(info.sender) {
+                return Err(ContractError::Unauthorized {});
+            }
+        }
+        self.tasks_with_rules.remove(storage, &hash_vec)?;
+        match task.interval {
+            Interval::Cron(_) => self.time_map_rules.remove(storage, &hash_vec),
+            _ => self.block_map_rules.remove(storage, &hash_vec),
+        }
+        Ok(task)
     }
 
     /// Refill a task with more balance to continue its execution
