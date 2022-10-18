@@ -13,7 +13,7 @@ export interface CheckOwnerOfNft {
   [k: string]: unknown;
 }
 export type CheckProposalStatusResponse = [boolean, Binary | null];
-export type Status = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
+export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
 export interface CheckProposalStatus {
   dao_address: string;
   proposal_id: number;

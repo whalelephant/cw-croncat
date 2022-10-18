@@ -152,7 +152,7 @@ export type Boundary = {
     [k: string]: unknown;
   };
 };
-export type Interval = ("Once" | "Immediate") | {
+export type Interval = "Once" | "Immediate" | {
   Block: number;
 } | {
   Cron: string;
@@ -172,7 +172,7 @@ export type Balance = {
   cw20: Cw20CoinVerified;
 };
 export type NativeBalance = Coin[];
-export type Status = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
+export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
 export type ValueIndex = {
   key: string;
 } | {

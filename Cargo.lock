@@ -772,6 +772,7 @@ dependencies = [
  "cwd-interface",
  "cwd-proposal-multiple",
  "cwd-proposal-single",
+ "cwd-voting",
  "cwd-voting-cw20-staked",
  "generic-query 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "schemars",
