@@ -1,14 +1,14 @@
 use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
 use cw20::Cw20Coin;
-use cw20_staked_balance_voting::msg::ActiveThreshold;
-use cw_core::state::ProposalModule;
 use cw_multi_test::{next_block, App, Executor};
-use cw_proposal_multiple::{
+use cwd_proposal_multiple::{
     state::{MultipleChoiceOption, MultipleChoiceOptions},
     voting_strategy::VotingStrategy,
 };
 use cw_rules_core::types::{CheckProposalStatus, Status};
-use voting::{
+use cwd_core::state::ProposalModule;
+use cwd_voting_cw20_staked::msg::ActiveThreshold;
+use voting_v1::{
     threshold::{PercentageThreshold, Threshold},
     voting::{MultipleChoiceVote, Vote},
 };
@@ -42,17 +42,17 @@ fn instantiate_with_staking_active_threshold(
         }]
     });
 
-    let governance_instantiate = cw_core::msg::InstantiateMsg {
+    let governance_instantiate = cwd_core::msg::InstantiateMsg {
         admin: None,
         name: "DAO DAO".to_string(),
         description: "A DAO that builds DAOs".to_string(),
         image_url: None,
         automatically_add_cw20s: true,
         automatically_add_cw721s: true,
-        voting_module_instantiate_info: cw_core::msg::ModuleInstantiateInfo {
+        voting_module_instantiate_info: cwd_core::msg::ModuleInstantiateInfo {
             code_id: votemod_id,
-            msg: to_binary(&cw20_staked_balance_voting::msg::InstantiateMsg {
-                token_info: cw20_staked_balance_voting::msg::TokenInfo::New {
+            msg: to_binary(&cwd_voting_cw20_staked::msg::InstantiateMsg {
+                token_info: cwd_voting_cw20_staked::msg::TokenInfo::New {
                     code_id: cw20_id,
                     label: "DAO DAO governance token".to_string(),
                     name: "DAO".to_string(),
@@ -67,13 +67,13 @@ fn instantiate_with_staking_active_threshold(
                 active_threshold,
             })
             .unwrap(),
-            admin: cw_core::msg::Admin::CoreContract {},
+            admin: cwd_core::msg::Admin::CoreContract {},
             label: "DAO DAO voting module".to_string(),
         },
-        proposal_modules_instantiate_info: vec![cw_core::msg::ModuleInstantiateInfo {
+        proposal_modules_instantiate_info: vec![cwd_core::msg::ModuleInstantiateInfo {
             code_id: proposal_module_code_id,
             msg: proposal_module_instantiate,
-            admin: cw_core::msg::Admin::CoreContract {},
+            admin: cwd_core::msg::Admin::CoreContract {},
             label: "DAO DAO governance module".to_string(),
         }],
         initial_items: None,
@@ -113,7 +113,7 @@ fn test_dao_single_proposal_ready() {
         percentage: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cw_proposal_single::msg::InstantiateMsg {
+    let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
         threshold,
         max_voting_period,
         min_voting_period: None,
@@ -133,7 +133,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cw_core::msg::QueryMsg::ProposalModules {
+            &cwd_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -153,13 +153,13 @@ fn test_dao_single_proposal_ready() {
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cw_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cw20_staked_balance_voting::msg::QueryMsg::StakingContract {},
+            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
@@ -282,7 +282,7 @@ fn test_dao_multiple_proposal_ready() {
         quorum: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cw_proposal_multiple::msg::InstantiateMsg {
+    let instantiate_govmod = cwd_proposal_multiple::msg::InstantiateMsg {
         voting_strategy,
         max_voting_period,
         min_voting_period: None,
@@ -302,7 +302,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cw_core::msg::QueryMsg::ProposalModules {
+            &cwd_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -312,23 +312,23 @@ fn test_dao_multiple_proposal_ready() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cw_proposal_multiple::state::Config = app
+    let govmod_config: cwd_proposal_multiple::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cw_proposal_multiple::msg::QueryMsg::Config {},
+            &cwd_proposal_multiple::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cw_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cw20_staked_balance_voting::msg::QueryMsg::StakingContract {},
+            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
@@ -357,7 +357,7 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_multiple::msg::ExecuteMsg::Propose {
+        &cwd_proposal_multiple::msg::ExecuteMsg::Propose {
             title: "Cron".to_string(),
             description: "Cat".to_string(),
             choices: MultipleChoiceOptions {
@@ -395,7 +395,7 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_multiple::msg::ExecuteMsg::Vote {
+        &cwd_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: MultipleChoiceVote { option_id: 0 },
         },
@@ -420,7 +420,7 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &cwd_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: 1 },
         &[],
     )
     .unwrap();
