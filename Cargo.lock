@@ -636,7 +636,7 @@ dependencies = [
  "cw-croncat-core",
  "cw-multi-test",
  "cw-rules",
- "cw-rules-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw2 0.13.4",
  "cw20",
@@ -657,7 +657,7 @@ dependencies = [
  "cosmwasm-storage",
  "cron_schedule",
  "cw-multi-test",
- "cw-rules-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw2 0.13.4",
  "cw20",
@@ -757,7 +757,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-croncat-core",
  "cw-multi-test",
- "cw-rules-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
@@ -774,7 +774,7 @@ dependencies = [
  "cwd-proposal-single",
  "cwd-voting",
  "cwd-voting-cw20-staked",
- "generic-query 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "generic-query",
  "schemars",
  "serde",
  "serde-cw-value",
@@ -790,21 +790,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw20",
- "generic-query 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "schemars",
- "serde",
- "serde-cw-value",
-]
-
-[[package]]
-name = "cw-rules-core"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05b420ce4c2faeaa490370fb737b8806fd4b851d646eda3572ebc772b3216b74"
-dependencies = [
- "cosmwasm-std",
- "cw20",
- "generic-query 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "generic-query",
  "schemars",
  "serde",
  "serde-cw-value",
@@ -1546,7 +1532,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-croncat",
  "cw-croncat-core",
- "cw-rules-core 0.1.1",
+ "cw-rules-core",
  "cw20",
  "cw20-base",
  "env_logger",
@@ -1567,18 +1553,6 @@ dependencies = [
 [[package]]
 name = "generic-query"
 version = "0.1.0"
-dependencies = [
- "cosmwasm-std",
- "schemars",
- "serde",
- "serde-cw-value",
-]
-
-[[package]]
-name = "generic-query"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "837ed6c3d980676aa4e4666652e5edc0fb94c0f61bd193895fb364eb059fcbe3"
 dependencies = [
  "cosmwasm-std",
  "schemars",
