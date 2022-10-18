@@ -233,7 +233,7 @@ impl<'a> CwCroncat<'a> {
             });
         }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-        let rules = if let Some(ref rules) = task.rules {
+        let rules = if let Some(rules) = task.rules {
             rules
         } else {
             // TODO: else should be unreachable
@@ -242,9 +242,7 @@ impl<'a> CwCroncat<'a> {
         // Check rules
         let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
             &cfg.cw_rules_addr,
-            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct {
-                rules: rules.clone(),
-            }),
+            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { rules }),
         )?;
         if !res {
             return Err(ContractError::RulesNotReady {

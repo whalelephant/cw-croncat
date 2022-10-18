@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "cw-croncat-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -782,7 +782,7 @@ dependencies = [
 
 [[package]]
 name = "cw-rules-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -2726,6 +2726,17 @@ checksum = "67cf02bbac7a337dc36e4f5a693db6c21e7863f45070f7064577eb4367a3212b"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "stacking-query"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "generic-query",
+ "schemars",
+ "serde",
+ "serde-cw-value",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ members = [
   "packages/cw-croncat-core",
   "packages/generic-query",
   "packages/cw-rules-core",
+  "packages/smart-query",
   "ci/gas-benchmark",
 ]
 
