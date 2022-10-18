@@ -1,17 +1,16 @@
 use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
 use cw20::Cw20Coin;
 use cw_multi_test::{next_block, App, Executor};
-use cwd_proposal_multiple::{
-    state::{MultipleChoiceOption, MultipleChoiceOptions},
-    voting_strategy::VotingStrategy,
-};
 use cw_rules_core::types::{CheckProposalStatus, Status};
 use cwd_core::state::ProposalModule;
-use cwd_voting_cw20_staked::msg::ActiveThreshold;
-use voting_v1::{
+use cwd_voting::{
+    multiple_choice::{
+        MultipleChoiceOption, MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy,
+    },
     threshold::{PercentageThreshold, Threshold},
-    voting::{MultipleChoiceVote, Vote},
+    voting::Vote,
 };
+use cwd_voting_cw20_staked::msg::ActiveThreshold;
 
 use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
 
@@ -49,7 +48,7 @@ fn instantiate_with_staking_active_threshold(
         image_url: None,
         automatically_add_cw20s: true,
         automatically_add_cw721s: true,
-        voting_module_instantiate_info: cwd_core::msg::ModuleInstantiateInfo {
+        voting_module_instantiate_info: cwd_interface::ModuleInstantiateInfo {
             code_id: votemod_id,
             msg: to_binary(&cwd_voting_cw20_staked::msg::InstantiateMsg {
                 token_info: cwd_voting_cw20_staked::msg::TokenInfo::New {
@@ -67,13 +66,13 @@ fn instantiate_with_staking_active_threshold(
                 active_threshold,
             })
             .unwrap(),
-            admin: cwd_core::msg::Admin::CoreContract {},
+            admin: Some(cwd_interface::Admin::CoreModule {}),
             label: "DAO DAO voting module".to_string(),
         },
-        proposal_modules_instantiate_info: vec![cwd_core::msg::ModuleInstantiateInfo {
+        proposal_modules_instantiate_info: vec![cwd_interface::ModuleInstantiateInfo {
             code_id: proposal_module_code_id,
             msg: proposal_module_instantiate,
-            admin: cwd_core::msg::Admin::CoreContract {},
+            admin: Some(cwd_interface::Admin::CoreModule {}),
             label: "DAO DAO governance module".to_string(),
         }],
         initial_items: None,
@@ -119,8 +118,8 @@ fn test_dao_single_proposal_ready() {
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
-        deposit_info: None,
         close_proposal_on_execution_failure: true,
+        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -143,11 +142,11 @@ fn test_dao_single_proposal_ready() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cw_proposal_single::state::Config = app
+    let govmod_config: cwd_proposal_single::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cw_proposal_single::msg::QueryMsg::Config {},
+            &cwd_proposal_single::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
@@ -166,7 +165,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cw_core_interface::voting::Query::TokenContract {},
+            &cwd_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -188,10 +187,11 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_single::msg::ExecuteMsg::Propose {
+        &cwd_proposal_single::msg::ExecuteMsg::Propose {
             title: "Cron".to_string(),
             description: "Cat".to_string(),
             msgs: vec![],
+            proposer: None,
         },
         &[],
     )
@@ -215,7 +215,7 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_single::msg::ExecuteMsg::Vote {
+        &cwd_proposal_single::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: Vote::Yes,
         },
@@ -240,7 +240,7 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cw_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &cwd_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 },
         &[],
     )
     .unwrap();
@@ -288,8 +288,8 @@ fn test_dao_multiple_proposal_ready() {
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
-        deposit_info: None,
         close_proposal_on_execution_failure: true,
+        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -335,7 +335,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cw_core_interface::voting::Query::TokenContract {},
+            &cwd_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -372,6 +372,7 @@ fn test_dao_multiple_proposal_ready() {
                     },
                 ],
             },
+            proposer: None,
         },
         &[],
     )

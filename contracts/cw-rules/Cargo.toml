@@ -31,7 +31,7 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cw-croncat-core = {version ="0.1.2", path = "../../packages/cw-croncat-core" }
+cw-croncat-core = { version = "0.1.2", path = "../../packages/cw-croncat-core" }
 generic-query = { version = "0.1.0" }
 cw-rules-core = "0.1.1"
 cosmwasm-std = "1.0.0"
@@ -59,7 +59,7 @@ cw-multi-test = "0.13.2"
 cw-utils = "0.13"
 cw20-base = "0.13"
 # DAO contracts
-voting-v1 = { package = "voting", version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v1.0.0" }
+cwd-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 cwd-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cwd-proposal-multiple = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cwd-voting-cw20-staked = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
