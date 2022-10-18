@@ -1,20 +1,21 @@
 #!/bin/sh
 #Usage exmaple
 #Parameters:
-# --reset_artifacts --reset_container
-#sudo ./scripts/local/start-in-docker.sh juno16g2rahf5846rxzp3fwlswy08fz8ccuwk03k57y  -no -yes
+# -w --reset_wasm
+# -c --reset_containers
+#sudo ./scripts/local/start-in-docker.sh   -w -c
 set -e
-
+./build.sh
 CHAIN_ID="testing"
 RPC="http://localhost:26657/"
-BINARY="docker exec -i juno_node_1 junod"
+BINARY="docker exec -i juno-node-1 junod"
 PLATFORM="-arm64"
 WASM_POSTFIX="-aarch64"
 DIR="$( dirname -- "${BASH_SOURCE[0]}"; )/../.."
 JUNO_DIR="$HOME/juno"
 DIR_NAME=$(basename "$PWD")
 SCRIPT_PATH=$(dirname $(which $0))
-IMAGE_NAME="juno_node_1"
+IMAGE_NAME="juno-node-1"
 DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
 WASM="artifacts/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm"
 STAKE_TOKEN=ujunox
@@ -34,7 +35,7 @@ Blue='\033[0;34m'   # Blue
 Purple='\033[0;35m' # Purple
 Cyan='\033[0;36m'   # Cyan
 White='\033[0;37m'  # White
-echo "$DIR/artifacts/cw20_base.wasm"
+
 
 usage() {
   printf '%s\n' "Usage: ./scripts/local/simple-payroll.sh -w -c"
@@ -77,8 +78,9 @@ flags() {
 
 flags "$@"
 
-echo $RECREATE_ARTIFACTS
-echo $RECREATE_CONTAINERS
+echo "RECREATE_ARTIFACTS " $RECREATE_ARTIFACTS
+echo "RECREATE_CONTAINERS " $RECREATE_CONTAINERS
+
 #Recreate artifacts
 if [ $RECREATE_ARTIFACTS == 1 ]; then
   #Remove local artifacts folder
