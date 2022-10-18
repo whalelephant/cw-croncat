@@ -2,7 +2,7 @@
 name = "cw-rules-core"
 description = "CronCat rules logic for tasks that require conditions"
 license = "MIT OR Apache-2.0"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -14,7 +14,7 @@ cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
 serde-cw-value = "0.7.0"
 # For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
-generic-query = { version = "0.1.0", path = "../generic-query" }
+generic-query = { version = "0.1.0" }
 cw20 = { version = "0.13" }
 
 [dev-dependencies]
