@@ -7,6 +7,9 @@
 You will need `junod` which you can get installed by following these directions:
 https://docs.junonetwork.io/validators/getting-setup
 
+```bash
+source ~/.profile
+```
 After following directions, you should be able to run:
 
     junod version
@@ -23,7 +26,7 @@ and can delete them with:
 
 Run this script to remove old agent and Juno chain info, create new keys, deploy and instantiate the Croncat Manager contract, and add a simple payroll task that pays Alice and Bob a little bit of `stake` tokens every 3 blocks:
 
-    ./start.sh
+    ./deploy.sh
 
 A `junod` process is running in the background now, and we can start our agent.
 

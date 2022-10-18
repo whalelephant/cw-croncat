@@ -57,43 +57,43 @@ pub fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
 
 pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw_proposal_single::contract::execute,
-        cw_proposal_single::contract::instantiate,
-        cw_proposal_single::contract::query,
+        cwd_proposal_single::contract::execute,
+        cwd_proposal_single::contract::instantiate,
+        cwd_proposal_single::contract::query,
     )
-    .with_reply(cw_proposal_single::contract::reply)
-    .with_migrate(cw_proposal_single::contract::migrate);
+    .with_reply(cwd_proposal_single::contract::reply)
+    .with_migrate(cwd_proposal_single::contract::migrate);
     Box::new(contract)
 }
 
 pub fn multiple_proposal_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw_proposal_multiple::contract::execute,
-        cw_proposal_multiple::contract::instantiate,
-        cw_proposal_multiple::contract::query,
+        cwd_proposal_multiple::contract::execute,
+        cwd_proposal_multiple::contract::instantiate,
+        cwd_proposal_multiple::contract::query,
     )
-    .with_reply(cw_proposal_multiple::contract::reply)
-    .with_migrate(cw_proposal_multiple::contract::migrate);
+    .with_reply(cwd_proposal_multiple::contract::reply)
+    .with_migrate(cwd_proposal_multiple::contract::migrate);
     Box::new(contract)
 }
 
 pub fn cw_gov_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw_core::contract::execute,
-        cw_core::contract::instantiate,
-        cw_core::contract::query,
+        cwd_core::contract::execute,
+        cwd_core::contract::instantiate,
+        cwd_core::contract::query,
     )
-    .with_reply(cw_core::contract::reply);
+    .with_reply(cwd_core::contract::reply);
     Box::new(contract)
 }
 
 pub fn cw20_staked_balances_voting() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cw20_staked_balance_voting::contract::execute,
-        cw20_staked_balance_voting::contract::instantiate,
-        cw20_staked_balance_voting::contract::query,
+        cwd_voting_cw20_staked::contract::execute,
+        cwd_voting_cw20_staked::contract::instantiate,
+        cwd_voting_cw20_staked::contract::query,
     )
-    .with_reply(cw20_staked_balance_voting::contract::reply);
+    .with_reply(cwd_voting_cw20_staked::contract::reply);
     Box::new(contract)
 }
 
