@@ -259,15 +259,6 @@ pub(crate) fn proxy_call_for_n_times(
     Ok(gas_infos)
 }
 
-pub(crate) fn average_gas_for_one_native_ujunox(gas_fees_usage: Vec<GasInformation>) -> u64 {
-    let (total_gas, total_ujunox) = gas_fees_usage
-        .into_iter()
-        .fold((0, 0), |(gas, ujunox), info| {
-            (gas + info.gas_used, ujunox + info.native_balance_burned)
-        });
-    (total_gas as f64 / total_ujunox as f64).ceil() as u64
-}
-
 pub(crate) fn average_u64_slice(array: &[u64]) -> u64 {
     let sum: u64 = array.iter().sum();
     let count = array.len() as u64;
