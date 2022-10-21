@@ -1,6 +1,7 @@
 mod helpers;
 mod report;
 mod test_cases;
+mod test_cases_with_rules;
 mod types;
 
 use anyhow::Result;
@@ -8,23 +9,21 @@ use cosm_orc::{config::cfg::Config, orchestrator::cosm_orc::CosmOrc};
 use types::Account;
 
 use crate::{
-    helpers::refill_cw20,
-    test_cases::{
-        delegate_to_validator, delegate_to_validator_twice, send_cw20_to_bob_and_alice_recurring,
-        send_cw20_to_bob_recurring,
-    },
-};
-#[allow(unused_imports)]
-use crate::{
     helpers::{
-        average_gas_for_one_native_ujunox, complete_tasks_for_three_times, init_contracts,
-        key_addr_from_account, register_agent,
+        complete_tasks_for_three_times, init_contracts, key_addr_from_account, refill_cw20,
+        register_agent,
     },
-    report::cost_approxes,
+    report::{
+        average_base_gas_for_proxy_call, average_gas_for_one_native_ujunox, cost_approxes,
+        max_gas_non_wasm_action,
+    },
     test_cases::{
         complete_simple_task, delegate_to_bob_and_alice_recurring, delegate_to_bob_recurring,
-        send_to_bob_and_alice_recurring, send_to_bob_recurring,
+        delegate_to_validator, delegate_to_validator_twice, send_cw20_to_bob_and_alice_recurring,
+        send_cw20_to_bob_recurring, send_to_bob_and_alice_recurring, send_to_bob_recurring,
     },
+    test_cases_with_rules::complete_simple_rule,
+    types::ApproxGasCosts,
 };
 
 const RULES_NAME: &str = "cw_rules";
@@ -54,6 +53,7 @@ fn main() -> Result<()> {
     refill_cw20(&mut orc, &user_key, 100_000)?;
     // TEST IT WORKS
     let _ = complete_simple_task(&mut orc, (&agent_key, &agent_addr), &user_key, &denom)?;
+    let _ = complete_simple_rule(&mut orc, (&agent_key, &agent_addr), &user_key, &denom)?;
 
     let tasks = vec![
         // Send tasks
@@ -142,16 +142,35 @@ fn main() -> Result<()> {
         cost_per_failed_delegate.approx_gas_for_unregister()
     );
     println!(
+        "max_gas_per_action: {}",
+        cost_per_failed_delegate.max_gas_per_action()
+    );
+    println!(
         "approx_gas_per_action: {}\n",
         cost_per_failed_delegate.approx_gas_per_action()
     );
 
+    let non_wasm_reports: Vec<ApproxGasCosts> =
+        vec![cost_per_send, cost_per_failed_delegate, cost_per_delegate];
+    let wasm_reports: Vec<ApproxGasCosts> = vec![cost_per_cw20];
+    let together_reports: Vec<ApproxGasCosts> = non_wasm_reports
+        .iter()
+        .cloned()
+        .chain(wasm_reports.iter().cloned())
+        .collect();
+    println!(
+        "max_gas_non_wasm_action: {}",
+        max_gas_non_wasm_action(&non_wasm_reports)
+    );
+    println!(
+        "average_base_gas_for_proxy_call: {}",
+        average_base_gas_for_proxy_call(&together_reports)
+    );
     let all_tasks_info = gas_fees_usage.into_iter().flatten().collect();
     println!(
         "avg_gas_cost: {}",
         average_gas_for_one_native_ujunox(all_tasks_info)
     );
-
     let gas_report_dir = std::env::var("GAS_OUT_DIR").unwrap_or_else(|_| "gas_reports".to_string());
     save_gas_report(&orc, &gas_report_dir);
     Ok(())

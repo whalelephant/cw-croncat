@@ -492,7 +492,10 @@ impl<'a> CwCroncat<'a> {
            //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
         let transferred_bank_tokens = msg.transferred_bank_tokens();
         let task_to_finilize = task;
-        if task_to_finilize.contains_send_msg() && task_to_finilize.is_recurring() {
+        if task_to_finilize.contains_send_msg()
+            && task_to_finilize.is_recurring()
+            && !transferred_bank_tokens.is_empty()
+        {
             task_to_finilize
                 .funds_withdrawn_recurring
                 .saturating_add(transferred_bank_tokens[0].amount);

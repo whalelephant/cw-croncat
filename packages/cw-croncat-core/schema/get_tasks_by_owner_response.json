@@ -665,9 +665,16 @@
       "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
       "oneOf": [
         {
+          "description": "For when this is a non-recurring future scheduled TXN",
           "type": "string",
           "enum": [
-            "Once",
+            "Once"
+          ]
+        },
+        {
+          "description": "The ugly batch schedule type, in case you need to exceed single TXN gas limits, within fewest block(s)",
+          "type": "string",
+          "enum": [
             "Immediate"
           ]
         },
@@ -844,14 +851,48 @@
       ]
     },
     "Status": {
-      "type": "string",
-      "enum": [
-        "open",
-        "rejected",
-        "passed",
-        "executed",
-        "closed",
-        "execution_failed"
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "execution_failed"
+          ]
+        },
+        {
+          "description": "The proposal is open for voting.",
+          "type": "string",
+          "enum": [
+            "open"
+          ]
+        },
+        {
+          "description": "The proposal has been rejected.",
+          "type": "string",
+          "enum": [
+            "rejected"
+          ]
+        },
+        {
+          "description": "The proposal has been passed but has not been executed.",
+          "type": "string",
+          "enum": [
+            "passed"
+          ]
+        },
+        {
+          "description": "The proposal has been passed and executed.",
+          "type": "string",
+          "enum": [
+            "executed"
+          ]
+        },
+        {
+          "description": "The proposal has failed or expired and has been closed. A proposal deposit refund has been issued if applicable.",
+          "type": "string",
+          "enum": [
+            "closed"
+          ]
+        }
       ]
     },
     "TaskResponse": {
