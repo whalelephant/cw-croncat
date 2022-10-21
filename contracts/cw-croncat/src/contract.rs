@@ -74,7 +74,7 @@ impl<'a> CwCroncat<'a> {
             proxy_callback_gas: 3,
             gas_base_fee,
             gas_action_fee,
-            slot_granularity_time: 60_000_000_000,
+            slot_granularity_time: 10_000_000_000, // 10 seconds
             native_denom: msg.denom,
             cw20_whitelist: vec![],
             // TODO: ????
