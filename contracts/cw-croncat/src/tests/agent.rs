@@ -916,7 +916,6 @@ fn test_query_get_agent_tasks() {
     query_task_res = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
-    println!("aloha query_task_res {:?}", query_task_res);
     assert_eq!(
         query_task_res.unwrap_err(),
         cosmwasm_std::StdError::GenericErr {

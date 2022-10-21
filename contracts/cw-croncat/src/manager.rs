@@ -310,6 +310,7 @@ impl<'a> CwCroncat<'a> {
             || task.verify_enough_balances(false).is_err()
             // If the next interval comes back 0, then this task should not schedule again
             || next_id == 0
+        // proxy_call_with_rules makes it fail if rules aren't met
         {
             // Process task exit, if no future task can execute
             // Task has been removed, complete and rebalance internal balancer
