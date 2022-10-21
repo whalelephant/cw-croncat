@@ -589,7 +589,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "460840atom"
+                    && a.clone().value == "492340atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -687,7 +687,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "460840atom"
+                    && a.clone().value == "492340atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1823,6 +1823,7 @@ fn test_reschedule_task_with_rule() {
         .attributes
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
     let tasks_with_rules: Vec<TaskWithRulesResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -1833,6 +1834,7 @@ fn test_reschedule_task_with_rule() {
             },
         )
         .unwrap();
+    println!("tasks_with_rules later {:#?}", tasks_with_rules);
     assert!(tasks_with_rules.is_empty());
 }
 

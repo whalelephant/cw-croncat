@@ -33,4 +33,4 @@ download-deps:
 
 gas-benchmark: download-deps optimize juno-local
 	sleep 1 # Need to sleep so validator is created
-	VALIDATOR_ADDR=$(docker exec -i cosmwasm junod keys show validator -a) RUST_LOG=info cargo run --bin gas-benchmark
+	VALIDATOR_ADDR=$(docker exec -i cosmwasm junod query staking validators --output json | jq -r '.validators[0].operator_address') RUST_LOG=info cargo run --bin gas-benchmark

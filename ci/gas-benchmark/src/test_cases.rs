@@ -31,7 +31,7 @@ where
         actions: vec![Action {
             msg: cosmwasm_std::CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
                 to_address: BOB_ADDR.to_owned(),
-                amount: coins(1, "ujunox"),
+                amount: coins(1, denom.clone()),
             }),
             gas_limit: None,
         }],
