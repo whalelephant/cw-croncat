@@ -34,7 +34,6 @@ pub trait Intervals {
         &self,
         env: &Env,
         boundary: BoundaryValidated,
-        slot_granularity_block: u64,
         slot_granularity_time: u64,
     ) -> (u64, SlotType);
     fn is_valid(&self) -> bool;

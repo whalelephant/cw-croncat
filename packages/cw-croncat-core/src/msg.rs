@@ -70,7 +70,6 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateSettings {
         owner_id: Option<String>,
-        slot_granularity_block: Option<u64>,
         slot_granularity_time: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<u64>,
@@ -177,7 +176,6 @@ pub struct GetConfigResponse {
     pub agent_fee: u64,
     pub gas_fraction: GasFraction,
     pub proxy_callback_gas: u32,
-    pub slot_granularity_block: u64,
     pub slot_granularity_time: u64,
     pub native_denom: String,
     pub cw_rules_addr: Addr,

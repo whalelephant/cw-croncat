@@ -240,7 +240,6 @@ export interface GetConfigResponse {
   owner_id: Addr;
   paused: boolean;
   proxy_callback_gas: number;
-  slot_granularity_block: number;
   slot_granularity_time: number;
   [k: string]: unknown;
 }
@@ -383,7 +382,6 @@ export type ExecuteMsg = {
     owner_id?: string | null;
     paused?: boolean | null;
     proxy_callback_gas?: number | null;
-    slot_granularity_block?: number | null;
     slot_granularity_time?: number | null;
     [k: string]: unknown;
   };

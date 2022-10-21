@@ -68,7 +68,6 @@ fn everything_can_be_de_serialized() {
             denominator: 2,
         },
         proxy_callback_gas: 3,
-        slot_granularity_block: 100,
         slot_granularity_time: 60_000_000,
         native_denom: "juno".to_string(),
         cw_rules_addr: Addr::unchecked("bob"),

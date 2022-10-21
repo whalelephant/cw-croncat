@@ -75,7 +75,6 @@ impl<'a> CwCroncat<'a> {
             gas_base_fee,
             gas_action_fee,
             slot_granularity_time: 60_000_000_000,
-            slot_granularity_block: 1,
             native_denom: msg.denom,
             cw20_whitelist: vec![],
             // TODO: ????
@@ -132,10 +131,6 @@ impl<'a> CwCroncat<'a> {
             .add_attribute(
                 "slot_granularity_time",
                 config.slot_granularity_time.to_string(),
-            )
-            .add_attribute(
-                "slot_granularity_block",
-                config.slot_granularity_block.to_string(),
             ))
     }
 

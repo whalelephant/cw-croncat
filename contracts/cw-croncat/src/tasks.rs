@@ -298,12 +298,9 @@ impl<'a> CwCroncat<'a> {
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = item.interval.next(
-            &env,
-            item.boundary,
-            cfg.slot_granularity_block,
-            cfg.slot_granularity_time,
-        );
+        let (next_id, slot_kind) =
+            item.interval
+                .next(&env, item.boundary, cfg.slot_granularity_time);
 
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {

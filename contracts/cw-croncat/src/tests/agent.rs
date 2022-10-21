@@ -312,7 +312,6 @@ fn register_agent_fail_cases() {
         proxy_callback_gas: None,
         gas_base_fee: None,
         gas_action_fee: None,
-        slot_granularity_block: None,
         slot_granularity_time: None,
     };
 
@@ -346,7 +345,6 @@ fn register_agent_fail_cases() {
             denominator: 1,
         }),
         proxy_callback_gas: None,
-        slot_granularity_block: None,
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
