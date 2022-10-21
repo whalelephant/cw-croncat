@@ -1713,7 +1713,7 @@ fn test_reschedule_task_with_rule() {
         },
     };
 
-    let attached_balance = 150058;
+    let attached_balance = 50058;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1793,6 +1793,19 @@ fn test_reschedule_task_with_rule() {
         .unwrap();
     assert!(tasks_response.is_empty());
 
+    // Run it a bunch of times successfully, until it's removed because the balance falls too low
+    for _ in 1..8 {
+        assert!(app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            ).is_ok());
+    }
+
     let tasks_with_rules: Vec<TaskWithRulesResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -1803,7 +1816,6 @@ fn test_reschedule_task_with_rule() {
             },
         )
         .unwrap();
-    println!("tasks_with_rules later {:#?}", tasks_with_rules);
     assert!(tasks_with_rules.is_empty());
 }
 
