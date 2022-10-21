@@ -1771,7 +1771,6 @@ fn test_reschedule_task_with_rule() {
             &[],
         )
         .unwrap();
-
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
@@ -1780,18 +1779,6 @@ fn test_reschedule_task_with_rule() {
         .attributes
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
-
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
 
     // Shouldn't affect tasks without rules
     let tasks_response: Vec<TaskResponse> = app
@@ -1805,24 +1792,6 @@ fn test_reschedule_task_with_rule() {
         )
         .unwrap();
     assert!(tasks_response.is_empty());
-    let res = app
-        .execute_contract(
-            Addr::unchecked(AGENT0),
-            contract_addr.clone(),
-            &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
-            },
-            &[],
-        )
-        .unwrap();
-    assert!(res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
-    assert!(res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
     let tasks_with_rules: Vec<TaskWithRulesResponse> = app
         .wrap()
