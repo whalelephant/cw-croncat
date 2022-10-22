@@ -1803,7 +1803,8 @@ fn test_reschedule_task_with_rule() {
                     task_hash: Some(String::from(task_hash)),
                 },
                 &[],
-            ).is_ok());
+            )
+            .is_ok());
     }
 
     let tasks_with_rules: Vec<TaskWithRulesResponse> = app
