@@ -263,7 +263,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     ownerId,
     paused,
     proxyCallbackGas,
-    slotGranularity
+    slotGranularityTime
   }: {
     agentFee?: number;
     agentsEjectThreshold?: number;
@@ -274,7 +274,7 @@ export interface CwCroncatInterface extends CwCroncatReadOnlyInterface {
     ownerId?: string;
     paused?: boolean;
     proxyCallbackGas?: number;
-    slotGranularity?: number;
+    slotGranularityTime?: number;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   moveBalances: ({
     accountId,
@@ -376,7 +376,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     ownerId,
     paused,
     proxyCallbackGas,
-    slotGranularity
+    slotGranularityTime
   }: {
     agentFee?: number;
     agentsEjectThreshold?: number;
@@ -387,7 +387,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
     ownerId?: string;
     paused?: boolean;
     proxyCallbackGas?: number;
-    slotGranularity?: number;
+    slotGranularityTime?: number;
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       update_settings: {
@@ -400,7 +400,7 @@ export class CwCroncatClient extends CwCroncatQueryClient implements CwCroncatIn
         owner_id: ownerId,
         paused,
         proxy_callback_gas: proxyCallbackGas,
-        slot_granularity: slotGranularity
+        slot_granularity_time: slotGranularityTime
       }
     }, fee, memo, funds);
   };

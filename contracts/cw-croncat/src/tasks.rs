@@ -216,8 +216,8 @@ impl<'a> CwCroncat<'a> {
                 val: "Must attach funds".to_string(),
             });
         }
-        let c: Config = self.config.load(deps.storage)?;
-        if c.paused {
+        let cfg: Config = self.config.load(deps.storage)?;
+        if cfg.paused {
             return Err(ContractError::CustomError {
                 val: "Create task paused".to_string(),
             });
@@ -259,15 +259,15 @@ impl<'a> CwCroncat<'a> {
             deps.api,
             &env.contract.address,
             owner_id,
-            &c.owner_id,
-            c.gas_base_fee,
-            c.gas_action_fee,
+            &cfg.owner_id,
+            cfg.gas_base_fee,
+            cfg.gas_action_fee,
         )?;
-        let gas_price = calculate_required_amount(gas_amount, c.agent_fee)?;
-        let price = c.gas_fraction.calculate(gas_price, 1)?;
+        let gas_price = calculate_required_amount(gas_amount, cfg.agent_fee)?;
+        let price = cfg.gas_fraction.calculate(gas_price, 1)?;
         amount_for_one_task
             .native
-            .find_checked_add(&coin(price, &c.native_denom))?;
+            .find_checked_add(&coin(price, &cfg.native_denom))?;
 
         let item = Task {
             funds_withdrawn_recurring: Uint128::zero(),
@@ -288,7 +288,7 @@ impl<'a> CwCroncat<'a> {
         let recurring = item.interval != Interval::Once;
         item.verify_enough_balances(recurring)?;
         // Add the attached balance into available_balance
-        let c = self
+        let cfg = self
             .config
             .update(deps.storage, |mut c| -> Result<_, ContractError> {
                 c.available_balance.checked_add_native(&info.funds)?;
@@ -298,7 +298,9 @@ impl<'a> CwCroncat<'a> {
         let hash = item.to_hash();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = item.interval.next(&env, item.boundary);
+        let (next_id, slot_kind) =
+            item.interval
+                .next(&env, item.boundary, cfg.slot_granularity_time);
 
         // If the next interval comes back 0, then this task should not schedule again
         if next_id == 0 {
@@ -359,7 +361,7 @@ impl<'a> CwCroncat<'a> {
 
             // If the creation of this task means we'd like another agent, update config
             // TODO: should we do it for tasks with rules
-            let min_tasks_per_agent = c.min_tasks_per_agent;
+            let min_tasks_per_agent = cfg.min_tasks_per_agent;
             let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
             let num_agents_to_accept =
                 self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &size);
@@ -429,7 +431,7 @@ impl<'a> CwCroncat<'a> {
             self.tasks.remove(storage, &hash_vec)?;
 
             // find any scheduled things and remove them!
-            // check which type of slot it would be in, then iterate to remove
+            // check which type of slot  it would be in, then iterate to remove
             // NOTE: def could use some spiffy refactor here
             let time_ids: Vec<u64> = self
                 .time_slots

@@ -38,7 +38,7 @@ pub struct Config {
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
     pub proxy_callback_gas: u32,
-    pub slot_granularity: u64,
+    pub slot_granularity_time: u64,
 
     // Treasury
     // pub treasury_id: Option<Addr>,

@@ -309,9 +309,9 @@ fn register_agent_fail_cases() {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        slot_granularity_time: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -344,7 +344,7 @@ fn register_agent_fail_cases() {
             denominator: 1,
         }),
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
