@@ -1,7 +1,7 @@
 [package]
 name = "cw-rules"
-version = "0.0.1"
-authors = ["meow@cron.cat", "@tjtc"]
+version = "0.0.2"
+authors = ["meow@cron.cat", "@tjtc", "@mikedotexe"]
 edition = "2018"
 
 exclude = [
@@ -31,7 +31,7 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cw-croncat-core = { version = "0.1.2", path = "../../packages/cw-croncat-core" }
+cw-croncat-core = { version = "0.1.3", path = "../../packages/cw-croncat-core" }
 generic-query = { version = "0.1.0", path = "../../packages/generic-query" }
 cw-rules-core = { version = "0.1.1", path = "../../packages/cw-rules-core" }
 cosmwasm-std = "1.0.0"
