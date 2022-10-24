@@ -1,6 +1,5 @@
-SCRIPT_PATH=$(dirname $(which $0))
 
-. $SCRIPT_PATH/base/init-vars.sh
+. $SH_DIR/base/init-vars.sh
 ALICE_BALANCE=$($BINARY q bank balances $($BINARY keys show alice --address)  $NODE)
 echo "${Green}Alice Balance :" $ALICE_BALANCE "${NoColor}"
 BOB_BALANCE=$($BINARY q bank balances $($BINARY keys show bob --address) $NODE)
