@@ -1833,6 +1833,7 @@ fn test_reschedule_task_with_rule() {
             },
         )
         .unwrap();
+    println!("{:?}", tasks_with_rules);
     assert!(tasks_with_rules.is_empty());
 }
 

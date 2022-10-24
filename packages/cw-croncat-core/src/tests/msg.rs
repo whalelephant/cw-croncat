@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
 use crate::{

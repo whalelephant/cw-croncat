@@ -2,7 +2,7 @@ use crate::error::ContractError;
 use crate::helpers::Task;
 use crate::CwCroncat;
 use cosmwasm_std::testing::MockStorage;
-use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult, Uint128};
+use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult};
 use cw_croncat_core::types::{Action, BoundaryValidated, Interval};
 use cw_storage_plus::Bound;
 

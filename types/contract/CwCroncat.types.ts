@@ -284,6 +284,7 @@ export interface GetSlotIdsResponse {
 export interface TaskResponse {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -344,7 +345,7 @@ export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
-  funds_withdrawn_recurring: Uint128;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;

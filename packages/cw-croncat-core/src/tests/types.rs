@@ -5,7 +5,7 @@ use crate::{
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
-    IbcTimeout, StdError, Timestamp, Uint128, Uint64, VoteOption, WasmMsg,
+    IbcTimeout, StdError, Timestamp, Uint64, VoteOption, WasmMsg,
 };
 use cw20::Cw20CoinVerified;
 use cw_rules_core::types::{HasBalanceGte, Rule};

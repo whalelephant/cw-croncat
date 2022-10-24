@@ -471,7 +471,12 @@ impl<'a> CwCroncat<'a> {
             task_to_finalize
                 .funds_withdrawn_recurring
                 .extend_from_slice(&transferred_bank_tokens);
-            self.tasks.save(storage, task_hash, &task_to_finalize)?;
+            if task_to_finalize.with_rules() {
+                self.tasks_with_rules
+                    .save(storage, task_hash, &task_to_finalize)?;
+            } else {
+                self.tasks.save(storage, task_hash, &task_to_finalize)?;
+            }
         }
         Ok(())
     }
