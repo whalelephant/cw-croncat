@@ -4,7 +4,7 @@ use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{coin, Storage};
 use cosmwasm_std::{
     to_binary, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
-    Uint128, WasmMsg,
+    WasmMsg,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
@@ -270,7 +270,7 @@ impl<'a> CwCroncat<'a> {
             .find_checked_add(&coin(price, &c.native_denom))?;
 
         let item = Task {
-            funds_withdrawn_recurring: Uint128::zero(),
+            funds_withdrawn_recurring: vec![],
             owner_id: owner_id.clone(),
             interval: task.interval,
             boundary,

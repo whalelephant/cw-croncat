@@ -258,6 +258,7 @@ pub struct TaskResponse {
     pub total_cw20_deposit: Vec<Cw20CoinVerified>,
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+    pub funds_withdrawn_recurring: Vec<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -364,6 +365,7 @@ impl From<Task> for TaskResponse {
             total_cw20_deposit: task.total_deposit.cw20,
             actions: task.actions,
             rules: task.rules,
+            funds_withdrawn_recurring: task.funds_withdrawn_recurring,
         }
     }
 }

@@ -38,7 +38,7 @@ fn everything_can_be_de_serialized() {
     .into();
 
     let task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
+        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
@@ -117,6 +117,7 @@ fn everything_can_be_de_serialized() {
         total_cw20_deposit: vec![],
         actions: vec![],
         rules: None,
+        funds_withdrawn_recurring: vec![],
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();

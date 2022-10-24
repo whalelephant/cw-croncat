@@ -26,7 +26,7 @@ fn query_task_hash_success() {
     let msg: CosmosMsg = bank.clone().into();
 
     let task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
+        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
