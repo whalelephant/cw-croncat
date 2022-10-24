@@ -903,6 +903,7 @@
       "type": "object",
       "required": [
         "actions",
+        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -926,6 +927,12 @@
               "type": "null"
             }
           ]
+        },
+        "funds_withdrawn_recurring": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
         },
         "interval": {
           "$ref": "#/definitions/Interval"
