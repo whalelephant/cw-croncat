@@ -30,6 +30,13 @@ impl<'a> CwCroncat<'a> {
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity_time: c.slot_granularity_time,
             cw_rules_addr: c.cw_rules_addr,
+            agent_nomination_duration: c.agent_nomination_duration,
+            gas_base_fee: c.gas_base_fee,
+            gas_action_fee: c.gas_action_fee,
+            cw20_whitelist: c.cw20_whitelist,
+            available_balance: c.available_balance,
+            staked_balance: c.staked_balance,
+            limit: c.limit,
         })
     }
 

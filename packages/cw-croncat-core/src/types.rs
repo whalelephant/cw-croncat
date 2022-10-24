@@ -65,19 +65,8 @@ impl Agent {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct AgentResponse {
-    // This field doesn't exist in the Agent struct and is the only one that differs
-    pub status: AgentStatus,
-    pub payable_account_id: Addr,
-    pub balance: GenericBalance,
-    pub total_tasks_executed: u64,
-    pub last_executed_slot: u64,
-    pub register_start: Timestamp,
-}
-
 /// Defines the spacing of execution
-/// NOTE:S
+/// NOTES:
 /// - Block Height Based: Once, Immediate, Block
 /// - Timestamp Based: Cron
 /// - No Epoch support directly, advised to use block heights instead

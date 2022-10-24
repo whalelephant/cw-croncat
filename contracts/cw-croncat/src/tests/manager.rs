@@ -7,10 +7,10 @@ use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
 use cw_croncat_core::msg::{
-    AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest, TaskResponse,
-    TaskWithRulesResponse,
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
+    TaskResponse, TaskWithRulesResponse,
 };
-use cw_croncat_core::types::{Action, AgentResponse, Boundary, Interval};
+use cw_croncat_core::types::{Action, Boundary, Interval};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Rule};
 

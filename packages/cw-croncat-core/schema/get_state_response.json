@@ -570,6 +570,27 @@
         }
       }
     },
+    "GenericBalance": {
+      "type": "object",
+      "required": [
+        "cw20",
+        "native"
+      ],
+      "properties": {
+        "cw20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "native": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
     "GenericQuery": {
       "type": "object",
       "required": [
@@ -605,15 +626,22 @@
       "required": [
         "agent_active_indices",
         "agent_fee",
+        "agent_nomination_duration",
         "agents_eject_threshold",
+        "available_balance",
+        "cw20_whitelist",
         "cw_rules_addr",
+        "gas_action_fee",
+        "gas_base_fee",
         "gas_fraction",
+        "limit",
         "min_tasks_per_agent",
         "native_denom",
         "owner_id",
         "paused",
         "proxy_callback_gas",
-        "slot_granularity_time"
+        "slot_granularity_time",
+        "staked_balance"
       ],
       "properties": {
         "agent_active_indices": {
@@ -644,16 +672,45 @@
           "format": "uint64",
           "minimum": 0.0
         },
+        "agent_nomination_duration": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
         "agents_eject_threshold": {
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
         },
+        "available_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "cw20_whitelist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
         "cw_rules_addr": {
           "$ref": "#/definitions/Addr"
         },
+        "gas_action_fee": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_base_fee": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
         "gas_fraction": {
           "$ref": "#/definitions/GasFraction"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
         },
         "min_tasks_per_agent": {
           "type": "integer",
@@ -678,6 +735,9 @@
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
+        },
+        "staked_balance": {
+          "$ref": "#/definitions/GenericBalance"
         }
       }
     },
@@ -881,7 +941,7 @@
       }
     },
     "Interval": {
-      "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
+      "description": "Defines the spacing of execution NOTES: - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
       "oneOf": [
         {
           "description": "For when this is a non-recurring future scheduled TXN",
@@ -1242,6 +1302,9 @@
       "type": "object",
       "required": [
         "actions",
+        "amount_for_one_task_cw20",
+        "amount_for_one_task_native",
+        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1256,6 +1319,18 @@
             "$ref": "#/definitions/Action_for_Empty"
           }
         },
+        "amount_for_one_task_cw20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "amount_for_one_task_native": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
         "boundary": {
           "anyOf": [
             {
@@ -1265,6 +1340,9 @@
               "type": "null"
             }
           ]
+        },
+        "funds_withdrawn_recurring": {
+          "$ref": "#/definitions/Uint128"
         },
         "interval": {
           "$ref": "#/definitions/Interval"

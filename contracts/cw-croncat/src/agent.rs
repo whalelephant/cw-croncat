@@ -10,8 +10,8 @@ use cw_storage_plus::Bound;
 use std::ops::Div;
 
 use crate::ContractError::AgentNotRegistered;
-use cw_croncat_core::msg::{AgentTaskResponse, GetAgentIdsResponse};
-use cw_croncat_core::types::{calculate_required_amount, Agent, AgentResponse, AgentStatus};
+use cw_croncat_core::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
+use cw_croncat_core::types::{calculate_required_amount, Agent, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
     /// Get a single agent details
