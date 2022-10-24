@@ -5,6 +5,7 @@
   "required": [
     "agent_active_queue",
     "agent_pending_queue",
+    "agents",
     "balancer_mode",
     "balances",
     "block_slots",
@@ -40,6 +41,12 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/Addr"
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/AgentResponse"
       }
     },
     "balancer_mode": {
@@ -135,6 +142,49 @@
     "Addr": {
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
+    },
+    "AgentResponse": {
+      "type": "object",
+      "required": [
+        "balance",
+        "last_executed_slot",
+        "payable_account_id",
+        "register_start",
+        "status",
+        "total_tasks_executed"
+      ],
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "last_executed_slot": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "payable_account_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "register_start": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "status": {
+          "$ref": "#/definitions/AgentStatus"
+        },
+        "total_tasks_executed": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "AgentStatus": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Pending",
+        "Nominated"
+      ]
     },
     "Balance": {
       "oneOf": [

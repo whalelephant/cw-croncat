@@ -304,6 +304,7 @@ pub struct CwCroncatResponse {
 
     pub agent_active_queue: Vec<Addr>,
     pub agent_pending_queue: Vec<Addr>,
+    pub agents: Vec<AgentResponse>,
 
     pub tasks: Vec<TaskResponse>,
     pub task_total: Uint64,
