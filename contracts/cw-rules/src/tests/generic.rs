@@ -72,8 +72,6 @@ fn test_generic() {
         contract_addr: cw4_addr.into_string(),
     };
     let msg = QueryMsg::GenericQuery(generic_query);
-    let ser = serde_json::to_string_pretty(&msg).unwrap();
-    println!("{ser}");
     let res: RuleResponse<Option<Binary>> =
         app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.0);

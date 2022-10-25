@@ -1,6 +1,7 @@
 use generic_query::GenericQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use smart_query::SmartQueryHead;
 
 // TODO: this library acting weird on linux and spawning "instantiate", "execute", "query", "reply" of "cw_core" here!!
 // pub use voting::status::Status;
@@ -30,6 +31,7 @@ pub enum Rule {
     CheckOwnerOfNft(CheckOwnerOfNft),
     CheckProposalStatus(CheckProposalStatus),
     GenericQuery(GenericQuery),
+    SmartQuery(SmartQueryHead),
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

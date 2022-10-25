@@ -1,3 +1,3 @@
 mod smart_query;
 
-pub use smart_query::{SmartQueries, SmartQuery, PLACEHOLDER};
+pub use crate::smart_query::{SmartQueries, SmartQuery, SmartQueryHead, PLACEHOLDER};

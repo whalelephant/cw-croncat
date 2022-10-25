@@ -14,6 +14,7 @@ use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
 use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
+use smart_query::SmartQueryHead;
 
 use crate::error::ContractError;
 use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
@@ -21,7 +22,7 @@ use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
 use crate::types::dao::{ProposalResponse, QueryDao, Status};
-use generic_query::{GenericQuery, ValueIndex, ValueOrd, ValueOrdering};
+use generic_query::{GenericQuery, ValueIndex};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-rules";
@@ -87,6 +88,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             status,
         )?),
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
+        QueryMsg::SmartQuery(query) => to_binary(&smart_query(deps, query)?),
         QueryMsg::QueryConstruct(QueryConstruct { rules }) => {
             to_binary(&query_construct(deps, rules)?)
         }
@@ -228,6 +230,7 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>
                 status,
             }) => query_dao_proposal_status(deps, dao_address, proposal_id, status),
             Rule::GenericQuery(query) => generic_query(deps, query),
+            Rule::SmartQuery(query) => smart_query(deps, query),
         }?;
         if !res.0 {
             return Ok((false, Some(idx as u64)));
@@ -236,11 +239,37 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>
     Ok((true, None))
 }
 
+fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse<Option<Binary>>> {
+    let json_val = cw_value_query_wasm_smart(deps, query.contract_addr, query.msg)?;
+    let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
+        .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+    let mut head_val = find_value(&json_val, query.gets)?;
+    for mut smart in query.queries.0 {
+        smart.replace_placeholder(to_binary(&head_val)?);
+        let smart_json_val = cw_value_query_wasm_smart(deps, smart.contract_addr, smart.msg)?;
+        head_val = find_value(&smart_json_val, smart.gets)?;
+    }
+    let res = query.ordering.val_cmp(&head_val, &json_rhs)?;
+    Ok((res, Some(to_binary(&head_val)?)))
+}
+
 fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Option<Binary>>> {
-    let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart {
-        contract_addr: query.contract_addr,
-        msg: query.msg,
-    });
+    let json_val = cw_value_query_wasm_smart(deps, query.contract_addr, query.msg)?;
+    let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
+        .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+    let value = find_value(&json_val, query.gets)?;
+
+    let res = query.ordering.val_cmp(&value, &json_rhs)?;
+    Ok((res, Some(to_binary(&value)?)))
+}
+
+fn cw_value_query_wasm_smart(
+    deps: Deps,
+    contract_addr: impl Into<String>,
+    msg: Binary,
+) -> StdResult<Value> {
+    let contract_addr = contract_addr.into();
+    let request = QueryRequest::<Empty>::Wasm(WasmQuery::Smart { contract_addr, msg });
 
     // Copied from `QuerierWrapper::query`
     // because serde_json_wasm fails to deserialize slice into `serde_cw_value::Value`
@@ -264,10 +293,12 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Opti
     };
     let json_val = cosmwasm_std::from_slice(bin.as_slice())
         .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
-    let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
-        .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
-    let mut current_val = &json_val;
-    for get in query.gets {
+    Ok(json_val)
+}
+
+fn find_value(val: &Value, gets: Vec<ValueIndex>) -> StdResult<Value> {
+    let mut current_val = val;
+    for get in gets {
         match get {
             ValueIndex::Key(s) => {
                 if let Value::Map(map) = current_val {
@@ -291,13 +322,5 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Opti
             }
         }
     }
-
-    let res = match query.ordering {
-        ValueOrdering::UnitAbove => current_val.bt_g(&json_rhs)?,
-        ValueOrdering::UnitAboveEqual => current_val.be_g(&json_rhs)?,
-        ValueOrdering::UnitBelow => current_val.lt_g(&json_rhs)?,
-        ValueOrdering::UnitBelowEqual => current_val.le_g(&json_rhs)?,
-        ValueOrdering::Equal => current_val.eq(&json_rhs),
-    };
-    Ok((res, None))
+    Ok(current_val.clone())
 }

@@ -4,6 +4,7 @@ use generic_query::GenericQuery;
 //use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use smart_query::SmartQueryHead;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {}
@@ -32,6 +33,7 @@ pub enum QueryMsg {
     GenericQuery(GenericQuery),
     // Full evaluations
     QueryConstruct(QueryConstruct),
+    SmartQuery(SmartQueryHead),
 }
 
 // We define a custom struct for each query response

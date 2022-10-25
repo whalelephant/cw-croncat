@@ -40,7 +40,8 @@ impl SmartQuery {
             .unwrap();
         msg.extend_from_slice(&self.msg.0[..pos]);
         msg.extend_from_slice(value.as_slice());
-        msg.extend_from_slice(&self.msg.0[pos + PLACEHOLDER.len()..])
+        msg.extend_from_slice(&self.msg.0[pos + PLACEHOLDER.len()..]);
+        self.msg = Binary(msg);
     }
 }
 

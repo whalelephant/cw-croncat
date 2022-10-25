@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "cw-rules"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "base64",
  "cosmwasm-schema",
@@ -776,6 +776,7 @@ dependencies = [
  "serde",
  "serde-cw-value",
  "serde_json",
+ "smart-query",
  "thiserror",
  "voting",
 ]
@@ -791,6 +792,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde-cw-value",
+ "smart-query",
 ]
 
 [[package]]
@@ -2703,6 +2705,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "smart-query"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "generic-query",
+ "schemars",
+ "serde",
+ "serde-cw-value",
+]
+
+[[package]]
 name = "socket2"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2726,17 +2739,6 @@ checksum = "67cf02bbac7a337dc36e4f5a693db6c21e7863f45070f7064577eb4367a3212b"
 dependencies = [
  "base64ct",
  "der",
-]
-
-[[package]]
-name = "stacking-query"
-version = "0.1.0"
-dependencies = [
- "cosmwasm-std",
- "generic-query",
- "schemars",
- "serde",
- "serde-cw-value",
 ]
 
 [[package]]
