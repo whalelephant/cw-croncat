@@ -474,6 +474,7 @@ export interface GetStateResponse {
   agent_active_queue: Addr[];
   agent_nomination_begin_time?: Timestamp | null;
   agent_pending_queue: Addr[];
+  agents: AgentResponse[];
   balancer_mode: RoundRobinBalancerModeResponse;
   balances: BalancesResponse[];
   block_slots: SlotResponse[];
