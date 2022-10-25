@@ -5,7 +5,7 @@ use crate::{
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
-    IbcTimeout, StdError, Timestamp, Uint128, Uint64, VoteOption, WasmMsg,
+    IbcTimeout, StdError, Timestamp, Uint64, VoteOption, WasmMsg,
 };
 use cw20::Cw20CoinVerified;
 use cw_rules_core::types::{HasBalanceGte, Rule};
@@ -469,7 +469,7 @@ fn test_minus_tokens_overflow_cw20() {
 #[test]
 fn hashing() {
     let task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
+        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Block(5),
         boundary: BoundaryValidated {

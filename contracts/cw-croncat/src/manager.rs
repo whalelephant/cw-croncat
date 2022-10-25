@@ -300,7 +300,10 @@ impl<'a> CwCroncat<'a> {
         let agent_id = queue_item.agent_id.unwrap();
 
         // Parse interval into a future timestamp, then convert to a slot
-        let (next_id, slot_kind) = task.interval.next(&env, task.boundary);
+        let cfg: Config = self.config.load(deps.storage)?;
+        let (next_id, slot_kind) =
+            task.interval
+                .next(&env, task.boundary, cfg.slot_granularity_time);
 
         // if non-recurring, exit
         if task.interval == Interval::Once
@@ -308,6 +311,7 @@ impl<'a> CwCroncat<'a> {
             || task.verify_enough_balances(false).is_err()
             // If the next interval comes back 0, then this task should not schedule again
             || next_id == 0
+        // proxy_call_with_rules makes it fail if rules aren't met
         {
             // Process task exit, if no future task can execute
             // Task has been removed, complete and rebalance internal balancer
@@ -461,12 +465,20 @@ impl<'a> CwCroncat<'a> {
         ); //send completed event to balancer
            //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
         let transferred_bank_tokens = msg.transferred_bank_tokens();
-        let task_to_finilize = task;
-        if task_to_finilize.contains_send_msg() && task_to_finilize.is_recurring() {
-            task_to_finilize
+        let mut task_to_finalize = task.clone();
+        if task_to_finalize.contains_send_msg()
+            && task_to_finalize.is_recurring()
+            && !transferred_bank_tokens.is_empty()
+        {
+            task_to_finalize
                 .funds_withdrawn_recurring
-                .saturating_add(transferred_bank_tokens[0].amount);
-            self.tasks.save(storage, task_hash, task_to_finilize)?;
+                .extend_from_slice(&transferred_bank_tokens);
+            if task_to_finalize.with_rules() {
+                self.tasks_with_rules
+                    .save(storage, task_hash, &task_to_finalize)?;
+            } else {
+                self.tasks.save(storage, task_hash, &task_to_finalize)?;
+            }
         }
         Ok(())
     }
@@ -500,9 +512,7 @@ impl<'a> CwCroncat<'a> {
             .collect::<StdResult<Vec<Addr>>>()?
         {
             let agent = self.agents.load(deps.storage, &agent_id)?;
-            if current_slot
-                > agent.last_executed_slot + cfg.agents_eject_threshold * cfg.slot_granularity
-            {
+            if current_slot > agent.last_executed_slot + cfg.agents_eject_threshold {
                 let resp = self
                     .unregister_agent(deps.storage, &agent_id)
                     .unwrap_or_default();

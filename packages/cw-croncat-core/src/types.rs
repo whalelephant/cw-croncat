@@ -321,7 +321,7 @@ pub struct Task {
     /// Scheduling definitions
     pub interval: Interval,
     pub boundary: BoundaryValidated,
-    pub funds_withdrawn_recurring: Uint128,
+    pub funds_withdrawn_recurring: Vec<Coin>,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -405,11 +405,14 @@ impl Task {
     }
 
     pub fn is_recurring(&self) -> bool {
-        matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
+        matches!(
+            &self.interval,
+            Interval::Cron(_) | Interval::Block(_) | Interval::Immediate
+        )
     }
 
     pub fn contains_send_msg(&self) -> bool {
-        let result: bool = self.actions.iter().any(|a| -> bool {
+        self.actions.iter().any(|a| -> bool {
             matches!(
                 &a.msg,
                 CosmosMsg::Bank(BankMsg::Send {
@@ -417,8 +420,7 @@ impl Task {
                     amount: _,
                 })
             )
-        });
-        result
+        })
     }
 
     /// Get task gas total
@@ -622,6 +624,7 @@ impl ResultFailed for SubMsgResult {
     }
 }
 
+// Get the next block within the boundary
 fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
@@ -633,11 +636,10 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 
     match boundary.end {
         // stop if passed end height
-        Some(id) if current_block_height > id => (0, SlotType::Block),
+        Some(end) if current_block_height > end => (0, SlotType::Block),
 
         // we ONLY want to catch if we're passed the end block height
-        Some(id) if next_block_height > id => (id, SlotType::Block),
-
+        Some(end) if next_block_height > end => (end, SlotType::Block),
         // immediate needs to return this block + 1
         _ => (next_block_height + 1, SlotType::Block),
     }
@@ -651,12 +653,12 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
     let next_block_height = match boundary.start {
-        Some(id) if current_block_height < id => {
-            let rem = id % block;
+        Some(start) if current_block_height < start => {
+            let rem = start % block;
             if rem > 0 {
-                id.saturating_sub(rem) + block
+                start.saturating_sub(rem) + block
             } else {
-                id
+                start
             }
         }
         _ => modulo_block,
@@ -664,14 +666,14 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 
     match boundary.end {
         // stop if passed end height
-        Some(id) if current_block_height > id => (0, SlotType::Block),
+        Some(end) if current_block_height > end => (0, SlotType::Block),
 
         // we ONLY want to catch if we're passed the end block height
-        Some(id) => {
-            let end_height = if let Some(rem) = id.checked_rem(block) {
-                id.saturating_sub(rem)
+        Some(end) => {
+            let end_height = if let Some(rem) = end.checked_rem(block) {
+                end.saturating_sub(rem)
             } else {
-                id
+                end
             };
             (end_height, SlotType::Block)
         }
@@ -680,25 +682,61 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
     }
 }
 
+// Get the slot number (in nanos) of the next task according to boundaries
+// Unless current slot is the end slot, don't put in the current slot
+fn get_next_cron_time(
+    env: &Env,
+    boundary: BoundaryValidated,
+    crontab: &str,
+    slot_granularity_time: u64,
+) -> (u64, SlotType) {
+    let current_block_ts = env.block.time.nanos();
+    let current_block_slot =
+        current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
+
+    // get earliest possible time
+    let current_ts = match boundary.start {
+        Some(ts) if current_block_ts < ts => ts,
+        _ => current_block_ts,
+    };
+
+    // receive time from schedule, calculate slot for this time
+    let schedule = Schedule::from_str(crontab).unwrap();
+    let next_ts = schedule.next_after(&current_ts).unwrap();
+    let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
+
+    // put task in the next slot if next_ts_slot in the current slot
+    let next_slot = if next_ts_slot == current_block_slot {
+        next_ts_slot + slot_granularity_time
+    } else {
+        next_ts_slot
+    };
+
+    match boundary.end {
+        Some(end) if current_block_ts > end => (0, SlotType::Cron),
+        Some(end) => {
+            let end_slot = end.saturating_sub(end % slot_granularity_time);
+            (u64::min(end_slot, next_slot), SlotType::Cron)
+        }
+        _ => (next_slot, SlotType::Cron),
+    }
+}
+
 impl Intervals for Interval {
-    fn next(&self, env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+    fn next(
+        &self,
+        env: &Env,
+        boundary: BoundaryValidated,
+        slot_granularity_time: u64,
+    ) -> (u64, SlotType) {
         match self {
-            // return the first block within a specific range that can be triggered 1 time.
-            Interval::Once => get_next_block_limited(env, boundary),
-            // return the first block within a specific range that can be triggered immediately, potentially multiple times.
-            Interval::Immediate => get_next_block_limited(env, boundary),
+            // If Once, return the first block within a specific range that can be triggered 1 time.
+            // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
+            Interval::Once | Interval::Immediate => get_next_block_limited(env, boundary),
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
             Interval::Cron(crontab) => {
-                let current_block_ts: u64 = env.block.time.nanos();
-                // TODO: get current timestamp within boundary
-                let current_ts = match boundary.start {
-                    Some(ts) if current_block_ts < ts => ts,
-                    _ => current_block_ts,
-                };
-                let schedule = Schedule::from_str(crontab.as_str()).unwrap();
-                let next_ts = schedule.next_after(&current_ts).unwrap();
-                (next_ts, SlotType::Cron)
+                get_next_cron_time(env, boundary, crontab, slot_granularity_time)
             }
             // return the block within a specific range that can be triggered 1 or more times based on block heights.
             // Uses block offset (Example: Block(100) will trigger every 100 blocks)

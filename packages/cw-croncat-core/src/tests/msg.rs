@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
 use crate::{
@@ -38,7 +38,7 @@ fn everything_can_be_de_serialized() {
     .into();
 
     let task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
+        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
@@ -68,7 +68,7 @@ fn everything_can_be_de_serialized() {
             denominator: 2,
         },
         proxy_callback_gas: 3,
-        slot_granularity: 1,
+        slot_granularity_time: 60_000_000,
         native_denom: "juno".to_string(),
         cw_rules_addr: Addr::unchecked("bob"),
     }
@@ -117,6 +117,7 @@ fn everything_can_be_de_serialized() {
         total_cw20_deposit: vec![],
         actions: vec![],
         rules: None,
+        funds_withdrawn_recurring: vec![],
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();

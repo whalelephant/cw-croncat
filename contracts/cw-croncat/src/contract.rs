@@ -17,9 +17,9 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 /// default for juno
 /// This based on non-wasm operations, wasm ops seem impossible to predict
-pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
+pub const GAS_BASE_FEE_JUNO: u64 = 30_000;
 /// Gas cost per single action
-pub const GAS_ACTION_FEE_JUNO: u64 = 200_000;
+pub const GAS_ACTION_FEE_JUNO: u64 = 20_000;
 /// We can't store gas_price as floats inside cosmwasm
 /// so insted of something like 0.1 we use GasFraction{1/10}
 pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
@@ -74,7 +74,7 @@ impl<'a> CwCroncat<'a> {
             proxy_callback_gas: 3,
             gas_base_fee,
             gas_action_fee,
-            slot_granularity: 60_000_000_000,
+            slot_granularity_time: 10_000_000_000, // 10 seconds
             native_denom: msg.denom,
             cw20_whitelist: vec![],
             // TODO: ????
@@ -128,7 +128,10 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("agent_fee", config.agent_fee.to_string())
             //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
-            .add_attribute("slot_granularity", config.slot_granularity.to_string()))
+            .add_attribute(
+                "slot_granularity_time",
+                config.slot_granularity_time.to_string(),
+            ))
     }
 
     pub fn execute(

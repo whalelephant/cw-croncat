@@ -60,7 +60,7 @@ fn configure() {
         value.gas_fraction
     );
     assert_eq!(3, value.proxy_callback_gas);
-    assert_eq!(60_000_000_000, value.slot_granularity);
+    assert_eq!(10_000_000_000, value.slot_granularity_time);
 }
 
 #[test]

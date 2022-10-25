@@ -26,7 +26,7 @@ fn query_task_hash_success() {
     let msg: CosmosMsg = bank.clone().into();
 
     let task = Task {
-        funds_withdrawn_recurring: Uint128::zero(),
+        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
@@ -349,7 +349,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_time: None,
         min_tasks_per_agent: None,
         gas_base_fee: None,
         gas_action_fee: None,
@@ -387,7 +387,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             agents_eject_threshold: None,
             gas_fraction: None,
             proxy_callback_gas: None,
-            slot_granularity: None,
+            slot_granularity_time: None,
             min_tasks_per_agent: None,
             gas_base_fee: None,
             gas_action_fee: None,

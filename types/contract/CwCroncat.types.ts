@@ -152,7 +152,7 @@ export type Boundary = {
     [k: string]: unknown;
   };
 };
-export type Interval = ("Once" | "Immediate") | {
+export type Interval = "Once" | "Immediate" | {
   Block: number;
 } | {
   Cron: string;
@@ -172,7 +172,7 @@ export type Balance = {
   cw20: Cw20CoinVerified;
 };
 export type NativeBalance = Coin[];
-export type Status = "open" | "rejected" | "passed" | "executed" | "closed" | "execution_failed";
+export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
 export type ValueIndex = {
   key: string;
 } | {
@@ -240,7 +240,7 @@ export interface GetConfigResponse {
   owner_id: Addr;
   paused: boolean;
   proxy_callback_gas: number;
-  slot_granularity: number;
+  slot_granularity_time: number;
   [k: string]: unknown;
 }
 export interface GasFraction {
@@ -284,6 +284,7 @@ export interface GetSlotIdsResponse {
 export interface TaskResponse {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -344,7 +345,7 @@ export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
-  funds_withdrawn_recurring: Uint128;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -382,7 +383,7 @@ export type ExecuteMsg = {
     owner_id?: string | null;
     paused?: boolean | null;
     proxy_callback_gas?: number | null;
-    slot_granularity?: number | null;
+    slot_granularity_time?: number | null;
     [k: string]: unknown;
   };
 } | {

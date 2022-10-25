@@ -92,7 +92,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
@@ -158,7 +158,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             agents_eject_threshold: None,
             gas_fraction: None,
             proxy_callback_gas: None,
-            slot_granularity: None,
+            slot_granularity_time: None,
             gas_base_fee: None,
             gas_action_fee: None,
         },
@@ -589,7 +589,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "460840atom"
+                    && a.clone().value == "492340atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -687,7 +687,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "460840atom"
+                    && a.clone().value == "492340atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1713,7 +1713,7 @@ fn test_reschedule_task_with_rule() {
         },
     };
 
-    let attached_balance = 150058;
+    let attached_balance = 50058;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1771,7 +1771,6 @@ fn test_reschedule_task_with_rule() {
             &[],
         )
         .unwrap();
-
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
@@ -1780,18 +1779,6 @@ fn test_reschedule_task_with_rule() {
         .attributes
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
-
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
 
     // Shouldn't affect tasks without rules
     let tasks_response: Vec<TaskResponse> = app
@@ -1805,24 +1792,21 @@ fn test_reschedule_task_with_rule() {
         )
         .unwrap();
     assert!(tasks_response.is_empty());
-    let res = app
-        .execute_contract(
-            Addr::unchecked(AGENT0),
-            contract_addr.clone(),
-            &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
-            },
-            &[],
-        )
-        .unwrap();
-    assert!(res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
-    assert!(res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+    // Run it a bunch of times successfully, until it's removed because the balance falls too low
+    for _ in 1..8 {
+        assert!(app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &ExecuteMsg::ProxyCall {
+                    task_hash: Some(String::from(task_hash)),
+                },
+                &[],
+            )
+            .is_ok());
+    }
+
     let tasks_with_rules: Vec<TaskWithRulesResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -1833,6 +1817,7 @@ fn test_reschedule_task_with_rule() {
             },
         )
         .unwrap();
+    println!("{:?}", tasks_with_rules);
     assert!(tasks_with_rules.is_empty());
 }
 
@@ -1847,10 +1832,10 @@ fn tick() {
         owner_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
-        agents_eject_threshold: Some(100), // allow to miss 100 slots
+        agents_eject_threshold: Some(1000), // allow to miss 100 slots
         gas_action_fee: None,
         proxy_callback_gas: None,
-        slot_granularity: Some(10), // each slot has 10 blocks
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_fraction: None,
     };
@@ -1941,9 +1926,9 @@ fn tick_task() -> StdResult<()> {
         owner_id: None,
         agent_fee: None,
         min_tasks_per_agent: Some(1),
-        agents_eject_threshold: Some(100), // allow to miss 100 slots
+        agents_eject_threshold: Some(1000), // allow to miss 100 slots
         proxy_callback_gas: None,
-        slot_granularity: Some(10), // each slot has 10 blocks
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
         gas_fraction: None,

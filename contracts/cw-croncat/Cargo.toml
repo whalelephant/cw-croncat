@@ -1,7 +1,7 @@
 [package]
 name = "cw-croncat"
-version = "0.0.1"
-authors = ["meow@cron.cat", "@tjtc"]
+version = "0.0.2"
+authors = ["meow@cron.cat", "@tjtc", "@mikedotexe"]
 edition = "2018"
 
 exclude = [
@@ -31,9 +31,9 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cw-croncat-core = { version = "0.1.0", path = "../../packages/cw-croncat-core" }
+cw-croncat-core = { version = "0.1.3", path = "../../packages/cw-croncat-core" }
+cw-rules-core = { version = "0.1.1", path = "../../packages/cw-rules-core" }
 cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
-cw-rules-core = { version = "*", path = "../../packages/cw-rules-core"}
 cosmwasm-storage = { version = "1.0.0" }
 cw-storage-plus = "0.13"
 cron_schedule = "0.2.2"
@@ -48,6 +48,6 @@ sha2 = "0.9"
 [dev-dependencies]
 anyhow = "1"
 cosmwasm-schema = { version = "1.0.0" }
-cw-rules = { version = "*", path = "../cw-rules"}
+cw-rules = { version = "*", path = "../cw-rules" }
 cw-multi-test = { version = "0.13", features = ["staking"] }
 cw20-base = { version = "0.13", features = ["library"] }

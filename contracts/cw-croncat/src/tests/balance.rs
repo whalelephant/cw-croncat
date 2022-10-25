@@ -27,7 +27,7 @@ fn mock_config() -> Config {
         },
         gas_action_fee: GAS_ACTION_FEE_JUNO,
         proxy_callback_gas: 3,
-        slot_granularity: 60_000_000_000,
+        slot_granularity_time: 60_000_000_000,
         native_denom: NATIVE_DENOM.to_owned(),
         cw20_whitelist: vec![],
         agent_nomination_duration: 9,

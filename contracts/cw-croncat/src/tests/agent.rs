@@ -301,27 +301,27 @@ fn register_agent_fail_cases() {
     );
 
     // Test Can't register if contract is paused
-    let payload_1 = ExecuteMsg::UpdateSettings {
-        paused: Some(true),
+    let pause_contract_params = ExecuteMsg::UpdateSettings {
+        paused: Some(true), // Note this change
         owner_id: None,
-        // treasury_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
         gas_fraction: None,
         proxy_callback_gas: None,
-        slot_granularity: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        slot_granularity_time: None,
     };
-
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &payload_1,
+        &pause_contract_params,
         &[],
     )
     .unwrap();
+
+    // Fails because it's paused and agents can't register
     let rereg_err = app
         .execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
         .unwrap_err();
@@ -334,9 +334,8 @@ fn register_agent_fail_cases() {
 
     // Test wallet rejected if doesnt have enough funds
     let payload_2 = ExecuteMsg::UpdateSettings {
-        paused: Some(false),
+        paused: Some(false), // unpause
         owner_id: None,
-        // treasury_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
@@ -345,11 +344,10 @@ fn register_agent_fail_cases() {
             denominator: 1,
         }),
         proxy_callback_gas: None,
-        slot_granularity: None,
+        slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
     };
-
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -357,10 +355,11 @@ fn register_agent_fail_cases() {
         &[],
     )
     .unwrap();
+
     app.send_tokens(
         Addr::unchecked(AGENT0),
         Addr::unchecked(AGENT1),
-        &coins(1_900_000, "atom"),
+        &coins(1999999, "atom"),
     )
     .unwrap();
     let rereg_err = app
@@ -833,11 +832,6 @@ fn test_query_get_agent_tasks() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let block_info = app.block_info();
-    println!(
-        "test aloha\n\tcurrent block: {}\n\tcurrent time: {}",
-        block_info.height,
-        block_info.time.nanos()
-    );
 
     // Register AGENT1, who immediately becomes active
     register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
@@ -903,10 +897,6 @@ fn test_query_get_agent_tasks() {
     let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
-    println!(
-        "test aloha query_task_res0 {:#?}",
-        query_task_res.as_ref().unwrap()
-    );
     assert!(
         query_task_res.is_ok(),
         "Did not successfully find the newly added task"
@@ -917,7 +907,7 @@ fn test_query_get_agent_tasks() {
     query_task_res = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
-    println!("test aloha query_task_res1 {:#?}", query_task_res.unwrap());
+    assert!(query_task_res.is_ok());
     // Should fail for random user not in the active queue
     msg_agent_tasks = QueryMsg::GetAgentTasks {
         // rando account
@@ -926,5 +916,11 @@ fn test_query_get_agent_tasks() {
     query_task_res = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
-    println!("aloha query_task_res {:?}", query_task_res);
+    assert_eq!(
+        query_task_res.unwrap_err(),
+        cosmwasm_std::StdError::GenericErr {
+            msg: "Querier contract error: Generic error: Agent not registered".to_string()
+        }
+        .into()
+    );
 }
