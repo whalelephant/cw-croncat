@@ -281,7 +281,7 @@ fn test_dao_multiple_proposal_ready() {
     let voting_strategy = VotingStrategy::SingleChoice {
         quorum: PercentageThreshold::Majority {},
     };
-    let max_voting_period = cw_utils::Duration::Height(6);
+    let max_voting_period = cw_utils::Expiration::Duration::Height(6);
     let instantiate_govmod = cwd_proposal_multiple::msg::InstantiateMsg {
         voting_strategy,
         max_voting_period,

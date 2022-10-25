@@ -88,7 +88,7 @@ impl<'a> IndexList<Task> for TaskIndexes<'a> {
     }
 }
 
-pub fn token_owner_idx(d: &Task) -> Addr {
+pub fn token_owner_idx(_: &[u8], d: &Task) -> Addr {
     d.owner_id.clone()
 }
 
