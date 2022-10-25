@@ -467,15 +467,20 @@ impl<'a> CwCroncat<'a> {
         ); //send completed event to balancer
            //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
         let transferred_bank_tokens = msg.transferred_bank_tokens();
-        let task_to_finilize = task;
-        if task_to_finilize.contains_send_msg()
-            && task_to_finilize.is_recurring()
+        let mut task_to_finalize = task.clone();
+        if task_to_finalize.contains_send_msg()
+            && task_to_finalize.is_recurring()
             && !transferred_bank_tokens.is_empty()
         {
-            task_to_finilize
+            task_to_finalize
                 .funds_withdrawn_recurring
-                .saturating_add(transferred_bank_tokens[0].amount);
-            self.tasks.save(storage, task_hash, task_to_finilize)?;
+                .extend_from_slice(&transferred_bank_tokens);
+            if task_to_finalize.with_rules() {
+                self.tasks_with_rules
+                    .save(storage, task_hash, &task_to_finalize)?;
+            } else {
+                self.tasks.save(storage, task_hash, &task_to_finalize)?;
+            }
         }
         Ok(())
     }

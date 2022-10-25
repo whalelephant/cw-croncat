@@ -2,7 +2,7 @@ use crate::types::{
     Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
 };
 use crate::types::{Agent, SlotType};
-use cosmwasm_std::{Addr, Coin, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
 use cw_rules_core::types::Rule;
 use schemars::JsonSchema;
@@ -282,12 +282,12 @@ pub struct TaskResponse {
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
     pub total_cw20_deposit: Vec<Cw20CoinVerified>,
-    pub funds_withdrawn_recurring: Uint128,
     pub amount_for_one_task_native: Vec<Coin>,
     pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
 
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
+    pub funds_withdrawn_recurring: Vec<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -293,7 +293,7 @@ export interface TaskResponse {
   amount_for_one_task_cw20: Cw20CoinVerified[];
   amount_for_one_task_native: Coin[];
   boundary?: Boundary | null;
-  funds_withdrawn_recurring: Uint128;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;
@@ -354,7 +354,7 @@ export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
-  funds_withdrawn_recurring: Uint128;
+  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Rule[] | null;

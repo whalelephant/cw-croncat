@@ -310,7 +310,7 @@ pub struct Task {
     /// Scheduling definitions
     pub interval: Interval,
     pub boundary: BoundaryValidated,
-    pub funds_withdrawn_recurring: Uint128,
+    pub funds_withdrawn_recurring: Vec<Coin>,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -394,11 +394,14 @@ impl Task {
     }
 
     pub fn is_recurring(&self) -> bool {
-        matches!(&self.interval, Interval::Cron(_) | Interval::Block(_))
+        matches!(
+            &self.interval,
+            Interval::Cron(_) | Interval::Block(_) | Interval::Immediate
+        )
     }
 
     pub fn contains_send_msg(&self) -> bool {
-        let result: bool = self.actions.iter().any(|a| -> bool {
+        self.actions.iter().any(|a| -> bool {
             matches!(
                 &a.msg,
                 CosmosMsg::Bank(BankMsg::Send {
@@ -406,8 +409,7 @@ impl Task {
                     amount: _,
                 })
             )
-        });
-        result
+        })
     }
 
     /// Get task gas total

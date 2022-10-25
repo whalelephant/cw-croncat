@@ -943,7 +943,10 @@
           ]
         },
         "funds_withdrawn_recurring": {
-          "$ref": "#/definitions/Uint128"
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
         },
         "interval": {
           "$ref": "#/definitions/Interval"
