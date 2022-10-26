@@ -131,3 +131,4 @@ export interface QueryMultiResponse {
   [k: string]: unknown;
 }
 export type RuleResponse = [boolean, Binary | null];
+export type SmartQueryResponse = [boolean, Binary | null];

@@ -77,6 +77,18 @@ class CwRulesQueryClient {
                 }
             });
         });
+        this.smartQuery = ({ contractAddr, gets, msg, ordering, queries, value }) => __awaiter(this, void 0, void 0, function* () {
+            return this.client.queryContractSmart(this.contractAddress, {
+                smart_query: {
+                    contract_addr: contractAddr,
+                    gets,
+                    msg,
+                    ordering,
+                    queries,
+                    value
+                }
+            });
+        });
         this.client = client;
         this.contractAddress = contractAddress;
         this.getBalance = this.getBalance.bind(this);
@@ -86,6 +98,7 @@ class CwRulesQueryClient {
         this.checkProposalStatus = this.checkProposalStatus.bind(this);
         this.genericQuery = this.genericQuery.bind(this);
         this.queryConstruct = this.queryConstruct.bind(this);
+        this.smartQuery = this.smartQuery.bind(this);
     }
 }
 exports.CwRulesQueryClient = CwRulesQueryClient;
