@@ -51,3 +51,7 @@ cosmwasm-schema = { version = "1.0.0" }
 cw-rules = { version = "*", path = "../cw-rules" }
 cw-multi-test = { version = "0.13", features = ["staking"] }
 cw20-base = { version = "0.13", features = ["library"] }
+cw4 = { version = "0.13" }
+cw4-group = { version = "0.13", features = ["library"] }
+smart-query = { version = "*", path = "../../packages/smart-query" }
+generic-query ={ version = "*", path = "../../packages/generic-query" }

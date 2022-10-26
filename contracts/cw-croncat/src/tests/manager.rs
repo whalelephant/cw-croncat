@@ -1,10 +1,11 @@
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{
-    add_1000_blocks, add_little_time, add_one_duration_of_time, proper_instantiate,
+    add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
 };
 use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, StakingMsg, StdResult, Uint128,
+    WasmMsg,
 };
 use cw_croncat_core::msg::{
     AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest, TaskResponse,
@@ -13,6 +14,8 @@ use cw_croncat_core::msg::{
 use cw_croncat_core::types::{Action, AgentResponse, Boundary, Interval};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Rule};
+use generic_query::ValueOrdering;
+use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
 use super::helpers::{ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM};
 
@@ -2220,4 +2223,142 @@ fn testing_fee_works() {
         &[],
     )
     .unwrap();
+}
+
+#[test]
+fn smart_rule() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ANYONE.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    let addr1 = String::from("addr1");
+    let amount = coins(3, NATIVE_DENOM);
+    let send = BankMsg::Send {
+        to_address: addr1,
+        amount,
+    };
+
+    let head_msg = cw4_group::msg::QueryMsg::Admin {};
+
+    let queries = SmartQueries(vec![SmartQuery {
+        contract_addr: cw20_addr.to_string(),
+        msg: Binary(br#"{"balance":{"address":$msg_ph}}"#.to_vec()),
+        gets: vec!["balance".to_owned().into()],
+    }]);
+    let smart_rule = Rule::SmartQuery(SmartQueryHead {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&head_msg).unwrap(),
+        gets: vec!["admin".to_owned().into()],
+        queries,
+        ordering: ValueOrdering::Equal,
+        value: to_binary(&Uint128::from(10_u128)).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: send.clone().into(),
+                gas_limit: None,
+            }],
+            rules: Some(vec![smart_rule]),
+            cw20_coins: vec![],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    app.send_tokens(
+        Addr::unchecked(ADMIN),
+        Addr::unchecked("addr2"),
+        &coins(1, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_rules.first();
+    assert!(our_task.is_some());
+    let task_hash = our_task.unwrap().task_hash.as_ref();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_rules.is_empty());
 }

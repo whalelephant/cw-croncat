@@ -1,5 +1,5 @@
 use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
-use cw20::{BalanceResponse, Cw20Coin};
+use cw20::Cw20Coin;
 use cw4::Member;
 use cw_multi_test::{App, Executor};
 
@@ -76,16 +76,6 @@ fn test_smart() {
 
     let head_msg = cw4_group::msg::QueryMsg::Admin {};
 
-    let res0: BalanceResponse = app
-        .wrap()
-        .query_wasm_smart(
-            cw20_addr.clone(),
-            &cw20_base::msg::QueryMsg::Balance {
-                address: "aloha".to_string(),
-            },
-        )
-        .unwrap();
-    println!("{:?}", res0);
     let queries = SmartQueries(vec![SmartQuery {
         contract_addr: cw20_addr.to_string(),
         msg: Binary(br#"{"balance":{"address":$msg_ph}}"#.to_vec()),

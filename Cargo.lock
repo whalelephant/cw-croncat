@@ -641,10 +641,14 @@ dependencies = [
  "cw2 0.13.4",
  "cw20",
  "cw20-base",
+ "cw4 0.13.4",
+ "cw4-group 0.13.4",
+ "generic-query",
  "hex",
  "schemars",
  "serde",
  "sha2 0.9.9",
+ "smart-query",
  "thiserror",
 ]
 
@@ -764,8 +768,8 @@ dependencies = [
  "cw20",
  "cw20-base",
  "cw20-stake",
- "cw4",
- "cw4-group",
+ "cw4 0.14.0",
+ "cw4-group 0.14.0",
  "cw721",
  "cw721-base",
  "cwd-core",
@@ -795,6 +799,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde-cw-value",
+ "smart-query",
 ]
 
 [[package]]
@@ -930,6 +935,18 @@ dependencies = [
 
 [[package]]
 name = "cw4"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0acc3549d5ce11c6901b3a676f2e2628684722197054d97cd0101ea174ed5cbd"
+dependencies = [
+ "cosmwasm-std",
+ "cw-storage-plus 0.13.4",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw4"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95dcc5320bdee5475aadfe7ebce70be5d98040bf91b44b7c22d3acd0c133c329"
@@ -938,6 +955,23 @@ dependencies = [
  "cw-storage-plus 0.14.0",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "cw4-group"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6c95c89153e7831c8306c8eba40a3daa76f9c7b8f5179dd0b8628aca168ec7a"
+dependencies = [
+ "cosmwasm-std",
+ "cw-controllers 0.13.4",
+ "cw-storage-plus 0.13.4",
+ "cw-utils 0.13.4",
+ "cw2 0.13.4",
+ "cw4 0.13.4",
+ "schemars",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -951,7 +985,7 @@ dependencies = [
  "cw-storage-plus 0.14.0",
  "cw-utils 0.14.0",
  "cw2 0.14.0",
- "cw4",
+ "cw4 0.14.0",
  "schemars",
  "serde",
  "thiserror",

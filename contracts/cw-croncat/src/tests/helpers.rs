@@ -73,6 +73,15 @@ pub fn cw_rules_template() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+pub fn cw4_template() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cw4_group::contract::execute,
+        cw4_group::contract::instantiate,
+        cw4_group::contract::query,
+    );
+    Box::new(contract)
+}
+
 fn mock_app() -> App {
     AppBuilder::new().build(|router, _, storage| {
         let accounts: Vec<(u128, String)> = vec![
