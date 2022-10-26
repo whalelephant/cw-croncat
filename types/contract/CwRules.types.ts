@@ -64,6 +64,8 @@ export type Rule = {
   check_proposal_status: CheckProposalStatus;
 } | {
   generic_query: GenericQuery;
+} | {
+  smart_query: SmartQueryHead;
 };
 export type ValueIndex = {
   key: string;
@@ -71,6 +73,7 @@ export type ValueIndex = {
   index: number;
 };
 export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
+export type SmartQueries = SmartQuery[];
 export interface QueryConstruct {
   rules: Rule[];
   [k: string]: unknown;
@@ -81,6 +84,21 @@ export interface GenericQuery {
   msg: Binary;
   ordering: ValueOrdering;
   value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQueryHead {
+  contract_addr: string;
+  gets: ValueIndex[];
+  msg: Binary;
+  ordering: ValueOrdering;
+  queries: SmartQueries;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQuery {
+  contract_addr: string;
+  gets: ValueIndex[];
+  msg: Binary;
   [k: string]: unknown;
 }
 export type QueryMsg = {
@@ -105,6 +123,8 @@ export type QueryMsg = {
   generic_query: GenericQuery;
 } | {
   query_construct: QueryConstruct;
+} | {
+  smart_query: SmartQueryHead;
 };
 export interface QueryMultiResponse {
   data: string[];

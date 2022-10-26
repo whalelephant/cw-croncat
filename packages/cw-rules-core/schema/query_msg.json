@@ -109,6 +109,18 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "smart_query"
+      ],
+      "properties": {
+        "smart_query": {
+          "$ref": "#/definitions/SmartQueryHead"
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
@@ -332,8 +344,89 @@
             }
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "smart_query"
+          ],
+          "properties": {
+            "smart_query": {
+              "$ref": "#/definitions/SmartQueryHead"
+            }
+          },
+          "additionalProperties": false
         }
       ]
+    },
+    "SmartQueries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SmartQuery"
+      }
+    },
+    "SmartQuery": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "gets",
+        "msg"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "gets": {
+          "description": "Value for the next iteration",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ValueIndex"
+          }
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
+    },
+    "SmartQueryHead": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "gets",
+        "msg",
+        "ordering",
+        "queries",
+        "value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "gets": {
+          "description": "Value from this message",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ValueIndex"
+          }
+        },
+        "msg": {
+          "description": "First query without placeholder!",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            }
+          ]
+        },
+        "ordering": {
+          "$ref": "#/definitions/ValueOrdering"
+        },
+        "queries": {
+          "$ref": "#/definitions/SmartQueries"
+        },
+        "value": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
     },
     "Status": {
       "oneOf": [

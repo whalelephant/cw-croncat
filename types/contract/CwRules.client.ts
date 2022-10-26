@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { CheckOwnerOfNftResponse, Binary, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, QueryConstructResponse, Rule, ValueIndex, ValueOrdering, QueryConstruct, GenericQuery, QueryMsg, QueryMultiResponse, RuleResponse } from "./CwRules.types";
+import { CheckOwnerOfNftResponse, Binary, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, QueryConstructResponse, Rule, ValueIndex, ValueOrdering, SmartQueries, QueryConstruct, GenericQuery, SmartQueryHead, SmartQuery, QueryMsg, QueryMultiResponse, RuleResponse } from "./CwRules.types";
 export interface CwRulesReadOnlyInterface {
   contractAddress: string;
   getBalance: ({
@@ -66,6 +66,21 @@ export interface CwRulesReadOnlyInterface {
   }: {
     rules: Rule[];
   }) => Promise<QueryConstructResponse>;
+  smartQuery: ({
+    contractAddr,
+    gets,
+    msg,
+    ordering,
+    queries,
+    value
+  }: {
+    contractAddr: string;
+    gets: ValueIndex[];
+    msg: Binary;
+    ordering: ValueOrdering;
+    queries: SmartQueries;
+    value: Binary;
+  }) => Promise<SmartQueryResponse>;
 }
 export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
   client: CosmWasmClient;
@@ -81,6 +96,7 @@ export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
     this.checkProposalStatus = this.checkProposalStatus.bind(this);
     this.genericQuery = this.genericQuery.bind(this);
     this.queryConstruct = this.queryConstruct.bind(this);
+    this.smartQuery = this.smartQuery.bind(this);
   }
 
   getBalance = async ({
@@ -190,6 +206,32 @@ export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
     return this.client.queryContractSmart(this.contractAddress, {
       query_construct: {
         rules
+      }
+    });
+  };
+  smartQuery = async ({
+    contractAddr,
+    gets,
+    msg,
+    ordering,
+    queries,
+    value
+  }: {
+    contractAddr: string;
+    gets: ValueIndex[];
+    msg: Binary;
+    ordering: ValueOrdering;
+    queries: SmartQueries;
+    value: Binary;
+  }): Promise<SmartQueryResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      smart_query: {
+        contract_addr: contractAddr,
+        gets,
+        msg,
+        ordering,
+        queries,
+        value
       }
     });
   };
