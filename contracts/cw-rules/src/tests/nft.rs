@@ -82,7 +82,7 @@ fn proper_instantiate() -> (App, Addr, Addr) {
 fn test_check_owner_nft() -> StdResult<()> {
     let (mut app, contract_addr, cw721_contract) = proper_instantiate();
 
-    let mint_msg = cw721_base::ExecuteMsg::Mint(MintMsg::<Option<String>> {
+    let mint_msg:cw721_base::ExecuteMsg<std::option::Option<std::string::String>, &str> = cw721_base::ExecuteMsg::Mint(MintMsg::<Option<String>> {
         token_id: "croncat".to_string(),
         owner: ANYONE.to_string(),
         token_uri: Some(URI.to_string()),

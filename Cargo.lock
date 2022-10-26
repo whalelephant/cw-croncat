@@ -596,7 +596,7 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cw721 0.13.4",
  "schemars",
  "serde",
@@ -640,8 +640,8 @@ dependencies = [
  "cw-rules-core",
  "cw-storage-plus 0.16.0",
  "cw2 0.16.0",
- "cw20 0.16.0",
- "cw20-base 0.16.0",
+ "cw20",
+ "cw20-base",
  "hex",
  "schemars",
  "serde",
@@ -661,8 +661,8 @@ dependencies = [
  "cw-rules-core",
  "cw-storage-plus 0.16.0",
  "cw2 0.16.0",
- "cw20 0.16.0",
- "cw20-base 0.16.0",
+ "cw20",
+ "cw20-base",
  "hex",
  "schemars",
  "serde",
@@ -677,7 +677,7 @@ version = "0.2.0"
 source = "git+https://github.com/DA0-DA0/dao-contracts#355f8c813d2182fc27bdb8d564d459fcfd21165f"
 dependencies = [
  "cosmwasm-std",
- "cw20 0.13.4",
+ "cw20",
  "schemars",
  "serde",
  "thiserror",
@@ -736,7 +736,7 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cw3",
  "indexable-hooks",
  "proposal-hooks",
@@ -759,10 +759,10 @@ dependencies = [
  "cw-multi-test",
  "cw-rules-core",
  "cw-storage-plus 0.16.0",
- "cw-utils 0.16.0",
+ "cw-utils 0.13.4",
  "cw2 0.16.0",
- "cw20 0.16.0",
- "cw20-base 0.16.0",
+ "cw20",
+ "cw20-base",
  "cw20-stake",
  "cw4",
  "cw4-group",
@@ -789,7 +789,7 @@ version = "0.1.1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw20 0.16.0",
+ "cw20",
  "generic-query",
  "schemars",
  "serde",
@@ -922,19 +922,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cw20"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a45a8794a5dd33b66af34caee52a7beceb690856adcc1682b6e3db88b2cdee62"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-utils 0.16.0",
- "schemars",
- "serde",
-]
-
-[[package]]
 name = "cw20-base"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -944,26 +931,8 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "cw20-base"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61d826fa1084d026d0abdb54faa5956972efa3a9053473bfcefb5388960aab69"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus 0.16.0",
- "cw-utils 0.16.0",
- "cw2 0.16.0",
- "cw20 0.16.0",
- "schemars",
- "semver",
  "serde",
  "thiserror",
 ]
@@ -980,8 +949,8 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
- "cw20-base 0.13.4",
+ "cw20",
+ "cw20-base",
  "schemars",
  "serde",
  "thiserror",
@@ -1084,7 +1053,7 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cw721 0.13.4",
  "cwd-interface",
  "cwd-macros",
@@ -1191,7 +1160,7 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cw3",
  "cwd-core",
  "cwd-hooks",
@@ -1219,7 +1188,7 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cw3",
  "cwd-core",
  "cwd-hooks",
@@ -1257,7 +1226,7 @@ dependencies = [
  "cw-denom",
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
- "cw20 0.13.4",
+ "cw20",
  "cwd-core",
  "cwd-interface",
  "cwd-macros",
@@ -1276,8 +1245,8 @@ dependencies = [
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",
- "cw20 0.13.4",
- "cw20-base 0.13.4",
+ "cw20",
+ "cw20-base",
  "cw20-stake",
  "cwd-interface",
  "cwd-macros",
@@ -1621,8 +1590,8 @@ dependencies = [
  "cw-croncat",
  "cw-croncat-core",
  "cw-rules-core",
- "cw20 0.16.0",
- "cw20-base 0.16.0",
+ "cw20",
+ "cw20-base",
  "env_logger",
  "serde",
  "serde_json",
@@ -2020,9 +1989,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.136"
+version = "0.2.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55edcf6c0bb319052dea84732cf99db461780fd5e8d3eb46ab6ff312ab31f197"
+checksum = "fc7fcc620a3bff7cdd7a365be3376c97191aeaccc2a603e600951e452615bf89"
 
 [[package]]
 name = "linked-hash-map"
