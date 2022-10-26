@@ -2,6 +2,8 @@ use cosmwasm_std::Binary;
 use generic_query::{ValueIndex, ValueOrdering};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::error::SmartQueryError;
 pub const PLACEHOLDER: &[u8] = b"$msg_ph";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -29,19 +31,19 @@ pub struct SmartQuery {
 impl SmartQuery {
     /// Find and replace placeholder with a new value.
     // TODO: Discuss if we plan to do more than 1 replace
-    pub fn replace_placeholder(&mut self, value: Binary) {
+    pub fn replace_placeholder(&mut self, value: Binary) -> Result<(), SmartQueryError> {
         let mut msg = Vec::with_capacity(self.msg.0.len() + value.0.len());
         let pos = self
             .msg
             .0
             .windows(PLACEHOLDER.len())
             .position(|window| window == PLACEHOLDER)
-            // TODO: remove unwrap
-            .unwrap();
+            .ok_or(SmartQueryError::MissingPlaceholder {})?;
         msg.extend_from_slice(&self.msg.0[..pos]);
         msg.extend_from_slice(value.as_slice());
         msg.extend_from_slice(&self.msg.0[pos + PLACEHOLDER.len()..]);
         self.msg = Binary(msg);
+        Ok(())
     }
 }
 

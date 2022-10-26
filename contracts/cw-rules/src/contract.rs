@@ -245,7 +245,9 @@ fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse<Opti
         .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
     let mut head_val = find_value(&json_val, query.gets)?;
     for mut smart in query.queries.0 {
-        smart.replace_placeholder(to_binary(&head_val)?);
+        smart
+            .replace_placeholder(to_binary(&head_val)?)
+            .map_err(|er| StdError::generic_err(er.to_string()))?;
         let smart_json_val = cw_value_query_wasm_smart(deps, smart.contract_addr, smart.msg)?;
         head_val = find_value(&smart_json_val, smart.gets)?;
     }
