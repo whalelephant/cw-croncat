@@ -1,6 +1,6 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use crate::tests::helpers::proper_instantiate;
+use crate::tests::helpers::{self, proper_instantiate};
 use crate::ContractError;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
@@ -44,6 +44,7 @@ fn query_task_hash_success() {
             gas_limit: Some(150_000),
         }],
         rules: None,
+        version: helpers::get_contract_version(),
     };
 
     // HASH CHECK!

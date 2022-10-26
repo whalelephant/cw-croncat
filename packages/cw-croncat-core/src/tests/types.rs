@@ -1,6 +1,7 @@
 use crate::{
     error::CoreError,
     msg::TaskRequest,
+    tests::helpers,
     types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task},
 };
 use cosmwasm_std::{
@@ -489,6 +490,7 @@ fn hashing() {
             address: "foo".to_string(),
             required_balance: coins(5, "atom").into(),
         })]),
+        version: helpers::get_contract_version(),
     };
 
     let message = format!(

@@ -7,6 +7,7 @@ use crate::{
         GetSlotHashesResponse, GetSlotIdsResponse, GetWalletBalancesResponse, TaskRequest,
         TaskResponse,
     },
+    tests::helpers,
     types::{
         Action, Agent, AgentResponse, AgentStatus, Boundary, BoundaryValidated, GasFraction,
         GenericBalance, Interval, SlotType, Task,
@@ -53,6 +54,7 @@ fn everything_can_be_de_serialized() {
             gas_limit: Some(150_000),
         }],
         rules: None,
+        version: helpers::get_contract_version(),
     }
     .into();
 

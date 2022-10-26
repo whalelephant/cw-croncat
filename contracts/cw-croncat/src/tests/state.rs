@@ -1,5 +1,6 @@
 use crate::error::ContractError;
 use crate::helpers::Task;
+use crate::tests::helpers;
 use crate::CwCroncat;
 use cosmwasm_std::testing::MockStorage;
 use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult};
@@ -33,6 +34,7 @@ fn check_task_storage_structure() -> StdResult<()> {
             gas_limit: Some(150_000),
         }],
         rules: None,
+        version: helpers::get_contract_version(),
     };
     let task_id_str = "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3";
     let task_id = task_id_str.to_string().into_bytes();

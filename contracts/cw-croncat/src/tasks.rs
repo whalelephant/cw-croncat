@@ -269,6 +269,7 @@ impl<'a> CwCroncat<'a> {
             .native
             .find_checked_add(&coin(price, &cfg.native_denom))?;
 
+        const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
         let item = Task {
             funds_withdrawn_recurring: vec![],
             owner_id: owner_id.clone(),
@@ -282,6 +283,7 @@ impl<'a> CwCroncat<'a> {
             amount_for_one_task,
             actions: task.actions,
             rules: task.rules,
+            version: CONTRACT_VERSION.to_string(),
         };
 
         // Check that balance is sufficient for 1 execution minimum
