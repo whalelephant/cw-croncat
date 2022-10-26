@@ -1,4 +1,3 @@
-
 use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
 use cw20::Cw20Coin;
 use cw_multi_test::{next_block, App, Executor};
