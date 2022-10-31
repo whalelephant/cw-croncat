@@ -84,32 +84,4 @@ impl<'a> CwCroncat<'a> {
             Ok(None)
         }
     }
-
-    //     /// Gets 1 slot hash item, and removes the hash from storage
-    // /// Cleans up a slot if empty
-    // pub(crate) fn pop_slot_item_with_rules(
-    //     &mut self,
-    //     storage: &mut dyn Storage,
-    //     slot: &u64,
-    //     kind: &SlotType,
-    // ) -> Option<Vec<u8>> {
-    //     let store = match kind {
-    //         SlotType::Block => &self.block_slots_rules,
-    //         SlotType::Cron => &self.time_slots_rules,
-    //     };
-
-    //     let mut slot_data = store.may_load(storage, *slot).unwrap()?;
-
-    //     // Get a single task hash, then retrieve task details
-    //     let hash = slot_data.pop();
-
-    //     // Need to remove this slot if no hash's left
-    //     if slot_data.is_empty() {
-    //         store.remove(storage, *slot);
-    //     } else {
-    //         store.save(storage, *slot, &slot_data).ok()?;
-    //     }
-
-    //     hash
-    // }
 }

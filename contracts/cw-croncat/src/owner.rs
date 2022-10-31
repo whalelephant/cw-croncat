@@ -350,7 +350,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         let time_slots_rules: Vec<SlotWithRuleResponse> = self
-            .time_slots_rules
+            .time_map_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
@@ -364,7 +364,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         let block_slots_rules: Vec<SlotWithRuleResponse> = self
-            .block_slots_rules
+            .block_map_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
