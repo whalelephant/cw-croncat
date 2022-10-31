@@ -924,3 +924,54 @@ fn test_query_get_agent_tasks() {
         .into()
     );
 }
+
+#[test]
+fn test_last_unregistered_active_agent_promotes_first_pending() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    // Register agents
+    register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY);
+
+    // Check if one is active and rest is pending
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT1)],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Unregister agent
+    let unreg_msg = ExecuteMsg::UnregisterAgent {};
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &unreg_msg,
+        &[],
+    )
+    .unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT2)],
+            pending: vec![Addr::unchecked(AGENT3), Addr::unchecked(AGENT4)]
+        }
+    );
+}
