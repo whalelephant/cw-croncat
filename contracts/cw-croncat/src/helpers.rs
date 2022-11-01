@@ -146,7 +146,8 @@ impl<'a> CwCroncat<'a> {
 
         // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
         // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-        let max_agent_index = self.max_agent_index(storage, &c, env, &(active.len() as u64))?;
+        let max_agent_index =
+            self.max_agent_nomination_index(storage, &c, env, &(active.len() as u64))?;
         let agent_status = match max_agent_index {
             Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
             _ => AgentStatus::Pending,
@@ -154,7 +155,8 @@ impl<'a> CwCroncat<'a> {
         Ok(agent_status)
     }
 
-    pub(crate) fn max_agent_index(
+    /// Calculate the biggest index of nomination for pending agents
+    pub(crate) fn max_agent_nomination_index(
         &self,
         storage: &dyn Storage,
         cfg: &Config,
