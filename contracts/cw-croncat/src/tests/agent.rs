@@ -989,7 +989,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
         )
         .unwrap();
     assert_eq!(agent_res.status, AgentStatus::Nominated);
-    
+
     // Check in
     app.execute_contract(
         Addr::unchecked(AGENT2),
