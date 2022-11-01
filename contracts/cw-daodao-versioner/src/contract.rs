@@ -47,10 +47,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             chain_id,
         } =>to_binary(&query_registrations(deps, registrar_addr, chain_id)?),
         QueryMsg::GetRegistration {
-            name: _,
-            chain_id: _,
-            version: _,
-        } => todo!(),
+            registrar_addr,
+            name,
+            chain_id,
+            version,
+        } => to_binary(&query_registration(deps,registrar_addr, name,chain_id,version)?),
         QueryMsg::GetCodeIdInfo {
             registrar_addr,
             chain_id,
@@ -82,6 +83,19 @@ fn query_code_id_info(deps: Deps, registrar_addr: String, chain_id: String,code_
             registrar_addr,
             chain_id,
             code_id
+        },
+    )?;
+    Ok(res)
+}
+fn query_registration(deps: Deps, registrar_addr: String,contract_name:String, chain_id: String,version: Option<String>) -> StdResult<GetRegistrationResponse> {
+    let registrar_address = deps.api.addr_validate(&registrar_addr)?;
+    let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
+        registrar_address,
+        &QueryMsg::GetRegistration {
+            registrar_addr,
+            name:contract_name,
+            chain_id,
+            version
         },
     )?;
     Ok(res)

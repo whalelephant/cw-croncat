@@ -23,6 +23,7 @@ pub mod dao_registry {
             /// If version provided, tries to find given version. Otherwise returns
             /// the latest version registered.
             GetRegistration {
+                registrar_addr:String,
                 name: String,
                 chain_id: String,
                 version: Option<String>,
