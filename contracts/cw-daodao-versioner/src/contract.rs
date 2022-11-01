@@ -10,9 +10,7 @@ use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::*;
-//use cosmwasm_std::from_binary;
-//use crate::msg::QueryMultiResponse;
-use crate::msg::dao_registry::QueryMsg;
+use crate::msg::dao_registry::{Query::*};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-daodao-versioner";
