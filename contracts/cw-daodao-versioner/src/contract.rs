@@ -37,7 +37,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::QueryResult {} => query_result(deps, info),
         ExecuteMsg::CreateContractVersioner { name, chain_id } => create_contract_versioner(deps,name,chain_id),
-        ExecuteMsg::RemoveContractVersioner { name, chain_id } => create_contract_versioner(deps,name,chain_id),
+        ExecuteMsg::RemoveContractVersioner { name, chain_id } => remove_contract_versioner(deps,name,chain_id),
     }
 }
 
@@ -124,3 +124,30 @@ fn create_contract_versioner(
         .add_attribute("contract_name", name)
         .add_attribute("chain_id", chain_id))
 }
+fn remove_contract_versioner(
+    deps: DepsMut,
+    name: String,
+    chain_id: String,
+) -> Result<Response, ContractError> {
+    if VERSION_MAP
+        .may_load(deps.storage, (&name, &chain_id.clone()))?
+        .is_none()
+    {
+        return Err(ContractError::ContractNotRegistered(
+            name.clone(),
+            chain_id.clone(),
+        ));
+    }
+    let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
+    
+    VERSION_MAP.remove(
+        deps.storage,
+        (&name, &chain_id)
+    );
+
+    Ok(Response::new()
+        .add_attribute("action", "remove_contract_versioner")
+        .add_attribute("contract_name", name)
+        .add_attribute("chain_id", chain_id))
+}
+
