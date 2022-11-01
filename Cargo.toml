@@ -2,6 +2,7 @@
 members = [
   "contracts/cw-croncat",
   "contracts/cw-rules",
+  "contracts/cw-daodao-versioner",
   "packages/cw-croncat-core",
   "packages/generic-query",
   "packages/cw-rules-core",

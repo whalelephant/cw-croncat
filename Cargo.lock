@@ -671,6 +671,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-daodao-versioner"
+version = "0.0.2"
+dependencies = [
+ "base64",
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-croncat-core",
+ "cw-multi-test",
+ "cw-storage-plus 0.13.4",
+ "cw-utils 0.13.4",
+ "cw2 0.13.4",
+ "cw20",
+ "cw20-base",
+ "cw20-stake",
+ "cw4",
+ "cw4-group",
+ "cw721",
+ "cw721-base",
+ "cwd-core",
+ "cwd-interface",
+ "cwd-proposal-multiple",
+ "cwd-proposal-single",
+ "cwd-voting",
+ "cwd-voting-cw20-staked",
+ "schemars",
+ "serde",
+ "serde-cw-value",
+ "serde_json",
+ "thiserror",
+ "voting",
+]
+
+[[package]]
 name = "cw-denom"
 version = "0.2.0"
 source = "git+https://github.com/DA0-DA0/dao-contracts#474e20183f74e64dafe396b16f40dfd285f235c2"
