@@ -63,7 +63,7 @@ CRONCAT_ADDRESS=juno123somecontract
 You can create a reccuring task and see it in the list of tasks:
 ```bash
 ./create_recurring_task.sh $CRONCAT_ADDRESS user
-./get-agent-tasks.sh $CRONCAT_ADDRESS
+./get-tasks.sh $CRONCAT_ADDRESS
 ```
 
 For more examples for registering and unregistering agent, executing task and querying the state see other [scripts](https://github.com/CronCats/cw-croncat/tree/main/contracts/cw-croncat/scripts).
