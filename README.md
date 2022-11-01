@@ -47,7 +47,7 @@ docker run --rm -v "$(pwd)":/code \
 
 There are some scripts for testnet, mainnet and local node
 ```bash
-cd contracts/cw-croncat/scripts/uni-testnet
+cd scripts/uni-testnet
 ```
 
 To build and deploy to testnet:
