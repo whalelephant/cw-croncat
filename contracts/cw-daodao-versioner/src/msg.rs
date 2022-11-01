@@ -14,8 +14,8 @@ pub mod dao_registry {
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
     pub mod Query {
-        use super::*;
         use super::State::*;
+        use super::*;
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -28,11 +28,12 @@ pub mod dao_registry {
                 version: Option<String>,
             },
             GetCodeIdInfo {
+                registrar_addr: String,
                 chain_id: String,
                 code_id: u64,
             },
             ListRegistrations {
-                dao_address: String,
+                registrar_addr: String,
                 chain_id: String,
             },
         }
@@ -40,6 +41,12 @@ pub mod dao_registry {
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
         pub struct GetRegistrationResponse {
             pub registration: Registration,
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+        #[serde(rename_all = "snake_case", deny_unknown_fields)]
+        pub struct ListRegistrationsResponse {
+            pub registrations: Vec<Registration>,
         }
     }
 

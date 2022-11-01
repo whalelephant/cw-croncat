@@ -1,9 +1,7 @@
-use serde_cw_value::Value;
-
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult
+    Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_binary
 };
 use cw2::set_contract_version;
 
@@ -45,18 +43,19 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::ListRegistrations {
-            dao_address,
+            registrar_addr,
             chain_id,
-        } => query_registrations(deps, dao_address, chain_id),
+        } =>to_binary(&query_registrations(deps, registrar_addr, chain_id)?),
         QueryMsg::GetRegistration {
             name: _,
             chain_id: _,
             version: _,
         } => todo!(),
         QueryMsg::GetCodeIdInfo {
-            chain_id: _,
-            code_id: _,
-        } => todo!(),
+            registrar_addr,
+            chain_id,
+            code_id,
+        } => to_binary(&query_code_id_info(deps,registrar_addr, chain_id,code_id)?),
     }
 }
 
@@ -64,17 +63,30 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
     Ok(Response::new().add_attribute("method", "query_result"))
 }
 
-fn query_registrations(deps: Deps, dao_address: String, chain_id: String) -> StdResult<Binary> {
-    let dao_addr = deps.api.addr_validate(&dao_address)?;
-    let res: Binary = deps.querier.query_wasm_smart(
-        dao_addr,
+fn query_registrations(deps: Deps, registrar_addr: String, chain_id: String) -> StdResult<ListRegistrationsResponse> {
+    let registrar_address = deps.api.addr_validate(&registrar_addr)?;
+    let res: ListRegistrationsResponse = deps.querier.query_wasm_smart(
+        registrar_address,
         &QueryMsg::ListRegistrations {
-            dao_address,
+            registrar_addr,
             chain_id,
         },
     )?;
     Ok(res)
 }
-fn create_version_check_task(){
-
+fn query_code_id_info(deps: Deps, registrar_addr: String, chain_id: String,code_id: u64) -> StdResult<GetRegistrationResponse> {
+    let registrar_address = deps.api.addr_validate(&registrar_addr)?;
+    let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
+        registrar_address,
+        &QueryMsg::GetCodeIdInfo {
+            registrar_addr,
+            chain_id,
+            code_id
+        },
+    )?;
+    Ok(res)
+}
+fn create_version_check_task(deps: Deps, dao_address: String, chain_id: String)->Result<Response, ContractError> {
+    let regs=query_registrations(deps, dao_address, chain_id)?;
+    todo!();
 }
