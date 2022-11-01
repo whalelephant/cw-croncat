@@ -283,54 +283,68 @@ impl<'a> CwCroncat<'a> {
         // Compare current time and Config's agent_nomination_begin_time to see if agent can join
         let c: Config = self.config.load(deps.storage)?;
 
-        let active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
+        let mut pending_queue: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
+        // Agent must be in the pending queue
+        // Get the position in the pending queue
+        let agent_position = if let Some(agent_position) = pending_queue
+            .iter()
+            .position(|address| address == &info.sender)
+        {
+            agent_position
+        } else {
+            // Sender's address does not exist in the agent pending queue
+            return Err(ContractError::AgentNotRegistered {});
+        };
         let time_difference =
             if let Some(nomination_start) = self.agent_nomination_begin_time.load(deps.storage)? {
                 env.block.time.seconds() - nomination_start.seconds()
             } else {
-                // No agents can join yet
-                return Err(ContractError::CustomError {
-                    val: "Not accepting new agents".to_string(),
-                });
+                // edge case if last agent left
+                if active_agents.is_empty() && agent_position == 0 {
+                    active_agents.push(info.sender.clone());
+                    self.agent_active_queue.save(deps.storage, &active_agents)?;
+
+                    pending_queue.remove(agent_position);
+                    self.agent_pending_queue
+                        .save(deps.storage, &pending_queue)?;
+                    self.agent_nomination_begin_time.save(deps.storage, &None)?;
+                    return Ok(Response::new()
+                        .add_attribute("method", "accept_nomination_agent")
+                        .add_attribute("new_agent", info.sender.as_str()));
+                } else {
+                    // No agents can join yet
+                    return Err(ContractError::CustomError {
+                        val: "Not accepting new agents".to_string(),
+                    });
+                }
             };
-        // Agent must be in the pending queue
-        let pending_queue: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
-        // Get the position in the pending queue
-        let kicked_agents = if let Some(agent_position) = pending_queue
-            .iter()
-            .position(|address| address == &info.sender)
-        {
-            // It works out such that the time difference between when this is called,
-            // and the agent nomination begin time can be divided by the nomination
-            // duration and we get an integer. We use that integer to determine if an
-            // agent is allowed to get let in. If their position in the pending queue is
-            // less than or equal to that integer, they get let in.
-            let max_index = time_difference.div(c.agent_nomination_duration as u64);
-            if agent_position as u64 <= max_index {
-                // Make this agent active
-                // Update state removing from pending queue
-                let mut pending_queue = pending_queue;
-                let kicked_agents: Vec<Addr> = pending_queue.drain(..=agent_position).collect();
-                self.agent_pending_queue
-                    .save(deps.storage, &pending_queue)?;
 
-                // and adding to active queue
-                let mut active_agents = active_agents;
-                active_agents.push(info.sender.clone());
-                self.agent_active_queue.save(deps.storage, &active_agents)?;
+        // It works out such that the time difference between when this is called,
+        // and the agent nomination begin time can be divided by the nomination
+        // duration and we get an integer. We use that integer to determine if an
+        // agent is allowed to get let in. If their position in the pending queue is
+        // less than or equal to that integer, they get let in.
+        let max_index = time_difference.div(c.agent_nomination_duration as u64);
+        let kicked_agents = if agent_position as u64 <= max_index {
+            // Make this agent active
+            // Update state removing from pending queue
+            let kicked_agents: Vec<Addr> = pending_queue.drain(..=agent_position).collect();
+            self.agent_pending_queue
+                .save(deps.storage, &pending_queue)?;
 
-                // and update the config, setting the nomination begin time to None,
-                // which indicates no one will be nominated until more tasks arrive
-                self.agent_nomination_begin_time.save(deps.storage, &None)?;
-                kicked_agents
-            } else {
-                return Err(ContractError::CustomError {
-                    val: "Must wait longer before accepting nomination".to_string(),
-                });
-            }
+            // and adding to active queue
+            active_agents.push(info.sender.clone());
+            self.agent_active_queue.save(deps.storage, &active_agents)?;
+
+            // and update the config, setting the nomination begin time to None,
+            // which indicates no one will be nominated until more tasks arrive
+            self.agent_nomination_begin_time.save(deps.storage, &None)?;
+            kicked_agents
         } else {
-            // Sender's address does not exist in the agent pending queue
-            return Err(ContractError::AgentNotRegistered {});
+            return Err(ContractError::CustomError {
+                val: "Must wait longer before accepting nomination".to_string(),
+            });
         };
         // Find difference
         Ok(Response::new()
@@ -363,22 +377,6 @@ impl<'a> CwCroncat<'a> {
             );
             active_agents.remove(index);
 
-            // Have to upgrade first pending agent if last active got kicked
-            if active_agents.is_empty() {
-                let mut new_agent = None;
-                self.agent_pending_queue.update(
-                    storage,
-                    |mut pending| -> Result<_, ContractError> {
-                        if !pending.is_empty() {
-                            new_agent = Some(pending.remove(0));
-                        }
-                        Ok(pending)
-                    },
-                )?;
-                if let Some(new) = new_agent {
-                    active_agents.push(new);
-                }
-            }
             self.agent_active_queue.save(storage, &active_agents)?;
         } else {
             // Agent can't be both in active and pending vector

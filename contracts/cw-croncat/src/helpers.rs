@@ -144,6 +144,11 @@ impl<'a> CwCroncat<'a> {
                 }
             };
 
+        // Edge case if last agent unregistered
+        if active.is_empty() && agent_position == 0 {
+            return Ok(AgentStatus::Nominated);
+        };
+
         // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
         // Then determine if this agent is considered "Nominated" and should call CheckInAgent
         let max_agent_index =

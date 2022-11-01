@@ -962,7 +962,42 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
         &[],
     )
     .unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
 
+    // Check if agent nominated
+    let agent_res: AgentResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: AGENT2.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_res.status, AgentStatus::Nominated);
+    
+    // Check in
+    app.execute_contract(
+        Addr::unchecked(AGENT2),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
     let agent_ids: GetAgentIdsResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
