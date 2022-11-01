@@ -8,6 +8,9 @@ pub enum ContractError {
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
+
+    #[error("Contract {0} versioner has already been registered on chain {1}")]
+    ContractAlreadyRegistered(String, String),
     // Add any other custom errors you like here.
     // Look at https://docs.rs/thiserror/1.0.21/thiserror/ for details.
 }

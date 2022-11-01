@@ -1,14 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, to_binary
-};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
-
 use crate::error::ContractError;
+use crate::msg::dao_registry::Query::*;
 use crate::msg::*;
-use crate::msg::dao_registry::{Query::*};
+use crate::state::{REGISTRAR_ADDR, VERSION_MAP};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-daodao-versioner";
@@ -23,6 +21,9 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
+    let registrar_addr = deps.api.addr_validate(&_msg.registrar_addr)?;
+    REGISTRAR_ADDR.save(deps.storage, &registrar_addr)?;
+
     Ok(Response::new().add_attribute("method", "instantiate"))
 }
 
@@ -34,29 +35,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        // Echo
         ExecuteMsg::QueryResult {} => query_result(deps, info),
+        ExecuteMsg::CreateContractVersioner { name, chain_id } => create_contract_versioner(deps,name,chain_id),
+        ExecuteMsg::RemoveContractVersioner { name, chain_id } => create_contract_versioner(deps,name,chain_id),
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::ListRegistrations {
-            registrar_addr,
-            chain_id,
-        } =>to_binary(&query_registrations(deps, registrar_addr, chain_id)?),
-        QueryMsg::GetRegistration {
-            registrar_addr,
-            name,
-            chain_id,
-            version,
-        } => to_binary(&query_registration(deps,registrar_addr, name,chain_id,version)?),
-        QueryMsg::GetCodeIdInfo {
-            registrar_addr,
-            chain_id,
-            code_id,
-        } => to_binary(&query_code_id_info(deps,registrar_addr, chain_id,code_id)?),
+        QueryMsg::VerifyNewVersionAvailable { name, chain_id } => todo!(),
     }
 }
 
@@ -64,43 +52,75 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
     Ok(Response::new().add_attribute("method", "query_result"))
 }
 
-fn query_registrations(deps: Deps, registrar_addr: String, chain_id: String) -> StdResult<ListRegistrationsResponse> {
+fn query_registrations(
+    deps: Deps,
+    registrar_addr: String,
+    name: String,
+    chain_id: String,
+) -> StdResult<ListRegistrationsResponse> {
     let registrar_address = deps.api.addr_validate(&registrar_addr)?;
     let res: ListRegistrationsResponse = deps.querier.query_wasm_smart(
         registrar_address,
-        &QueryMsg::ListRegistrations {
-            registrar_addr,
-            chain_id,
-        },
+        &RegistryQueryMsg::ListRegistrations { name, chain_id },
     )?;
     Ok(res)
 }
-fn query_code_id_info(deps: Deps, registrar_addr: String, chain_id: String,code_id: u64) -> StdResult<GetRegistrationResponse> {
+fn query_code_id_info(
+    deps: Deps,
+    registrar_addr: String,
+    chain_id: String,
+    code_id: u64,
+) -> StdResult<GetRegistrationResponse> {
     let registrar_address = deps.api.addr_validate(&registrar_addr)?;
     let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
         registrar_address,
-        &QueryMsg::GetCodeIdInfo {
-            registrar_addr,
-            chain_id,
-            code_id
-        },
+        &RegistryQueryMsg::GetCodeIdInfo { chain_id, code_id },
     )?;
     Ok(res)
 }
-fn query_registration(deps: Deps, registrar_addr: String,contract_name:String, chain_id: String,version: Option<String>) -> StdResult<GetRegistrationResponse> {
+fn query_registration(
+    deps: Deps,
+    registrar_addr: String,
+    name: String,
+    chain_id: String,
+    version: Option<String>,
+) -> StdResult<GetRegistrationResponse> {
     let registrar_address = deps.api.addr_validate(&registrar_addr)?;
     let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
         registrar_address,
-        &QueryMsg::GetRegistration {
-            registrar_addr,
-            name:contract_name,
+        &RegistryQueryMsg::GetRegistration {
+            name,
             chain_id,
-            version
+            version,
         },
     )?;
     Ok(res)
 }
-fn create_version_check_task(deps: Deps, dao_address: String, chain_id: String)->Result<Response, ContractError> {
-    let regs=query_registrations(deps, dao_address, chain_id)?;
-    todo!();
+fn create_contract_versioner(
+    deps: DepsMut,
+    name: String,
+    chain_id: String,
+) -> Result<Response, ContractError> {
+    if VERSION_MAP
+        .may_load(deps.storage, (&name, &chain_id.clone()))?
+        .is_some()
+    {
+        return Err(ContractError::ContractAlreadyRegistered(
+            name.clone(),
+            chain_id.clone(),
+        ));
+    }
+    let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
+    let regs = query_registrations(deps.as_ref(), registrar_addr.to_string(), name.clone(), chain_id.clone())?;
+    let registration = regs.registrations.last().unwrap();
+    VERSION_MAP.save(
+        deps.storage,
+        (&registration.contract_name, &chain_id),
+        &registration.version,
+    )?;
+
+    Ok(Response::new()
+        .add_attribute("action", "create_contract_versioner")
+        .add_attribute("contract_name", name)
+        .add_attribute("chain_id", chain_id))
 }
