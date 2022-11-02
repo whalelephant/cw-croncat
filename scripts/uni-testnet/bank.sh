@@ -9,15 +9,10 @@ if [ -z "$1" ]; then
 elif [ -z "$2" ]; then
   echo "Must provide user address"
   exit 1
-elif [ -z "$3" ]; then
-  echo "Must provide dao address"
-  exit 1
 fi
 
 CONTRACT="$1"
 USR="$2"
-DAO="$3"
-
 DAODAO='{
   "create_task": {
     "task": {
@@ -29,7 +24,7 @@ DAODAO='{
           "msg": {
             "bank": {
               "send": {
-                "to_address": "$USER_ADDRESS",
+                "to_address": "'$USR'",
                 "amount": [
                   {
                     "denom": "ujunox",
@@ -42,18 +37,10 @@ DAODAO='{
           "gas_limit": null
         }
       ],
-      "rules": [
-        {
-          "check_proposal_status": {
-            "dao_address": "'$DAO'",
-            "proposal_id": 1,
-            "status": "passed"
-          }
-        }
-      ],
+      "rules": [],
       "cw20_coins": []
     }
   }
-}'
+}';
 
 junod tx wasm execute $CONTRACT "$DAODAO" --amount 1000000ujunox --from signer $TXFLAG -y

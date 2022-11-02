@@ -26,7 +26,7 @@ and can delete them with:
 
 Run this script to remove old agent and Juno chain info, create new keys, deploy and instantiate the Croncat Manager contract, and add a simple payroll task that pays Alice and Bob a little bit of `stake` tokens every 3 blocks:
 
-    ./deploy.sh
+    ./start.sh
 
 A `junod` process is running in the background now, and we can start our agent.
 
@@ -47,14 +47,10 @@ In a separate tab you can see the balances by running:
 
 If you run the previous scripted repeatedly you'll see the simple, automated payroll is operational.
 
-To stop the local Juno chain, you may run:
-
-    ./stop.sh
-
 ## Misc
 
 ### Create a recurring task to send 1 testnet Juno to two addresses (TODO, really recurring?)
-    ./testnet_create_recurring_task.sh juno123contractaddress alice
+    ./create_recurring_task.sh juno123contractaddress alice
 
 ### Create staking task
-    ./testnet_create_staking_task.sh juno123contractaddress alice
+    ./create_staking_task.sh juno123contractaddress alice

@@ -6,7 +6,7 @@ WASM_POSTFIX="-aarch64"
 DIR=$(pwd)
 JUNO_DIR="$HOME/juno"
 DIR_NAME=$(basename "$PWD")
-SCRIPT_PATH=$(dirname $(which $0))
+
 IMAGE_NAME="juno-node-1"
 DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
 WASM="artifacts/$DIR_NAME_SNAKE$WASM_POSTFIX.wasm"
