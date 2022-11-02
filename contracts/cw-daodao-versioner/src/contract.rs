@@ -1,12 +1,10 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
-};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
-use crate::msg::dao_registry::Query::*;
+use crate::msg::dao_registry::query::*;
 use crate::msg::*;
 use crate::state::{REGISTRAR_ADDR, VERSION_MAP};
 
@@ -73,7 +71,7 @@ fn query_registrations(
     )?;
     Ok(res)
 }
-fn query_code_id_info(
+fn _query_code_id_info(
     deps: Deps,
     registrar_addr: String,
     chain_id: String,
@@ -86,7 +84,7 @@ fn query_code_id_info(
     )?;
     Ok(res)
 }
-fn query_registration(
+fn _query_registration(
     deps: Deps,
     registrar_addr: String,
     name: String,
@@ -110,13 +108,10 @@ fn create_contract_versioner(
     chain_id: String,
 ) -> Result<Response, ContractError> {
     if VERSION_MAP
-        .may_load(deps.storage, (&name, &chain_id.clone()))?
+        .may_load(deps.storage, (&name, &chain_id))?
         .is_some()
     {
-        return Err(ContractError::ContractAlreadyRegistered(
-            name.clone(),
-            chain_id.clone(),
-        ));
+        return Err(ContractError::ContractAlreadyRegistered(name, chain_id));
     }
     let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
     let regs = query_registrations(
@@ -144,13 +139,10 @@ fn remove_contract_versioner(
     chain_id: String,
 ) -> Result<Response, ContractError> {
     if VERSION_MAP
-        .may_load(deps.storage, (&name, &chain_id.clone()))?
+        .may_load(deps.storage, (&name, &chain_id))?
         .is_none()
     {
-        return Err(ContractError::ContractNotRegistered(
-            name.clone(),
-            chain_id.clone(),
-        ));
+        return Err(ContractError::ContractNotRegistered(name, chain_id));
     }
 
     VERSION_MAP.remove(deps.storage, (&name, &chain_id));
@@ -170,9 +162,7 @@ fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> St
         chain_id.clone(),
     )?;
     let last = regs.registrations.last().unwrap();
-    let current_version = {
-        let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id.clone()));
-        current_version
-    };
+    let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id));
+
     Ok(last.version > current_version.unwrap().unwrap())
 }
