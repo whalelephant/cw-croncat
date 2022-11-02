@@ -408,6 +408,7 @@ export type ExecuteMsg = {
   };
 } | {
   unregister_agent: {
+    from_behind?: boolean | null;
     [k: string]: unknown;
   };
 } | {
