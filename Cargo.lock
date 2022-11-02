@@ -680,6 +680,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-croncat-core",
  "cw-multi-test",
+ "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
  "cw2 0.13.4",

@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 pub enum ExecuteMsg {
     CreateContractVersioner { name: String, chain_id: String },
     RemoveContractVersioner { name: String, chain_id: String },
+    UpdateVersioniser { name: String, chain_id: String },
     QueryResult {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
     pub registrar_addr: String,
+    pub croncat_addr: String,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
