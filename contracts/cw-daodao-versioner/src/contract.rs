@@ -1,6 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+};
 use cw2::set_contract_version;
 
 use crate::error::ContractError;
@@ -36,15 +38,21 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::QueryResult {} => query_result(deps, info),
-        ExecuteMsg::CreateContractVersioner { name, chain_id } => create_contract_versioner(deps,name,chain_id),
-        ExecuteMsg::RemoveContractVersioner { name, chain_id } => remove_contract_versioner(deps,name,chain_id),
+        ExecuteMsg::CreateContractVersioner { name, chain_id } => {
+            create_contract_versioner(deps, name, chain_id)
+        }
+        ExecuteMsg::RemoveContractVersioner { name, chain_id } => {
+            remove_contract_versioner(deps, name, chain_id)
+        }
     }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::VerifyNewVersionAvailable { name, chain_id } => todo!(),
+        QueryMsg::VerifyNewVersionAvailable { name, chain_id } => {
+            to_binary(&query_new_version_available(deps, name, chain_id)?)
+        }
     }
 }
 
@@ -111,7 +119,12 @@ fn create_contract_versioner(
         ));
     }
     let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
-    let regs = query_registrations(deps.as_ref(), registrar_addr.to_string(), name.clone(), chain_id.clone())?;
+    let regs = query_registrations(
+        deps.as_ref(),
+        registrar_addr.to_string(),
+        name.clone(),
+        chain_id.clone(),
+    )?;
     let registration = regs.registrations.last().unwrap();
     VERSION_MAP.save(
         deps.storage,
@@ -124,6 +137,7 @@ fn create_contract_versioner(
         .add_attribute("contract_name", name)
         .add_attribute("chain_id", chain_id))
 }
+
 fn remove_contract_versioner(
     deps: DepsMut,
     name: String,
@@ -138,12 +152,8 @@ fn remove_contract_versioner(
             chain_id.clone(),
         ));
     }
-    let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
-    
-    VERSION_MAP.remove(
-        deps.storage,
-        (&name, &chain_id)
-    );
+
+    VERSION_MAP.remove(deps.storage, (&name, &chain_id));
 
     Ok(Response::new()
         .add_attribute("action", "remove_contract_versioner")
@@ -151,3 +161,18 @@ fn remove_contract_versioner(
         .add_attribute("chain_id", chain_id))
 }
 
+fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> StdResult<bool> {
+    let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
+    let regs = query_registrations(
+        deps,
+        registrar_addr.to_string(),
+        name.clone(),
+        chain_id.clone(),
+    )?;
+    let last = regs.registrations.last().unwrap();
+    let current_version = {
+        let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id.clone()));
+        current_version
+    };
+    Ok(last.version > current_version.unwrap().unwrap())
+}
