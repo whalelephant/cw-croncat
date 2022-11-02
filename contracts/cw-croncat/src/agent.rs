@@ -51,7 +51,10 @@ impl<'a> CwCroncat<'a> {
     /// Get a list of agent addresses
     pub(crate) fn query_get_agent_ids(&self, deps: Deps) -> StdResult<GetAgentIdsResponse> {
         let active: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
-        let pending: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
+        let pending: Vec<Addr> = self
+            .agent_pending_queue
+            .iter(deps.storage)?
+            .collect::<StdResult<Vec<Addr>>>()?;
 
         Ok(GetAgentIdsResponse { active, pending })
     }
@@ -163,10 +166,7 @@ impl<'a> CwCroncat<'a> {
             self.agent_active_queue.save(deps.storage, &active_agents)?;
             AgentStatus::Active
         } else {
-            let mut pending_agents = self.agent_pending_queue.load(deps.storage)?;
-            pending_agents.push(account.clone());
-            self.agent_pending_queue
-                .save(deps.storage, &pending_agents)?;
+            self.agent_pending_queue.push_back(deps.storage, &account)?;
             AgentStatus::Pending
         };
         let agent = self.agents.update(
@@ -284,13 +284,16 @@ impl<'a> CwCroncat<'a> {
         let c: Config = self.config.load(deps.storage)?;
 
         let mut active_agents: Vec<Addr> = self.agent_active_queue.load(deps.storage)?;
-        let mut pending_queue: Vec<Addr> = self.agent_pending_queue.load(deps.storage)?;
+        let mut pending_queue_iter = self.agent_pending_queue.iter(deps.storage)?;
         // Agent must be in the pending queue
         // Get the position in the pending queue
-        let agent_position = if let Some(agent_position) = pending_queue
-            .iter()
-            .position(|address| address == &info.sender)
-        {
+        let agent_position = if let Some(agent_position) = pending_queue_iter.position(|address| {
+            if let Ok(addr) = address {
+                addr == info.sender
+            } else {
+                false
+            }
+        }) {
             agent_position
         } else {
             // Sender's address does not exist in the agent pending queue
@@ -305,9 +308,7 @@ impl<'a> CwCroncat<'a> {
                     active_agents.push(info.sender.clone());
                     self.agent_active_queue.save(deps.storage, &active_agents)?;
 
-                    pending_queue.remove(agent_position);
-                    self.agent_pending_queue
-                        .save(deps.storage, &pending_queue)?;
+                    self.agent_pending_queue.pop_front(deps.storage)?;
                     self.agent_nomination_begin_time.save(deps.storage, &None)?;
                     return Ok(Response::new()
                         .add_attribute("method", "accept_nomination_agent")
@@ -329,9 +330,13 @@ impl<'a> CwCroncat<'a> {
         let kicked_agents = if agent_position as u64 <= max_index {
             // Make this agent active
             // Update state removing from pending queue
-            let kicked_agents: Vec<Addr> = pending_queue.drain(..=agent_position).collect();
-            self.agent_pending_queue
-                .save(deps.storage, &pending_queue)?;
+            let kicked_agents: Vec<Addr> = {
+                let mut kicked = Vec::with_capacity(agent_position);
+                for _ in 0..=agent_position {
+                    kicked.push(self.agent_pending_queue.pop_front(deps.storage)?.unwrap());
+                }
+                kicked
+            };
 
             // and adding to active queue
             active_agents.push(info.sender.clone());
@@ -355,10 +360,12 @@ impl<'a> CwCroncat<'a> {
 
     /// Removes the agent from the active set of agents.
     /// Withdraws all reward balances to the agent payable account id.
+    /// In case it fails to unregister pending agent try to set `from_behind` to true
     pub fn unregister_agent(
         &self,
         storage: &mut dyn Storage,
         agent_id: &Addr,
+        from_behind: Option<bool>,
     ) -> Result<Response, ContractError> {
         // Get withdraw messages, if any
         // NOTE: Since this also checks if agent exists, safe to not have redundant logic
@@ -381,10 +388,30 @@ impl<'a> CwCroncat<'a> {
         } else {
             // Agent can't be both in active and pending vector
             // Remove from the pending queue
-            let mut pending_agents: Vec<Addr> = self.agent_pending_queue.load(storage)?;
-            if let Some(index) = pending_agents.iter().position(|addr| addr == agent_id) {
-                pending_agents.remove(index);
-                self.agent_pending_queue.save(storage, &pending_agents)?;
+            let mut return_those_agents: Vec<Addr> =
+                Vec::with_capacity((self.agent_pending_queue.len(storage)? / 2) as usize);
+            if from_behind.unwrap_or(false) {
+                while let Some(addr) = self.agent_pending_queue.pop_front(storage)? {
+                    if addr.eq(agent_id) {
+                        break;
+                    } else {
+                        return_those_agents.push(addr);
+                    }
+                }
+                for ag in return_those_agents.iter().rev() {
+                    self.agent_pending_queue.push_front(storage, ag)?;
+                }
+            } else {
+                while let Some(addr) = self.agent_pending_queue.pop_back(storage)? {
+                    if addr.eq(agent_id) {
+                        break;
+                    } else {
+                        return_those_agents.push(addr);
+                    }
+                }
+                for ag in return_those_agents.iter().rev() {
+                    self.agent_pending_queue.push_back(storage, ag)?;
+                }
             }
         }
 

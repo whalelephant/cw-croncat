@@ -490,7 +490,7 @@ fn unregister_agent() {
         .unwrap();
 
     // Fails for non-exist agents
-    let unreg_msg = ExecuteMsg::UnregisterAgent {};
+    let unreg_msg = ExecuteMsg::UnregisterAgent { from_behind: None };
     let update_err = app
         .execute_contract(
             Addr::unchecked(AGENT0),
@@ -954,7 +954,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
     );
 
     // Unregister agent
-    let unreg_msg = ExecuteMsg::UnregisterAgent {};
+    let unreg_msg = ExecuteMsg::UnregisterAgent { from_behind: None };
     app.execute_contract(
         Addr::unchecked(AGENT1),
         contract_addr.clone(),
