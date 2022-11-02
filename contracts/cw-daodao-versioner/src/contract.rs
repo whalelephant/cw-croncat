@@ -3,7 +3,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
-use cw2::{get_contract_version, set_contract_version};
+use cw2::set_contract_version;
 use cw_croncat_core::msg::TaskRequest;
 use cw_croncat_core::types::{Action, Interval};
 
@@ -29,7 +29,7 @@ pub fn instantiate(
     let croncat_addr = deps.api.addr_validate(&_msg.croncat_addr)?;
 
     REGISTRAR_ADDR.save(deps.storage, &registrar_addr)?;
-    CRONCAT_ADDR.save(deps.storage, &registrar_addr)?;
+    CRONCAT_ADDR.save(deps.storage, &croncat_addr)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
 }
@@ -37,7 +37,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
@@ -49,7 +49,9 @@ pub fn execute(
         ExecuteMsg::RemoveContractVersioner { name, chain_id } => {
             remove_contract_versioner(deps, name, chain_id)
         }
-        ExecuteMsg::UpdateVersioniser { name, chain_id } => update_versioner(deps, name, chain_id),
+        ExecuteMsg::UpdateVersioniser { name, chain_id } => {
+            update_versioner(deps, env, name, chain_id)
+        }
     }
 }
 
@@ -181,18 +183,18 @@ fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> St
 
 fn update_versioner(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     name: String,
     chain_id: String,
 ) -> Result<Response, ContractError> {
-    if is_new_version_available(deps.as_ref(), name, chain_id) {
-        return create_versioner_cron_task(deps, _env, name, chain_id);
+    if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
+        return create_versioner_cron_task(deps, env, name, chain_id);
     }
     Ok(Response::new().add_attribute("action", "update_versioner"))
 }
 fn create_versioner_cron_task(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     name: String,
     chain_id: String,
 ) -> Result<Response, ContractError> {
@@ -200,7 +202,7 @@ fn create_versioner_cron_task(
     let cron_name = format!("{name}{chain_id}");
     let action = Action {
         msg: CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: _env.contract.address.to_string(),
+            contract_addr: env.contract.address.to_string(),
             msg: to_binary(&ExecuteMsg::UpdateVersioniser { name, chain_id })?,
             funds: vec![],
         }),
