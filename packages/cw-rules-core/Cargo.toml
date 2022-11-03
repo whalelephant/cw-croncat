@@ -15,7 +15,7 @@ serde-cw-value = "0.7.0"
 # For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
 generic-query = { version = "0.1.0", path = "../generic-query" }
-cw20 = { version = "0.13" }
+cw20 = { version = "0.13.4" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "1.0.0" }

@@ -8,12 +8,10 @@ use cosmwasm_std::{
     StakingMsg, StdResult, Storage,
 };
 use cw_croncat_core::msg::{
-    AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg, TaskRequest,
-    TaskResponse,
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
+    TaskRequest, TaskResponse,
 };
-use cw_croncat_core::types::{
-    Action, Agent, AgentResponse, AgentStatus, GasFraction, GenericBalance, Interval,
-};
+use cw_croncat_core::types::{Action, Agent, AgentStatus, GasFraction, GenericBalance, Interval};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{
@@ -922,5 +920,91 @@ fn test_query_get_agent_tasks() {
             msg: "Querier contract error: Generic error: Agent not registered".to_string()
         }
         .into()
+    );
+}
+
+#[test]
+fn test_last_unregistered_active_agent_promotes_first_pending() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    // Register agents
+    register_agent_exec(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
+    register_agent_exec(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY);
+
+    // Check if one is active and rest is pending
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT1)],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Unregister agent
+    let unreg_msg = ExecuteMsg::UnregisterAgent {};
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &unreg_msg,
+        &[],
+    )
+    .unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Check if agent nominated
+    let agent_res: AgentResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: AGENT2.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_res.status, AgentStatus::Nominated);
+
+    // Check in
+    app.execute_contract(
+        Addr::unchecked(AGENT2),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT2)],
+            pending: vec![Addr::unchecked(AGENT3), Addr::unchecked(AGENT4)]
+        }
     );
 }

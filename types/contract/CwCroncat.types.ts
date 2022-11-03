@@ -232,15 +232,22 @@ export interface GetBalancesResponse {
 export interface GetConfigResponse {
   agent_active_indices: [SlotType, number, number][];
   agent_fee: number;
+  agent_nomination_duration: number;
   agents_eject_threshold: number;
+  available_balance: GenericBalance;
+  cw20_whitelist: Addr[];
   cw_rules_addr: Addr;
+  gas_action_fee: number;
+  gas_base_fee: number;
   gas_fraction: GasFraction;
+  limit: number;
   min_tasks_per_agent: number;
   native_denom: string;
   owner_id: Addr;
   paused: boolean;
   proxy_callback_gas: number;
   slot_granularity_time: number;
+  staked_balance: GenericBalance;
   [k: string]: unknown;
 }
 export interface GasFraction {
@@ -283,6 +290,8 @@ export interface GetSlotIdsResponse {
 }
 export interface TaskResponse {
   actions: ActionForEmpty[];
+  amount_for_one_task_cw20: Cw20CoinVerified[];
+  amount_for_one_task_native: Coin[];
   boundary?: Boundary | null;
   funds_withdrawn_recurring: Coin[];
   interval: Interval;
@@ -465,6 +474,7 @@ export interface GetStateResponse {
   agent_active_queue: Addr[];
   agent_nomination_begin_time?: Timestamp | null;
   agent_pending_queue: Addr[];
+  agents: AgentResponse[];
   balancer_mode: RoundRobinBalancerModeResponse;
   balances: BalancesResponse[];
   block_slots: SlotResponse[];
