@@ -8,12 +8,10 @@ use cosmwasm_std::{
     StakingMsg, StdResult, Storage,
 };
 use cw_croncat_core::msg::{
-    AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg, TaskRequest,
-    TaskResponse,
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
+    TaskRequest, TaskResponse,
 };
-use cw_croncat_core::types::{
-    Action, Agent, AgentResponse, AgentStatus, GasFraction, GenericBalance, Interval,
-};
+use cw_croncat_core::types::{Action, Agent, AgentStatus, GasFraction, GenericBalance, Interval};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{

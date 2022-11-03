@@ -1,5 +1,5 @@
 use crate::types::{
-    Action, AgentResponse, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
+    Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
@@ -165,20 +165,32 @@ pub enum QueryMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
-    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
     pub agents_eject_threshold: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
+    pub agent_nomination_duration: u16,
+
+    pub cw_rules_addr: Addr,
+
     pub agent_fee: u64,
     pub gas_fraction: GasFraction,
+    pub gas_base_fee: u64,
+    pub gas_action_fee: u64,
     pub proxy_callback_gas: u32,
     pub slot_granularity_time: u64,
+
+    pub cw20_whitelist: Vec<Addr>,
     pub native_denom: String,
-    pub cw_rules_addr: Addr,
+    pub available_balance: GenericBalance, // tasks + rewards balances
+    pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
+
+    // The default amount of tasks to query
+    pub limit: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -198,6 +210,17 @@ pub struct GetWalletBalancesResponse {
 pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
     pub pending: Vec<Addr>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AgentResponse {
+    // This field doesn't exist in the Agent struct and is the only one that differs
+    pub status: AgentStatus,
+    pub payable_account_id: Addr,
+    pub balance: GenericBalance,
+    pub total_tasks_executed: u64,
+    pub last_executed_slot: u64,
+    pub register_start: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -250,12 +273,18 @@ pub struct TaskRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskResponse {
     pub task_hash: String,
+
     pub owner_id: Addr,
+
     pub interval: Interval,
     pub boundary: Option<Boundary>,
+
     pub stop_on_fail: bool,
     pub total_deposit: Vec<Coin>,
     pub total_cw20_deposit: Vec<Cw20CoinVerified>,
+    pub amount_for_one_task_native: Vec<Coin>,
+    pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
+
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Rule>>,
     pub funds_withdrawn_recurring: Vec<Coin>,
@@ -275,6 +304,7 @@ pub struct CwCroncatResponse {
 
     pub agent_active_queue: Vec<Addr>,
     pub agent_pending_queue: Vec<Addr>,
+    pub agents: Vec<AgentResponse>,
 
     pub tasks: Vec<TaskResponse>,
     pub task_total: Uint64,
@@ -360,12 +390,14 @@ impl From<Task> for TaskResponse {
             owner_id: task.owner_id,
             interval: task.interval,
             boundary,
+            funds_withdrawn_recurring: task.funds_withdrawn_recurring,
             stop_on_fail: task.stop_on_fail,
             total_deposit: task.total_deposit.native,
             total_cw20_deposit: task.total_deposit.cw20,
+            amount_for_one_task_native: task.amount_for_one_task.native,
+            amount_for_one_task_cw20: task.amount_for_one_task.cw20,
             actions: task.actions,
             rules: task.rules,
-            funds_withdrawn_recurring: task.funds_withdrawn_recurring,
         }
     }
 }

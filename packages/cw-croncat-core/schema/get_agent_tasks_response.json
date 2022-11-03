@@ -666,7 +666,7 @@
       }
     },
     "Interval": {
-      "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
+      "description": "Defines the spacing of execution NOTES: - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
       "oneOf": [
         {
           "description": "For when this is a non-recurring future scheduled TXN",
@@ -903,6 +903,8 @@
       "type": "object",
       "required": [
         "actions",
+        "amount_for_one_task_cw20",
+        "amount_for_one_task_native",
         "funds_withdrawn_recurring",
         "interval",
         "owner_id",
@@ -916,6 +918,18 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/Action_for_Empty"
+          }
+        },
+        "amount_for_one_task_cw20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "amount_for_one_task_native": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
           }
         },
         "boundary": {
