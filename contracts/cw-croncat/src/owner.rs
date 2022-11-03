@@ -30,6 +30,13 @@ impl<'a> CwCroncat<'a> {
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity_time: c.slot_granularity_time,
             cw_rules_addr: c.cw_rules_addr,
+            agent_nomination_duration: c.agent_nomination_duration,
+            gas_base_fee: c.gas_base_fee,
+            gas_action_fee: c.gas_action_fee,
+            cw20_whitelist: c.cw20_whitelist,
+            available_balance: c.available_balance,
+            staked_balance: c.staked_balance,
+            limit: c.limit,
         })
     }
 
@@ -272,6 +279,7 @@ impl<'a> CwCroncat<'a> {
     pub(crate) fn get_state(
         &self,
         deps: Deps,
+        env: Env,
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<CwCroncatResponse> {
@@ -279,6 +287,20 @@ impl<'a> CwCroncat<'a> {
         let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
         let from_index_unwrap = from_index.unwrap_or_default();
         let limit_unwrap = limit.unwrap_or(default_limit).min(size);
+
+        let mut agents = vec![];
+        for agent in self
+            .agents
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index_unwrap as usize)
+            .take(limit_unwrap as usize)
+        {
+            agents.push(
+                self.query_get_agent(deps, env.clone(), agent.unwrap().0.to_string())
+                    .unwrap()
+                    .unwrap(),
+            );
+        }
 
         let time_slots: Vec<SlotResponse> = self
             .time_slots
@@ -350,7 +372,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         let time_slots_rules: Vec<SlotWithRuleResponse> = self
-            .time_slots_rules
+            .time_map_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
@@ -364,7 +386,7 @@ impl<'a> CwCroncat<'a> {
             .collect();
 
         let block_slots_rules: Vec<SlotWithRuleResponse> = self
-            .block_slots_rules
+            .block_map_rules
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
@@ -386,6 +408,7 @@ impl<'a> CwCroncat<'a> {
                 .iter(deps.storage)?
                 .take(50)
                 .collect::<StdResult<Vec<cosmwasm_std::Addr>>>()?,
+            agents,
 
             tasks: self.query_get_tasks(deps, None, None)?,
             task_total: Uint64::from(self.task_total.load(deps.storage)?),

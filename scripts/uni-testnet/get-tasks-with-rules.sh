@@ -11,5 +11,5 @@ else
     CONTRACT=$1
 fi
 
-GET_TASKS='{"get_tasks":{}}'
+GET_TASKS='{"get_tasks_with_rules":{}}'
 junod query wasm contract-state smart $CONTRACT "$GET_TASKS" $NODE

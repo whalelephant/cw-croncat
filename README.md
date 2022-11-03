@@ -47,15 +47,13 @@ docker run --rm -v "$(pwd)":/code \
 
 There are some scripts for testnet, mainnet and local node
 ```bash
-cd contracts/cw-croncat/scripts
+cd scripts/uni-testnet
 ```
 
 To build and deploy to testnet:
 ```bash
-./testnet_deploy.sh owner agent user
+./start.sh -w -c
 ```
-`owner`, `agent`, `user` are wallets that should have some ujunox.
-In this script `owner` deploys optimized code to the chain and instantiates the contract, `user` creates a simple task, `agent` registers as an agent and executes this task. If run without parameters, this script will create new wallets `cw-croncat-test-owner`, `cw-croncat-test-agent`, `cw-croncat-test-user`.
 
 Save the address of the created contract:
 ```bash
@@ -64,13 +62,13 @@ CRONCAT_ADDRESS=juno123somecontract
 
 You can create a reccuring task and see it in the list of tasks:
 ```bash
-./testnet_create_reccuring_task.sh $CRONCAT_ADDRESS user
-./testnet_get_tasks.sh $CRONCAT_ADDRESS
+./create_recurring_task.sh $CRONCAT_ADDRESS user
+./get-tasks.sh $CRONCAT_ADDRESS
 ```
 
 For more examples for registering and unregistering agent, executing task and querying the state see other [scripts](https://github.com/CronCats/cw-croncat/tree/main/contracts/cw-croncat/scripts).
 
-If you want to run croncat manager locally, see [instructions](https://github.com/CronCats/cw-croncat/blob/main/contracts/cw-croncat/scripts/README.md) for local setup.
+If you want to run croncat manager locally, see [instructions](https://github.com/CronCats/cw-croncat/blob/main/contracts/cw-croncat/scripts/local/README.md) for local setup.
 
 ### Agent
 
