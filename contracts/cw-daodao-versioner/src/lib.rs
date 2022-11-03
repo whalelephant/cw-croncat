@@ -1,4 +1,5 @@
 pub mod contract;
+mod daodao;
 mod error;
 mod msg;
 mod state;

@@ -3,9 +3,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    CreateContractVersioner { name: String, chain_id: String },
-    RemoveContractVersioner { name: String, chain_id: String },
-    UpdateVersioniser { name: String, chain_id: String },
+    CreateContractVersioner {
+        daodao_addr: String,
+        name: String,
+        chain_id: String,
+    },
+    RemoveContractVersioner {
+        name: String,
+        chain_id: String,
+    },
+    UpdateVersioniser {
+        daodao_addr: String,
+        name: String,
+        chain_id: String,
+    },
     QueryResult {},
 }
 
