@@ -10,5 +10,5 @@ schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
 serde-cw-value = "0.7.0"
-generic-query = { version = "0.1.0", path = "../generic-query"}
+generic-query = { version = "0.1.1", path = "../generic-query"}
 thiserror = { version = "1.0" }
