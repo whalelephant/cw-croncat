@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    to_binary, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::TaskRequest;
@@ -43,14 +44,12 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::QueryResult {} => query_result(deps, info),
-        ExecuteMsg::CreateContractVersioner {
+        ExecuteMsg::CreateVersioner {
             daodao_addr,
             name,
             chain_id,
-        } => create_contract_versioner(deps, env, daodao_addr, name, chain_id),
-        ExecuteMsg::RemoveContractVersioner { name, chain_id } => {
-            remove_contract_versioner(deps, name, chain_id)
-        }
+        } => create_versioner(deps, env, daodao_addr, name, chain_id, info.funds),
+        ExecuteMsg::RemoveVersioner { name, chain_id } => remove_versioner(deps, name, chain_id),
         ExecuteMsg::UpdateVersioner {
             daodao_addr,
             name,
@@ -109,19 +108,20 @@ fn query_registration(
     let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
         registrar_address,
         &RegistryQueryMsg::GetRegistration {
-            name,
+            contract_name: name,
             chain_id,
             version,
         },
     )?;
     Ok(res)
 }
-fn create_contract_versioner(
+fn create_versioner(
     deps: DepsMut,
     env: Env,
     daodao_addr: String,
     name: String,
     chain_id: String,
+    funds: Vec<Coin>,
 ) -> Result<Response, ContractError> {
     if VERSION_MAP
         .may_load(deps.storage, (&name, &chain_id))?
@@ -145,15 +145,23 @@ fn create_contract_versioner(
     )?;
 
     //create a croncat task for version check
-    create_versioner_cron_task(deps, env, daodao_addr, name.clone(), chain_id.clone()).unwrap();
+    let resp = create_versioner_cron_task(
+        deps,
+        env,
+        daodao_addr,
+        name.clone(),
+        chain_id.clone(),
+        funds,
+    )
+    .unwrap();
 
-    Ok(Response::new()
-        .add_attribute("action", "create_contract_versioner")
+    Ok(resp
+        .add_attribute("action", "create_versioner")
         .add_attribute("contract_name", name)
         .add_attribute("chain_id", chain_id))
 }
 
-fn remove_contract_versioner(
+fn remove_versioner(
     deps: DepsMut,
     name: String,
     chain_id: String,
@@ -224,9 +232,10 @@ fn create_versioner_cron_task(
     daodao_addr: String,
     name: String,
     chain_id: String,
+    funds: Vec<Coin>,
 ) -> Result<Response, ContractError> {
     let croncat_addr = CRONCAT_ADDR.load(deps.storage)?;
-    let cron_name = format!("{name}{chain_id}");
+    //let cron_name = format!("{name}{chain_id}");
     let action = Action {
         msg: CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
@@ -235,13 +244,13 @@ fn create_versioner_cron_task(
                 name,
                 chain_id,
             })?,
-            funds: vec![],
+            funds: funds.clone(),
         }),
         gas_limit: None,
     };
 
     let task_request = TaskRequest {
-        interval: Interval::Cron(cron_name),
+        interval: Interval::Once,
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
@@ -249,10 +258,12 @@ fn create_versioner_cron_task(
         cw20_coins: vec![],
     };
 
+    let cronmsg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task: task_request };
+
     let msg = WasmMsg::Execute {
         contract_addr: croncat_addr.to_string(),
-        msg: to_binary(&task_request)?,
-        funds: vec![],
+        msg: to_binary(&cronmsg)?,
+        funds,
     };
     Ok(Response::new()
         .add_attribute("action", "create_versioner_cron_task")

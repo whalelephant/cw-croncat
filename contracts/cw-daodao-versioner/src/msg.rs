@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    CreateContractVersioner {
+    CreateVersioner {
         daodao_addr: String,
         name: String,
         chain_id: String,
     },
-    RemoveContractVersioner {
+    RemoveVersioner {
         name: String,
         chain_id: String,
     },
@@ -45,7 +45,7 @@ pub mod dao_registry {
             /// If version provided, tries to find given version. Otherwise returns
             /// the latest version registered.
             GetRegistration {
-                name: String,
+                contract_name: String,
                 chain_id: String,
                 version: Option<String>,
             },
