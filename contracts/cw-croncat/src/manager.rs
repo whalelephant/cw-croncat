@@ -3,11 +3,11 @@ use crate::error::ContractError;
 use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
+    from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
-use cw_rules_core::msg::QueryConstruct;
+use cw_rules_core::msg::{QueryConstruct, RuleResponse};
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -135,7 +135,7 @@ impl<'a> CwCroncat<'a> {
         //     let mut rule_success: bool = false;
         //     // let mut previous_msg: Option<Binary>;
         //     for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
-        //         let rule_res: RuleResponse<Option<Binary>> = deps
+        //         let rule_res: RuleResponse = deps
         //             .querier
         //             .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
         //         println!("{:?}", rule_res);
@@ -216,33 +216,34 @@ impl<'a> CwCroncat<'a> {
             .may_load(deps.storage, task_hash.as_bytes())?;
         let task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
-        let task_ready = self.task_with_rule_ready(task.interval, deps.as_ref(), hash, &env)?;
+        let task_ready =
+            self.task_with_rule_ready(task.interval.clone(), deps.as_ref(), hash, &env)?;
         if !task_ready {
             return Err(ContractError::CustomError {
                 val: "Task is not ready".to_string(),
             });
         }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-        let rules = if let Some(rules) = task.rules {
+        let rules = if let Some(rules) = task.rules.clone() {
             rules
         } else {
             // TODO: else should be unreachable
             return Err(ContractError::NoRulesForThisTask { task_hash });
         };
         // Check rules
-        let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
+        let rules_res: RuleResponse = deps.querier.query_wasm_smart(
             &cfg.cw_rules_addr,
             &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { rules }),
         )?;
-        if !res {
+        if !rules_res.result {
             return Err(ContractError::RulesNotReady {
-                index: idx.unwrap(),
+                index: from_binary(&rules_res.data.unwrap())?,
             });
         };
 
         // Add submessages for all actions
         let next_idx = self.rq_next_id(deps.storage)?;
-        let mut task = self.tasks_with_rules.load(deps.storage, hash)?;
+        let mut task = task;
         let mut agent = agent;
         agent.update(env.block.height);
         let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;

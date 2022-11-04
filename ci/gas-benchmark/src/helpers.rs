@@ -120,9 +120,9 @@ where
         .res
         .data
         .ok_or_else(|| anyhow::anyhow!("No result from query_balance"))?;
-    let query_res: RuleResponse<Option<Binary>> = serde_json::from_slice(&res_bin)?;
+    let query_res: RuleResponse = serde_json::from_slice(&res_bin)?;
     let balance_bin: Binary = query_res
-        .1
+        .data
         .ok_or_else(|| anyhow::anyhow!("No balance from query"))?;
     let balance: cosmwasm_std::Coin = serde_json::from_slice(balance_bin.as_slice())?;
 

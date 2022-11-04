@@ -11,7 +11,7 @@ use cosmwasm_std::{
     QueryRequest, Response, StdError, StdResult, Uint128, WasmQuery,
 };
 use cw2::set_contract_version;
-use cw20::{Balance, BalanceResponse};
+use cw20::{Balance, BalanceResponse, Cw20CoinVerified};
 use cw721::Cw721QueryMsg::OwnerOf;
 use cw721::OwnerOfResponse;
 use smart_query::SmartQueryHead;
@@ -99,21 +99,20 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
     Ok(Response::new().add_attribute("method", "query_result"))
 }
 
-fn query_get_balance(
-    deps: Deps,
-    address: String,
-    denom: String,
-) -> StdResult<RuleResponse<Option<Binary>>> {
+fn query_get_balance(deps: Deps, address: String, denom: String) -> StdResult<RuleResponse> {
     let valid_addr = deps.api.addr_validate(&address)?;
     let coin = deps.querier.query_balance(valid_addr, denom)?;
-    Ok((true, to_binary(&coin).ok()))
+    Ok(RuleResponse {
+        result: true,
+        data: Some(to_binary(&coin)?),
+    })
 }
 
 fn query_get_cw20_balance(
     deps: Deps,
     cw20_contract: String,
     address: String,
-) -> StdResult<RuleResponse<Option<Binary>>> {
+) -> StdResult<RuleResponse> {
     let valid_cw20 = deps.api.addr_validate(&cw20_contract)?;
     let valid_address = deps.api.addr_validate(&address)?;
     let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
@@ -123,32 +122,45 @@ fn query_get_cw20_balance(
         },
     )?;
     let coin = coin(balance_response.balance.into(), cw20_contract);
-    Ok((true, to_binary(&coin).ok()))
+    Ok(RuleResponse {
+        result: true,
+        data: Some(to_binary(&coin)?),
+    })
 }
 
 fn query_has_balance_gte(
     deps: Deps,
     address: String,
     required_balance: Balance,
-) -> StdResult<RuleResponse<Option<Binary>>> {
+) -> StdResult<RuleResponse> {
     let valid_address = deps.api.addr_validate(&address)?;
+    let balance;
     let res = match required_balance {
         Balance::Native(required_native) => {
             let balances = deps.querier.query_all_balances(valid_address)?;
             let required_vec = required_native.into_vec();
-            required_vec.iter().all(|required| {
+            let res = required_vec.iter().all(|required| {
                 required.amount == Uint128::zero() || has_coins(&balances, required)
-            })
+            });
+            balance = Balance::from(balances);
+            res
         }
         Balance::Cw20(required_cw20) => {
             let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
-                required_cw20.address,
+                required_cw20.address.clone(),
                 &cw20::Cw20QueryMsg::Balance { address },
             )?;
+            balance = Balance::Cw20(Cw20CoinVerified {
+                address: required_cw20.address,
+                amount: balance_response.balance,
+            });
             balance_response.balance >= required_cw20.amount
         }
     };
-    Ok((res, None))
+    Ok(RuleResponse {
+        result: res,
+        data: Some(to_binary(&balance)?),
+    })
 }
 
 fn query_check_owner_nft(
@@ -156,7 +168,7 @@ fn query_check_owner_nft(
     address: String,
     nft_address: String,
     token_id: String,
-) -> StdResult<RuleResponse<Option<Binary>>> {
+) -> StdResult<RuleResponse> {
     let valid_nft = deps.api.addr_validate(&nft_address)?;
     let res: OwnerOfResponse = deps.querier.query_wasm_smart(
         valid_nft,
@@ -165,7 +177,10 @@ fn query_check_owner_nft(
             include_expired: None,
         },
     )?;
-    Ok((address == res.owner, None))
+    Ok(RuleResponse {
+        result: address == res.owner,
+        data: Some(to_binary(&res)?),
+    })
 }
 
 fn query_dao_proposal_status(
@@ -173,12 +188,15 @@ fn query_dao_proposal_status(
     dao_address: String,
     proposal_id: u64,
     status: Status,
-) -> StdResult<RuleResponse<Option<Binary>>> {
+) -> StdResult<RuleResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
-    let res: ProposalResponse = deps
+    let resp: ProposalResponse = deps
         .querier
         .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
-    Ok((res.proposal.status == status, None))
+    Ok(RuleResponse {
+        result: resp.proposal.status == status,
+        data: None,
+    })
 }
 
 // // // GOAL:
@@ -194,7 +212,7 @@ fn query_dao_proposal_status(
 //     let msg2 = QueryMsg::GetBoolBinary {
 //         msg: Some(to_binary(&res1)?),
 //     };
-//     let res2: RuleResponse<Option<Binary>> = deps
+//     let res2: RuleResponse = deps
 //         .querier
 //         .query_wasm_smart(&env.contract.address, &msg2)?;
 
@@ -203,7 +221,7 @@ fn query_dao_proposal_status(
 //     // let msg = QueryMsg::GetInputBoolBinary {
 //     //     msg: Some(to_binary(&res2)?),
 //     // };
-//     // let res: RuleResponse<Option<Binary>> =
+//     // let res: RuleResponse =
 //     //     deps.querier.query_wasm_smart(&env.contract.address, &msg)?;
 
 //     // Format something to read results
@@ -212,9 +230,13 @@ fn query_dao_proposal_status(
 // }
 
 // create a smart query into binary
-fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>)> {
+fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<RuleResponse> {
+    let mut res = RuleResponse {
+        result: true,
+        data: None,
+    };
     for (idx, rule) in rules.into_iter().enumerate() {
-        let res = match rule {
+        res = match rule {
             Rule::HasBalanceGte(HasBalanceGte {
                 address,
                 required_balance,
@@ -232,14 +254,20 @@ fn query_construct(deps: Deps, rules: Vec<Rule>) -> StdResult<(bool, Option<u64>
             Rule::GenericQuery(query) => generic_query(deps, query),
             Rule::SmartQuery(query) => smart_query(deps, query),
         }?;
-        if !res.0 {
-            return Ok((false, Some(idx as u64)));
+        if !res.result {
+            return Ok(RuleResponse {
+                result: res.result,
+                data: Some(to_binary(&(idx as u64))?),
+            });
         }
     }
-    Ok((true, None))
+    Ok(RuleResponse {
+        result: true,
+        data: res.data,
+    })
 }
 
-fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse<Option<Binary>>> {
+fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse> {
     let json_val = cw_value_query_wasm_smart(deps, query.contract_addr, query.msg)?;
     let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
         .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
@@ -251,18 +279,24 @@ fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse<Opti
         let smart_json_val = cw_value_query_wasm_smart(deps, smart.contract_addr, smart.msg)?;
         head_val = find_value(&smart_json_val, smart.gets)?;
     }
-    let res = query.ordering.val_cmp(&head_val, &json_rhs)?;
-    Ok((res, Some(to_binary(&head_val)?)))
+    let result = query.ordering.val_cmp(&head_val, &json_rhs)?;
+    Ok(RuleResponse {
+        result,
+        data: Some(to_binary(&head_val)?),
+    })
 }
 
-fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse<Option<Binary>>> {
+fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse> {
     let json_val = cw_value_query_wasm_smart(deps, query.contract_addr, query.msg)?;
     let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
         .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
     let value = find_value(&json_val, query.gets)?;
 
-    let res = query.ordering.val_cmp(&value, &json_rhs)?;
-    Ok((res, Some(to_binary(&value)?)))
+    let result = query.ordering.val_cmp(&value, &json_rhs)?;
+    Ok(RuleResponse {
+        result,
+        data: Some(to_binary(&value)?),
+    })
 }
 
 fn cw_value_query_wasm_smart(

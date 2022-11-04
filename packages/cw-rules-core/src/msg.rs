@@ -41,7 +41,12 @@ pub enum QueryMsg {
 pub struct QueryMultiResponse {
     pub data: Vec<String>,
 }
-pub type RuleResponse<T> = (bool, T);
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct RuleResponse<T = Option<cosmwasm_std::Binary>> {
+    pub result: bool,
+    pub data: T,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {

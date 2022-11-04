@@ -72,9 +72,8 @@ fn test_generic() {
         contract_addr: cw4_addr.into_string(),
     };
     let msg = QueryMsg::GenericQuery(generic_query);
-    let res: RuleResponse<Option<Binary>> =
-        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res.0);
+    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.result);
 }
 
 #[test]
@@ -139,8 +138,8 @@ fn test_generic_json_repr() {
         msg: Binary(msg),
     }
     .into();
-    let res: RuleResponse<Option<Binary>> = app.wrap().query(&request).unwrap();
-    assert!(res.0);
+    let res: RuleResponse = app.wrap().query(&request).unwrap();
+    assert!(res.result);
 }
 
 #[test]
@@ -198,7 +197,6 @@ fn test_generic_bigint() {
     //     pub total_supply: Uint128,
     // }
     let msg = QueryMsg::GenericQuery(generic_query);
-    let res: RuleResponse<Option<Binary>> =
-        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res.0);
+    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.result);
 }

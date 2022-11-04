@@ -91,10 +91,12 @@ fn test_smart() {
     };
 
     let msg = QueryMsg::SmartQuery(smart_query);
-    let res: RuleResponse<Option<Binary>> =
-        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert_eq!(
         res,
-        (true, Some(to_binary(&Uint128::from(2022_u128)).unwrap()))
+        RuleResponse {
+            result: true,
+            data: Some(to_binary(&Uint128::from(2022_u128)).unwrap())
+        }
     )
 }

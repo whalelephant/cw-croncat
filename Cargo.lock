@@ -790,7 +790,7 @@ dependencies = [
 
 [[package]]
 name = "cw-rules-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
