@@ -1,6 +1,6 @@
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
+use crate::helpers::{proxy_call_submsgs_price, replace_placeholders, ReplyMsgParser};
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
     from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
@@ -243,13 +243,19 @@ impl<'a> CwCroncat<'a> {
 
         // Add submessages for all actions
         let next_idx = self.rq_next_id(deps.storage)?;
-        let mut task = task;
+        // This may be different to the one we keep in the storage
+        // due to the insertable messages
+        let executed_task = { replace_placeholders(rules_res, task) };
         let mut agent = agent;
         agent.update(env.block.height);
-        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
-        task.total_deposit.native.find_checked_sub(&fee_price)?;
+        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&executed_task, cfg, next_idx)?;
         agent.balance.native.find_checked_add(&fee_price)?;
-        self.tasks_with_rules.save(deps.storage, hash, &task)?;
+        self.tasks_with_rules
+            .update(deps.storage, hash, |task| -> Result<_, ContractError> {
+                let mut task = task.ok_or(ContractError::NoTaskFound {})?;
+                task.total_deposit.native.find_checked_sub(&fee_price)?;
+                Ok(task)
+            })?;
         self.agents.save(deps.storage, &info.sender, &agent)?;
         // Keep track for later scheduling
         self.rq_push(
@@ -268,7 +274,7 @@ impl<'a> CwCroncat<'a> {
         let final_res = Response::new()
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
-            .add_attribute("task_hash", task.to_hash())
+            .add_attribute("task_hash", executed_task.to_hash())
             .add_attribute("task_with_rules", "true".to_string())
             .add_submessages(sub_msgs);
         Ok(final_res)

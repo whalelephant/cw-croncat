@@ -1,4 +1,4 @@
-use cosmwasm_std::{coin, coins, Addr,  Empty, StdResult};
+use cosmwasm_std::{coin, coins, Addr, Empty, StdResult};
 use cw721_base::MintMsg;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use cw_rules_core::types::CheckOwnerOfNft;

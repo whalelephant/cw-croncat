@@ -3,10 +3,11 @@ use crate::state::{Config, QueueItem};
 // use cosmwasm_std::StdError;
 // use thiserror::Error;
 
+use crate::tasks::RULE_RES_PLACEHOLDER;
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    coin, to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg,
+    coin, to_binary, Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg,
     SubMsgResult, WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -14,6 +15,7 @@ use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
 use cw_croncat_core::types::{calculate_required_amount, AgentStatus};
 pub use cw_croncat_core::types::{GenericBalance, Task};
+use cw_rules_core::msg::RuleResponse;
 //use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -238,7 +240,7 @@ impl<'a> CwCroncat<'a> {
     }
 }
 
-/// Generate submsgs for this proxy call and
+/// Generate submsgs for this proxy call and the price for it
 pub(crate) fn proxy_call_submsgs_price(
     task: &Task,
     cfg: Config,
@@ -288,4 +290,28 @@ impl CwTemplateContract {
     //     let res: CountResponse = QuerierWrapper::<CQ>::new(querier).query(&query)?;
     //     Ok(res)
     // }
+}
+
+/// Replace `RULE_RES_PLACEHOLDER` to the result value from the rules
+pub fn replace_placeholders(rules_res: RuleResponse, task: Task) -> Task {
+    if let Some(insertable_data) = rules_res.data {
+        let mut task = task;
+        task.actions.iter_mut().for_each(|action| {
+            if let CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = &mut action.msg {
+                let position = msg
+                    .windows(RULE_RES_PLACEHOLDER.len())
+                    .position(|window| window == RULE_RES_PLACEHOLDER);
+                if let Some(pos) = position {
+                    let mut new_msg = Vec::with_capacity(msg.len() + insertable_data.len());
+                    new_msg.extend_from_slice(&msg[..pos]);
+                    new_msg.extend_from_slice(insertable_data.as_slice());
+                    new_msg.extend_from_slice(&msg[pos + RULE_RES_PLACEHOLDER.len()..]);
+                    *msg = Binary::from(new_msg);
+                }
+            }
+        });
+        task
+    } else {
+        task
+    }
 }
