@@ -51,7 +51,7 @@ pub fn execute(
         ExecuteMsg::RemoveContractVersioner { name, chain_id } => {
             remove_contract_versioner(deps, name, chain_id)
         }
-        ExecuteMsg::UpdateVersioniser {
+        ExecuteMsg::UpdateVersioner {
             daodao_addr,
             name,
             chain_id,
@@ -230,7 +230,7 @@ fn create_versioner_cron_task(
     let action = Action {
         msg: CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
-            msg: to_binary(&ExecuteMsg::UpdateVersioniser {
+            msg: to_binary(&ExecuteMsg::UpdateVersioner {
                 daodao_addr,
                 name,
                 chain_id,

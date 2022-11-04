@@ -12,7 +12,7 @@ pub enum ExecuteMsg {
         name: String,
         chain_id: String,
     },
-    UpdateVersioniser {
+    UpdateVersioner {
         daodao_addr: String,
         name: String,
         chain_id: String,
