@@ -1,10 +1,9 @@
-use cosmwasm_std::Binary;
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 use cw_rules_core::{
-    msg::{ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse},
+    msg::{ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse},
     types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Rule},
 };
 
@@ -26,50 +25,34 @@ fn main() {
     export_schema(&schema_for!(CheckOwnerOfNft), &out_dir);
     export_schema(&schema_for!(CheckProposalStatus), &out_dir);
 
+    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "RuleResponse");
     export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "RuleResponse",
-    );
-    export_schema_with_title(
-        &schema_for!((bool, Option<u64>)),
+        &schema_for!(RuleResponse),
         &out_dir,
         "QueryConstructResponse",
     );
 
+    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "GetBalanceResponse");
     export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "GetBalanceResponse",
-    );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
+        &schema_for!(RuleResponse),
         &out_dir,
         "GetCw20BalanceResponse",
     );
     export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
+        &schema_for!(RuleResponse),
         &out_dir,
         "CheckOwnerOfNftResponse",
     );
     export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
+        &schema_for!(RuleResponse),
         &out_dir,
         "HasBalanceGteResponse",
     );
     export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
+        &schema_for!(RuleResponse),
         &out_dir,
         "CheckProposalStatusResponse",
     );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "GenericQueryResponse",
-    );
-    export_schema_with_title(
-        &schema_for!((bool, Option<Binary>)),
-        &out_dir,
-        "SmartQueryResponse",
-    );
+    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "GenericQueryResponse");
+    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "SmartQueryResponse");
 }

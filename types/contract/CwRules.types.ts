@@ -4,15 +4,23 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-export type CheckOwnerOfNftResponse = [boolean, Binary | null];
 export type Binary = string;
+export interface CheckOwnerOfNftResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
 export interface CheckOwnerOfNft {
   address: string;
   nft_address: string;
   token_id: string;
   [k: string]: unknown;
 }
-export type CheckProposalStatusResponse = [boolean, Binary | null];
+export interface CheckProposalStatusResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
 export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
 export interface CheckProposalStatus {
   dao_address: string;
@@ -25,10 +33,26 @@ export type ExecuteMsg = {
     [k: string]: unknown;
   };
 };
-export type GenericQueryResponse = [boolean, Binary | null];
-export type GetBalanceResponse = [boolean, Binary | null];
-export type GetCw20BalanceResponse = [boolean, Binary | null];
-export type HasBalanceGteResponse = [boolean, Binary | null];
+export interface GenericQueryResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface GetBalanceResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface GetCw20BalanceResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface HasBalanceGteResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
 export type Balance = {
   native: NativeBalance;
 } | {
@@ -55,7 +79,11 @@ export interface Cw20CoinVerified {
 export interface InstantiateMsg {
   [k: string]: unknown;
 }
-export type QueryConstructResponse = [boolean, number | null];
+export interface QueryConstructResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
 export type Rule = {
   has_balance_gte: HasBalanceGte;
 } | {
@@ -130,5 +158,13 @@ export interface QueryMultiResponse {
   data: string[];
   [k: string]: unknown;
 }
-export type RuleResponse = [boolean, Binary | null];
-export type SmartQueryResponse = [boolean, Binary | null];
+export interface RuleResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface SmartQueryResponse {
+  data?: Binary | null;
+  result: boolean;
+  [k: string]: unknown;
+}
