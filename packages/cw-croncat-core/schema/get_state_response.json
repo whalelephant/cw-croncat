@@ -1476,7 +1476,8 @@
         "unit_above_equal",
         "unit_below",
         "unit_below_equal",
-        "equal"
+        "equal",
+        "not_equal"
       ]
     },
     "VoteOption": {

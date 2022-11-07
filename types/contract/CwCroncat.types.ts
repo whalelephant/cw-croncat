@@ -180,7 +180,7 @@ export type ValueIndex = {
 } | {
   index: number;
 };
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
 export type SmartQueries = SmartQuery[];
 export interface Croncat {
   Agent?: Agent | null;
