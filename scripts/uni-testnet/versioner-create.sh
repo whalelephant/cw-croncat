@@ -13,7 +13,7 @@ cd $SC_PATH
 echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 
-VERSIONER_ADDRESS="juno1nhvl8vk6hwxkc2yx0k2552z4842c72fmtl0vfwwl7w27q0rr27vqh3zykw"
+VERSIONER_ADDRESS="juno152eaw0qxvvvyvzyuvuc2h4r4yn69z77npjsvxg353teyl0vyrefsfs347r"
 DAODAO_ADDR="juno16jy8py9c2jsu08rwjl534exss7nwp6p78et73wuhh5lxhrddvl8q4vz55q"
 
 echo $DAODAO_ADDR

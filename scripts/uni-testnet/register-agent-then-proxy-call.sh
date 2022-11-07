@@ -1,8 +1,16 @@
-#!/bin/bash
-set -e
+#!/bin/sh
+source ~/.profile
+SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
+SC_PATH="$(cd -P "$(dirname "${SH_PATH}")/../..";pwd)"
+SCRIPTS_PATH="$(cd -P "$(dirname "${SH_PATH}")/..";pwd)"
 
-cd "$(dirname "$0")"
-. ./init-vars.sh
+echo "CONTRACT-DIR: $SC_PATH"
+echo "SCRIPT-DIR: $SH_DIR"
+cd $SC_PATH
+
+echo "Initializing vars"
+. $SH_DIR/base/init-vars.sh
 
 if [ -z "$1" ]
 then

@@ -1,14 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    WasmMsg,
+    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::TaskRequest;
 use cw_croncat_core::types::{Action, Interval};
 
-use crate::daodao::create_daodao_proposal;
+//use crate::daodao::create_daodao_proposal;
 use crate::error::ContractError;
 use crate::msg::dao_registry::query::*;
 use crate::msg::*;
@@ -209,21 +208,21 @@ fn _create_daodao_proposal(
     todo!()
 }
 fn update_versioner(
-    deps: DepsMut,
-    env: Env,
-    daodao_addr: String,
-    name: String,
-    chain_id: String,
+    _deps: DepsMut,
+    _env: Env,
+    _daodao_addr: String,
+    _name: String,
+    _chain_id: String,
 ) -> Result<Response, ContractError> {
     //If new version is available, create proposal
-    if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
-        return create_daodao_proposal(
-            daodao_addr,
-            name,
-            chain_id,
-            env.contract.address.to_string(),
-        );
-    }
+    // if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
+    //     return create_daodao_proposal(
+    //         daodao_addr,
+    //         name,
+    //         chain_id,
+    //         env.contract.address.to_string(),
+    //     );
+    // }
     Ok(Response::new().add_attribute("action", "update_versioner"))
 }
 fn create_versioner_cron_task(
@@ -237,15 +236,16 @@ fn create_versioner_cron_task(
     let croncat_addr = CRONCAT_ADDR.load(deps.storage)?;
     //let cron_name = format!("{name}{chain_id}");
     let action = Action {
-        msg: CosmosMsg::Wasm(WasmMsg::Execute {
+        msg: WasmMsg::Execute {
             contract_addr: env.contract.address.to_string(),
             msg: to_binary(&ExecuteMsg::UpdateVersioner {
                 daodao_addr,
                 name,
                 chain_id,
             })?,
-            funds: funds.clone(),
-        }),
+            funds: vec![],
+        }
+        .into(),
         gas_limit: None,
     };
 
@@ -265,6 +265,7 @@ fn create_versioner_cron_task(
         msg: to_binary(&cronmsg)?,
         funds,
     };
+
     Ok(Response::new()
         .add_attribute("action", "create_versioner_cron_task")
         .add_message(msg))
