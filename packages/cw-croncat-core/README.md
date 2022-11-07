@@ -7,7 +7,7 @@ It is also used by [CronCat Agent](https://github.com/CronCats/croncat-rs) and [
 
 ### Instantiate message
 
-`InstantiateMsg` defines `denom`, contract address for the rules and some other optional parameters. 
+`InstantiateMsg` defines `denom`, `cw_rules_addr` for contract address for the rules and some other optional parameters. 
 
 ### Execute message
 
