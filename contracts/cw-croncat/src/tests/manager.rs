@@ -1,12 +1,14 @@
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
+    AGENT3,
 };
 use crate::ContractError;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, StakingMsg, StdResult, Uint128,
     WasmMsg,
 };
+use cw20::Cw20Coin;
 use cw_croncat_core::msg::{
     AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest, TaskResponse,
     TaskWithRulesResponse,
@@ -14,7 +16,7 @@ use cw_croncat_core::msg::{
 use cw_croncat_core::types::{Action, AgentResponse, Boundary, Interval};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Rule};
-use generic_query::ValueOrdering;
+use generic_query::{GenericQuery, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
 use super::helpers::{ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM};
@@ -2361,4 +2363,385 @@ fn smart_rule() {
         )
         .unwrap();
     assert!(tasks_with_rules.is_empty());
+}
+
+#[test]
+fn insertable_rule_res_positive() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ADMIN.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    // Send cw20 coins you plan to use
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        cw20_addr.clone(),
+        &cw20_base::msg::ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 10u128.into(),
+            msg: vec![].into(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let cw20_send = Binary(br#"{"transfer":{"recipient":$r_r,"amount":"5"}}"#.to_vec());
+    let rule = Rule::GenericQuery(GenericQuery {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
+        gets: vec!["admin".to_owned().into()],
+        ordering: ValueOrdering::NotEqual,
+        value: to_binary(&ADMIN.to_owned()).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: cw20_send,
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: None,
+            }],
+            rules: Some(vec![rule]),
+            cw20_coins: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: 10u128.into(),
+            }],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_rules.first();
+    assert!(our_task.is_some());
+    let task_hash: &str = our_task.unwrap().task_hash.as_ref();
+
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::RulesNotReady { index: 0 });
+
+    let old_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+
+    // Replace admin
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw4_addr.clone(),
+        &cw4_group::msg::ExecuteMsg::UpdateAdmin {
+            admin: Some(AGENT3.to_owned()),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_rules.is_empty());
+
+    let new_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        new_balance_of_agent3.balance - old_balance_of_agent3.balance,
+        Uint128::from(5u128)
+    );
+}
+
+#[test]
+fn insertable_rule_res_negative() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ADMIN.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    // Send cw20 coins you plan to use
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        cw20_addr.clone(),
+        &cw20_base::msg::ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 10u128.into(),
+            msg: vec![].into(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let cw20_send = Binary(br#"{"transfer":{"recipient":$r_r,"amount":"5"}}"#.to_vec());
+    let rule = Rule::GenericQuery(GenericQuery {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
+        gets: vec!["admin".to_owned().into()],
+        ordering: ValueOrdering::NotEqual,
+        value: to_binary(&ADMIN.to_owned()).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: cw20_send,
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: None,
+            }],
+            rules: Some(vec![rule]),
+            cw20_coins: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                // Notice that would be not enough
+                amount: 1u128.into(),
+            }],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_rules.first();
+    assert!(our_task.is_some());
+    let task_hash: &str = our_task.unwrap().task_hash.as_ref();
+
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::RulesNotReady { index: 0 });
+
+    let old_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+
+    // Replace admin
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw4_addr.clone(),
+        &cw4_group::msg::ExecuteMsg::UpdateAdmin {
+            admin: Some(AGENT3.to_owned()),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res
+        .events
+        .iter()
+        .any(|ev| ev
+            .attributes
+            .iter()
+            .any(|attr| attr.key == "task_removed_without_execution"
+                && attr.value
+                    == ContractError::TaskNoLongerValid {
+                        task_hash: task_hash.to_owned()
+                    }
+                    .to_string())));
+
+    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_rules.is_empty());
+
+    let new_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        new_balance_of_agent3.balance - old_balance_of_agent3.balance,
+        Uint128::from(0u128)
+    );
 }

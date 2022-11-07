@@ -13,7 +13,7 @@ use cosmwasm_std::{
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
-use cw_croncat_core::types::{calculate_required_amount, AgentStatus};
+use cw_croncat_core::types::{calculate_required_amount, Action, AgentStatus};
 pub use cw_croncat_core::types::{GenericBalance, Task};
 use cw_rules_core::msg::RuleResponse;
 //use regex::Regex;
@@ -293,9 +293,17 @@ impl CwTemplateContract {
 }
 
 /// Replace `RULE_RES_PLACEHOLDER` to the result value from the rules
-pub fn replace_placeholders(rules_res: RuleResponse, task: Task) -> Task {
+/// Recalculate cw20 usage if any replacements
+pub fn replace_placeholders(
+    api: &dyn Api,
+    cron_addr: &Addr,
+    task_hash: &str,
+    rules_res: RuleResponse,
+    task: Task,
+) -> Result<Task, ContractError> {
     if let Some(insertable_data) = rules_res.data {
         let mut task = task;
+        let mut replacements_made = false;
         task.actions.iter_mut().for_each(|action| {
             if let CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = &mut action.msg {
                 let position = msg
@@ -307,11 +315,66 @@ pub fn replace_placeholders(rules_res: RuleResponse, task: Task) -> Task {
                     new_msg.extend_from_slice(insertable_data.as_slice());
                     new_msg.extend_from_slice(&msg[pos + RULE_RES_PLACEHOLDER.len()..]);
                     *msg = Binary::from(new_msg);
+                    replacements_made = true;
                 }
             }
         });
-        task
+        if replacements_made {
+            let cw20_amount_recalculated =
+                calculate_cw20_usage(api, cron_addr, task_hash, &task.actions)?;
+            task.amount_for_one_task.cw20 = cw20_amount_recalculated;
+            if task
+                .verify_enough_cw20(&task.amount_for_one_task.cw20, 1u128.into())
+                .is_err()
+            {
+                return Err(ContractError::TaskNoLongerValid {
+                    task_hash: task_hash.to_owned(),
+                });
+            };
+        }
+        Ok(task)
     } else {
-        task
+        Ok(task)
     }
+}
+
+fn calculate_cw20_usage(
+    api: &dyn Api,
+    cron_addr: &Addr,
+    task_hash: &str,
+    actions: &[Action],
+) -> Result<Vec<Cw20CoinVerified>, ContractError> {
+    let mut cw20_coins = vec![];
+    for action in actions {
+        if let CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr, msg, ..
+        }) = &action.msg
+        {
+            if cron_addr.as_str().eq(contract_addr) {
+                return Err(ContractError::TaskNoLongerValid {
+                    task_hash: task_hash.to_owned(),
+                });
+            }
+            if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                match cw20_msg {
+                    Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => cw20_coins
+                        .find_checked_add(&Cw20CoinVerified {
+                            address: api.addr_validate(contract_addr)?,
+                            amount,
+                        })?,
+                    Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => cw20_coins
+                        .find_checked_add(&Cw20CoinVerified {
+                            address: api.addr_validate(contract_addr)?,
+                            amount,
+                        })?,
+                    _ => {
+                        return Err(ContractError::TaskNoLongerValid {
+                            task_hash: task_hash.to_owned(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    Ok(cw20_coins)
 }

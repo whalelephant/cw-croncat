@@ -245,10 +245,29 @@ impl<'a> CwCroncat<'a> {
         let next_idx = self.rq_next_id(deps.storage)?;
         // This may be different to the one we keep in the storage
         // due to the insertable messages
-        let executed_task = { replace_placeholders(rules_res, task) };
+        let (sub_msgs, fee_price) = match replace_placeholders(
+            deps.api,
+            &env.contract.address,
+            &task_hash,
+            rules_res,
+            task,
+        )
+        .and_then(|executed_task| proxy_call_submsgs_price(&executed_task, cfg, next_idx))
+        {
+            Ok((sub_msgs, fee_price)) => (sub_msgs, fee_price),
+            Err(err) => {
+                let resp = self.remove_task(deps.storage, &task_hash, None)?;
+                return Ok(resp
+                    .add_attribute("method", "proxy_call")
+                    .add_attribute("agent", info.sender)
+                    .add_attribute("task_hash", task_hash)
+                    .add_attribute("task_with_rules", true.to_string())
+                    .add_attribute("task_removed_without_execution", err.to_string()));
+            }
+        };
+
         let mut agent = agent;
         agent.update(env.block.height);
-        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&executed_task, cfg, next_idx)?;
         agent.balance.native.find_checked_add(&fee_price)?;
         self.tasks_with_rules
             .update(deps.storage, hash, |task| -> Result<_, ContractError> {
@@ -262,7 +281,7 @@ impl<'a> CwCroncat<'a> {
             deps.storage,
             QueueItem {
                 action_idx: 0,
-                task_hash: Some(task_hash.into_bytes()),
+                task_hash: Some(task_hash.clone().into_bytes()),
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
                 agent_id: Some(info.sender.clone()),
@@ -274,8 +293,8 @@ impl<'a> CwCroncat<'a> {
         let final_res = Response::new()
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
-            .add_attribute("task_hash", executed_task.to_hash())
-            .add_attribute("task_with_rules", "true".to_string())
+            .add_attribute("task_hash", task_hash)
+            .add_attribute("task_with_rules", true.to_string())
             .add_submessages(sub_msgs);
         Ok(final_res)
     }

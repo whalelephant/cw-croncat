@@ -359,28 +359,16 @@ impl Task {
     pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {
         let multiplier = Uint128::from(if recurring { 2u128 } else { 1u128 });
 
-        let task_native_balance_uses = &self.amount_for_one_task.native;
-        for coin in task_native_balance_uses {
-            if let Some(balance) = self
-                .total_deposit
-                .native
-                .iter()
-                .find(|balance| balance.denom == coin.denom)
-            {
-                if balance.amount < coin.amount * multiplier {
-                    return Err(CoreError::NotEnoughNative {
-                        denom: coin.denom.clone(),
-                        lack: coin.amount * multiplier - balance.amount,
-                    });
-                }
-            } else {
-                return Err(CoreError::NotEnoughNative {
-                    denom: coin.denom.clone(),
-                    lack: coin.amount,
-                });
-            }
-        }
-        let task_cw20_balance_uses = &self.amount_for_one_task.cw20;
+        self.verify_enough_native(&self.amount_for_one_task.native, multiplier)?;
+        self.verify_enough_cw20(&self.amount_for_one_task.cw20, multiplier)?;
+        Ok(())
+    }
+
+    pub fn verify_enough_cw20(
+        &self,
+        task_cw20_balance_uses: &Vec<Cw20CoinVerified>,
+        multiplier: Uint128,
+    ) -> Result<(), CoreError> {
         for coin in task_cw20_balance_uses {
             if let Some(balance) = self
                 .total_deposit
@@ -398,6 +386,34 @@ impl Task {
                 return Err(CoreError::NotEnoughCw20 {
                     addr: coin.address.to_string(),
                     lack: coin.amount,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    pub fn verify_enough_native(
+        &self,
+        task_native_balance_uses: &Vec<Coin>,
+        multiplier: Uint128,
+    ) -> Result<(), CoreError> {
+        for coin in task_native_balance_uses {
+            if let Some(balance) = self
+                .total_deposit
+                .native
+                .iter()
+                .find(|balance| balance.denom == coin.denom)
+            {
+                if balance.amount < coin.amount * multiplier {
+                    return Err(CoreError::NotEnoughNative {
+                        denom: coin.denom.clone(),
+                        lack: coin.amount * multiplier - balance.amount,
+                    });
+                }
+            } else {
+                return Err(CoreError::NotEnoughNative {
+                    denom: coin.denom.clone(),
+                    lack: coin.amount * multiplier,
                 });
             }
         }

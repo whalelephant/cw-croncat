@@ -12,6 +12,7 @@ pub enum ValueOrdering {
     UnitBelow,
     UnitBelowEqual,
     Equal,
+    NotEqual,
 }
 
 impl ValueOrdering {
@@ -22,6 +23,7 @@ impl ValueOrdering {
             ValueOrdering::UnitBelow => lhs.lt_g(rhs)?,
             ValueOrdering::UnitBelowEqual => lhs.le_g(rhs)?,
             ValueOrdering::Equal => lhs.eq(rhs),
+            ValueOrdering::NotEqual => lhs.ne(rhs),
         };
         Ok(res)
     }
