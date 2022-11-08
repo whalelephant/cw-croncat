@@ -342,7 +342,7 @@ impl<'a> CwCroncat<'a> {
             };
             self.complete_agent_task(deps.storage, env, msg, &task_info)?;
             let resp = self.remove_task(deps.storage, &task_hash, None)?;
-            return Ok(response
+            Ok(response
                 .add_attribute("method", "proxy_callback")
                 .add_attribute("ended_task", task_hash)
                 .add_attributes(resp.attributes)
