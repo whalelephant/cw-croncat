@@ -216,23 +216,12 @@ impl<'a> CwCroncat<'a> {
             .may_load(deps.storage, task_hash.as_bytes())?;
         let task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
-        // Check that this task can be executed in current slot
-        let task_ready = match task.interval {
-            Interval::Cron(_) => {
-                let block = self.time_slots_rules.load(deps.storage, hash)?;
-                env.block.height >= block
-            }
-            _ => {
-                let time = self.block_slots_rules.load(deps.storage, hash)?;
-                env.block.time.nanos() >= time
-            }
-        };
+        let task_ready = self.task_with_rule_ready(task.interval, deps.as_ref(), hash, &env)?;
         if !task_ready {
             return Err(ContractError::CustomError {
                 val: "Task is not ready".to_string(),
             });
         }
-        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
         let rules = if let Some(ref rules) = task.rules {
             rules
         } else {
@@ -283,6 +272,27 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("task_with_rules", "true".to_string())
             .add_submessages(sub_msgs);
         Ok(final_res)
+    }
+
+    /// Check that this task can be executed in current slot
+    fn task_with_rule_ready(
+        &mut self,
+        task_interval: Interval,
+        deps: Deps,
+        hash: &[u8],
+        env: &Env,
+    ) -> Result<bool, ContractError> {
+        let task_ready = match task_interval {
+            Interval::Cron(_) => {
+                let block = self.time_map_rules.load(deps.storage, hash)?;
+                env.block.height >= block
+            }
+            _ => {
+                let time = self.block_map_rules.load(deps.storage, hash)?;
+                env.block.time.nanos() >= time
+            }
+        };
+        Ok(task_ready)
     }
 
     /// Logic executed on the completion of a proxy call
@@ -337,19 +347,42 @@ impl<'a> CwCroncat<'a> {
                 .add_attribute("ended_task", task_hash)
                 .add_attributes(resp.attributes)
                 .add_submessages(resp.messages)
-                .add_events(resp.events));
-        }
+                .add_events(resp.events))
+        } else {
+            self.reschedule_task(
+                task.with_rules(),
+                slot_kind,
+                deps.storage,
+                task_hash,
+                next_id,
+            )?;
 
-        if task.with_rules() {
+            Ok(response
+                .add_attribute("method", "proxy_callback")
+                .add_attribute("slot_id", next_id.to_string())
+                .add_attribute("slot_kind", format!("{:?}", slot_kind)))
+        }
+    }
+
+    /// Update time or block of next time this task should be executed
+    fn reschedule_task(
+        &self,
+        task_with_rules: bool,
+        slot_kind: SlotType,
+        storage: &mut dyn Storage,
+        task_hash: String,
+        next_id: u64,
+    ) -> Result<(), ContractError> {
+        if task_with_rules {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_slots_rules
-                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
+                    self.block_map_rules
+                        .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_slots_rules
-                        .save(deps.storage, task_hash.as_bytes(), &next_id)?;
+                    self.time_map_rules
+                        .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
             }
         } else {
@@ -359,30 +392,25 @@ impl<'a> CwCroncat<'a> {
                     // has some data, simply push new hash
                     Some(data) => {
                         let mut s = data;
-                        s.push(task.to_hash_vec());
+                        s.push(task_hash.into_bytes());
                         Ok(s)
                     }
                     // No data, push new vec & hash
-                    None => Ok(vec![task.to_hash_vec()]),
+                    None => Ok(vec![task_hash.into_bytes()]),
                 }
             };
 
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_slots
-                        .update(deps.storage, next_id, update_vec_data)?;
+                    self.block_slots.update(storage, next_id, update_vec_data)?;
                 }
                 SlotType::Cron => {
-                    self.time_slots
-                        .update(deps.storage, next_id, update_vec_data)?;
+                    self.time_slots.update(storage, next_id, update_vec_data)?;
                 }
             }
-        }
-        Ok(response
-            .add_attribute("method", "proxy_callback")
-            .add_attribute("slot_id", next_id.to_string())
-            .add_attribute("slot_kind", format!("{:?}", slot_kind)))
+        };
+        Ok(())
     }
 
     fn check_ready_for_proxy_call(

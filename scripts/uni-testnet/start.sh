@@ -1,13 +1,21 @@
 #!/bin/sh
 set -e
-./scripts/build.sh
+source ~/.profile
+SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
+SC_PATH="$(cd -P "$(dirname "${SH_PATH}")/../..";pwd)"
+SCRIPTS_PATH="$(cd -P "$(dirname "${SH_PATH}")/..";pwd)"
 
-. ./scripts/uni-testnet/base/init-vars.sh
+echo "CONTRACT-DIR: $SC_PATH"
+echo "SCRIPT-DIR: $SH_DIR"
+cd $SC_PATH
 
-
+$SCRIPTS_PATH/build.sh
+echo "Initializing vars"
+. $SH_DIR/base/init-vars.sh
 
 usage() {
-  printf "Usage: ./scripts/uni-testnet/simple-payroll.sh -w -c"
+  printf "Usage: $SH_DIR/simple-payroll.sh -w -c"
 }
 flags() {
   while test $# -gt 0; do
@@ -80,7 +88,7 @@ if [ $RECREATE_ARTIFACTS == 1 ]; then
 fi
 #Recreate containers
 if [ $RECREATE_CONTAINERS == 1 ]; then
-  . $SCRIPT_PATH/base/init-addresses.sh
+  . $SH_DIR/base/init-addresses.sh
 fi
 
 
@@ -88,15 +96,16 @@ echo "${Cyan}Wasm file: $WASM"
 echo "${Cyan}Wasm file: cw_rules$WASM_POSTFIX.wasm"
 echo "${Cyan}Wasm file: cw20_base.wasm"
 
-. $SCRIPT_PATH/base/balances.sh
+. $SH_DIR/base/balances.sh
 
 #---------------------------------------------------------------------------
 
 echo "${Yellow}Instantiating smart contracts...${NoColor}"
 RES=$(junod tx wasm store artifacts/cw_croncat$WASM_POSTFIX.wasm --from owner $TXFLAG -y --output json -b block)
-CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[0].value')
-RULES_ID=$($BINARY tx wasm store artifacts/cw_rules$WASM_POSTFIX.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[0].value')
-CW20_ID=$($BINARY tx wasm store artifacts/cw20_base.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[0].value')
+CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[1].value')
+RULES_ID=$($BINARY tx wasm store artifacts/cw_rules$WASM_POSTFIX.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[1].value')
+CW20_ID=$($BINARY tx wasm store artifacts/cw20_base.wasm --from owner $TXFLAG --output json -y | jq -r '.logs[0].events[-1].attributes[1].value')
+
 
 echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
 echo "${Cyan}RULES_ID :" $RULES_ID "${NoColor}"

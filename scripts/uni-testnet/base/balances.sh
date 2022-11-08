@@ -1,6 +1,6 @@
-SCRIPT_PATH=$(dirname $(which $0))
-
-. $SCRIPT_PATH/base/init-vars.sh
+SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
+. $SH_DIR/init-vars.sh
 ALICE_BALANCE=$($BINARY q bank balances $($BINARY keys show alice --address)  $NODE)
 echo "${Green}Alice Balance :" $ALICE_BALANCE "${NoColor}"
 BOB_BALANCE=$($BINARY q bank balances $($BINARY keys show bob --address) $NODE)

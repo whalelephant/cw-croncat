@@ -1,13 +1,13 @@
 #!/bin/bash
 set -e
-SCRIPT_PATH=$(dirname $(which $0))
-
-. $SCRIPT_PATH/base/init-vars.sh
+. $SH_DIR/base/init-vars.sh
 
 OWNER_BALANCE=120000
 AGENT_BALANCE=10000
 USER_BALANCE=15000
 FAUCET=cw-croncat-faucet
+Signer=$($BINARY keys show signer --address)
+echo "Signer: $Signer"
 
 if [[ -z "$Signer" ]]; then
   echo "${Red}Signer is not set. Signer must be set before address initialization ${NoColor}"
