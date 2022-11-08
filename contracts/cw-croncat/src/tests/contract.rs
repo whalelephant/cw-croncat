@@ -133,7 +133,7 @@ fn replies() {
                 contract_addr: Some(Addr::unchecked(MOCK_CONTRACT_ADDR)),
                 task_is_extra: Some(false),
                 agent_id: Some(Addr::unchecked(AGENT0)),
-                failed: false,
+                failure: None,
             },
         )
         .unwrap();

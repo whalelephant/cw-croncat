@@ -179,7 +179,7 @@ impl<'a> CwCroncat<'a> {
                 contract_addr: Some(self_addr),
                 task_is_extra: Some(balancer_result.has_any_slot_extra_tasks(slot_type)),
                 agent_id: Some(info.sender.clone()),
-                failed: false,
+                failure: None,
             },
         )?;
 
@@ -271,7 +271,7 @@ impl<'a> CwCroncat<'a> {
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
                 agent_id: Some(info.sender.clone()),
-                failed: false,
+                failure: None,
             },
         )?;
         // TODO: Add supported msgs if not a SubMessage?
@@ -307,9 +307,15 @@ impl<'a> CwCroncat<'a> {
             task.interval
                 .next(&env, task.boundary, cfg.slot_granularity_time);
 
+        let response = if queue_item.failure.is_some() {
+            Response::new().add_attribute("with_failure", queue_item.failure.clone().unwrap())
+        } else {
+            Response::new()
+        };
+
         // if non-recurring, exit
         if task.interval == Interval::Once
-            || (task.stop_on_fail && queue_item.failed)
+            || (task.stop_on_fail && queue_item.failure.is_some())
             || task.verify_enough_balances(false).is_err()
             // If the next interval comes back 0, then this task should not schedule again
             || next_id == 0
@@ -326,7 +332,7 @@ impl<'a> CwCroncat<'a> {
             };
             self.complete_agent_task(deps.storage, env, msg, &task_info)?;
             let resp = self.remove_task(deps.storage, &task_hash, None)?;
-            return Ok(Response::new()
+            return Ok(response
                 .add_attribute("method", "proxy_callback")
                 .add_attribute("ended_task", task_hash)
                 .add_attributes(resp.attributes)
@@ -373,7 +379,7 @@ impl<'a> CwCroncat<'a> {
                 }
             }
         }
-        Ok(Response::new()
+        Ok(response
             .add_attribute("method", "proxy_callback")
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind)))
