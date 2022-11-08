@@ -3,14 +3,14 @@ use cw20::Cw20CoinVerified;
 
 use crate::{
     msg::{
-        AgentTaskResponse, Croncat, GetAgentIdsResponse, GetBalancesResponse, GetConfigResponse,
-        GetSlotHashesResponse, GetSlotIdsResponse, GetWalletBalancesResponse, TaskRequest,
-        TaskResponse,
+        AgentResponse, AgentTaskResponse, Croncat, GetAgentIdsResponse, GetBalancesResponse,
+        GetConfigResponse, GetSlotHashesResponse, GetSlotIdsResponse, GetWalletBalancesResponse,
+        TaskRequest, TaskResponse,
     },
     tests::helpers,
     types::{
-        Action, Agent, AgentResponse, AgentStatus, Boundary, BoundaryValidated, GasFraction,
-        GenericBalance, Interval, SlotType, Task,
+        Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance,
+        Interval, SlotType, Task,
     },
 };
 
@@ -73,6 +73,13 @@ fn everything_can_be_de_serialized() {
         slot_granularity_time: 60_000_000,
         native_denom: "juno".to_string(),
         cw_rules_addr: Addr::unchecked("bob"),
+        agent_nomination_duration: 10,
+        gas_base_fee: 1,
+        gas_action_fee: 2,
+        cw20_whitelist: vec![],
+        available_balance: GenericBalance::default(),
+        staked_balance: GenericBalance::default(),
+        limit: 100,
     }
     .into();
     let balance_response = GetBalancesResponse {
@@ -117,6 +124,8 @@ fn everything_can_be_de_serialized() {
         stop_on_fail: true,
         total_deposit: vec![coin(5, "earth")],
         total_cw20_deposit: vec![],
+        amount_for_one_task_native: vec![coin(4, "earth")],
+        amount_for_one_task_cw20: vec![],
         actions: vec![],
         rules: None,
         funds_withdrawn_recurring: vec![],
