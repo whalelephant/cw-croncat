@@ -27,18 +27,6 @@ const DEFAULT_CONFIG = {
             outputDir: CONTRACTS_OUTPUT_DIR,
         },
         {
-            name: OutputType.contracts,
-            paths: [`../contracts/${OutputType.croncat}`],
-            outputName: OutputType.contracts,
-            outputDir: CONTRACTS_OUTPUT_DIR,
-        },
-        {
-            name: OutputType.contracts,
-            paths: [`../contracts/${OutputType.rules}`],
-            outputName: OutputType.contracts,
-            outputDir: CONTRACTS_OUTPUT_DIR,
-        },
-        {
             name: OutputType.packages,
             paths: [`../${OutputType.packages}`],
             outputName: OutputType.packages,
@@ -110,6 +98,7 @@ async function main() {
         const { name, paths, outputName, outputDir } = root;
         for (const path of paths) {
             const schemaDirectories = await getSchemaDirectories(path);
+            console.log(schemaDirectories)
             for (const [directory, contractName] of schemaDirectories) {
                 compilationSpecs.push({
                     contractName: contractName,
