@@ -183,9 +183,11 @@ class CwCroncatCoreClient extends CwCroncatCoreQueryClient {
                 check_in_agent: {}
             }, fee, memo, funds);
         });
-        this.unregisterAgent = (fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
+        this.unregisterAgent = ({ fromBehind }, fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
             return yield this.client.execute(this.sender, this.contractAddress, {
-                unregister_agent: {}
+                unregister_agent: {
+                    from_behind: fromBehind
+                }
             }, fee, memo, funds);
         });
         this.withdrawReward = (fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
