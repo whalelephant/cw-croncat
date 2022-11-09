@@ -1,12 +1,16 @@
 use crate::{balancer::RoundRobinBalancer, ContractError};
-use cosmwasm_std::{Addr, StdResult, Storage, Timestamp};
+use cosmwasm_std::{Addr, Deps, StdResult, Storage, Timestamp};
+use cw2::ContractVersion;
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GasFraction, GenericBalance, SlotType};
+use cw_croncat_core::{
+    query::CroncatQuerier,
+    types::{Agent, GasFraction, GenericBalance, SlotType},
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
@@ -253,5 +257,14 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage, task_hash)?
                 .ok_or(ContractError::NoTaskFound {})
         }
+    }
+    pub fn query_contract_info(
+        &self,
+        deps: Deps,
+        contract_address: String,
+    ) -> StdResult<ContractVersion> {
+        let querier = CroncatQuerier::new(&deps.querier);
+        let res: ContractVersion = querier.query_contract_info(contract_address)?;
+        Ok(res)
     }
 }

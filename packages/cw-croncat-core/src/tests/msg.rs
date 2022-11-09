@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
@@ -7,7 +9,6 @@ use crate::{
         GetConfigResponse, GetSlotHashesResponse, GetSlotIdsResponse, GetWalletBalancesResponse,
         TaskRequest, TaskResponse,
     },
-    tests::helpers,
     types::{
         Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance,
         Interval, SlotType, Task,
@@ -54,7 +55,7 @@ fn everything_can_be_de_serialized() {
             gas_limit: Some(150_000),
         }],
         rules: None,
-        version: helpers::get_contract_version(),
+        version: String::from(""),
     }
     .into();
 

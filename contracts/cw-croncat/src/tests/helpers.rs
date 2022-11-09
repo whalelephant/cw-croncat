@@ -1,8 +1,10 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_env, mock_info},
-    Addr, BlockInfo, DepsMut, Empty, Response,
+    Addr, BlockInfo, DepsMut, Empty, Querier, QuerierWrapper, QueryRequest, Response, StdResult,
+    WasmQuery,
 };
+use cw2::ContractVersion;
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::InstantiateMsg,
@@ -180,12 +182,8 @@ pub fn add_1000_blocks(block: &mut BlockInfo) {
     block.time = block.time.plus_seconds(10);
     block.height += 1000;
 }
-pub fn get_contract_version() -> String {
-    const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-    CONTRACT_VERSION.to_owned()
-}
+
 pub fn default_task() -> Task {
-    const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
     Task {
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Once,
@@ -199,6 +197,6 @@ pub fn default_task() -> Task {
         amount_for_one_task: Default::default(),
         actions: Default::default(),
         rules: Default::default(),
-        version: CONTRACT_VERSION.to_string(),
+        version: "1.0.0".to_string(),
     }
 }

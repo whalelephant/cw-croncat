@@ -1,7 +1,7 @@
 use crate::error::ContractError;
 use crate::helpers::Task;
-use crate::tests::helpers;
 use crate::CwCroncat;
+use cosmwasm_std::testing::mock_dependencies;
 use cosmwasm_std::testing::MockStorage;
 use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult};
 use cw_croncat_core::types::{Action, BoundaryValidated, Interval};
@@ -11,12 +11,15 @@ use cw_storage_plus::Bound;
 fn check_task_storage_structure() -> StdResult<()> {
     let mut storage = MockStorage::new();
     let store = CwCroncat::default();
+    let deps = mock_dependencies();
 
     let to_address = String::from("you");
     let amount = coins(1015, "earth");
     let bank = BankMsg::Send { to_address, amount };
     let msg: CosmosMsg = bank.clone().into();
-
+    let version = store
+        .query_contract_info(deps.as_ref(), "nobody".to_string())
+        .unwrap();
     let task = Task {
         funds_withdrawn_recurring: vec![],
 
@@ -34,7 +37,7 @@ fn check_task_storage_structure() -> StdResult<()> {
             gas_limit: Some(150_000),
         }],
         rules: None,
-        version: helpers::get_contract_version(),
+        version: version.version,
     };
     let task_id_str = "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3";
     let task_id = task_id_str.to_string().into_bytes();
