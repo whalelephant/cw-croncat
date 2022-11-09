@@ -93,7 +93,9 @@ pub enum ExecuteMsg {
         payable_account_id: String,
     },
     CheckInAgent {},
-    UnregisterAgent {},
+    UnregisterAgent {
+        from_behind: Option<bool>,
+    },
     WithdrawReward {},
 
     CreateTask {

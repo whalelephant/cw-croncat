@@ -25,7 +25,21 @@ pub(crate) fn init_contracts(
 ) -> Result<()> {
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), true)?;
 
-    orc.store_contracts("artifacts", key, None)?;
+    // TODO: split conctracts!
+    // orc.store_contracts("artifacts", key, None)?;
+
+    orc.contract_map.register_contract(
+        CW20_NAME,
+        std::env::var("CW20_ID").unwrap().parse().unwrap(),
+    );
+    orc.contract_map.register_contract(
+        CRONCAT_NAME,
+        std::env::var("CRONCAT_ID").unwrap().parse().unwrap(),
+    );
+    orc.contract_map.register_contract(
+        RULES_NAME,
+        std::env::var("RULES_ID").unwrap().parse().unwrap(),
+    );
 
     let rules_msg = cw_rules_core::msg::InstantiateMsg {};
 
