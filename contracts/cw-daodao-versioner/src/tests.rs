@@ -1,11 +1,12 @@
 use cosmwasm_std::{coin, coins, Addr, Empty};
 use cw_code_id_registry::state::PaymentInfo;
+use cw_croncat_core::msg::TaskResponse;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
 use crate::msg::ExecuteMsg;
 
 const ADMIN: &str = "admin";
-const AGENT: &str = "AGENT";
+const AGENT: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 const NATIVE_DENOM: &str = "ujunox";
 
 fn mock_app() -> App {
@@ -65,7 +66,7 @@ fn registry_contract() -> Box<dyn Contract<Empty>> {
 }
 
 #[test]
-fn it_works() {
+fn proxy_call_not_blocked() {
     let mut app = mock_app();
     let versioner_id = app.store_code(dao_versioner_contract());
     let registrar_id = app.store_code(registry_contract());
@@ -175,9 +176,21 @@ fn it_works() {
 
     app.execute_contract(
         Addr::unchecked(AGENT),
-        croncat_addr,
+        croncat_addr.clone(),
         &cw_croncat_core::msg::ExecuteMsg::ProxyCall { task_hash: None },
         &[],
     )
     .unwrap();
+
+    let tasks: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_addr,
+            &cw_croncat_core::msg::QueryMsg::GetTasks {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks.is_empty())
 }
