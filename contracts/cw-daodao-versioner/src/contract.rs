@@ -107,7 +107,7 @@ fn query_registration(
     let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
         registrar_address,
         &RegistryQueryMsg::GetRegistration {
-            contract_name: name,
+            name,
             chain_id,
             version,
         },
@@ -137,9 +137,10 @@ fn create_versioner(
         None,
     )?
     .registration;
+
     VERSION_MAP.save(
         deps.storage,
-        (&registration.contract_name, &chain_id),
+        (registration.registered_by.as_str(), &chain_id),
         &registration.version,
     )?;
 
