@@ -16,7 +16,10 @@ fn check_task_storage_structure() -> StdResult<()> {
     let amount = coins(1015, "earth");
     let bank = BankMsg::Send { to_address, amount };
     let msg: CosmosMsg = bank.clone().into();
-    let version = ContractVersion{contract:"nobody".to_string(),version:"0.0.1".to_string()};
+    let version = ContractVersion {
+        contract: "nobody".to_string(),
+        version: "0.0.1".to_string(),
+    };
     let task = Task {
         funds_withdrawn_recurring: vec![],
 
