@@ -184,7 +184,15 @@
       ],
       "properties": {
         "unregister_agent": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "from_behind": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false
