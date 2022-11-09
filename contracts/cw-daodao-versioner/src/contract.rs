@@ -10,6 +10,7 @@ use cw_croncat_core::types::{Action, Interval};
 //use crate::daodao::create_daodao_proposal;
 use crate::error::ContractError;
 use crate::msg::dao_registry::query::*;
+use crate::msg::dao_registry::state::Registration;
 use crate::msg::*;
 use crate::state::{CRONCAT_ADDR, REGISTRAR_ADDR, VERSION_MAP};
 // version info for migration info
@@ -129,18 +130,26 @@ fn create_versioner(
         return Err(ContractError::ContractAlreadyRegistered(name, chain_id));
     }
     let registrar_addr = REGISTRAR_ADDR.load(deps.storage)?;
-    let registration = query_registration(
-        deps.as_ref(),
-        registrar_addr.to_string(),
-        name.clone(),
-        chain_id.clone(),
-        None,
-    )?
+    let registration = GetRegistrationResponse {
+        registration: Registration {
+            contract_name: "test".to_string(),
+            code_id: 2222,
+            version: "0.0.1".to_string(),
+            checksum: "checksum".to_string(),
+        },
+    }
     .registration;
-
+    // let registration = query_registration(
+    //     deps.as_ref(),
+    //     registrar_addr.to_string(),
+    //     name.clone(),
+    //     chain_id.clone(),
+    //     None,
+    // )?
+    // .registration;
     VERSION_MAP.save(
         deps.storage,
-        (registration.registered_by.as_str(), &chain_id),
+        (&registration.contract_name, &chain_id),
         &registration.version,
     )?;
 
