@@ -294,7 +294,11 @@ export interface CwCroncatCoreInterface extends CwCroncatCoreReadOnlyInterface {
     payableAccountId: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   checkInAgent: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  unregisterAgent: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  unregisterAgent: ({
+    fromBehind
+  }: {
+    fromBehind?: boolean;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   withdrawReward: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   createTask: ({
     task
@@ -445,9 +449,15 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
       check_in_agent: {}
     }, fee, memo, funds);
   };
-  unregisterAgent = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+  unregisterAgent = async ({
+    fromBehind
+  }: {
+    fromBehind?: boolean;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      unregister_agent: {}
+      unregister_agent: {
+        from_behind: fromBehind
+      }
     }, fee, memo, funds);
   };
   withdrawReward = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
