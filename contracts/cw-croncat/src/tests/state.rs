@@ -4,6 +4,7 @@ use crate::CwCroncat;
 use cosmwasm_std::testing::mock_dependencies;
 use cosmwasm_std::testing::MockStorage;
 use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult};
+use cw2::ContractVersion;
 use cw_croncat_core::types::{Action, BoundaryValidated, Interval};
 use cw_storage_plus::Bound;
 
@@ -11,15 +12,11 @@ use cw_storage_plus::Bound;
 fn check_task_storage_structure() -> StdResult<()> {
     let mut storage = MockStorage::new();
     let store = CwCroncat::default();
-    let deps = mock_dependencies();
-
     let to_address = String::from("you");
     let amount = coins(1015, "earth");
     let bank = BankMsg::Send { to_address, amount };
     let msg: CosmosMsg = bank.clone().into();
-    let version = store
-        .query_contract_info(deps.as_ref(), "nobody".to_string())
-        .unwrap();
+    let version = ContractVersion{contract:"nobody".to_string(),version:"0.0.1".to_string()};
     let task = Task {
         funds_withdrawn_recurring: vec![],
 
