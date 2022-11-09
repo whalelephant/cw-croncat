@@ -403,7 +403,11 @@ impl<'a> CwCroncat<'a> {
             config: self.query_config(deps)?,
 
             agent_active_queue: self.agent_active_queue.load(deps.storage)?,
-            agent_pending_queue: self.agent_pending_queue.load(deps.storage)?,
+            agent_pending_queue: self
+                .agent_pending_queue
+                .iter(deps.storage)?
+                .take(50)
+                .collect::<StdResult<Vec<cosmwasm_std::Addr>>>()?,
             agents,
 
             tasks: self.query_get_tasks(deps, None, None)?,

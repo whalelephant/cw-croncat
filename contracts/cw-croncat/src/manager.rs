@@ -544,7 +544,7 @@ impl<'a> CwCroncat<'a> {
             let agent = self.agents.load(deps.storage, &agent_id)?;
             if current_slot > agent.last_executed_slot + cfg.agents_eject_threshold {
                 let resp = self
-                    .unregister_agent(deps.storage, &agent_id)
+                    .unregister_agent(deps.storage, &agent_id, None)
                     .unwrap_or_default();
                 // Save attributes and messages
                 attributes.extend_from_slice(&resp.attributes);
