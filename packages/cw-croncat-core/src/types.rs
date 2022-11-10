@@ -327,6 +327,7 @@ pub struct Task {
     /// Rules MUST return the ResolverResponse type
     pub rules: Option<Vec<Rule>>,
     // TODO: funds! should we support funds being attached?
+    pub version: String,
 }
 
 impl Task {
