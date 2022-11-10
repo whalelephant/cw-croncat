@@ -1341,6 +1341,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "daodao-versioner-gas-debug"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cosm-orc",
+ "cosmwasm-std",
+ "cw-code-id-registry",
+ "cw-croncat",
+ "cw-croncat-core",
+ "cw-daodao-versioner",
+ "cw-rules-core",
+ "cw20",
+ "cw20-base",
+ "env_logger",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "der"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

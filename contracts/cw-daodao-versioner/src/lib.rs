@@ -1,7 +1,7 @@
 pub mod contract;
 mod daodao;
 mod error;
-mod msg;
+pub mod msg;
 mod state;
 pub use crate::error::ContractError;
 #[cfg(test)]

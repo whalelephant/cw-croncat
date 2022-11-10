@@ -41,3 +41,16 @@ gas-benchmark: juno-local download-deps optimize
 	CRONCAT_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_croncat.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 	CW20_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw20_base.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 	CW20_ID=$CW20_ID CRONCAT_ID=$CRONCAT_ID RULES_ID=$RULES_ID VALIDATOR_ADDR=$(docker exec -i cosmwasm junod query staking validators --output json | jq -r '.validators[0].operator_address') RUST_LOG=info cargo run --bin gas-benchmark
+
+daodao-versioner-gas-debug: juno-local download-deps optimize
+	#!/usr/bin/env bash
+	sleep 1
+	set -euxo pipefail
+	TXFLAG="--chain-id testing --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
+	docker cp 'artifacts/' cosmwasm:/artifacts
+	docker cp 'ci/artifacts/cw_code_id_registry.wasm' cosmwasm:/artifacts/cw_code_id_registry.wasm
+	RULES_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_rules.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+	CRONCAT_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_croncat.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+	VERSIONER_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_daodao_versioner.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+	REGISTRAR_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_code_id_registry.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+	VERSIONER_ID=$VERSIONER_ID REGISTRAR_ID=$REGISTRAR_ID CRONCAT_ID=$CRONCAT_ID RULES_ID=$RULES_ID VALIDATOR_ADDR=$(docker exec -i cosmwasm junod query staking validators --output json | jq -r '.validators[0].operator_address') RUST_LOG=info cargo run --bin daodao-versioner-gas-debug
