@@ -72,7 +72,7 @@ pub mod dao_registry {
     }
 
     pub mod state {
-        
+
         use super::*;
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
