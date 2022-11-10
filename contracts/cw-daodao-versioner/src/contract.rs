@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::TaskRequest;
@@ -99,7 +100,7 @@ fn _query_code_id_info(
 fn query_registration(
     deps: Deps,
     registrar_addr: String,
-    name: String,
+    contract_name: String,
     chain_id: String,
     version: Option<String>,
 ) -> StdResult<GetRegistrationResponse> {
@@ -107,7 +108,7 @@ fn query_registration(
     let res: GetRegistrationResponse = deps.querier.query_wasm_smart(
         registrar_address,
         &RegistryQueryMsg::GetRegistration {
-            name,
+            contract_name,
             chain_id,
             version,
         },
@@ -142,7 +143,6 @@ fn create_versioner(
         (&registration.contract_name, &chain_id),
         &registration.version,
     )?;
-
     //create a croncat task for version check
     let resp = create_versioner_cron_task(
         deps,

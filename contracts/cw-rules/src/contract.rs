@@ -8,7 +8,7 @@ use serde_cw_value::Value;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     coin, has_coins, to_binary, to_vec, Binary, Deps, DepsMut, Empty, Env, MessageInfo,
-    QueryRequest, Response, StdError, StdResult, Uint128, WasmQuery,
+    QueryRequest, Response, StdError, StdResult, Uint128, WasmQuery, QuerierWrapper,
 };
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
