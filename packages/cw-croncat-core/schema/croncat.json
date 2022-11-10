@@ -1578,7 +1578,8 @@
         "interval",
         "owner_id",
         "stop_on_fail",
-        "total_deposit"
+        "total_deposit",
+        "version"
       ],
       "properties": {
         "actions": {
@@ -1637,6 +1638,9 @@
               "$ref": "#/definitions/GenericBalance"
             }
           ]
+        },
+        "version": {
+          "type": "string"
         }
       }
     },
