@@ -88,8 +88,6 @@ impl<'a> CwCroncat<'a> {
         self.config.save(deps.storage, &config)?;
         self.agent_active_queue
             .save(deps.storage, &Default::default())?;
-        self.agent_pending_queue
-            .save(deps.storage, &Default::default())?;
         self.task_total.save(deps.storage, &Default::default())?;
         self.reply_index.save(deps.storage, &Default::default())?;
         self.agent_nomination_begin_time.save(deps.storage, &None)?;
@@ -153,7 +151,9 @@ impl<'a> CwCroncat<'a> {
             ExecuteMsg::UpdateAgent { payable_account_id } => {
                 self.update_agent(deps, info, env, payable_account_id)
             }
-            ExecuteMsg::UnregisterAgent {} => self.unregister_agent(deps.storage, &info.sender),
+            ExecuteMsg::UnregisterAgent { from_behind } => {
+                self.unregister_agent(deps.storage, &info.sender, from_behind)
+            }
             ExecuteMsg::WithdrawReward {} => self.withdraw_agent_balance(deps, &info.sender),
             ExecuteMsg::CheckInAgent {} => self.accept_nomination_agent(deps, info, env),
 

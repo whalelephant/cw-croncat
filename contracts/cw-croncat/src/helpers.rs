@@ -130,19 +130,24 @@ impl<'a> CwCroncat<'a> {
         let active = self.agent_active_queue.load(storage)?;
 
         // Pending
-        let pending: Vec<Addr> = self.agent_pending_queue.load(storage)?;
+        let mut pending_iter = self.agent_pending_queue.iter(storage)?;
         // If agent is pending, Check if they should get nominated to checkin to become active
-        let agent_position =
-            if let Some(pos) = pending.iter().position(|address| address == &account_id) {
-                pos
+        let agent_position = if let Some(pos) = pending_iter.position(|address| {
+            if let Ok(addr) = address {
+                addr == account_id
             } else {
-                // Check for active
-                if active.contains(&account_id) {
-                    return Ok(AgentStatus::Active);
-                } else {
-                    return Err(AgentNotRegistered {});
-                }
-            };
+                false
+            }
+        }) {
+            pos
+        } else {
+            // Check for active
+            if active.contains(&account_id) {
+                return Ok(AgentStatus::Active);
+            } else {
+                return Err(AgentNotRegistered {});
+            }
+        };
 
         // Edge case if last agent unregistered
         if active.is_empty() && agent_position == 0 {

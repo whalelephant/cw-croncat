@@ -360,6 +360,7 @@ export interface Task {
   rules?: Rule[] | null;
   stop_on_fail: boolean;
   total_deposit: GenericBalance;
+  version: string;
   [k: string]: unknown;
 }
 export interface BoundaryValidated {
@@ -417,6 +418,7 @@ export type ExecuteMsg = {
   };
 } | {
   unregister_agent: {
+    from_behind?: boolean | null;
     [k: string]: unknown;
   };
 } | {

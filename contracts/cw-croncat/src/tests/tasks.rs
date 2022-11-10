@@ -1,10 +1,12 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use crate::tests::helpers::proper_instantiate;
+use crate::tests::helpers::{self, proper_instantiate};
 use crate::ContractError;
+use cosmwasm_std::testing::mock_dependencies;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
+use cw2::ContractVersion;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
@@ -19,11 +21,16 @@ use std::convert::TryInto;
 fn query_task_hash_success() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
+    let mut deps = mock_dependencies();
 
     let to_address = String::from("you");
     let amount = coins(1015, "earth");
     let bank = BankMsg::Send { to_address, amount };
     let msg: CosmosMsg = bank.clone().into();
+    let version = ContractVersion {
+        version: "0.0.1".to_string(),
+        contract: "nobidy".to_string(),
+    };
 
     let task = Task {
         funds_withdrawn_recurring: vec![],
@@ -44,6 +51,7 @@ fn query_task_hash_success() {
             gas_limit: Some(150_000),
         }],
         rules: None,
+        version: version.version,
     };
 
     // HASH CHECK!

@@ -1,12 +1,16 @@
 use crate::{balancer::RoundRobinBalancer, ContractError};
-use cosmwasm_std::{Addr, StdResult, Storage, Timestamp};
+use cosmwasm_std::{Addr, Deps, StdResult, Storage, Timestamp};
+use cw2::ContractVersion;
 use cw20::Cw20CoinVerified;
-use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
+use cw_storage_plus::{Deque, Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GasFraction, GenericBalance, SlotType};
+use cw_croncat_core::{
+    query::CroncatQuerier,
+    types::{Agent, GasFraction, GenericBalance, SlotType},
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
@@ -88,7 +92,7 @@ impl<'a> IndexList<Task> for TaskIndexes<'a> {
     }
 }
 
-pub fn token_owner_idx(_: &[u8], d: &Task) -> Addr {
+pub fn token_owner_idx(_pk: &[u8], d: &Task) -> Addr {
     d.owner_id.clone()
 }
 
@@ -101,7 +105,7 @@ pub struct CwCroncat<'a> {
     pub agents: Map<'a, &'a Addr, Agent>,
     // TODO: Assess if diff store structure is needed for these:
     pub agent_active_queue: Item<'a, Vec<Addr>>,
-    pub agent_pending_queue: Item<'a, Vec<Addr>>,
+    pub agent_pending_queue: Deque<'a, Addr>,
 
     // REF: https://github.com/CosmWasm/cw-plus/tree/main/packages/storage-plus#indexedmap
     pub tasks: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
@@ -166,7 +170,7 @@ impl<'a> CwCroncat<'a> {
             config: Item::new("config"),
             agents: Map::new("agents"),
             agent_active_queue: Item::new("agent_active_queue"),
-            agent_pending_queue: Item::new("agent_pending_queue"),
+            agent_pending_queue: Deque::new("agent_pending_queue"),
             tasks: IndexedMap::new(tasks_key, indexes),
             task_total: Item::new("task_total"),
             tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
@@ -253,5 +257,14 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage, task_hash)?
                 .ok_or(ContractError::NoTaskFound {})
         }
+    }
+    pub fn query_contract_info(
+        &self,
+        deps: Deps,
+        contract_address: String,
+    ) -> StdResult<ContractVersion> {
+        let querier = CroncatQuerier::new(&deps.querier);
+        let res: ContractVersion = querier.query_contract_info(contract_address)?;
+        Ok(res)
     }
 }
