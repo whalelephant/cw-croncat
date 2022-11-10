@@ -184,7 +184,15 @@
       ],
       "properties": {
         "unregister_agent": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "from_behind": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
         }
       },
       "additionalProperties": false
@@ -1068,7 +1076,7 @@
       }
     },
     "Interval": {
-      "description": "Defines the spacing of execution NOTE:S - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
+      "description": "Defines the spacing of execution NOTES: - Block Height Based: Once, Immediate, Block - Timestamp Based: Cron - No Epoch support directly, advised to use block heights instead",
       "oneOf": [
         {
           "description": "For when this is a non-recurring future scheduled TXN",

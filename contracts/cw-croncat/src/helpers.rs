@@ -129,59 +129,77 @@ impl<'a> CwCroncat<'a> {
         account_id: Addr,
     ) -> Result<AgentStatus, ContractError> {
         let c: Config = self.config.load(storage)?;
-        let block_time = env.block.time.seconds();
-        // Check for active
         let active = self.agent_active_queue.load(storage)?;
-        if active.contains(&account_id) {
-            return Ok(AgentStatus::Active);
-        }
 
         // Pending
-        let pending: Vec<Addr> = self.agent_pending_queue.load(storage)?;
+        let mut pending_iter = self.agent_pending_queue.iter(storage)?;
         // If agent is pending, Check if they should get nominated to checkin to become active
-        let agent_status: AgentStatus = if pending.contains(&account_id) {
-            // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
-            // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-            let min_tasks_per_agent = c.min_tasks_per_agent;
-            let total_tasks = self
-                .task_total(storage)
-                .expect("Unexpected issue getting task total");
-            let num_active_agents = self.agent_active_queue.load(storage).unwrap().len() as u64;
-            let agent_position = pending
-                .iter()
-                .position(|address| address == &account_id)
-                .unwrap();
+        let agent_position = if let Some(pos) = pending_iter.position(|address| {
+            if let Ok(addr) = address {
+                addr == account_id
+            } else {
+                false
+            }
+        }) {
+            pos
+        } else {
+            // Check for active
+            if active.contains(&account_id) {
+                return Ok(AgentStatus::Active);
+            } else {
+                return Err(AgentNotRegistered {});
+            }
+        };
 
-            // If we should allow a new agent to take over
-            let num_agents_to_accept =
-                self.agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
-            let agent_nomination_begin_time = self.agent_nomination_begin_time.load(storage)?;
-            match agent_nomination_begin_time {
-                Some(begin_time) if num_agents_to_accept > 0 => {
+        // Edge case if last agent unregistered
+        if active.is_empty() && agent_position == 0 {
+            return Ok(AgentStatus::Nominated);
+        };
+
+        // Load config's task ratio, total tasks, active agents, and agent_nomination_begin_time.
+        // Then determine if this agent is considered "Nominated" and should call CheckInAgent
+        let max_agent_index =
+            self.max_agent_nomination_index(storage, &c, env, &(active.len() as u64))?;
+        let agent_status = match max_agent_index {
+            Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
+            _ => AgentStatus::Pending,
+        };
+        Ok(agent_status)
+    }
+
+    /// Calculate the biggest index of nomination for pending agents
+    pub(crate) fn max_agent_nomination_index(
+        &self,
+        storage: &dyn Storage,
+        cfg: &Config,
+        env: Env,
+        num_active_agents: &u64,
+    ) -> Result<Option<u64>, ContractError> {
+        let block_time = env.block.time.seconds();
+
+        let agent_nomination_begin_time = self.agent_nomination_begin_time.load(storage)?;
+
+        match agent_nomination_begin_time {
+            Some(begin_time) => {
+                let min_tasks_per_agent = cfg.min_tasks_per_agent;
+                let total_tasks = self.task_total(storage)?;
+                let num_agents_to_accept =
+                    self.agents_to_let_in(&min_tasks_per_agent, num_active_agents, &total_tasks);
+
+                if num_agents_to_accept > 0 {
                     let time_difference = block_time - begin_time.seconds();
 
                     let max_index = cmp::max(
-                        time_difference.div(c.agent_nomination_duration as u64),
+                        time_difference.div(cfg.agent_nomination_duration as u64),
                         num_agents_to_accept - 1,
                     );
-                    if agent_position as u64 <= max_index {
-                        AgentStatus::Nominated
-                    } else {
-                        AgentStatus::Pending
-                    }
-                }
-                _ => {
-                    // Not their time yet
-                    AgentStatus::Pending
+                    Ok(Some(max_index))
+                } else {
+                    Ok(None)
                 }
             }
-        } else {
-            // This should not happen. It means the address is in self.agents
-            // but not in the pending or active queues
-            // Note: if your IDE highlights the below as problematic, you can ignore
-            return Err(AgentNotRegistered {});
-        };
-        Ok(agent_status)
+            None => Ok(None),
+        }
     }
 
     pub fn agents_to_let_in(
