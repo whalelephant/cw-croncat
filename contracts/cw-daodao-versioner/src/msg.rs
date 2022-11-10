@@ -73,12 +73,14 @@ pub mod dao_registry {
 
     pub mod state {
 
+        use cosmwasm_std::Addr;
+
         use super::*;
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
         #[serde(rename_all = "snake_case", deny_unknown_fields)]
         pub struct Registration {
-            pub contract_name: String,
+            pub registered_by: Addr,
             pub version: String,
             pub code_id: u64,
             pub checksum: String,

@@ -139,7 +139,7 @@ fn create_versioner(
     .registration;
     VERSION_MAP.save(
         deps.storage,
-        (&registration.contract_name, &chain_id),
+        (&name, &chain_id),
         &registration.version,
     )?;
 
