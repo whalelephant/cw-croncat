@@ -137,11 +137,7 @@ fn create_versioner(
         None,
     )?
     .registration;
-    VERSION_MAP.save(
-        deps.storage,
-        (&name, &chain_id),
-        &registration.version,
-    )?;
+    VERSION_MAP.save(deps.storage, (&name, &chain_id), &registration.version)?;
 
     //create a croncat task for version check
     let resp = create_versioner_cron_task(
