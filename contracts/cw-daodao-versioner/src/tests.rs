@@ -1,5 +1,4 @@
 use cosmwasm_std::{coin, coins, Addr, Empty};
-use cw_code_id_registry::state::PaymentInfo;
 use cw_croncat_core::msg::TaskResponse;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -109,7 +108,6 @@ fn proxy_call_not_blocked() {
             sender.clone(),
             &cw_code_id_registry::msg::InstantiateMsg {
                 admin: sender.to_string(),
-                payment_info: PaymentInfo::None {},
             },
             &[],
             "registrar",
@@ -135,7 +133,7 @@ fn proxy_call_not_blocked() {
         sender.clone(),
         registrar_addr.clone(),
         &cw_code_id_registry::msg::ExecuteMsg::Register {
-            name: "dao-contract".to_string(),
+            contract_name: "dao-contract".to_string(),
             version: "1".to_string(),
             chain_id: "uni-5".to_string(),
             code_id: croncat_id,

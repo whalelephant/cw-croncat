@@ -556,8 +556,8 @@ dependencies = [
 
 [[package]]
 name = "cw-code-id-registry"
-version = "0.1.1"
-source = "git+https://github.com/NoahSaso/code-id-dao#3ee9e0e1417da9706427ea34fd3b0ebba8280f53"
+version = "0.1.0"
+source = "git+https://github.com/DA0-DA0/code-id-registry#abe30a00d8c3ac37faafa7174645ea45524b638a"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
