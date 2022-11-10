@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_env, mock_info},
-    to_binary, Addr, Binary, BlockInfo, DepsMut, Empty, Querier, QuerierWrapper, QueryRequest, Response, StdResult,
-    WasmQuery,
+    to_binary, Addr, Binary, BlockInfo, DepsMut, Empty, Querier, QuerierWrapper, QueryRequest,
+    Response, StdResult, Uint128, WasmQuery,
 };
 use cw2::ContractVersion;
 use cw20::Cw20Coin;
