@@ -2359,18 +2359,4 @@ fn test_error_in_reply() {
         }
     }
     assert!(without_failure);
-
-    // // The proposal was not executed
-    // let res: RuleResponse<Option<Binary>> = app
-    //     .wrap()
-    //     .query_wasm_smart(
-    //         contract_addr.clone(),
-    //         &cw_rules_core::msg::QueryMsg::CheckProposalStatus(CheckProposalStatus {
-    //             dao_address: govmod_single.to_string(),
-    //             proposal_id: 1,
-    //             status: Status::Executed,
-    //         }),
-    //     )
-    //     .unwrap();
-    // assert_eq!(res, (false, None));
 }
