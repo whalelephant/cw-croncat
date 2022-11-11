@@ -81,7 +81,6 @@ fn main() -> Result<()> {
 
     execute_proxy(&mut orc, &agent_key)?;
 
-
     let res: Vec<TaskResponse> = orc
         .query(
             CRONCAT_NAME,
