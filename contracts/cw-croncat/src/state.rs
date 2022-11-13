@@ -1,12 +1,16 @@
 use crate::{balancer::RoundRobinBalancer, ContractError};
-use cosmwasm_std::{Addr, StdResult, Storage, Timestamp};
+use cosmwasm_std::{Addr, Deps, StdResult, Storage, Timestamp};
+use cw2::ContractVersion;
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::{Deque, Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::helpers::Task;
-use cw_croncat_core::types::{Agent, GasFraction, GenericBalance, SlotType};
+use cw_croncat_core::{
+    query::CroncatQuerier,
+    types::{Agent, GasFraction, GenericBalance, SlotType},
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Config {
@@ -65,7 +69,7 @@ pub struct QueueItem {
     pub task_hash: Option<Vec<u8>>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
-    pub failed: bool,
+    pub failure: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -226,14 +230,14 @@ impl<'a> CwCroncat<'a> {
         &self,
         storage: &mut dyn Storage,
         idx: u64,
-        failed: bool,
+        failure: Option<String>,
     ) -> Result<QueueItem, ContractError> {
         self.reply_queue.update(storage, idx, |rq| {
             let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
             // if first fails it means whole thing failed
             // for cases where we stop task on failure
-            if !rq.failed {
-                rq.failed = failed;
+            if rq.failure.is_none() {
+                rq.failure = failure;
             }
             rq.action_idx += 1;
             Ok(rq)
@@ -253,5 +257,14 @@ impl<'a> CwCroncat<'a> {
                 .may_load(storage, task_hash)?
                 .ok_or(ContractError::NoTaskFound {})
         }
+    }
+    pub fn query_contract_info(
+        &self,
+        deps: Deps,
+        contract_address: String,
+    ) -> StdResult<ContractVersion> {
+        let querier = CroncatQuerier::new(&deps.querier);
+        let res: ContractVersion = querier.query_contract_info(contract_address)?;
+        Ok(res)
     }
 }

@@ -15,7 +15,6 @@ use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
 use cw_croncat_core::types::{
     calculate_required_amount, BoundaryValidated, GenericBalance, SlotType, Task,
 };
-
 impl<'a> CwCroncat<'a> {
     /// Returns task data
     /// Used by the frontend for viewing tasks
@@ -269,6 +268,13 @@ impl<'a> CwCroncat<'a> {
             .native
             .find_checked_add(&coin(price, &cfg.native_denom))?;
 
+        //ToDo: Change this method as env.contract.address does not exist in testing env
+        let version = self
+            .query_contract_info(deps.as_ref(), env.contract.address.to_string())
+            .unwrap_or(cw2::ContractVersion {
+                contract: "test".to_string(),
+                version: "1.0.0".to_string(),
+            });
         let item = Task {
             funds_withdrawn_recurring: vec![],
             owner_id: owner_id.clone(),
@@ -282,6 +288,7 @@ impl<'a> CwCroncat<'a> {
             amount_for_one_task,
             actions: task.actions,
             rules: task.rules,
+            version: version.version,
         };
 
         // Check that balance is sufficient for 1 execution minimum

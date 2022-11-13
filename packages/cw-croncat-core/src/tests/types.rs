@@ -489,6 +489,7 @@ fn hashing() {
             address: "foo".to_string(),
             required_balance: coins(5, "atom").into(),
         })]),
+        version: String::from(""),
     };
 
     let message = format!(
