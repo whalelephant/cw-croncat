@@ -433,6 +433,35 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         res_err.unwrap_err().downcast().unwrap()
     );
 
+    // Must include gas_limit for WASM actions
+    let action_self = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: contract_addr.clone().into_string(),
+        funds: vec![],
+        msg: to_binary(&change_settings_msg.clone())?,
+    });
+    let res_err = app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Once,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: action_self.clone(),
+                    gas_limit: None,
+                }],
+                rules: None,
+                cw20_coins: vec![],
+            },
+        },
+        &coins(13, NATIVE_DENOM),
+    );
+    assert_eq!(
+        ContractError::CoreError(CoreError::NoGasLimit {}),
+        res_err.unwrap_err().downcast().unwrap()
+    );
+
     // Interval invalid
     let res_err = app
         .execute_contract(
