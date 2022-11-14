@@ -1,7 +1,8 @@
 #!/bin/bash
 source ~/.profile
-cd "$(dirname "$0")"
-. ./base/init-vars.sh
+SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
+. $SH_DIR/base/init-vars.sh
 
 if [ -z "$1" ]
 then
