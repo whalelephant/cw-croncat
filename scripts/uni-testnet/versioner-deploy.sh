@@ -15,7 +15,7 @@ echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 
 croncat_addr=juno15ssquhz95cqjh9774cahtv0zud8sffwh86cfxp5a08eatg2strlqp8s69w
-registrar_addr=juno1yfl86vq2qy9evvu5dc6w53tv3dwffm4xxnhdymzzj52e0757jc3q5g06eg
+registrar_addr=juno17cqgyrwayxszh0lh66xdlcxqxd399gmnqdyvqx6cj9lz4d5crpsqggngqe
 usage() {
   printf "Usage: $SH_DIR/versioner.sh -w -c"
 }

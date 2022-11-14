@@ -555,6 +555,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "cw-code-id-registry"
+version = "0.1.0"
+source = "git+https://github.com/DA0-DA0/code-id-registry#abe30a00d8c3ac37faafa7174645ea45524b638a"
+dependencies = [
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "cw-storage-plus 0.13.4",
+ "cw-utils 0.13.4",
+ "cw2 0.13.4",
+ "cw20",
+ "cw20-base",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "cw-controllers"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -686,8 +703,11 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
+ "cw-code-id-registry",
+ "cw-croncat",
  "cw-croncat-core",
  "cw-multi-test",
+ "cw-rules",
  "cw-rules-core",
  "cw-storage-plus 0.13.4",
  "cw-utils 0.13.4",
@@ -1325,6 +1345,25 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "daodao-versioner-gas-debug"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cosm-orc",
+ "cosmwasm-std",
+ "cw-code-id-registry",
+ "cw-croncat",
+ "cw-croncat-core",
+ "cw-daodao-versioner",
+ "cw-rules-core",
+ "cw20",
+ "cw20-base",
+ "env_logger",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

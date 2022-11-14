@@ -7,6 +7,7 @@ members = [
   "packages/generic-query",
   "packages/cw-rules-core",
   "ci/gas-benchmark",
+  "ci/daodao-versioner-gas-debug",
 ]
 
 [profile.release]
