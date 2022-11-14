@@ -48,7 +48,7 @@ daodao-versioner-gas-debug: juno-local download-deps optimize
 	set -euxo pipefail
 	TXFLAG="--chain-id testing --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 	docker cp 'artifacts/' cosmwasm:/artifacts
-	docker cp 'ci/artifacts/cw_code_id_registry.wasm' cosmwasm:/artifacts/cw_code_id_registry.wasm
+	docker exec -i cosmwasm junod q wasm code 2125 /artifacts/cw_code_id_registry.wasm --node https://rpc.uni.juno.deuslabs.fi:443
 	RULES_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_rules.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 	CRONCAT_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_croncat.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
 	VERSIONER_ID=$(docker exec -i cosmwasm junod tx wasm store "/artifacts/cw_daodao_versioner.wasm" -y --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')

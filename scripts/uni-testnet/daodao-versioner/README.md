@@ -1,7 +1,7 @@
 ## Set registry contract address
 
 ```bash
-REGISTRY_CONTRACT_ADDRESS=juno1yfl86vq2qy9evvu5dc6w53tv3dwffm4xxnhdymzzj52e0757jc3q5g06eg
+REGISTRY_CONTRACT_ADDRESS=juno17cqgyrwayxszh0lh66xdlcxqxd399gmnqdyvqx6cj9lz4d5crpsqggngqe
 ```
 ## Query registrations
 ```bash

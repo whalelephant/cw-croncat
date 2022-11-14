@@ -45,7 +45,7 @@ pub mod dao_registry {
             /// If version provided, tries to find given version. Otherwise returns
             /// the latest version registered.
             GetRegistration {
-                contract_name: String,
+                name: String,
                 chain_id: String,
                 version: Option<String>,
             },
