@@ -2318,14 +2318,14 @@ fn test_error_in_reply() {
             stop_on_fail: false,
             actions: vec![Action {
                 msg: wasm.clone().into(),
-                gas_limit: None,
+                gas_limit: Some(200_000),
             }],
             rules: None,
             cw20_coins: vec![],
         },
     };
 
-    let attached_balance = 5833;
+    let attached_balance = 58333;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
