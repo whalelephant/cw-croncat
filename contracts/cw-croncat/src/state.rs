@@ -69,7 +69,7 @@ pub struct QueueItem {
     pub task_hash: Option<Vec<u8>>,
     pub task_is_extra: Option<bool>,
     pub agent_id: Option<Addr>,
-    pub failed: bool,
+    pub failure: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -230,14 +230,14 @@ impl<'a> CwCroncat<'a> {
         &self,
         storage: &mut dyn Storage,
         idx: u64,
-        failed: bool,
+        failure: Option<String>,
     ) -> Result<QueueItem, ContractError> {
         self.reply_queue.update(storage, idx, |rq| {
             let mut rq = rq.ok_or(ContractError::UnknownReplyID {})?;
             // if first fails it means whole thing failed
             // for cases where we stop task on failure
-            if !rq.failed {
-                rq.failed = failed;
+            if rq.failure.is_none() {
+                rq.failure = failure;
             }
             rq.action_idx += 1;
             Ok(rq)

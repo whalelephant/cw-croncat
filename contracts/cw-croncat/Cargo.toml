@@ -36,6 +36,7 @@ cw-rules-core = { version = "0.1.1", path = "../../packages/cw-rules-core" }
 cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
 cosmwasm-storage = { version = "1.0.0" }
 cw-storage-plus = "0.16.0"
+cw-utils = "0.13"
 cron_schedule = "0.2.2"
 cw2 = "0.16.0"
 cw20 = { version = "0.13.4" }
@@ -51,3 +52,9 @@ cosmwasm-schema = { version = "1.0.0" }
 cw-rules = { version = "*", path = "../cw-rules" }
 cw-multi-test = { version = "0.16.0", features = ["staking"] }
 cw20-base = { version = "0.13.4", features = ["library"] }
+cwd-voting-cw20-staked = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
+cwd-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cwd-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cwd-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+cwd-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }

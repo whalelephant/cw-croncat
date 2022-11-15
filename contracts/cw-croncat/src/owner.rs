@@ -365,7 +365,7 @@ impl<'a> CwCroncat<'a> {
                         task_hash: item.task_hash,
                         task_is_extra: item.task_is_extra,
                         agent_id: item.agent_id,
-                        failed: item.failed,
+                        failed: item.failure.is_some(),
                     },
                 }
             })

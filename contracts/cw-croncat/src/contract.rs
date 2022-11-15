@@ -7,7 +7,6 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::traits::ResultFailed;
 use cw_croncat_core::types::{GasFraction, SlotType};
 
 // version info for migration info
@@ -234,8 +233,8 @@ impl<'a> CwCroncat<'a> {
         {
             let task =
                 self.task_after_action(deps.storage, deps.api, queue_item, msg.result.is_ok())?;
-            let reply_submsg_failed = msg.result.failed();
-            let queue_item = self.rq_update_rq_item(deps.storage, msg.id, reply_submsg_failed)?;
+            let failure = msg.result.clone().into_result().err();
+            let queue_item = self.rq_update_rq_item(deps.storage, msg.id, failure)?;
             if queue_item.action_idx == task.actions.len() as u64 {
                 // Last action
                 self.rq_remove(deps.storage, msg.id);
