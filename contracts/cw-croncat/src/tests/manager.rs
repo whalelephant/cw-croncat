@@ -532,7 +532,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(525006, NATIVE_DENOM),
+            &coins(128338, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -592,9 +592,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                     attr_key = Some(a.clone().key);
                     attr_value = Some(a.clone().value);
                 }
-                if e.ty == "transfer"
-                    && a.clone().key == "amount"
-                    && a.clone().value == "492340atom"
+                if e.ty == "transfer" && a.clone().key == "amount" && a.clone().value == "64172atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -692,7 +690,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "492340atom"
+                    && a.clone().value == "460840atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1718,7 +1716,7 @@ fn test_reschedule_task_with_rule() {
         },
     };
 
-    let attached_balance = 50058;
+    let attached_balance = 100338 * 4;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -2320,14 +2318,14 @@ fn test_error_in_reply() {
             stop_on_fail: false,
             actions: vec![Action {
                 msg: wasm.clone().into(),
-                gas_limit: None,
+                gas_limit: Some(200_000),
             }],
             rules: None,
             cw20_coins: vec![],
         },
     };
 
-    let attached_balance = 5833;
+    let attached_balance = 58333;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),

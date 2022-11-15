@@ -304,8 +304,8 @@ fn test_get_state() {
     assert_eq!(state.config.paused, false);
     assert_eq!(state.config.owner_id.as_str(), ADMIN);
     assert_eq!(state.config.agent_fee, 5);
-    assert_eq!(state.config.gas_base_fee, 30000);
-    assert_eq!(state.config.gas_action_fee, 20000);
+    assert_eq!(state.config.gas_base_fee, 300_000);
+    assert_eq!(state.config.gas_action_fee, 130_000);
     assert_eq!(state.config.proxy_callback_gas, 3);
     assert!(state.agent_active_queue.is_empty());
     assert!(state.agent_pending_queue.is_empty());
