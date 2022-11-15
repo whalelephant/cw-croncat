@@ -26,4 +26,7 @@ pub enum CoreError {
 
     #[error("Invalid gas input")]
     InvalidGas {},
+
+    #[error("Must provide gas limit for WASM actions")]
+    NoGasLimit {},
 }
