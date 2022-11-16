@@ -14,8 +14,8 @@ $SCRIPTS_PATH/build.sh
 echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 
-croncat_addr=juno15ssquhz95cqjh9774cahtv0zud8sffwh86cfxp5a08eatg2strlqp8s69w
-registrar_addr=juno17cqgyrwayxszh0lh66xdlcxqxd399gmnqdyvqx6cj9lz4d5crpsqggngqe
+croncat_addr=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
+registrar_addr=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
 usage() {
   printf "Usage: $SH_DIR/versioner.sh -w -c"
 }

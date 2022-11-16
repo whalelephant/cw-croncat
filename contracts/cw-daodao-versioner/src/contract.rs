@@ -7,6 +7,7 @@ use cw2::set_contract_version;
 use cw_croncat_core::msg::TaskRequest;
 use cw_croncat_core::types::{Action, Interval};
 
+use crate::daodao::create_daodao_proposal;
 //use crate::daodao::create_daodao_proposal;
 use crate::error::ContractError;
 use crate::msg::dao_registry::query::*;
@@ -53,7 +54,7 @@ pub fn execute(
             daodao_addr,
             name,
             chain_id,
-        } => update_versioner(deps, env, daodao_addr, name, chain_id),
+        } => update_versioner(deps, env, info, daodao_addr, name, chain_id),
     }
 }
 
@@ -179,49 +180,44 @@ fn remove_versioner(
         .add_attribute("chain_id", chain_id))
 }
 
-fn is_new_version_available(deps: Deps, name: String, chain_id: String) -> bool {
-    let registrar_addr = REGISTRAR_ADDR.load(deps.storage).unwrap();
-    let registration = query_registration(
-        deps,
-        registrar_addr.to_string(),
-        name.clone(),
-        chain_id.clone(),
-        None,
-    )
-    .unwrap()
-    .registration;
+fn is_new_version_available(_deps: Deps, _name: String, _chain_id: String) -> bool {
+    true
+    // let registrar_addr = REGISTRAR_ADDR.load(deps.storage).unwrap();
+    // let registration = query_registration(
+    //     deps,
+    //     registrar_addr.to_string(),
+    //     name.clone(),
+    //     chain_id.clone(),
+    //     None,
+    // )
+    // .unwrap()
+    // .registration;
 
-    let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id));
-    registration.version > current_version.unwrap().unwrap()
+    // let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id));
+    // registration.version > current_version.unwrap().unwrap()
 }
 
 fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> StdResult<bool> {
     Ok(is_new_version_available(deps, name, chain_id))
 }
-fn _create_daodao_proposal(
-    _deps: DepsMut,
-    _env: Env,
-    _name: String,
-    _chain_id: String,
-) -> Result<Response, ContractError> {
-    todo!()
-}
+
 fn update_versioner(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
-    _daodao_addr: String,
-    _name: String,
-    _chain_id: String,
+    info: MessageInfo,
+    daodao_addr: String,
+    name: String,
+    chain_id: String,
 ) -> Result<Response, ContractError> {
     //If new version is available, create proposal
-    // if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
-    //     return create_daodao_proposal(
-    //         daodao_addr,
-    //         name,
-    //         chain_id,
-    //         env.contract.address.to_string(),
-    //     );
-    // }
+    if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
+        return create_daodao_proposal(
+            daodao_addr,
+            name,
+            chain_id,
+            Some(info.sender.into_string()),
+        );
+    }
     Ok(Response::new().add_attribute("action", "update_versioner"))
 }
 fn create_versioner_cron_task(
@@ -245,7 +241,7 @@ fn create_versioner_cron_task(
             funds: vec![],
         }
         .into(),
-        gas_limit: None,
+        gas_limit: Some(300_000),
     };
 
     let task_request = TaskRequest {
