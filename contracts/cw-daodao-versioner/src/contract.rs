@@ -180,21 +180,20 @@ fn remove_versioner(
         .add_attribute("chain_id", chain_id))
 }
 
-fn is_new_version_available(_deps: Deps, _name: String, _chain_id: String) -> bool {
-    true
-    // let registrar_addr = REGISTRAR_ADDR.load(deps.storage).unwrap();
-    // let registration = query_registration(
-    //     deps,
-    //     registrar_addr.to_string(),
-    //     name.clone(),
-    //     chain_id.clone(),
-    //     None,
-    // )
-    // .unwrap()
-    // .registration;
+fn is_new_version_available(deps: Deps, name: String, chain_id: String) -> bool {
+    let registrar_addr = REGISTRAR_ADDR.load(deps.storage).unwrap();
+    let registration = query_registration(
+        deps,
+        registrar_addr.to_string(),
+        name.clone(),
+        chain_id.clone(),
+        None,
+    )
+    .unwrap()
+    .registration;
 
-    // let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id));
-    // registration.version > current_version.unwrap().unwrap()
+    let current_version = VERSION_MAP.may_load(deps.storage, (&name, &chain_id));
+    registration.version > current_version.unwrap().unwrap_or_default()
 }
 
 fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> StdResult<bool> {
@@ -213,7 +212,9 @@ fn update_versioner(
     if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
         return create_daodao_proposal(daodao_addr, name, chain_id, None);
     }
-    Ok(Response::new().add_attribute("action", "update_versioner"))
+    Ok(Response::new()
+        .add_attribute("action", "update_versioner")
+        .add_attribute("version", "up to date"))
 }
 fn create_versioner_cron_task(
     deps: DepsMut,
@@ -240,7 +241,7 @@ fn create_versioner_cron_task(
     };
 
     let task_request = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Block(10),
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
