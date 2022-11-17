@@ -3,8 +3,8 @@
 ```bash
 source ./scripts/uni-testnet/daodao-versioner/.env
 SIGNER_ADDR=$(junod keys show signer --address)
-
 ```
+
 ## Query registrations
 ```bash
 junod query wasm contract-state smart $REGISTRY_CONTRACT_ADDRESS '{"get_registration":{"name": "cw-code-id-registry", "chain_id": "uni-5"}}' --node "https://rpc.uni.junonetwork.io:443"
@@ -23,8 +23,8 @@ junod tx wasm execute $REGISTRY_CONTRACT_ADDRESS "$REGISTER_MSG" --from signer -
 ## Create versioner new entry
 
 ```bash
-VERSIONER_ADDRESS=juno1d47p66tds02c5x6h9dtkqa5kwgnu4k3aw7mjxn25s8vqd4r49pusfq3wzz
-./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $DAODAO_ADDR
+VERSIONER_ADDRESS=juno1tkw3hrprd75vm5a73pd57zg7qhadv6qd02lg6u7z7fht48ldwgmqtw0f6m
+./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $PROPOSAL_MODULE_ADDR
 ```
 ## Get croncat tasks
 

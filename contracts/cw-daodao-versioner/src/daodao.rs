@@ -26,7 +26,7 @@ pub fn create_daodao_proposal(
     proposer: Option<String>,
 ) -> Result<Response, ContractError> {
     let proposal = ProposeMessage::Propose {
-        title: format!("{name}{chain_id}"),
+        title: format!("contract:{name},chain-id:{chain_id}"),
         description: format!("{name}{chain_id}"),
         msgs: vec![],
         proposer,

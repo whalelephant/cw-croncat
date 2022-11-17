@@ -204,19 +204,14 @@ fn query_new_version_available(deps: Deps, name: String, chain_id: String) -> St
 fn update_versioner(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     daodao_addr: String,
     name: String,
     chain_id: String,
 ) -> Result<Response, ContractError> {
     //If new version is available, create proposal
     if is_new_version_available(deps.as_ref(), name.clone(), chain_id.clone()) {
-        return create_daodao_proposal(
-            daodao_addr,
-            name,
-            chain_id,
-            Some(info.sender.into_string()),
-        );
+        return create_daodao_proposal(daodao_addr, name, chain_id, None);
     }
     Ok(Response::new().add_attribute("action", "update_versioner"))
 }
@@ -241,7 +236,7 @@ fn create_versioner_cron_task(
             funds: vec![],
         }
         .into(),
-        gas_limit: Some(300_000),
+        gas_limit: Some(900_000),
     };
 
     let task_request = TaskRequest {

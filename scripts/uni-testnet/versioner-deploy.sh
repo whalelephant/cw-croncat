@@ -1,7 +1,6 @@
 #!/bin/sh
 REGISTRY_CONTRACT_ADDRESS=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
 CRONCAT_ADDRESS=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
-DAODAO_ADDR=juno16jy8py9c2jsu08rwjl534exss7nwp6p78et73wuhh5lxhrddvl8q4vz55q
 set -e
 SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
