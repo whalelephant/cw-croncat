@@ -1,4 +1,5 @@
 use cosmwasm_std::{to_binary, CosmosMsg, Empty, Response, WasmMsg};
+//use cosmwasm_std::{CosmosMsg, Empty, Response};
 
 use crate::error::ContractError;
 use cwd_pre_propose_base::msg::ExecuteMsg as ExecuteBase;
@@ -28,7 +29,7 @@ pub fn create_daodao_proposal(
         title: format!("{name}{chain_id}"),
         description: format!("{name}{chain_id}"),
         msgs: vec![],
-        proposer: proposer,
+        proposer,
     };
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: daodao_addr,

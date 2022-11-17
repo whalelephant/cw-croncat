@@ -1,6 +1,8 @@
 #!/bin/sh
+REGISTRY_CONTRACT_ADDRESS=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
+CRONCAT_ADDRESS=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
+DAODAO_ADDR=juno16jy8py9c2jsu08rwjl534exss7nwp6p78et73wuhh5lxhrddvl8q4vz55q
 set -e
-source ~/.profile
 SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
 SC_PATH="$(cd -P "$(dirname "${SH_PATH}")/../..";pwd)"
@@ -14,8 +16,6 @@ $SCRIPTS_PATH/build.sh
 echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 
-croncat_addr=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
-registrar_addr=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
 usage() {
   printf "Usage: $SH_DIR/versioner.sh -w -c"
 }
@@ -90,12 +90,15 @@ if [ $RECREATE_CONTAINERS == 1 ]; then
   . $SH_DIR/base/init-addresses.sh
 fi
 
-echo "${Yellow}Instantiating smart contracts...${NoColor}"
+echo "${Yellow}Instantiating smart contract...${NoColor}"
+echo "REGISTRY_ADDR: $REGISTRY_CONTRACT_ADDRESS"
+echo "CRONCAT_ADDR: $CRONCAT_ADDRESS"
+
 RES=$(junod tx wasm store artifacts/cw_daodao_versioner$WASM_POSTFIX.wasm --from owner $TXFLAG -y --output json -b block)
 CODE_ID=$(echo $RES | jq -r '.logs[0].events[-1].attributes[1].value')
 echo "${Cyan}CODE_ID :" $CODE_ID "${NoColor}"
 
-INIT='{"registrar_addr":"'$registrar_addr'","croncat_addr":"'$croncat_addr'"}'
+INIT='{"registrar_addr":"'$REGISTRY_CONTRACT_ADDRESS'","croncat_addr":"'$CRONCAT_ADDRESS'"}'
 
 $BINARY tx wasm instantiate $CODE_ID "$INIT" --from owner --label "cw_dadao_versioner" $TXFLAG -y --no-admin
 VERSIONER_CONTRACT_ADDRESS=$($BINARY q wasm list-contract-by-code $CODE_ID $NODE --output json | jq -r '.contracts[-1]')

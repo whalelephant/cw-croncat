@@ -23,7 +23,7 @@ junod tx wasm execute $REGISTRY_CONTRACT_ADDRESS "$REGISTER_MSG" --from signer -
 ## Create versioner new entry
 
 ```bash
-VERSIONER_ADDRESS=juno1ydnsddskwek69hm8gkem5h6k48hnsuqqyv346y34xca0afnnznsqdd356j
+VERSIONER_ADDRESS=juno1d47p66tds02c5x6h9dtkqa5kwgnu4k3aw7mjxn25s8vqd4r49pusfq3wzz
 ./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $DAODAO_ADDR
 ```
 ## Get croncat tasks
