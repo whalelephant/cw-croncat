@@ -5,7 +5,7 @@ TXFLAG="--chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.
 NODE="--node https://rpc.uni.junonetwork.io:443"
 REGISTRY_CONTRACT_ADDRESS=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
 CRONCAT_ADDRESS=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
-DAODAO_ADDR=juno14ltc06vfn9qh7l82pqm09yrxjx80ul9xhu8k4kv0ge2ujhz2l3sqhsagnj
+DAODAO_ADDR=juno1jx33vf2w36uqa3e0qq68azs2ar2sr05vgqswsxsukasa39jpxs6qqdue8z
 SIGNER_ADDR=$(junod keys show signer --address)
 ```
 
@@ -28,7 +28,7 @@ junod tx wasm execute $REGISTRY_CONTRACT_ADDRESS "$REGISTER_MSG" --from signer -
 
 ```bash
 VERSIONER_ADDRESS=juno1tkw3hrprd75vm5a73pd57zg7qhadv6qd02lg6u7z7fht48ldwgmqtw0f6m
-./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $PROPOSAL_MODULE_ADDR
+./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $DAODAO_ADDR
 ```
 ## Get croncat tasks
 
