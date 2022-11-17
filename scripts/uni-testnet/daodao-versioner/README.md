@@ -4,8 +4,8 @@
 NODE="--node https://rpc.uni.junonetwork.io:443"
 TXFLAG="--node https://juno-testnet-rpc.polkachu.com:443 --chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block"
 REGISTRY_CONTRACT_ADDRESS=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
-CRONCAT_ADDRESS=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
-DAODAO_ADDR=juno1jx33vf2w36uqa3e0qq68azs2ar2sr05vgqswsxsukasa39jpxs6qqdue8z
+CRONCAT_ADDRESS=juno1vknyvkygchgjc8wlqy4wrw0adlm3z7csuga40vmmrsz73fra6sqqhewxc0
+DAODAO_ADDR=juno15d32yquku4xnx6m4puw4dmkymaezxtk7cqk848wama7wyg4vg9gq7czq9n
 SIGNER_ADDR=$(junod keys show signer --address)
 
 export REGISTRY_CONTRACT_ADDRESS
@@ -31,7 +31,7 @@ junod tx wasm execute $REGISTRY_CONTRACT_ADDRESS "$REGISTER_MSG" --from signer -
 ## Create versioner new entry
 
 ```bash
-VERSIONER_ADDRESS=juno1mxt5cz5yw6jqjltx2suu6gj608juvu3074x6w5egfkcvhjszqvmsve2f7s
+VERSIONER_ADDRESS=juno179arykuu84zt66w30g9ssl0czykuk0ucpvp6maj625ywcgxevqdqnhsf9c
 ./scripts/uni-testnet/versioner-create.sh $VERSIONER_ADDRESS $DAODAO_ADDR
 ```
 ## Get croncat tasks
