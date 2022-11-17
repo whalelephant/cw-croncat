@@ -1,7 +1,11 @@
 ## Set registry contract address
 
 ```bash
-source ./scripts/uni-testnet/daodao-versioner/.env
+TXFLAG="--chain-id uni-5 --gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 --broadcast-mode block --node https://rpc.uni.junonetwork.io:443"
+NODE="--node https://rpc.uni.junonetwork.io:443"
+REGISTRY_CONTRACT_ADDRESS=juno1k2z6m5duj8hnyc7wfk43wzxexc65zg0kp4pv2ccf83y4fe533c3qynes6j
+CRONCAT_ADDRESS=juno1ns5utq5s4np90fjtsfzl9zzlzpppdcntjg4y8e4quejha373zfcq94mqtw
+DAODAO_ADDR=juno14ltc06vfn9qh7l82pqm09yrxjx80ul9xhu8k4kv0ge2ujhz2l3sqhsagnj
 SIGNER_ADDR=$(junod keys show signer --address)
 ```
 
