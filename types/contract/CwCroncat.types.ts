@@ -157,7 +157,13 @@ export type Interval = "Once" | "Immediate" | {
 } | {
   Cron: string;
 };
-export type Rule = {
+export type Queries = {
+  query: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
   has_balance_gte: HasBalanceGte;
 } | {
   check_owner_of_nft: CheckOwnerOfNft;
@@ -175,12 +181,13 @@ export type Balance = {
 };
 export type NativeBalance = Coin[];
 export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
 export type ValueIndex = {
   key: string;
 } | {
   index: number;
 };
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
+export type PathToValue = ValueIndex[];
 export type SmartQueries = SmartQuery[];
 export interface Croncat {
   Agent?: Agent | null;
@@ -299,7 +306,7 @@ export interface TaskResponse {
   funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
-  rules?: Rule[] | null;
+  rules?: Queries[] | null;
   stop_on_fail: boolean;
   task_hash: string;
   total_cw20_deposit: Cw20CoinVerified[];
@@ -343,25 +350,26 @@ export interface CheckProposalStatus {
 }
 export interface GenericQuery {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
   ordering: ValueOrdering;
+  path_to_value: PathToValue;
   value: Binary;
   [k: string]: unknown;
 }
 export interface SmartQueryHead {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
   ordering: ValueOrdering;
+  path_to_query_value: PathToValue;
   queries: SmartQueries;
   value: Binary;
   [k: string]: unknown;
 }
 export interface SmartQuery {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
+  path_to_msg_value?: PathToValue | null;
+  path_to_query_value: PathToValue;
   [k: string]: unknown;
 }
 export interface GetWalletBalancesResponse {
@@ -375,9 +383,10 @@ export interface Task {
   funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
-  rules?: Rule[] | null;
+  queries?: Queries[] | null;
   stop_on_fail: boolean;
   total_deposit: GenericBalance;
+  transforms?: Transform[] | null;
   version: string;
   [k: string]: unknown;
 }
@@ -386,13 +395,21 @@ export interface BoundaryValidated {
   start?: number | null;
   [k: string]: unknown;
 }
+export interface Transform {
+  action_idx: number;
+  action_path: PathToValue;
+  query_idx: number;
+  query_response_path: PathToValue;
+  [k: string]: unknown;
+}
 export interface TaskRequest {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
   cw20_coins: Cw20Coin[];
   interval: Interval;
-  rules?: Rule[] | null;
+  queries?: Queries[] | null;
   stop_on_fail: boolean;
+  transforms?: Transform[] | null;
   [k: string]: unknown;
 }
 export interface Cw20Coin {
@@ -542,7 +559,7 @@ export interface QueueItemResponse {
 export interface TaskWithRulesResponse {
   boundary?: Boundary | null;
   interval: Interval;
-  rules?: Rule[] | null;
+  rules?: Queries[] | null;
   task_hash: string;
   [k: string]: unknown;
 }

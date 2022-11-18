@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, QueryConstructResponse, Rule, ValueIndex, ValueOrdering, SmartQueries, QueryConstruct, GenericQuery, SmartQueryHead, SmartQuery, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRules.types";
+import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, Queries, ValueOrdering, ValueIndex, PathToValue, SmartQueries, GenericQuery, SmartQueryHead, SmartQuery, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRules.types";
 export interface CwRulesReadOnlyInterface {
   contractAddress: string;
   getBalance: ({
@@ -50,34 +50,34 @@ export interface CwRulesReadOnlyInterface {
   }) => Promise<CheckProposalStatusResponse>;
   genericQuery: ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToValue,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToValue: PathToValue;
     value: Binary;
   }) => Promise<GenericQueryResponse>;
   queryConstruct: ({
     rules
   }: {
-    rules: Rule[];
+    rules: Queries[];
   }) => Promise<QueryConstructResponse>;
   smartQuery: ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToQueryValue,
     queries,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToQueryValue: PathToValue;
     queries: SmartQueries;
     value: Binary;
   }) => Promise<SmartQueryResponse>;
@@ -177,23 +177,23 @@ export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
   };
   genericQuery = async ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToValue,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToValue: PathToValue;
     value: Binary;
   }): Promise<GenericQueryResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       generic_query: {
         contract_addr: contractAddr,
-        gets,
         msg,
         ordering,
+        path_to_value: pathToValue,
         value
       }
     });
@@ -201,7 +201,7 @@ export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
   queryConstruct = async ({
     rules
   }: {
-    rules: Rule[];
+    rules: Queries[];
   }): Promise<QueryConstructResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       query_construct: {
@@ -211,25 +211,25 @@ export class CwRulesQueryClient implements CwRulesReadOnlyInterface {
   };
   smartQuery = async ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToQueryValue,
     queries,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToQueryValue: PathToValue;
     queries: SmartQueries;
     value: Binary;
   }): Promise<SmartQueryResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       smart_query: {
         contract_addr: contractAddr,
-        gets,
         msg,
         ordering,
+        path_to_query_value: pathToQueryValue,
         queries,
         value
       }

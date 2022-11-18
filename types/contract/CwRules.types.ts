@@ -6,7 +6,7 @@
 
 export type Binary = string;
 export interface CheckOwnerOfNftResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
@@ -17,7 +17,7 @@ export interface CheckOwnerOfNft {
   [k: string]: unknown;
 }
 export interface CheckProposalStatusResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
@@ -34,22 +34,22 @@ export type ExecuteMsg = {
   };
 };
 export interface GenericQueryResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
 export interface GetBalanceResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
 export interface GetCw20BalanceResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
 export interface HasBalanceGteResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
@@ -79,12 +79,13 @@ export interface Cw20CoinVerified {
 export interface InstantiateMsg {
   [k: string]: unknown;
 }
-export interface QueryConstructResponse {
-  data?: Binary | null;
-  result: boolean;
-  [k: string]: unknown;
-}
-export type Rule = {
+export type Queries = {
+  query: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
   has_balance_gte: HasBalanceGte;
 } | {
   check_owner_of_nft: CheckOwnerOfNft;
@@ -95,38 +96,45 @@ export type Rule = {
 } | {
   smart_query: SmartQueryHead;
 };
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
 export type ValueIndex = {
   key: string;
 } | {
   index: number;
 };
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
+export type PathToValue = ValueIndex[];
 export type SmartQueries = SmartQuery[];
-export interface QueryConstruct {
-  rules: Rule[];
-  [k: string]: unknown;
-}
 export interface GenericQuery {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
   ordering: ValueOrdering;
+  path_to_value: PathToValue;
   value: Binary;
   [k: string]: unknown;
 }
 export interface SmartQueryHead {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
   ordering: ValueOrdering;
+  path_to_query_value: PathToValue;
   queries: SmartQueries;
   value: Binary;
   [k: string]: unknown;
 }
 export interface SmartQuery {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
+  path_to_msg_value?: PathToValue | null;
+  path_to_query_value: PathToValue;
+  [k: string]: unknown;
+}
+export interface QueryConstructResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface QueryConstruct {
+  rules: Queries[];
   [k: string]: unknown;
 }
 export type QueryMsg = {
@@ -159,12 +167,12 @@ export interface QueryMultiResponse {
   [k: string]: unknown;
 }
 export interface RuleResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }
 export interface SmartQueryResponse {
-  data?: Binary | null;
+  data: Binary;
   result: boolean;
   [k: string]: unknown;
 }

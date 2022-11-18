@@ -59,13 +59,13 @@ class CwRulesQueryClient {
                 }
             });
         });
-        this.genericQuery = ({ contractAddr, gets, msg, ordering, value }) => __awaiter(this, void 0, void 0, function* () {
+        this.genericQuery = ({ contractAddr, msg, ordering, pathToValue, value }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 generic_query: {
                     contract_addr: contractAddr,
-                    gets,
                     msg,
                     ordering,
+                    path_to_value: pathToValue,
                     value
                 }
             });
@@ -77,13 +77,13 @@ class CwRulesQueryClient {
                 }
             });
         });
-        this.smartQuery = ({ contractAddr, gets, msg, ordering, queries, value }) => __awaiter(this, void 0, void 0, function* () {
+        this.smartQuery = ({ contractAddr, msg, ordering, pathToQueryValue, queries, value }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 smart_query: {
                     contract_addr: contractAddr,
-                    gets,
                     msg,
                     ordering,
+                    path_to_query_value: pathToQueryValue,
                     queries,
                     value
                 }
