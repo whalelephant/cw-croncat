@@ -15,10 +15,13 @@ use cw_croncat_core::msg::{
 use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{HasBalanceGte, Queries};
+use cwd_core::state::ProposalModule;
 use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
-use super::helpers::{ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM};
+use super::helpers::{
+    proper_instantiate_with_dao, ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM,
+};
 
 #[test]
 fn proxy_call_fail_cases() -> StdResult<()> {
@@ -535,7 +538,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
             &create_task_msg,
-            &coins(525006, NATIVE_DENOM),
+            &coins(128338, NATIVE_DENOM),
         )
         .unwrap();
     // Assert task hash is returned as part of event attributes
@@ -595,9 +598,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                     attr_key = Some(a.clone().key);
                     attr_value = Some(a.clone().value);
                 }
-                if e.ty == "transfer"
-                    && a.clone().key == "amount"
-                    && a.clone().value == "492340atom"
+                if e.ty == "transfer" && a.clone().key == "amount" && a.clone().value == "64172atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -696,7 +697,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "492340atom"
+                    && a.clone().value == "460840atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1734,7 +1735,7 @@ fn test_reschedule_task_with_rule() {
         },
     };
 
-    let attached_balance = 50058;
+    let attached_balance = 100338 * 4;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -2791,4 +2792,139 @@ fn insertable_rule_res_negative() {
         new_balance_of_agent3.balance - old_balance_of_agent3.balance,
         Uint128::from(0u128)
     );
+}
+
+#[test]
+fn test_error_in_reply() {
+    let (mut app, cw_template_contract, _cw20_addr, governance_addr) =
+        proper_instantiate_with_dao(None, None, None, None);
+    let contract_addr = cw_template_contract.addr();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let governance_modules: Vec<ProposalModule> = app
+        .wrap()
+        .query_wasm_smart(
+            governance_addr.clone(),
+            &cwd_core::msg::QueryMsg::ProposalModules {
+                start_after: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+
+    let govmod_single = governance_modules.into_iter().next().unwrap().address;
+
+    let govmod_config: cwd_proposal_single::state::Config = app
+        .wrap()
+        .query_wasm_smart(
+            govmod_single.clone(),
+            &cwd_proposal_single::msg::QueryMsg::Config {},
+        )
+        .unwrap();
+    let dao = govmod_config.dao;
+    let voting_module: Addr = app
+        .wrap()
+        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .unwrap();
+    let staking_contract: Addr = app
+        .wrap()
+        .query_wasm_smart(
+            voting_module.clone(),
+            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+        )
+        .unwrap();
+    let token_contract: Addr = app
+        .wrap()
+        .query_wasm_smart(
+            voting_module,
+            &cwd_interface::voting::Query::TokenContract {},
+        )
+        .unwrap();
+
+    // Stake some tokens so we can propose
+    let msg = cw20::Cw20ExecuteMsg::Send {
+        contract: staking_contract.to_string(),
+        amount: Uint128::new(2000),
+        msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
+    };
+    app.execute_contract(Addr::unchecked(ADMIN), token_contract.clone(), &msg, &[])
+        .unwrap();
+    app.update_block(add_little_time);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        govmod_single.clone(),
+        &cwd_proposal_single::msg::ExecuteMsg::Propose {
+            title: "Cron".to_string(),
+            description: "Cat".to_string(),
+            msgs: vec![],
+            proposer: None,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let execute_msg = cwd_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 };
+
+    // create a task for executing proposal
+    let wasm = WasmMsg::Execute {
+        contract_addr: governance_addr.to_string(),
+        msg: to_binary(&execute_msg).unwrap(),
+        funds: vec![],
+    };
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: wasm.clone().into(),
+                gas_limit: Some(200_000),
+            }],
+            queries: None,
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    let attached_balance = 58333;
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+    app.update_block(add_little_time);
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap();
+    print!("{:#?}", res);
+
+    // Check attributes, should have an error since we can't execute proposal yet
+    let mut without_failure: bool = false;
+    for e in res.events {
+        for a in e.attributes {
+            if a.key == "with_failure" && a.value.contains("error executing WasmMsg") {
+                without_failure = true;
+            }
+        }
+    }
+    assert!(without_failure);
 }

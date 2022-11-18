@@ -29,4 +29,6 @@ pub enum CoreError {
 
     #[error("Task({task_hash}) became invalid after replacing placeholder")]
     TaskNoLongerValid { task_hash: String },
+    #[error("Must provide gas limit for WASM actions")]
+    NoGasLimit {},
 }

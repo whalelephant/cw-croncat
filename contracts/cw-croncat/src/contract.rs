@@ -7,7 +7,6 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::traits::ResultFailed;
 use cw_croncat_core::types::{GasFraction, SlotType};
 
 // version info for migration info
@@ -17,9 +16,9 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 /// default for juno
 /// This based on non-wasm operations, wasm ops seem impossible to predict
-pub const GAS_BASE_FEE_JUNO: u64 = 30_000;
+pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
 /// Gas cost per single action
-pub const GAS_ACTION_FEE_JUNO: u64 = 20_000;
+pub const GAS_ACTION_FEE_JUNO: u64 = 130_000;
 /// We can't store gas_price as floats inside cosmwasm
 /// so insted of something like 0.1 we use GasFraction{1/10}
 pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
@@ -234,8 +233,8 @@ impl<'a> CwCroncat<'a> {
         {
             let task =
                 self.task_after_action(deps.storage, deps.api, queue_item, msg.result.is_ok())?;
-            let reply_submsg_failed = msg.result.failed();
-            let queue_item = self.rq_update_rq_item(deps.storage, msg.id, reply_submsg_failed)?;
+            let failure = msg.result.clone().into_result().err();
+            let queue_item = self.rq_update_rq_item(deps.storage, msg.id, failure)?;
             if queue_item.action_idx == task.actions.len() as u64 {
                 // Last action
                 self.rq_remove(deps.storage, msg.id);

@@ -436,6 +436,36 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         res_err.unwrap_err().downcast().unwrap()
     );
 
+    // Must include gas_limit for WASM actions
+    let action_self = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: contract_addr.clone().into_string(),
+        funds: vec![],
+        msg: to_binary(&change_settings_msg.clone())?,
+    });
+    let res_err = app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: TaskRequest {
+                interval: Interval::Once,
+                boundary: None,
+                stop_on_fail: false,
+                actions: vec![Action {
+                    msg: action_self.clone(),
+                    gas_limit: None,
+                }],
+                queries: None,
+                transforms: None,
+                cw20_coins: vec![],
+            },
+        },
+        &coins(13, NATIVE_DENOM),
+    );
+    assert_eq!(
+        ContractError::CoreError(CoreError::NoGasLimit {}),
+        res_err.unwrap_err().downcast().unwrap()
+    );
+
     // Interval invalid
     let res_err = app
         .execute_contract(
@@ -1086,9 +1116,10 @@ fn check_gas_default() {
     // create 1 token off task
     // for one task need gas + staking amount
 
-    let gas_for_two = (base_gas + gas_limit) * 2;
-    let enough_for_two =
-        u128::from((gas_for_two + gas_for_two * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 * 2);
+    let gas_for_one = base_gas + gas_limit;
+    let gas_for_one_with_fee = gas_for_one + gas_for_one * 5 / 100;
+    let enough_for_two = 2 * u128::from(gas_for_one_with_fee / GAS_DENOMINATOR_DEFAULT_JUNO + 3);
+
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1108,6 +1139,7 @@ fn check_gas_default() {
     );
 
     // create a task
+    // for Immediate task must attach amount for two times execution
     let res = app.execute_contract(
         Addr::unchecked(ANYONE),
         contract_addr.clone(),

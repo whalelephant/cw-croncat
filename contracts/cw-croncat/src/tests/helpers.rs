@@ -1,7 +1,7 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_env, mock_info},
-    Addr, BlockInfo, DepsMut, Empty, Response,
+    to_binary, Addr, Binary, BlockInfo, DepsMut, Empty, Response, Uint128,
 };
 use cw20::Cw20Coin;
 use cw_croncat_core::{
@@ -9,6 +9,8 @@ use cw_croncat_core::{
     types::{BoundaryValidated, Interval, Task},
 };
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
+use cwd_voting::threshold::{PercentageThreshold, Threshold};
+use cwd_voting_cw20_staked::msg::ActiveThreshold;
 
 use crate::{helpers::CwTemplateContract, ContractError, CwCroncat};
 
@@ -70,6 +72,46 @@ pub fn cw_rules_template() -> Box<dyn Contract<Empty>> {
         cw_rules::contract::instantiate,
         cw_rules::contract::query,
     );
+    Box::new(contract)
+}
+
+pub fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cw20_stake::contract::execute,
+        cw20_stake::contract::instantiate,
+        cw20_stake::contract::query,
+    );
+    Box::new(contract)
+}
+
+pub fn cw20_staked_balances_voting() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cwd_voting_cw20_staked::contract::execute,
+        cwd_voting_cw20_staked::contract::instantiate,
+        cwd_voting_cw20_staked::contract::query,
+    )
+    .with_reply(cwd_voting_cw20_staked::contract::reply);
+    Box::new(contract)
+}
+
+pub fn cw_gov_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cwd_core::contract::execute,
+        cwd_core::contract::instantiate,
+        cwd_core::contract::query,
+    )
+    .with_reply(cwd_core::contract::reply);
+    Box::new(contract)
+}
+
+pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cwd_proposal_single::contract::execute,
+        cwd_proposal_single::contract::instantiate,
+        cwd_proposal_single::contract::query,
+    )
+    .with_reply(cwd_proposal_single::contract::reply)
+    .with_migrate(cwd_proposal_single::contract::migrate);
     Box::new(contract)
 }
 
@@ -170,6 +212,97 @@ pub fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
         .instantiate_contract(cw20_id, owner_addr, &msg, &[], "Fungible-tokens", None)
         .unwrap();
     (app, cw_template_contract, cw20_addr)
+}
+
+pub fn proper_instantiate_with_dao(
+    proposal_module_code_id: Option<u64>,
+    proposal_module_instantiate: Option<Binary>,
+    initial_balances: Option<Vec<Cw20Coin>>,
+    active_threshold: Option<ActiveThreshold>,
+) -> (App, CwTemplateContract, Addr, Addr) {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let cw20_id = app.store_code(cw20_template());
+    let cw20_staking_id = app.store_code(cw20_stake_contract());
+    let governance_id = app.store_code(cw_gov_contract());
+    let votemod_id = app.store_code(cw20_staked_balances_voting());
+
+    let proposal_module_code_id =
+        proposal_module_code_id.unwrap_or_else(|| app.store_code(single_proposal_contract()));
+
+    let initial_balances = initial_balances.unwrap_or_else(|| {
+        vec![Cw20Coin {
+            address: ADMIN.to_string(),
+            amount: Uint128::new(100_000_000),
+        }]
+    });
+
+    let proposal_module_instantiate = proposal_module_instantiate.unwrap_or_else(|| {
+        let threshold = Threshold::AbsolutePercentage {
+            percentage: PercentageThreshold::Majority {},
+        };
+        let max_voting_period = cw_utils::Duration::Height(6);
+        let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
+            threshold,
+            max_voting_period,
+            min_voting_period: None,
+            only_members_execute: false,
+            allow_revoting: false,
+            close_proposal_on_execution_failure: true,
+            pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        };
+        to_binary(&instantiate_govmod).unwrap()
+    });
+
+    let governance_instantiate = cwd_core::msg::InstantiateMsg {
+        admin: None,
+        name: "DAO DAO".to_string(),
+        description: "A DAO that builds DAOs".to_string(),
+        image_url: None,
+        automatically_add_cw20s: true,
+        automatically_add_cw721s: true,
+        voting_module_instantiate_info: cwd_interface::ModuleInstantiateInfo {
+            code_id: votemod_id,
+            msg: to_binary(&cwd_voting_cw20_staked::msg::InstantiateMsg {
+                token_info: cwd_voting_cw20_staked::msg::TokenInfo::New {
+                    code_id: cw20_id,
+                    label: "DAO DAO governance token".to_string(),
+                    name: "DAO".to_string(),
+                    symbol: "DAO".to_string(),
+                    decimals: 6,
+                    initial_balances,
+                    marketing: None,
+                    staking_code_id: cw20_staking_id,
+                    unstaking_duration: None,
+                    initial_dao_balance: None,
+                },
+                active_threshold,
+            })
+            .unwrap(),
+            admin: Some(cwd_interface::Admin::CoreModule {}),
+            label: "DAO DAO voting module".to_string(),
+        },
+        proposal_modules_instantiate_info: vec![cwd_interface::ModuleInstantiateInfo {
+            code_id: proposal_module_code_id,
+            msg: proposal_module_instantiate,
+            admin: Some(cwd_interface::Admin::CoreModule {}),
+            label: "DAO DAO governance module".to_string(),
+        }],
+        initial_items: None,
+        dao_uri: None,
+    };
+
+    let governance_addr = app
+        .instantiate_contract(
+            governance_id,
+            Addr::unchecked(ADMIN),
+            &governance_instantiate,
+            &[],
+            "DAO DAO",
+            None,
+        )
+        .unwrap();
+
+    (app, cw_template_contract, cw20_addr, governance_addr)
 }
 
 pub fn add_little_time(block: &mut BlockInfo) {

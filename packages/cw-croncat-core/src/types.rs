@@ -233,6 +233,9 @@ impl TaskRequest {
                     if contract_addr == self_addr && sender != owner_id {
                         return Err(CoreError::InvalidAction {});
                     }
+                    if action.gas_limit.is_none() {
+                        return Err(CoreError::NoGasLimit {});
+                    }
                     if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                         match cw20_msg {
                             Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
