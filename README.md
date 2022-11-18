@@ -118,10 +118,10 @@ Schema Update
 ```
 Install yarn packages
 ```bash
-yarn --cwd ./types install --frozen-lockfile
+yarn --cwd ./typescript install --frozen-lockfile
 ```
 
 Generate TypeScript files
 ```bash
-yarn --cwd ./types codegen
+yarn --cwd ./typescript codegen
 ```
