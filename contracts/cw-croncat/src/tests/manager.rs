@@ -2461,7 +2461,7 @@ fn insertable_rule_res_positive() {
                     funds: vec![],
                 }
                 .into(),
-                gas_limit: None,
+                gas_limit: Some(300_000),
             }],
             queries: Some(vec![rule]),
             transforms: Some(vec![Transform {
