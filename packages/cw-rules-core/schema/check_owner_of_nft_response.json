@@ -3,18 +3,12 @@
   "title": "CheckOwnerOfNftResponse",
   "type": "object",
   "required": [
+    "data",
     "result"
   ],
   "properties": {
     "data": {
-      "anyOf": [
-        {
-          "$ref": "#/definitions/Binary"
-        },
-        {
-          "type": "null"
-        }
-      ]
+      "$ref": "#/definitions/Binary"
     },
     "result": {
       "type": "boolean"

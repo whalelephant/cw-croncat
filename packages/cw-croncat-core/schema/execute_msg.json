@@ -850,26 +850,23 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_value",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
         },
         "value": {
           "$ref": "#/definitions/Binary"
@@ -1128,8 +1125,38 @@
         "$ref": "#/definitions/Coin"
       }
     },
-    "Rule": {
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
+      }
+    },
+    "Queries": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": [
@@ -1202,22 +1229,34 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
-        "msg"
+        "msg",
+        "path_to_query_value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "description": "Value for the next iteration",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
+        },
+        "path_to_msg_value": {
+          "description": "Replace value inside this query",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path_to_query_value": {
+          "description": "Value for the next iteration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         }
       }
     },
@@ -1225,22 +1264,15 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_query_value",
         "queries",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
-        },
-        "gets": {
-          "description": "Value from this message",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
         },
         "msg": {
           "description": "First query without placeholder!",
@@ -1252,6 +1284,14 @@
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_query_value": {
+          "description": "Value from this message",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         },
         "queries": {
           "$ref": "#/definitions/SmartQueries"
@@ -1424,17 +1464,26 @@
         "interval": {
           "$ref": "#/definitions/Interval"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/Queries"
           }
         },
         "stop_on_fail": {
           "type": "boolean"
+        },
+        "transforms": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Transform"
+          }
         }
       }
     },
@@ -1445,6 +1494,33 @@
           "$ref": "#/definitions/Uint64"
         }
       ]
+    },
+    "Transform": {
+      "type": "object",
+      "required": [
+        "action_idx",
+        "action_path",
+        "query_idx",
+        "query_response_path"
+      ],
+      "properties": {
+        "action_idx": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "action_path": {
+          "$ref": "#/definitions/PathToValue"
+        },
+        "query_idx": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "query_response_path": {
+          "$ref": "#/definitions/PathToValue"
+        }
+      }
     },
     "Uint128": {
       "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",

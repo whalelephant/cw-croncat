@@ -234,26 +234,23 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_value",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
         },
         "value": {
           "$ref": "#/definitions/Binary"
@@ -281,22 +278,38 @@
         "$ref": "#/definitions/Coin"
       }
     },
-    "QueryConstruct": {
-      "type": "object",
-      "required": [
-        "rules"
-      ],
-      "properties": {
-        "rules": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Rule"
-          }
-        }
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
       }
     },
-    "Rule": {
+    "Queries": {
       "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
         {
           "type": "object",
           "required": [
@@ -359,6 +372,20 @@
         }
       ]
     },
+    "QueryConstruct": {
+      "type": "object",
+      "required": [
+        "rules"
+      ],
+      "properties": {
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Queries"
+          }
+        }
+      }
+    },
     "SmartQueries": {
       "type": "array",
       "items": {
@@ -369,22 +396,34 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
-        "msg"
+        "msg",
+        "path_to_query_value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "description": "Value for the next iteration",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
+        },
+        "path_to_msg_value": {
+          "description": "Replace value inside this query",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path_to_query_value": {
+          "description": "Value for the next iteration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         }
       }
     },
@@ -392,22 +431,15 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_query_value",
         "queries",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
-        },
-        "gets": {
-          "description": "Value from this message",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
         },
         "msg": {
           "description": "First query without placeholder!",
@@ -419,6 +451,14 @@
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_query_value": {
+          "description": "Value from this message",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         },
         "queries": {
           "$ref": "#/definitions/SmartQueries"

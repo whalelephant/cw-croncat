@@ -645,26 +645,23 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_value",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
         },
         "value": {
           "$ref": "#/definitions/Binary"
@@ -1043,6 +1040,100 @@
         "$ref": "#/definitions/Coin"
       }
     },
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
+      }
+    },
+    "Queries": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "has_balance_gte"
+          ],
+          "properties": {
+            "has_balance_gte": {
+              "$ref": "#/definitions/HasBalanceGte"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_owner_of_nft"
+          ],
+          "properties": {
+            "check_owner_of_nft": {
+              "$ref": "#/definitions/CheckOwnerOfNft"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_proposal_status"
+          ],
+          "properties": {
+            "check_proposal_status": {
+              "$ref": "#/definitions/CheckProposalStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "generic_query"
+          ],
+          "properties": {
+            "generic_query": {
+              "$ref": "#/definitions/GenericQuery"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "smart_query"
+          ],
+          "properties": {
+            "smart_query": {
+              "$ref": "#/definitions/SmartQueryHead"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "QueueItemResponse": {
       "type": "object",
       "required": [
@@ -1117,70 +1208,6 @@
         "Equalizer"
       ]
     },
-    "Rule": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "has_balance_gte"
-          ],
-          "properties": {
-            "has_balance_gte": {
-              "$ref": "#/definitions/HasBalanceGte"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_owner_of_nft"
-          ],
-          "properties": {
-            "check_owner_of_nft": {
-              "$ref": "#/definitions/CheckOwnerOfNft"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_proposal_status"
-          ],
-          "properties": {
-            "check_proposal_status": {
-              "$ref": "#/definitions/CheckProposalStatus"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "generic_query"
-          ],
-          "properties": {
-            "generic_query": {
-              "$ref": "#/definitions/GenericQuery"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "smart_query"
-          ],
-          "properties": {
-            "smart_query": {
-              "$ref": "#/definitions/SmartQueryHead"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "SlotResponse": {
       "type": "object",
       "required": [
@@ -1241,22 +1268,34 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
-        "msg"
+        "msg",
+        "path_to_query_value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "description": "Value for the next iteration",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
+        },
+        "path_to_msg_value": {
+          "description": "Replace value inside this query",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path_to_query_value": {
+          "description": "Value for the next iteration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         }
       }
     },
@@ -1264,22 +1303,15 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_query_value",
         "queries",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
-        },
-        "gets": {
-          "description": "Value from this message",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
         },
         "msg": {
           "description": "First query without placeholder!",
@@ -1291,6 +1323,14 @@
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_query_value": {
+          "description": "Value from this message",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
         },
         "queries": {
           "$ref": "#/definitions/SmartQueries"
@@ -1490,7 +1530,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/Queries"
           }
         },
         "stop_on_fail": {
@@ -1539,7 +1579,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/Queries"
           }
         },
         "task_hash": {
