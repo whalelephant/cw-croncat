@@ -250,7 +250,7 @@ fn create_versioner_cron_task(
     };
 
     let task_request = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Block(10),
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
