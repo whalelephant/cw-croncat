@@ -4,7 +4,7 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 use cw_rules_core::{
     msg::{ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse},
-    types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Rule},
+    types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Queries},
 };
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
     export_schema(&schema_for!(QueryMultiResponse), &out_dir);
     export_schema(&schema_for!(QueryConstruct), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
-    export_schema(&schema_for!(Rule), &out_dir);
+    export_schema(&schema_for!(Queries), &out_dir);
     export_schema(&schema_for!(HasBalanceGte), &out_dir);
     export_schema(&schema_for!(CheckOwnerOfNft), &out_dir);
     export_schema(&schema_for!(CheckProposalStatus), &out_dir);

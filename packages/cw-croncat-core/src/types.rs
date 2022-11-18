@@ -1,11 +1,12 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
+    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
     OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp, Uint128, Uint64,
     WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
-use cw_rules_core::types::Rule;
+use cw_rules_core::types::Queries;
+use generic_query::PathToValue;
 use hex::encode;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -325,7 +326,8 @@ pub struct Task {
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
-    pub rules: Option<Vec<Rule>>,
+    pub queries: Option<Vec<Queries>>,
+    pub transforms: Option<Vec<Transform>>,
     // TODO: funds! should we support funds being attached?
     pub version: String,
 }
@@ -335,7 +337,7 @@ impl Task {
     pub fn to_hash(&self) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id, self.interval, self.boundary, self.actions, self.rules
+            self.owner_id, self.interval, self.boundary, self.actions, self.queries
         );
 
         let hash = Sha256::digest(message.as_bytes());
@@ -349,17 +351,13 @@ impl Task {
     pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {
         let multiplier = Uint128::from(if recurring { 2u128 } else { 1u128 });
 
-        self.verify_enough_native(&self.amount_for_one_task.native, multiplier)?;
-        self.verify_enough_cw20(&self.amount_for_one_task.cw20, multiplier)?;
+        self.verify_enough_native(multiplier)?;
+        self.verify_enough_cw20(multiplier)?;
         Ok(())
     }
 
-    pub fn verify_enough_cw20(
-        &self,
-        task_cw20_balance_uses: &Vec<Cw20CoinVerified>,
-        multiplier: Uint128,
-    ) -> Result<(), CoreError> {
-        for coin in task_cw20_balance_uses {
+    pub fn verify_enough_cw20(&self, multiplier: Uint128) -> Result<(), CoreError> {
+        for coin in self.amount_for_one_task.cw20.iter() {
             if let Some(balance) = self
                 .total_deposit
                 .cw20
@@ -382,12 +380,8 @@ impl Task {
         Ok(())
     }
 
-    pub fn verify_enough_native(
-        &self,
-        task_native_balance_uses: &Vec<Coin>,
-        multiplier: Uint128,
-    ) -> Result<(), CoreError> {
-        for coin in task_native_balance_uses {
+    pub fn verify_enough_native(&self, multiplier: Uint128) -> Result<(), CoreError> {
+        for coin in self.amount_for_one_task.native.iter() {
             if let Some(balance) = self
                 .total_deposit
                 .native
@@ -475,12 +469,113 @@ impl Task {
 
     /// Get whether the task is with rules
     pub fn with_rules(&self) -> bool {
-        self.rules.as_ref().map_or(false, |rules| !rules.is_empty())
+        self.queries
+            .as_ref()
+            .map_or(false, |rules| !rules.is_empty())
     }
 
     /// Check if given Addr is the owner
     pub fn is_owner(&self, addr: Addr) -> bool {
         self.owner_id == addr
+    }
+
+    /// Replace `RULE_RES_PLACEHOLDER` to the result value from the rules
+    /// Recalculate cw20 usage if any replacements
+    pub fn replace_values(
+        &mut self,
+        api: &dyn Api,
+        cron_addr: &Addr,
+        task_hash: &str,
+        construct_res_data: Vec<cosmwasm_std::Binary>,
+    ) -> Result<(), CoreError> {
+        if let Some(ref transforms) = self.transforms {
+            for transform in transforms {
+                let wasm_msg = self
+                    .actions
+                    .get_mut(transform.action_idx as usize)
+                    .and_then(|action| {
+                        if let CosmosMsg::Wasm(WasmMsg::Execute {
+                            contract_addr: _,
+                            msg,
+                            funds: _,
+                        }) = &mut action.msg
+                        {
+                            Some(msg)
+                        } else {
+                            None
+                        }
+                    })
+                    .ok_or(CoreError::TaskNoLongerValid {
+                        task_hash: task_hash.to_owned(),
+                    })?;
+                let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
+
+                let mut q_val = construct_res_data
+                    .get(transform.query_idx as usize)
+                    .ok_or(CoreError::TaskNoLongerValid {
+                        task_hash: task_hash.to_owned(),
+                    })
+                    .and_then(|binary| cosmwasm_std::from_binary(binary).map_err(Into::into))?;
+                let replace_value = transform.query_response_path.find_value(&mut q_val)?;
+                let replaced_value = transform.action_path.find_value(&mut action_value)?;
+                *replaced_value = replace_value.clone();
+                *wasm_msg = Binary(
+                    serde_json::to_vec(&action_value)
+                        .map_err(|e| CoreError::Std(StdError::generic_err(e.to_string())))?,
+                );
+            }
+            let cw20_amount_recalculated =
+                self.recalculate_cw20_usage(api, cron_addr, task_hash)?;
+            self.amount_for_one_task.cw20 = cw20_amount_recalculated;
+            if self.verify_enough_cw20(1u128.into()).is_err() {
+                return Err(CoreError::TaskNoLongerValid {
+                    task_hash: task_hash.to_owned(),
+                });
+            };
+        }
+        Ok(())
+    }
+
+    fn recalculate_cw20_usage(
+        &self,
+        api: &dyn Api,
+        cron_addr: &Addr,
+        task_hash: &str,
+    ) -> Result<Vec<Cw20CoinVerified>, CoreError> {
+        let actions = self.actions.iter();
+        let mut cw20_coins = vec![];
+        for action in actions {
+            if let CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr, msg, ..
+            }) = &action.msg
+            {
+                if cron_addr.as_str().eq(contract_addr) {
+                    return Err(CoreError::TaskNoLongerValid {
+                        task_hash: task_hash.to_owned(),
+                    });
+                }
+                if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
+                    match cw20_msg {
+                        Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => cw20_coins
+                            .find_checked_add(&Cw20CoinVerified {
+                                address: api.addr_validate(contract_addr)?,
+                                amount,
+                            })?,
+                        Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => cw20_coins
+                            .find_checked_add(&Cw20CoinVerified {
+                                address: api.addr_validate(contract_addr)?,
+                                amount,
+                            })?,
+                        _ => {
+                            return Err(CoreError::TaskNoLongerValid {
+                                task_hash: task_hash.to_owned(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        Ok(cw20_coins)
     }
 }
 
@@ -788,4 +883,12 @@ impl GasFraction {
             .ok_or(CoreError::InvalidGas {})?;
         Ok((numerator / denominator) as u128)
     }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct Transform {
+    pub action_idx: u64,
+    pub query_idx: u64,
+    pub action_path: PathToValue,
+    pub query_response_path: PathToValue,
 }

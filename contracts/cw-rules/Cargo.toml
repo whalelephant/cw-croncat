@@ -54,6 +54,8 @@ voting-v1 = { package = "voting", version = "0.1.0", git = "https://github.com/D
 # This thing saved our lives thanks @hashedone for implementing it
 serde-cw-value = "0.7.0"
 
+serde_json = { version = "1.0", default-features = false }
+
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"
 cw-multi-test = "0.16.0"

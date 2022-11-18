@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
@@ -54,7 +52,8 @@ fn everything_can_be_de_serialized() {
             msg,
             gas_limit: Some(150_000),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         version: String::from(""),
     }
     .into();
@@ -110,7 +109,8 @@ fn everything_can_be_de_serialized() {
         }),
         stop_on_fail: true,
         actions: vec![],
-        rules: None, // TODO
+        queries: None,
+        transforms: None, // TODO
         cw20_coins: vec![],
     }
     .into();

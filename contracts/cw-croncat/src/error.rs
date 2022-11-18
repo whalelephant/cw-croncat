@@ -39,9 +39,6 @@ pub enum ContractError {
     #[error("No rules for this task hash: {task_hash}")]
     NoRulesForThisTask { task_hash: String },
 
-    #[error("Task({task_hash}) became invalid after replacing placeholder")]
-    TaskNoLongerValid { task_hash: String },
-
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },
     // Add any other custom errors you like here.

@@ -346,7 +346,8 @@ fn test_get_state() {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };

@@ -1,4 +1,4 @@
-use crate::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Rule};
+use crate::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Queries};
 use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -43,12 +43,18 @@ pub struct QueryMultiResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct RuleResponse<T = Option<cosmwasm_std::Binary>> {
+pub struct RuleResponse<T = cosmwasm_std::Binary> {
     pub result: bool,
     pub data: T,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct QueryConstructResponse {
+    pub result: bool,
+    pub data: Vec<cosmwasm_std::Binary>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<Rule>,
+    pub rules: Vec<Queries>,
 }

@@ -35,7 +35,8 @@ where
             }),
             gas_limit: None,
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     };
     let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
@@ -80,7 +81,8 @@ pub(crate) fn send_to_bob_recurring(denom: &str) -> TaskRequest {
             }),
             gas_limit: None,
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }
@@ -107,7 +109,8 @@ pub(crate) fn send_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
         boundary: None,
         stop_on_fail: false,
         actions: vec![send_to_bob, send_to_alice],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }
@@ -133,7 +136,8 @@ pub(crate) fn send_cw20_to_bob_recurring(cw20_addr: &str, times: u128) -> TaskRe
         boundary: None,
         stop_on_fail: false,
         actions: vec![send_cw20_to_bob],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![Cw20Coin {
             address: cw20_addr.to_owned(),
             amount: (times * amount).into(),
@@ -176,7 +180,8 @@ pub(crate) fn send_cw20_to_bob_and_alice_recurring(cw20_addr: &str, times: u128)
         boundary: None,
         stop_on_fail: false,
         actions: vec![send_cw20_to_bob, send_cw20_to_alice],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![Cw20Coin {
             address: cw20_addr.to_owned(),
             amount: (times * amount).into(),
@@ -196,7 +201,8 @@ pub(crate) fn delegate_to_bob_recurring(denom: &str) -> TaskRequest {
             }),
             gas_limit: None,
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }
@@ -221,7 +227,8 @@ pub(crate) fn delegate_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
         boundary: None,
         stop_on_fail: false,
         actions: vec![delegate_to_bob, delegate_to_alice],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }
@@ -242,7 +249,8 @@ pub(crate) fn delegate_to_validator(denom: &str) -> TaskRequest {
         boundary: None,
         stop_on_fail: false,
         actions: vec![delegate_to_validator],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }
@@ -263,7 +271,8 @@ pub(crate) fn delegate_to_validator_twice(denom: &str) -> TaskRequest {
         boundary: None,
         stop_on_fail: false,
         actions: vec![delegate_to_validator.clone(), delegate_to_validator],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: vec![],
     }
 }

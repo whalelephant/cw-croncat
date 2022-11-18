@@ -1,13 +1,13 @@
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::helpers::{proxy_call_submsgs_price, replace_placeholders, ReplyMsgParser};
+use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
     from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
-use cw_rules_core::msg::{QueryConstruct, RuleResponse};
+use cw_rules_core::msg::{QueryConstruct, QueryConstructResponse};
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -214,7 +214,7 @@ impl<'a> CwCroncat<'a> {
         let some_task = self
             .tasks_with_rules
             .may_load(deps.storage, task_hash.as_bytes())?;
-        let task = some_task.ok_or(ContractError::NoTaskFound {})?;
+        let mut task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
         let task_ready =
             self.task_with_rule_ready(task.interval.clone(), deps.as_ref(), hash, &env)?;
@@ -224,20 +224,20 @@ impl<'a> CwCroncat<'a> {
             });
         }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-        let rules = if let Some(rules) = task.rules.clone() {
+        let rules = if let Some(rules) = task.queries.clone() {
             rules
         } else {
             // TODO: else should be unreachable
             return Err(ContractError::NoRulesForThisTask { task_hash });
         };
         // Check rules
-        let rules_res: RuleResponse = deps.querier.query_wasm_smart(
+        let rules_res: QueryConstructResponse = deps.querier.query_wasm_smart(
             &cfg.cw_rules_addr,
             &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { rules }),
         )?;
         if !rules_res.result {
             return Err(ContractError::RulesNotReady {
-                index: from_binary(&rules_res.data.unwrap())?,
+                index: from_binary(&rules_res.data[0])?,
             });
         };
 
@@ -245,14 +245,10 @@ impl<'a> CwCroncat<'a> {
         let next_idx = self.rq_next_id(deps.storage)?;
         // This may be different to the one we keep in the storage
         // due to the insertable messages
-        let (sub_msgs, fee_price) = match replace_placeholders(
-            deps.api,
-            &env.contract.address,
-            &task_hash,
-            rules_res,
-            task,
-        )
-        .and_then(|executed_task| proxy_call_submsgs_price(&executed_task, cfg, next_idx))
+        let (sub_msgs, fee_price) = match task
+            .replace_values(deps.api, &env.contract.address, &task_hash, rules_res.data)
+            .map_err(Into::into)
+            .and(proxy_call_submsgs_price(&task, cfg, next_idx))
         {
             Ok((sub_msgs, fee_price)) => (sub_msgs, fee_price),
             Err(err) => {

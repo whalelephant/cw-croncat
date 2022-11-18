@@ -1,8 +1,7 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use crate::tests::helpers::{self, proper_instantiate};
+use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
-use cosmwasm_std::testing::mock_dependencies;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
@@ -14,14 +13,13 @@ use cw_croncat_core::msg::{
 };
 use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
-use cw_rules_core::types::{HasBalanceGte, Rule};
+use cw_rules_core::types::{HasBalanceGte, Queries};
 use std::convert::TryInto;
 
 #[test]
 fn query_task_hash_success() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let mut deps = mock_dependencies();
 
     let to_address = String::from("you");
     let amount = coins(1015, "earth");
@@ -50,7 +48,8 @@ fn query_task_hash_success() {
             msg,
             gas_limit: Some(150_000),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         version: version.version,
     };
 
@@ -114,7 +113,8 @@ fn query_get_tasks() {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -175,7 +175,8 @@ fn query_get_tasks_pagination() {
                 .into(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -325,7 +326,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -422,7 +424,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     msg: action_self.clone(),
                     gas_limit: Some(150_000),
                 }],
-                rules: None,
+                queries: None,
+                transforms: None,
                 cw20_coins: vec![],
             },
         },
@@ -447,7 +450,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                         msg: msg.clone(),
                         gas_limit: Some(150_000),
                     }],
-                    rules: None,
+                    queries: None,
+                    transforms: None,
                     cw20_coins: vec![],
                 },
             },
@@ -501,7 +505,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                         msg,
                         gas_limit: Some(150_000),
                     }],
-                    rules: None,
+                    queries: None,
+                    transforms: None,
                     cw20_coins: vec![],
                 },
             },
@@ -539,7 +544,8 @@ fn check_task_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -631,10 +637,11 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -705,10 +712,11 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -722,7 +730,8 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -808,7 +817,8 @@ fn check_remove_create() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -917,7 +927,8 @@ fn check_refill_create() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1005,7 +1016,8 @@ fn check_gas_minimum() {
                 msg,
                 gas_limit: Some(gas_limit),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1066,7 +1078,8 @@ fn check_gas_default() {
                 msg,
                 gas_limit: None,
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };

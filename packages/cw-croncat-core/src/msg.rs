@@ -1,10 +1,11 @@
 use crate::types::{
     Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
+    Transform,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
-use cw_rules_core::types::Rule;
+use cw_rules_core::types::Queries;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -268,7 +269,8 @@ pub struct TaskRequest {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
-    pub rules: Option<Vec<Rule>>,
+    pub queries: Option<Vec<Queries>>,
+    pub transforms: Option<Vec<Transform>>,
     pub cw20_coins: Vec<Cw20Coin>,
 }
 
@@ -288,7 +290,7 @@ pub struct TaskResponse {
     pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
 
     pub actions: Vec<Action>,
-    pub rules: Option<Vec<Rule>>,
+    pub rules: Option<Vec<Queries>>,
     pub funds_withdrawn_recurring: Vec<Coin>,
 }
 
@@ -297,7 +299,7 @@ pub struct TaskWithRulesResponse {
     pub task_hash: String,
     pub interval: Interval,
     pub boundary: Option<Boundary>,
-    pub rules: Option<Vec<Rule>>,
+    pub rules: Option<Vec<Queries>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -399,7 +401,7 @@ impl From<Task> for TaskResponse {
             amount_for_one_task_native: task.amount_for_one_task.native,
             amount_for_one_task_cw20: task.amount_for_one_task.cw20,
             actions: task.actions,
-            rules: task.rules,
+            rules: task.queries,
         }
     }
 }
@@ -427,7 +429,7 @@ impl From<Task> for TaskWithRulesResponse {
             task_hash: task.to_hash(),
             interval: task.interval,
             boundary,
-            rules: task.rules,
+            rules: task.queries,
         }
     }
 }
@@ -449,5 +451,5 @@ pub struct GetSlotIdsResponse {
 // cw_rules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<Rule>,
+    pub rules: Vec<Queries>,
 }

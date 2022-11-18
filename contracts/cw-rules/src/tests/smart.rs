@@ -1,10 +1,10 @@
-use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
+use cosmwasm_std::{to_binary, Addr, Uint128};
 use cw20::Cw20Coin;
 use cw4::Member;
 use cw_multi_test::{App, Executor};
 
 use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
-use generic_query::ValueOrdering;
+use generic_query::{PathToValue, ValueIndex, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
 use crate::tests::helpers::{cw20_template, cw4_contract, cw_rules_contract, CREATOR_ADDR};
@@ -78,13 +78,20 @@ fn test_smart() {
 
     let queries = SmartQueries(vec![SmartQuery {
         contract_addr: cw20_addr.to_string(),
-        msg: Binary(br#"{"balance":{"address":$msg_ph}}"#.to_vec()),
-        gets: vec!["balance".to_owned().into()],
+        msg: to_binary(&cw20_base::msg::QueryMsg::Balance {
+            address: "lol".to_owned(),
+        })
+        .unwrap(),
+        path_to_msg_value: Some(PathToValue(vec![
+            ValueIndex::from("balance".to_owned()),
+            ValueIndex::from("address".to_owned()),
+        ])),
+        path_to_query_value: PathToValue(vec![ValueIndex::from("balance".to_owned())]),
     }]);
     let smart_query = SmartQueryHead {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&head_msg).unwrap(),
-        gets: vec!["admin".to_owned().into()],
+        path_to_query_value: vec!["admin".to_owned().into()].into(),
         queries,
         ordering: ValueOrdering::Equal,
         value: to_binary(&Uint128::from(2022_u128)).unwrap(),
@@ -96,7 +103,7 @@ fn test_smart() {
         res,
         RuleResponse {
             result: true,
-            data: Some(to_binary(&Uint128::from(2022_u128)).unwrap())
+            data: to_binary(&Uint128::from(2022_u128)).unwrap()
         }
     )
 }

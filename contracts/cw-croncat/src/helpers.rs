@@ -3,19 +3,17 @@ use crate::state::{Config, QueueItem};
 // use cosmwasm_std::StdError;
 // use thiserror::Error;
 
-use crate::tasks::RULE_RES_PLACEHOLDER;
 use crate::ContractError::AgentNotRegistered;
 use crate::{ContractError, CwCroncat};
 use cosmwasm_std::{
-    coin, to_binary, Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg,
+    coin, to_binary, Addr, Api, BankMsg, Coin, CosmosMsg, Env, StdResult, Storage, SubMsg,
     SubMsgResult, WasmMsg,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
-use cw_croncat_core::types::{calculate_required_amount, Action, AgentStatus};
+use cw_croncat_core::types::{calculate_required_amount, AgentStatus};
 pub use cw_croncat_core::types::{GenericBalance, Task};
-use cw_rules_core::msg::RuleResponse;
 //use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -271,7 +269,6 @@ pub(crate) fn proxy_call_submsgs_price(
     let price = coin(price_amount, cfg.native_denom);
     Ok((sub_msgs, price))
 }
-
 /// CwTemplateContract is a wrapper around Addr that provides a lot of helpers
 /// for working with this.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -308,91 +305,4 @@ impl CwTemplateContract {
     //     let res: CountResponse = QuerierWrapper::<CQ>::new(querier).query(&query)?;
     //     Ok(res)
     // }
-}
-
-/// Replace `RULE_RES_PLACEHOLDER` to the result value from the rules
-/// Recalculate cw20 usage if any replacements
-pub fn replace_placeholders(
-    api: &dyn Api,
-    cron_addr: &Addr,
-    task_hash: &str,
-    rules_res: RuleResponse,
-    task: Task,
-) -> Result<Task, ContractError> {
-    if let Some(insertable_data) = rules_res.data {
-        let mut task = task;
-        let mut replacements_made = false;
-        task.actions.iter_mut().for_each(|action| {
-            if let CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) = &mut action.msg {
-                let position = msg
-                    .windows(RULE_RES_PLACEHOLDER.len())
-                    .position(|window| window == RULE_RES_PLACEHOLDER);
-                if let Some(pos) = position {
-                    let mut new_msg = Vec::with_capacity(msg.len() + insertable_data.len());
-                    new_msg.extend_from_slice(&msg[..pos]);
-                    new_msg.extend_from_slice(insertable_data.as_slice());
-                    new_msg.extend_from_slice(&msg[pos + RULE_RES_PLACEHOLDER.len()..]);
-                    *msg = Binary::from(new_msg);
-                    replacements_made = true;
-                }
-            }
-        });
-        if replacements_made {
-            let cw20_amount_recalculated =
-                calculate_cw20_usage(api, cron_addr, task_hash, &task.actions)?;
-            task.amount_for_one_task.cw20 = cw20_amount_recalculated;
-            if task
-                .verify_enough_cw20(&task.amount_for_one_task.cw20, 1u128.into())
-                .is_err()
-            {
-                return Err(ContractError::TaskNoLongerValid {
-                    task_hash: task_hash.to_owned(),
-                });
-            };
-        }
-        Ok(task)
-    } else {
-        Ok(task)
-    }
-}
-
-fn calculate_cw20_usage(
-    api: &dyn Api,
-    cron_addr: &Addr,
-    task_hash: &str,
-    actions: &[Action],
-) -> Result<Vec<Cw20CoinVerified>, ContractError> {
-    let mut cw20_coins = vec![];
-    for action in actions {
-        if let CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr, msg, ..
-        }) = &action.msg
-        {
-            if cron_addr.as_str().eq(contract_addr) {
-                return Err(ContractError::TaskNoLongerValid {
-                    task_hash: task_hash.to_owned(),
-                });
-            }
-            if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
-                match cw20_msg {
-                    Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => cw20_coins
-                        .find_checked_add(&Cw20CoinVerified {
-                            address: api.addr_validate(contract_addr)?,
-                            amount,
-                        })?,
-                    Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => cw20_coins
-                        .find_checked_add(&Cw20CoinVerified {
-                            address: api.addr_validate(contract_addr)?,
-                            amount,
-                        })?,
-                    _ => {
-                        return Err(ContractError::TaskNoLongerValid {
-                            task_hash: task_hash.to_owned(),
-                        });
-                    }
-                }
-            }
-        }
-    }
-    Ok(cw20_coins)
 }

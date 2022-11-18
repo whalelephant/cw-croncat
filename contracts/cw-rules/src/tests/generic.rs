@@ -62,11 +62,12 @@ fn test_generic() {
             limit: None,
         })
         .unwrap(),
-        gets: vec![
+        path_to_value: vec![
             ValueIndex::Key("members".to_string()),
             ValueIndex::Index(1),
             ValueIndex::Key("weight".to_string()),
-        ],
+        ]
+        .into(),
         ordering: ValueOrdering::UnitAbove,
         value: to_binary(&1).unwrap(),
         contract_addr: cw4_addr.into_string(),
@@ -184,7 +185,7 @@ fn test_generic_bigint() {
 
     let generic_query = GenericQuery {
         msg: to_binary(&cw20::Cw20QueryMsg::TokenInfo {}).unwrap(),
-        gets: vec![ValueIndex::Key("total_supply".to_string())],
+        path_to_value: vec![ValueIndex::Key("total_supply".to_string())].into(),
         ordering: ValueOrdering::UnitAbove,
         value: to_binary("2012").unwrap(),
         contract_addr: cw20_addr.into_string(),

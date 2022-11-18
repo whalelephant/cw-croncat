@@ -22,7 +22,7 @@ fn test_get_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(1000000, NATIVE_DENOM))?);
+    assert_eq!(res.data, to_binary(&coin(1000000, NATIVE_DENOM))?);
 
     // Balance with another denom is zero
     let msg = QueryMsg::GetBalance {
@@ -34,7 +34,7 @@ fn test_get_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(0, "juno"))?);
+    assert_eq!(res.data, to_binary(&coin(0, "juno"))?);
 
     // Address doesn't exist, return zero balance
     let msg = QueryMsg::GetBalance {
@@ -43,7 +43,7 @@ fn test_get_balance() -> StdResult<()> {
     };
     let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(0, NATIVE_DENOM))?);
+    assert_eq!(res.data, to_binary(&coin(0, NATIVE_DENOM))?);
 
     Ok(())
 }
@@ -62,7 +62,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(15, &cw20_contract))?);
+    assert_eq!(res.data, to_binary(&coin(15, &cw20_contract))?);
 
     // Return coin if balance is zero
     let msg = QueryMsg::GetCw20Balance {
@@ -74,7 +74,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(0, &cw20_contract))?);
+    assert_eq!(res.data, to_binary(&coin(0, &cw20_contract))?);
 
     // If address doesn't exist, return coin with zero amount
     let msg = QueryMsg::GetCw20Balance {
@@ -86,7 +86,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
-    assert_eq!(res.data.unwrap(), to_binary(&coin(0, &cw20_contract))?);
+    assert_eq!(res.data, to_binary(&coin(0, &cw20_contract))?);
 
     // Error if called wrong cw20_contract
     let msg = QueryMsg::GetCw20Balance {
@@ -118,7 +118,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap())
+        to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap()
     );
 
     // Return true if real and required balances are equal
@@ -136,7 +136,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap())
+        to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap()
     );
 
     // Return false if address has less coins
@@ -154,7 +154,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(!res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap())
+        to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap()
     );
 
     // Return false if address has zero coins
@@ -169,7 +169,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(!res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap())
+        to_binary(&Balance::from(coins(1_000_000u128, NATIVE_DENOM))).unwrap()
     );
 
     // Return false if the account doesn't exist and required_balance is not zero
@@ -184,7 +184,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(!res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::Native(NativeBalance(vec![]))).unwrap())
+        to_binary(&Balance::Native(NativeBalance(vec![]))).unwrap()
     );
 
     // Return true if required balance is zero
@@ -199,7 +199,7 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(to_binary(&Balance::Native(NativeBalance(vec![]))).unwrap())
+        to_binary(&Balance::Native(NativeBalance(vec![]))).unwrap()
     );
 
     Ok(())
@@ -224,13 +224,11 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(
-            to_binary(&Balance::Cw20(Cw20CoinVerified {
-                address: Addr::unchecked(&cw20_contract),
-                amount: Uint128::from(15u128),
-            }))
-            .unwrap()
-        )
+        to_binary(&Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }))
+        .unwrap()
     );
 
     // Return true if real and required balances are equal
@@ -248,13 +246,11 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(
-            to_binary(&Balance::Cw20(Cw20CoinVerified {
-                address: Addr::unchecked(&cw20_contract),
-                amount: Uint128::from(15u128),
-            }))
-            .unwrap()
-        )
+        to_binary(&Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }))
+        .unwrap()
     );
 
     // Return false if address has less coins
@@ -272,13 +268,11 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert!(!res.result);
     assert_eq!(
         res.data,
-        Some(
-            to_binary(&Balance::Cw20(Cw20CoinVerified {
-                address: Addr::unchecked(&cw20_contract),
-                amount: Uint128::from(15u128),
-            }))
-            .unwrap()
-        )
+        to_binary(&Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }))
+        .unwrap()
     );
 
     // Return false if the account doesn't exist and required_balance is not zero
@@ -296,13 +290,11 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert!(!res.result);
     assert_eq!(
         res.data,
-        Some(
-            to_binary(&Balance::Cw20(Cw20CoinVerified {
-                address: Addr::unchecked(&cw20_contract),
-                amount: Uint128::zero(),
-            }))
-            .unwrap()
-        )
+        to_binary(&Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::zero(),
+        }))
+        .unwrap()
     );
 
     // Return true if required balance is zero
@@ -320,13 +312,11 @@ fn test_has_balance_cw20() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(
         res.data,
-        Some(
-            to_binary(&Balance::Cw20(Cw20CoinVerified {
-                address: Addr::unchecked(&cw20_contract),
-                amount: Uint128::zero(),
-            }))
-            .unwrap()
-        )
+        to_binary(&Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::zero(),
+        }))
+        .unwrap()
     );
 
     Ok(())

@@ -1,3 +1,4 @@
+use cosmwasm_std::Binary;
 use generic_query::GenericQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -26,7 +27,8 @@ pub enum Status {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum Rule {
+pub enum Queries {
+    Query { contract_addr: String, msg: Binary },
     HasBalanceGte(HasBalanceGte),
     CheckOwnerOfNft(CheckOwnerOfNft),
     CheckProposalStatus(CheckProposalStatus),

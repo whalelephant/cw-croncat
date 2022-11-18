@@ -16,9 +16,6 @@ use cw_croncat_core::types::{
     calculate_required_amount, BoundaryValidated, GenericBalance, SlotType, Task,
 };
 
-/// replace those bytes by the rules response inside the message
-pub const RULE_RES_PLACEHOLDER: &[u8] = b"$r_r";
-
 impl<'a> CwCroncat<'a> {
     /// Returns task data
     /// Used by the frontend for viewing tasks
@@ -291,7 +288,8 @@ impl<'a> CwCroncat<'a> {
             },
             amount_for_one_task,
             actions: task.actions,
-            rules: task.rules,
+            queries: task.queries,
+            transforms: task.transforms,
             version: version.version,
         };
 

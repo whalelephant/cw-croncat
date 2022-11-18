@@ -1,10 +1,8 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_env, mock_info},
-    Addr, BlockInfo, DepsMut, Empty, Querier, QuerierWrapper, QueryRequest, Response, StdResult,
-    WasmQuery,
+    Addr, BlockInfo, DepsMut, Empty, Response,
 };
-use cw2::ContractVersion;
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::InstantiateMsg,
@@ -205,7 +203,8 @@ pub fn default_task() -> Task {
         total_deposit: Default::default(),
         amount_for_one_task: Default::default(),
         actions: Default::default(),
-        rules: Default::default(),
+        queries: Default::default(),
+        transforms: Default::default(),
         version: "1.0.0".to_string(),
     }
 }
