@@ -129,7 +129,7 @@ pub(crate) fn send_cw20_to_bob_recurring(cw20_addr: &str, times: u128) -> TaskRe
             funds: vec![],
         }
         .into(),
-        gas_limit: None,
+        gas_limit: Some(200_000),
     };
     TaskRequest {
         interval: Interval::Immediate,
@@ -160,7 +160,7 @@ pub(crate) fn send_cw20_to_bob_and_alice_recurring(cw20_addr: &str, times: u128)
             funds: vec![],
         }
         .into(),
-        gas_limit: None,
+        gas_limit: Some(200_000),
     };
     let msg = cw20_base::msg::ExecuteMsg::Transfer {
         recipient: ALICE_ADDR.to_owned(),
@@ -173,7 +173,7 @@ pub(crate) fn send_cw20_to_bob_and_alice_recurring(cw20_addr: &str, times: u128)
             funds: vec![],
         }
         .into(),
-        gas_limit: None,
+        gas_limit: Some(200_000),
     };
     TaskRequest {
         interval: Interval::Immediate,
