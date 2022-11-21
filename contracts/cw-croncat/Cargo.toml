@@ -39,7 +39,7 @@ cw-storage-plus = "0.16.0"
 cw-utils = "0.13"
 cron_schedule = "0.2.2"
 cw2 = "0.16.0"
-cw20 = { version = "0.13.4" }
+cw20 = { version = "0.13.4", default-features = false }
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0" }
@@ -55,7 +55,7 @@ cw20-base = { version = "0.13.4", features = ["library"] }
 cw4 = { version = "0.13.4" }
 cw4-group = { version = "0.13.4", features = ["library"] }
 smart-query = { version = "*", path = "../../packages/smart-query" }
-generic-query ={ version = "*", path = "../../packages/generic-query" }
+generic-query = { version = "*", path = "../../packages/generic-query" }
 cwd-voting-cw20-staked = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
 cwd-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }

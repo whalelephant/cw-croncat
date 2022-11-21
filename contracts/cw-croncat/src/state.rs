@@ -258,7 +258,7 @@ impl<'a> CwCroncat<'a> {
                 .ok_or(ContractError::NoTaskFound {})
         }
     }
-    pub fn query_contract_info(
+    pub(crate) fn query_contract_info(
         &self,
         deps: Deps,
         contract_address: String,

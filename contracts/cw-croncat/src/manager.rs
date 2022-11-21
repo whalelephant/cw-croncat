@@ -1,6 +1,6 @@
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
+use crate::helpers::proxy_call_submsgs_price;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
     from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
@@ -66,9 +66,8 @@ impl<'a> CwCroncat<'a> {
                 &self.agent_active_queue,
                 info.sender.clone(),
                 slot,
-            )
-            .unwrap()
-            .unwrap();
+            )?
+            .ok_or(ContractError::NoTaskFound {})?;
         //Balanacer gives not task to this agent, return error
         let has_tasks = balancer_result.has_any_slot_tasks(slot_type);
         if !has_tasks {
@@ -322,7 +321,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: DepsMut,
         env: Env,
-        msg: Reply,
+        _msg: Reply,
         task: Task,
         queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
@@ -330,7 +329,7 @@ impl<'a> CwCroncat<'a> {
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
 
-        let agent_id = queue_item.agent_id.unwrap();
+        let agent_id = queue_item.agent_id.ok_or(ContractError::Unauthorized {})?;
 
         // Parse interval into a future timestamp, then convert to a slot
         let cfg: Config = self.config.load(deps.storage)?;
@@ -338,8 +337,8 @@ impl<'a> CwCroncat<'a> {
             task.interval
                 .next(&env, task.boundary, cfg.slot_granularity_time);
 
-        let response = if queue_item.failure.is_some() {
-            Response::new().add_attribute("with_failure", queue_item.failure.clone().unwrap())
+        let response = if let Some(ref failure) = queue_item.failure {
+            Response::new().add_attribute("with_failure", failure)
         } else {
             Response::new()
         };
@@ -361,7 +360,7 @@ impl<'a> CwCroncat<'a> {
                 slot_kind,
                 agent_id,
             };
-            self.complete_agent_task(deps.storage, env, msg, &task_info)?;
+            self.complete_agent_task(deps.storage, env, &task_info)?;
             let resp = self.remove_task(deps.storage, &task_hash, None)?;
             Ok(response
                 .add_attribute("method", "proxy_callback")
@@ -505,12 +504,11 @@ impl<'a> CwCroncat<'a> {
         &self,
         storage: &mut dyn Storage,
         env: Env,
-        msg: Reply,
         task_info: &TaskInfo,
     ) -> Result<(), ContractError> {
-        let TaskInfo {
-            task_hash, task, ..
-        } = task_info;
+        // let TaskInfo {
+        //     task_hash, task, ..
+        // } = task_info;
 
         //no fail
         self.balancer.on_task_completed(
@@ -519,24 +517,25 @@ impl<'a> CwCroncat<'a> {
             &self.config,
             &self.agent_active_queue,
             task_info,
-        ); //send completed event to balancer
-           //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
-        let transferred_bank_tokens = msg.transferred_bank_tokens();
-        let mut task_to_finalize = task.clone();
-        if task_to_finalize.contains_send_msg()
-            && task_to_finalize.is_recurring()
-            && !transferred_bank_tokens.is_empty()
-        {
-            task_to_finalize
-                .funds_withdrawn_recurring
-                .extend_from_slice(&transferred_bank_tokens);
-            if task_to_finalize.with_rules() {
-                self.tasks_with_rules
-                    .save(storage, task_hash, &task_to_finalize)?;
-            } else {
-                self.tasks.save(storage, task_hash, &task_to_finalize)?;
-            }
-        }
+        )?;
+        //send completed event to balancer
+        //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
+        // let transferred_bank_tokens = msg.transferred_bank_tokens();
+        // let mut task_to_finalize = task.clone();
+        // if task_to_finalize.contains_send_msg()
+        //     && task_to_finalize.is_recurring()
+        //     && !transferred_bank_tokens.is_empty()
+        // {
+        //     task_to_finalize
+        //         .funds_withdrawn_recurring
+        //         .extend_from_slice(&transferred_bank_tokens);
+        //     if task_to_finalize.with_rules() {
+        //         self.tasks_with_rules
+        //             .save(storage, task_hash, &task_to_finalize)?;
+        //     } else {
+        //         self.tasks.save(storage, task_hash, &task_to_finalize)?;
+        //     }
+        // }
         Ok(())
     }
 

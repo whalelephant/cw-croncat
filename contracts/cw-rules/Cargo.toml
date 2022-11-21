@@ -48,13 +48,13 @@ serde = { version = "1.0.137", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.31" }
 cw4 = "0.16.0"
 cw4-group = "0.16.0"
-base64 = "0.13"
 voting-v1 = { package = "voting", version = "0.1.0", git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v1.0.0" }
 
 # This thing saved our lives thanks @hashedone for implementing it
 serde-cw-value = "0.7.0"
 
-serde_json = { version = "1.0", default-features = false }
+# TODO: update when this feature is merged
+serde-json-wasm = { version = "0.4.1", git = "https://github.com/CyberHoward/serde-json-wasm", rev = "cdc78130b25d65981b74a5e4a10a9f8667292d36" }
 
 [dev-dependencies]
 cosmwasm-schema = "1.0.0"

@@ -231,13 +231,15 @@ fn test_check_valid_agents_get_extra_tasks_eq_mode() {
     };
 
     //Notify agent got 1 task
-    balancer.on_task_completed(
-        &mut deps.storage,
-        &env,
-        &store.config,
-        &store.agent_active_queue,
-        &task_info,
-    );
+    balancer
+        .on_task_completed(
+            &mut deps.storage,
+            &env,
+            &store.config,
+            &store.agent_active_queue,
+            &task_info,
+        )
+        .unwrap();
 
     //Verify agent0 gets extra
     let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
@@ -351,13 +353,15 @@ fn test_on_task_completed() {
 
     balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 10));
     store.config.save(&mut deps.storage, &config).unwrap();
-    balancer.on_task_completed(
-        &mut deps.storage,
-        &env,
-        &store.config,
-        &store.agent_active_queue,
-        &task_info,
-    );
+    balancer
+        .on_task_completed(
+            &mut deps.storage,
+            &env,
+            &store.config,
+            &store.agent_active_queue,
+            &task_info,
+        )
+        .unwrap();
 
     config = store.config.load(&mut deps.storage).unwrap();
     assert_eq!(config.agent_active_indices, vec![(SlotType::Block, 0, 11)])
@@ -393,12 +397,14 @@ fn test_on_agent_unregister() {
     balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 1));
     balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Cron, 0, 1));
     store.config.save(&mut deps.storage, &config).unwrap();
-    balancer.on_agent_unregister(
-        &mut deps.storage,
-        &store.config,
-        &store.agent_active_queue,
-        Addr::unchecked(AGENT0),
-    );
+    balancer
+        .on_agent_unregister(
+            &mut deps.storage,
+            &store.config,
+            &store.agent_active_queue,
+            Addr::unchecked(AGENT0),
+        )
+        .unwrap();
 
     config = store.config.load(&mut deps.storage).unwrap();
     assert_eq!(config.agent_active_indices, vec![])

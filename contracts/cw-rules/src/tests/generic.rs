@@ -128,7 +128,7 @@ fn test_generic_json_repr() {
         "generic_query": {
             "contract_addr": cw4_addr.to_string(),
             "msg": query_binary,
-            "gets": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
+            "path_to_value": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
             "ordering": "unit_above",
             "value": to_binary(&1).unwrap(),
         }

@@ -314,7 +314,8 @@ pub struct Task {
     /// Scheduling definitions
     pub interval: Interval,
     pub boundary: BoundaryValidated,
-    pub funds_withdrawn_recurring: Vec<Coin>,
+    /// TODO: Can we move it to the indexer side?
+    // pub funds_withdrawn_recurring: Vec<Coin>,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -523,7 +524,7 @@ impl Task {
                 let replaced_value = transform.action_path.find_value(&mut action_value)?;
                 *replaced_value = replace_value.clone();
                 *wasm_msg = Binary(
-                    serde_json::to_vec(&action_value)
+                    serde_json_wasm::to_vec(&action_value)
                         .map_err(|e| CoreError::Std(StdError::generic_err(e.to_string())))?,
                 );
             }

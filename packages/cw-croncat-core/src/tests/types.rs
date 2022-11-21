@@ -478,7 +478,7 @@ fn test_minus_tokens_overflow_cw20() {
 #[test]
 fn hashing() {
     let task = Task {
-        funds_withdrawn_recurring: vec![],
+        //funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Block(5),
         boundary: BoundaryValidated {

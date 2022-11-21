@@ -277,7 +277,6 @@ impl<'a> CwCroncat<'a> {
                 version: "1.0.0".to_string(),
             });
         let item = Task {
-            funds_withdrawn_recurring: vec![],
             owner_id: owner_id.clone(),
             interval: task.interval,
             boundary,

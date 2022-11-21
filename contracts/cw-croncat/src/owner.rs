@@ -9,8 +9,7 @@ use cosmwasm_std::{
 use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
     BalancesResponse, CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse,
-    GetWalletBalancesResponse, QueueItemResponse, ReplyQueueResponse,
-    RoundRobinBalancerModeResponse, SlotResponse, SlotWithRuleResponse,
+    GetWalletBalancesResponse, RoundRobinBalancerModeResponse, SlotResponse, SlotWithRuleResponse,
 };
 use cw_croncat_core::traits::FindAndMutate;
 
@@ -273,7 +272,7 @@ impl<'a> CwCroncat<'a> {
         Ok(Response::new()
             .add_attribute("method", "move_balance")
             .add_attribute("account_id", account_id.to_string())
-            .add_submessages(messages.unwrap()))
+            .add_submessages(messages?))
     }
 
     pub(crate) fn get_state(
@@ -286,20 +285,17 @@ impl<'a> CwCroncat<'a> {
         let default_limit = self.config.load(deps.storage)?.limit;
         let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
         let from_index_unwrap = from_index.unwrap_or_default();
-        let limit_unwrap = limit.unwrap_or(default_limit).min(size);
+        let limit_unwrap = limit.unwrap_or(default_limit).min(size) as usize;
 
-        let mut agents = vec![];
+        let mut agents = Vec::with_capacity(limit_unwrap);
         for agent in self
             .agents
-            .range(deps.storage, None, None, Order::Ascending)
+            .keys(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
         {
-            agents.push(
-                self.query_get_agent(deps, env.clone(), agent.unwrap().0.to_string())
-                    .unwrap()
-                    .unwrap(),
-            );
+            let agent_info = self.query_get_agent(deps, env.clone(), agent?.to_string())?;
+            agents.push(agent_info.unwrap());
         }
 
         let time_slots: Vec<SlotResponse> = self
@@ -349,27 +345,27 @@ impl<'a> CwCroncat<'a> {
             BalancerMode::Equalizer => RoundRobinBalancerModeResponse::Equalizer,
         };
 
-        let reply_queue: Vec<ReplyQueueResponse> = self
-            .reply_queue
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                let item = res.1;
-                ReplyQueueResponse {
-                    index: res.0.into(),
-                    item: QueueItemResponse {
-                        contract_addr: item.contract_addr,
-                        action_idx: item.action_idx.into(),
-                        task_hash: item.task_hash,
-                        task_is_extra: item.task_is_extra,
-                        agent_id: item.agent_id,
-                        failed: item.failure.is_some(),
-                    },
-                }
-            })
-            .collect();
+        // let reply_queue: Vec<ReplyQueueResponse> = self
+        //     .reply_queue
+        //     .range(deps.storage, None, None, Order::Ascending)
+        //     .skip(from_index_unwrap as usize)
+        //     .take(limit_unwrap as usize)
+        //     .map(|res| {
+        //         let res = res.unwrap();
+        //         let item = res.1;
+        //         ReplyQueueResponse {
+        //             index: res.0.into(),
+        //             item: QueueItemResponse {
+        //                 contract_addr: item.contract_addr,
+        //                 action_idx: item.action_idx.into(),
+        //                 task_hash: item.task_hash,
+        //                 task_is_extra: item.task_is_extra,
+        //                 agent_id: item.agent_id,
+        //                 failed: item.failure.is_some(),
+        //             },
+        //         }
+        //     })
+        //     .collect();
 
         let time_slots_rules: Vec<SlotWithRuleResponse> = self
             .time_map_rules
@@ -422,8 +418,7 @@ impl<'a> CwCroncat<'a> {
             block_slots_rules,
 
             reply_index: Uint64::from(self.reply_index.load(deps.storage)?),
-            reply_queue,
-
+            // reply_queue,
             agent_nomination_begin_time: self.agent_nomination_begin_time.load(deps.storage)?,
 
             balances,

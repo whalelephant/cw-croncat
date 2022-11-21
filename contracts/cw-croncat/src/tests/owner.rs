@@ -318,7 +318,6 @@ fn test_get_state() {
     assert_eq!(state.tasks_with_rules_total, Uint64::zero());
     assert!(state.time_slots_rules.is_empty());
     assert!(state.block_slots_rules.is_empty());
-    assert!(state.reply_queue.is_empty());
     assert_eq!(state.reply_index, Uint64::zero());
     assert_eq!(state.agent_nomination_begin_time, None);
     assert_eq!(
@@ -401,7 +400,6 @@ fn test_get_state() {
     assert_eq!(state.tasks_with_rules_total, Uint64::zero());
     assert!(state.time_slots_rules.is_empty());
     assert!(state.block_slots_rules.is_empty());
-    assert!(state.reply_queue.is_empty());
     assert_eq!(state.reply_index, Uint64::zero());
     assert!(state.agent_nomination_begin_time.is_some());
     assert!(state.balances.is_empty());

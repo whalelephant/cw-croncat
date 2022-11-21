@@ -291,7 +291,6 @@ pub struct TaskResponse {
 
     pub actions: Vec<Action>,
     pub rules: Option<Vec<Queries>>,
-    pub funds_withdrawn_recurring: Vec<Coin>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -321,7 +320,9 @@ pub struct CwCroncatResponse {
     pub time_slots_rules: Vec<SlotWithRuleResponse>,
     pub block_slots_rules: Vec<SlotWithRuleResponse>,
 
-    pub reply_queue: Vec<ReplyQueueResponse>,
+    /// Pretty sure it should be always empty
+    /// P.S: we can recover it after split, needed few non-critical Kbs
+    // pub reply_queue: Vec<ReplyQueueResponse>,
     pub reply_index: Uint64,
 
     pub agent_nomination_begin_time: Option<Timestamp>,
@@ -348,21 +349,21 @@ pub enum RoundRobinBalancerModeResponse {
     Equalizer,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct ReplyQueueResponse {
-    pub index: Uint64,
-    pub item: QueueItemResponse,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+// pub struct ReplyQueueResponse {
+//     pub index: Uint64,
+//     pub item: QueueItemResponse,
+// }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct QueueItemResponse {
-    pub contract_addr: Option<Addr>,
-    pub action_idx: Uint64,
-    pub task_hash: Option<Vec<u8>>,
-    pub task_is_extra: Option<bool>,
-    pub agent_id: Option<Addr>,
-    pub failed: bool,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+// pub struct QueueItemResponse {
+//     pub contract_addr: Option<Addr>,
+//     pub action_idx: Uint64,
+//     pub task_hash: Option<Vec<u8>>,
+//     pub task_is_extra: Option<bool>,
+//     pub agent_id: Option<Addr>,
+//     pub failed: bool,
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct SlotWithRuleResponse {
@@ -394,7 +395,6 @@ impl From<Task> for TaskResponse {
             owner_id: task.owner_id,
             interval: task.interval,
             boundary,
-            funds_withdrawn_recurring: task.funds_withdrawn_recurring,
             stop_on_fail: task.stop_on_fail,
             total_deposit: task.total_deposit.native,
             total_cw20_deposit: task.total_deposit.cw20,
