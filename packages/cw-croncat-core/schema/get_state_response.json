@@ -12,7 +12,6 @@
     "block_slots_rules",
     "config",
     "reply_index",
-    "reply_queue",
     "task_total",
     "tasks",
     "tasks_with_rules",
@@ -74,13 +73,12 @@
       "$ref": "#/definitions/GetConfigResponse"
     },
     "reply_index": {
-      "$ref": "#/definitions/Uint64"
-    },
-    "reply_queue": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/ReplyQueueResponse"
-      }
+      "description": "Pretty sure it should be always empty P.S: we can recover it after split, needed few non-critical Kbs",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Uint64"
+        }
+      ]
     },
     "task_total": {
       "$ref": "#/definitions/Uint64"
@@ -1134,73 +1132,6 @@
         }
       ]
     },
-    "QueueItemResponse": {
-      "type": "object",
-      "required": [
-        "action_idx",
-        "failed"
-      ],
-      "properties": {
-        "action_idx": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "agent_id": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "contract_addr": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "failed": {
-          "type": "boolean"
-        },
-        "task_hash": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 0.0
-          }
-        },
-        "task_is_extra": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        }
-      }
-    },
-    "ReplyQueueResponse": {
-      "type": "object",
-      "required": [
-        "index",
-        "item"
-      ],
-      "properties": {
-        "index": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "item": {
-          "$ref": "#/definitions/QueueItemResponse"
-        }
-      }
-    },
     "RoundRobinBalancerModeResponse": {
       "type": "string",
       "enum": [
@@ -1475,7 +1406,6 @@
         "actions",
         "amount_for_one_task_cw20",
         "amount_for_one_task_native",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1511,12 +1441,6 @@
               "type": "null"
             }
           ]
-        },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
         },
         "interval": {
           "$ref": "#/definitions/Interval"

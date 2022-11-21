@@ -303,7 +303,6 @@ export interface TaskResponse {
   amount_for_one_task_cw20: Cw20CoinVerified[];
   amount_for_one_task_native: Coin[];
   boundary?: Boundary | null;
-  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   rules?: Queries[] | null;
@@ -380,7 +379,6 @@ export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
-  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
   queries?: Queries[] | null;
@@ -518,7 +516,6 @@ export interface GetStateResponse {
   block_slots_rules: SlotWithRuleResponse[];
   config: GetConfigResponse;
   reply_index: Uint64;
-  reply_queue: ReplyQueueResponse[];
   task_total: Uint64;
   tasks: TaskResponse[];
   tasks_with_rules: TaskWithRulesResponse[];
@@ -540,20 +537,6 @@ export interface SlotResponse {
 export interface SlotWithRuleResponse {
   slot: Uint64;
   task_hash: number[];
-  [k: string]: unknown;
-}
-export interface ReplyQueueResponse {
-  index: Uint64;
-  item: QueueItemResponse;
-  [k: string]: unknown;
-}
-export interface QueueItemResponse {
-  action_idx: Uint64;
-  agent_id?: Addr | null;
-  contract_addr?: Addr | null;
-  failed: boolean;
-  task_hash?: number[] | null;
-  task_is_extra?: boolean | null;
   [k: string]: unknown;
 }
 export interface TaskWithRulesResponse {

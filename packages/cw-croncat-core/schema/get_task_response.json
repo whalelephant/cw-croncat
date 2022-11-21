@@ -1026,7 +1026,6 @@
         "actions",
         "amount_for_one_task_cw20",
         "amount_for_one_task_native",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1062,12 +1061,6 @@
               "type": "null"
             }
           ]
-        },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
         },
         "interval": {
           "$ref": "#/definitions/Interval"

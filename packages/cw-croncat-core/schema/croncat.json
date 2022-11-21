@@ -1614,7 +1614,6 @@
         "actions",
         "amount_for_one_task",
         "boundary",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1634,12 +1633,6 @@
         },
         "boundary": {
           "$ref": "#/definitions/BoundaryValidated"
-        },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
         },
         "interval": {
           "description": "Scheduling definitions",
@@ -1668,7 +1661,7 @@
           }
         },
         "stop_on_fail": {
-          "description": "Defines if this task can continue until balance runs out",
+          "description": "TODO: Can we move it to the indexer side? Defines if this task can continue until balance runs out",
           "type": "boolean"
         },
         "total_deposit": {
@@ -1756,7 +1749,6 @@
         "actions",
         "amount_for_one_task_cw20",
         "amount_for_one_task_native",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1792,12 +1784,6 @@
               "type": "null"
             }
           ]
-        },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
         },
         "interval": {
           "$ref": "#/definitions/Interval"
