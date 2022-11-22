@@ -1638,6 +1638,7 @@ dependencies = [
  "cw20",
  "cw20-base",
  "env_logger",
+ "generic-query",
  "serde",
  "serde_json",
 ]

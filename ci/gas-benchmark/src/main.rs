@@ -10,8 +10,8 @@ use types::Account;
 
 use crate::{
     helpers::{
-        complete_tasks_for_three_times, init_contracts, key_addr_from_account, refill_cw20,
-        register_agent,
+        complete_tasks_for_three_times, init_contracts, key_addr_from_account,
+        query_tasks_with_rules, refill_cw20, register_agent,
     },
     report::{
         average_base_gas_for_proxy_call, average_gas_for_one_native_ujunox, cost_approxes,
@@ -20,7 +20,8 @@ use crate::{
     test_cases::{
         complete_simple_task, delegate_to_bob_and_alice_recurring, delegate_to_bob_recurring,
         delegate_to_validator, delegate_to_validator_twice, send_cw20_to_bob_and_alice_recurring,
-        send_cw20_to_bob_recurring, send_to_bob_and_alice_recurring, send_to_bob_recurring,
+        send_cw20_to_bob_recurring, send_cw20_to_insertable_addr, send_to_bob_and_alice_recurring,
+        send_to_bob_recurring,
     },
     test_cases_with_rules::complete_simple_rule,
     types::ApproxGasCosts,
@@ -171,8 +172,71 @@ fn main() -> Result<()> {
         "avg_gas_cost: {}",
         average_gas_for_one_native_ujunox(all_tasks_info)
     );
+
+    // Tests
+    {
+        let croncat_addr = orc.contract_map.address(CRONCAT_NAME)?;
+        // create task with insertable addr transfer
+        helpers::create_task(
+            send_cw20_to_insertable_addr(&croncat_addr, &cw20_addr, &admin_addr),
+            &mut orc,
+            &user_key,
+            "send_to_insertable_addr",
+            &denom,
+            500_000,
+        )
+        .unwrap();
+        let tasks = query_tasks_with_rules(&orc)?;
+        let task_hash = tasks[0].task_hash.clone();
+
+        // Change the owner
+        let new_owner_id = accounts[3].clone();
+        orc.execute(
+            CRONCAT_NAME,
+            "update_config",
+            &cw_croncat::ExecuteMsg::UpdateSettings {
+                owner_id: Some(new_owner_id.address.clone()),
+                slot_granularity_time: None,
+                paused: None,
+                agent_fee: None,
+                gas_base_fee: None,
+                gas_action_fee: None,
+                gas_fraction: None,
+                proxy_callback_gas: None,
+                min_tasks_per_agent: None,
+                agents_eject_threshold: None,
+            },
+            &admin_key,
+            vec![],
+        )
+        .unwrap();
+
+        orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)
+            .unwrap();
+
+        helpers::proxy_call_with_hash(
+            &mut orc,
+            &agent_key,
+            task_hash,
+            "proxy_call_tak_with_intertable_addr",
+        )
+        .unwrap();
+
+        let balance_res: cw20::BalanceResponse = orc
+            .query(
+                CW20_NAME,
+                &cw20_base::msg::QueryMsg::Balance {
+                    address: new_owner_id.address,
+                },
+            )?
+            .data()?;
+        if balance_res.balance != cosmwasm_std::Uint128::new(10) {
+            return Err(anyhow::anyhow!("Not transfered"));
+        }
+    }
     let gas_report_dir = std::env::var("GAS_OUT_DIR").unwrap_or_else(|_| "gas_reports".to_string());
     save_gas_report(&orc, &gas_report_dir);
+
     Ok(())
 }
 

@@ -6,8 +6,10 @@ use cosmwasm_std::{coin, coins, to_binary};
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::TaskRequest,
-    types::{Action, Interval},
+    types::{Action, Interval, Transform},
 };
+use cw_rules_core::types::Queries;
+use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
 
 use crate::{helpers::query_balance, types::GasInformation, ALICE_ADDR, BOB_ADDR, CRONCAT_NAME};
 use anyhow::Result;
@@ -274,5 +276,51 @@ pub(crate) fn delegate_to_validator_twice(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+    }
+}
+
+/// As soon as owner replaced - pay to the new one
+pub(crate) fn send_cw20_to_insertable_addr(croncat_addr: &str, cw20_addr: &str, original_owner: &str) -> TaskRequest {
+    let amount_placeholder: u128 = 10;
+    let amount = amount_placeholder;
+    let msg = cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: "croncat".to_owned(),
+        amount: amount_placeholder.into(),
+    };
+    let send_cw20_to_placeholder = Action {
+        msg: cosmwasm_std::WasmMsg::Execute {
+            contract_addr: cw20_addr.to_owned(),
+            msg: to_binary(&msg).unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(250_000),
+    };
+    let query = Queries::GenericQuery(GenericQuery {
+        contract_addr: croncat_addr.to_string(),
+        msg: to_binary(&cw_croncat::QueryMsg::GetConfig {}).unwrap(),
+        path_to_value: vec![String::from("owner_id").into()].into(),
+        ordering: ValueOrdering::NotEqual,
+        value: to_binary(original_owner).unwrap(),
+    });
+    TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![send_cw20_to_placeholder],
+        queries: Some(vec![query]),
+        transforms: Some(vec![Transform {
+            action_idx: 0,
+            query_idx: 0,
+            action_path: PathToValue(vec![
+                ValueIndex::Key("transfer".to_owned()),
+                ValueIndex::Key("recipient".to_owned()),
+            ]),
+            query_response_path: PathToValue(vec![]),
+        }]),
+        cw20_coins: vec![Cw20Coin {
+            address: cw20_addr.to_owned(),
+            amount: amount.into(),
+        }],
     }
 }

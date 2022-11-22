@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use cosm_orc::{
+    client::chain_res::ExecResponse,
     config::{
         cfg::Coin,
         key::{Key, SigningKey},
@@ -13,7 +14,7 @@ use cosm_orc::{
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
 use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use cw_croncat_core::msg::{TaskRequest, TaskResponse};
+use cw_croncat_core::msg::{TaskRequest, TaskResponse, TaskWithRulesResponse};
 use cw_rules_core::msg::RuleResponse;
 
 pub(crate) fn init_contracts(
@@ -167,17 +168,7 @@ where
     for (task, extra_funds, prefix) in tasks {
         let amount =
             (base_attach + task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
-        let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
-        orc.execute(
-            CRONCAT_NAME,
-            &format!("{prefix}_create_task"),
-            &msg,
-            user_key,
-            vec![Coin {
-                denom: denom.clone(),
-                amount,
-            }],
-        )?;
+        create_task(task, orc, user_key, prefix, &denom, amount)?;
     }
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
     let first_proxys = proxy_call_for_n_times(
@@ -245,6 +236,28 @@ where
     Ok(res)
 }
 
+pub(crate) fn create_task(
+    task: TaskRequest,
+    orc: &mut CosmOrc,
+    user_key: &SigningKey,
+    prefix: &str,
+    denom: &str,
+    amount: u64,
+) -> Result<ExecResponse> {
+    let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
+    let res = orc.execute(
+        CRONCAT_NAME,
+        &format!("{prefix}_create_task"),
+        &msg,
+        user_key,
+        vec![Coin {
+            denom: denom.to_string(),
+            amount,
+        }],
+    )?;
+    Ok(res)
+}
+
 pub(crate) fn proxy_call_for_n_times(
     orc: &mut CosmOrc,
     (agent_key, agent_addr): (&SigningKey, String),
@@ -286,4 +299,35 @@ pub(crate) fn refill_cw20(orc: &mut CosmOrc, user_key: &SigningKey, amount: u128
     };
     orc.execute(CW20_NAME, "refill_cw20", &msg, user_key, vec![])?;
     Ok(())
+}
+
+pub(crate) fn proxy_call_with_hash(
+    orc: &mut CosmOrc,
+    agent_key: &SigningKey,
+    task_hash: String,
+    op_name: &str,
+) -> Result<ExecResponse> {
+    let res = orc.execute(
+        CRONCAT_NAME,
+        op_name,
+        &cw_croncat_core::msg::ExecuteMsg::ProxyCall {
+            task_hash: Some(task_hash),
+        },
+        agent_key,
+        vec![],
+    )?;
+    Ok(res)
+}
+
+pub(crate) fn query_tasks_with_rules(orc: &CosmOrc) -> Result<Vec<TaskWithRulesResponse>> {
+    let tasks = orc
+        .query(
+            CRONCAT_NAME,
+            &cw_croncat::QueryMsg::GetTasksWithRules {
+                from_index: None,
+                limit: None,
+            },
+        )?
+        .data()?;
+    Ok(tasks)
 }
