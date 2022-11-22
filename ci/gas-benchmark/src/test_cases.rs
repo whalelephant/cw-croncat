@@ -280,7 +280,11 @@ pub(crate) fn delegate_to_validator_twice(denom: &str) -> TaskRequest {
 }
 
 /// As soon as owner replaced - pay to the new one
-pub(crate) fn send_cw20_to_insertable_addr(croncat_addr: &str, cw20_addr: &str, original_owner: &str) -> TaskRequest {
+pub(crate) fn send_cw20_to_insertable_addr(
+    croncat_addr: &str,
+    cw20_addr: &str,
+    original_owner: &str,
+) -> TaskRequest {
     let amount_placeholder: u128 = 10;
     let amount = amount_placeholder;
     let msg = cw20_base::msg::ExecuteMsg::Transfer {
