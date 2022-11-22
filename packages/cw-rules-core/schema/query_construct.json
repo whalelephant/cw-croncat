@@ -273,6 +273,7 @@
       "required": [
         "contract_addr",
         "msg",
+        "path_to_msg_value",
         "path_to_query_value"
       ],
       "properties": {
@@ -284,17 +285,14 @@
         },
         "path_to_msg_value": {
           "description": "Replace value inside this query",
-          "anyOf": [
+          "allOf": [
             {
               "$ref": "#/definitions/PathToValue"
-            },
-            {
-              "type": "null"
             }
           ]
         },
         "path_to_query_value": {
-          "description": "Value for the next iteration",
+          "description": "Value passed to the next iteration",
           "allOf": [
             {
               "$ref": "#/definitions/PathToValue"

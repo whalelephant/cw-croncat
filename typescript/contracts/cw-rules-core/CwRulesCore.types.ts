@@ -124,7 +124,7 @@ export interface SmartQueryHead {
 export interface SmartQuery {
   contract_addr: string;
   msg: Binary;
-  path_to_msg_value?: PathToValue | null;
+  path_to_msg_value: PathToValue;
   path_to_query_value: PathToValue;
   [k: string]: unknown;
 }
