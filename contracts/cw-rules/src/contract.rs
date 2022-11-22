@@ -283,17 +283,15 @@ fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse> {
     let mut head_val = query.path_to_query_value.find_value(&mut json_val)?;
 
     for mut smart in query.queries.0 {
-        if let Some(path_to_msg_value) = smart.path_to_msg_value {
-            let mut head_msg_val = cosmwasm_std::from_binary(&smart.msg).map_err(|e| {
-                StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e)
-            })?;
-            let msg_val = path_to_msg_value.find_value(&mut head_msg_val)?;
-            *msg_val = head_val.clone();
-            smart.msg = Binary(
-                serde_json_wasm::to_vec(&head_msg_val)
-                    .map_err(|e| StdError::generic_err(e.to_string()))?,
-            );
-        };
+        let path_to_msg_value = smart.path_to_msg_value;
+        let mut head_msg_val = cosmwasm_std::from_binary(&smart.msg)
+            .map_err(|e| StdError::parse_err(std::any::type_name::<serde_cw_value::Value>(), e))?;
+        let msg_val = path_to_msg_value.find_value(&mut head_msg_val)?;
+        *msg_val = head_val.clone();
+        smart.msg = Binary(
+            serde_json_wasm::to_vec(&head_msg_val)
+                .map_err(|e| StdError::generic_err(e.to_string()))?,
+        );
         json_val = query_wasm_smart_raw(deps, smart.contract_addr, smart.msg)
             .and_then(|bin| bin_to_value(bin.as_slice()))?;
 

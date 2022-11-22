@@ -44,6 +44,7 @@ impl From<Vec<ValueIndex>> for PathToValue {
 }
 
 impl PathToValue {
+    /// Find the value by the "key" path
     pub fn find_value<'a>(&self, val: &'a mut Value) -> StdResult<&'a mut Value> {
         let mut current_val = val;
         for get in self.0.iter() {

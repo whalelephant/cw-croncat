@@ -82,10 +82,10 @@ fn test_smart() {
             address: "lol".to_owned(),
         })
         .unwrap(),
-        path_to_msg_value: Some(PathToValue(vec![
+        path_to_msg_value: PathToValue(vec![
             ValueIndex::from("balance".to_owned()),
             ValueIndex::from("address".to_owned()),
-        ])),
+        ]),
         path_to_query_value: PathToValue(vec![ValueIndex::from("balance".to_owned())]),
     }]);
     let smart_query = SmartQueryHead {
