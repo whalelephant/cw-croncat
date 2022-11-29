@@ -17,7 +17,7 @@ cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
 cw-rules-core = { version = "0.1.1", path = "../../packages/cw-rules-core" }
 cosmwasm-storage = { version = "1.0.0" }
 cw-storage-plus = "0.16.0"
-cron_schedule = { version = "0.2.2", git = "https://github.com/Buckram123/Schedule", rev = "6f52057188e211a17cdd5e0bd5441d5d2a175031" }
+cron_schedule = "0.2.3"
 cw2 = "0.16.0"
 cw20 = { version = "0.13.4" }
 schemars = "0.8"
