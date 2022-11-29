@@ -503,8 +503,9 @@ dependencies = [
 
 [[package]]
 name = "cron_schedule"
-version = "0.2.2"
-source = "git+https://github.com/Buckram123/Schedule?rev=6f52057188e211a17cdd5e0bd5441d5d2a175031#6f52057188e211a17cdd5e0bd5441d5d2a175031"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "502e9052fa23805c35e2e45611985e0900a845dc7ed01ed3f5272cba58bec885"
 dependencies = [
  "chrono",
  "nom 4.1.1",
