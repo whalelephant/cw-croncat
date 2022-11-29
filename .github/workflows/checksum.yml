@@ -1,0 +1,58 @@
+name: Check checksum
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  checksum:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.64.0
+          target: wasm32-unknown-unknown
+          override: true
+
+      - name: Rust Dependencies Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            artifacts/
+          key: ${{ runner.os }}-cargo-with-artifacts-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set latest just version
+        run: echo "JUST_VERSION=$(cargo search just -q | sed -n -e '/^just[[:space:]]/p' | cut -d '"' -f 2)" >> $GITHUB_ENV
+
+      - name: Get cached just
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/bin/just
+          key: ${{ runner.os }}-just-${{ env.JUST_VERSION }}
+
+      - name: Install just
+        run: cargo install just || true
+
+      - name: Run Optimize WASM
+        run: just optimize
+      
+      - name: Generate Checksum
+        run: ./scripts/update-checksum.sh
+        shell: bash
+      
+      - name: Show checksum changes
+        run: git status --porcelain
+
+      - name: Checksum Changes
+        # fails if any changes not committed
+        run: test -z "$(git status --porcelain)"
