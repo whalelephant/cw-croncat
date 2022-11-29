@@ -633,7 +633,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cosmwasm-storage",
- "cron_schedule",
  "cw-croncat-core",
  "cw-multi-test",
  "cw-rules",
