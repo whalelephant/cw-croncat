@@ -1659,7 +1659,7 @@
           }
         },
         "stop_on_fail": {
-          "description": "TODO: Can we move it to the indexer side? Defines if this task can continue until balance runs out",
+          "description": "Defines if this task can continue until balance runs out",
           "type": "boolean"
         },
         "total_deposit": {
