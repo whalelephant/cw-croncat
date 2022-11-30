@@ -20,7 +20,6 @@ fn check_task_storage_structure() -> StdResult<()> {
         version: "0.0.1".to_string(),
     };
     let task = Task {
-        //funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {

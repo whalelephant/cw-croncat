@@ -38,7 +38,6 @@ fn everything_can_be_de_serialized() {
     .into();
 
     let task = Task {
-        //funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {

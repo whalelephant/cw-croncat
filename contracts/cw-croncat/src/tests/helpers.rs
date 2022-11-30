@@ -331,7 +331,6 @@ pub fn default_task() -> Task {
             start: None,
             end: None,
         },
-        //funds_withdrawn_recurring: Default::default(),
         stop_on_fail: Default::default(),
         total_deposit: Default::default(),
         amount_for_one_task: Default::default(),

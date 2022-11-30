@@ -314,8 +314,6 @@ pub struct Task {
     /// Scheduling definitions
     pub interval: Interval,
     pub boundary: BoundaryValidated,
-    /// TODO: Can we move it to the indexer side?
-    // pub funds_withdrawn_recurring: Vec<Coin>,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -406,25 +404,6 @@ impl Task {
             }
         }
         Ok(())
-    }
-
-    pub fn is_recurring(&self) -> bool {
-        matches!(
-            &self.interval,
-            Interval::Cron(_) | Interval::Block(_) | Interval::Immediate
-        )
-    }
-
-    pub fn contains_send_msg(&self) -> bool {
-        self.actions.iter().any(|a| -> bool {
-            matches!(
-                &a.msg,
-                CosmosMsg::Bank(BankMsg::Send {
-                    to_address: _,
-                    amount: _,
-                })
-            )
-        })
     }
 
     /// Get task gas total
