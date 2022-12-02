@@ -71,7 +71,6 @@ impl<'a> CwCroncat<'a> {
         let account_id = deps.api.addr_validate(&account_id)?;
         let active = self.agent_active_queue.load(deps.storage)?;
         if !active.contains(&account_id) {
-            // TODO: unsure if we can return AgentNotRegistered
             return Err(StdError::GenericErr {
                 msg: AgentNotActive {}.to_string(),
             });
