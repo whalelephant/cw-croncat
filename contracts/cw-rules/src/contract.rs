@@ -240,12 +240,7 @@ fn query_construct(deps: Deps, rules: Vec<Queries>) -> StdResult<QueryConstructR
         let res = match rule {
             Queries::Query { contract_addr, msg } => Ok(RuleResponse {
                 result: true,
-                data: deps
-                    .querier
-                    .query_wasm_raw(contract_addr, msg)?
-                    .map(Into::into)
-                    // Why cosmwasm allows queries to return None?
-                    .unwrap_or_default(),
+                data: query_wasm_smart_raw(deps, contract_addr, msg)?,
             }),
             Queries::HasBalanceGte(HasBalanceGte {
                 address,
