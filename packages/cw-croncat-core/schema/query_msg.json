@@ -611,6 +611,94 @@
         }
       ]
     },
+    "CroncatQuery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "has_balance_gte"
+          ],
+          "properties": {
+            "has_balance_gte": {
+              "$ref": "#/definitions/HasBalanceGte"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_owner_of_nft"
+          ],
+          "properties": {
+            "check_owner_of_nft": {
+              "$ref": "#/definitions/CheckOwnerOfNft"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_proposal_status"
+          ],
+          "properties": {
+            "check_proposal_status": {
+              "$ref": "#/definitions/CheckProposalStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "generic_query"
+          ],
+          "properties": {
+            "generic_query": {
+              "$ref": "#/definitions/GenericQuery"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "smart_query"
+          ],
+          "properties": {
+            "smart_query": {
+              "$ref": "#/definitions/SmartQueryHead"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Cw20CoinVerified": {
       "type": "object",
       "required": [
@@ -985,94 +1073,6 @@
         "$ref": "#/definitions/ValueIndex"
       }
     },
-    "Queries": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "query"
-          ],
-          "properties": {
-            "query": {
-              "type": "object",
-              "required": [
-                "contract_addr",
-                "msg"
-              ],
-              "properties": {
-                "contract_addr": {
-                  "type": "string"
-                },
-                "msg": {
-                  "$ref": "#/definitions/Binary"
-                }
-              }
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "has_balance_gte"
-          ],
-          "properties": {
-            "has_balance_gte": {
-              "$ref": "#/definitions/HasBalanceGte"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_owner_of_nft"
-          ],
-          "properties": {
-            "check_owner_of_nft": {
-              "$ref": "#/definitions/CheckOwnerOfNft"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_proposal_status"
-          ],
-          "properties": {
-            "check_proposal_status": {
-              "$ref": "#/definitions/CheckProposalStatus"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "generic_query"
-          ],
-          "properties": {
-            "generic_query": {
-              "$ref": "#/definitions/GenericQuery"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "smart_query"
-          ],
-          "properties": {
-            "smart_query": {
-              "$ref": "#/definitions/SmartQueryHead"
-            }
-          },
-          "additionalProperties": false
-        }
-      ]
-    },
     "SmartQueries": {
       "type": "array",
       "items": {
@@ -1331,7 +1331,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Queries"
+            "$ref": "#/definitions/CroncatQuery"
           }
         },
         "stop_on_fail": {

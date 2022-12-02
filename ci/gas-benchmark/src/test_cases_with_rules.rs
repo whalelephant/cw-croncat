@@ -7,7 +7,7 @@ use cw_croncat_core::{
     msg::TaskWithRulesResponse,
     types::{Action, Interval},
 };
-use cw_rules_core::types::{HasBalanceGte, Queries};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 
 use crate::{helpers::query_balance, types::GasInformation, BOB_ADDR, CRONCAT_NAME};
 use anyhow::Result;
@@ -35,7 +35,7 @@ where
             }),
             gas_limit: None,
         }],
-        queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
             address: agent_addr.clone(),
             required_balance: coins(1, &denom).into(),
         })]),

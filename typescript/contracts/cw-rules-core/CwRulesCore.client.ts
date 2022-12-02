@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, Queries, ValueOrdering, ValueIndex, PathToValue, SmartQueries, GenericQuery, SmartQueryHead, SmartQuery, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRulesCore.types";
+import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, CroncatQuery, Balance, Uint128, NativeBalance, Addr, ValueOrdering, ValueIndex, PathToValue, SmartQueries, HasBalanceGte, Coin, Cw20CoinVerified, GenericQuery, SmartQueryHead, SmartQuery, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, InstantiateMsg, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRulesCore.types";
 export interface CwRulesCoreReadOnlyInterface {
   contractAddress: string;
   getBalance: ({
@@ -64,7 +64,7 @@ export interface CwRulesCoreReadOnlyInterface {
   queryConstruct: ({
     rules
   }: {
-    rules: Queries[];
+    rules: CroncatQuery[];
   }) => Promise<QueryConstructResponse>;
   smartQuery: ({
     contractAddr,
@@ -201,7 +201,7 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
   queryConstruct = async ({
     rules
   }: {
-    rules: Queries[];
+    rules: CroncatQuery[];
   }): Promise<QueryConstructResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       query_construct: {

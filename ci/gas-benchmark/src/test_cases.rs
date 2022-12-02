@@ -8,7 +8,7 @@ use cw_croncat_core::{
     msg::TaskRequest,
     types::{Action, Interval, Transform},
 };
-use cw_rules_core::types::Queries;
+use cw_rules_core::types::CroncatQuery;
 use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
 
 use crate::{helpers::query_balance, types::GasInformation, ALICE_ADDR, BOB_ADDR, CRONCAT_NAME};
@@ -300,7 +300,7 @@ pub(crate) fn send_cw20_to_insertable_addr(
         .into(),
         gas_limit: Some(250_000),
     };
-    let query = Queries::GenericQuery(GenericQuery {
+    let query = CroncatQuery::GenericQuery(GenericQuery {
         contract_addr: croncat_addr.to_string(),
         msg: to_binary(&cw_croncat::QueryMsg::GetConfig {}).unwrap(),
         path_to_value: vec![String::from("owner_id").into()].into(),

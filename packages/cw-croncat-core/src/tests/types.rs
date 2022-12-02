@@ -8,7 +8,7 @@ use cosmwasm_std::{
     IbcTimeout, StdError, Timestamp, Uint64, VoteOption, WasmMsg,
 };
 use cw20::Cw20CoinVerified;
-use cw_rules_core::types::{HasBalanceGte, Queries};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 
@@ -493,7 +493,7 @@ fn hashing() {
             }),
             gas_limit: Some(5),
         }],
-        queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
             address: "foo".to_string(),
             required_balance: coins(5, "atom").into(),
         })]),

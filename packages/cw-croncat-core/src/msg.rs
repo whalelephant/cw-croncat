@@ -5,7 +5,7 @@ use crate::types::{
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
-use cw_rules_core::types::Queries;
+use cw_rules_core::types::CroncatQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -269,7 +269,7 @@ pub struct TaskRequest {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
-    pub queries: Option<Vec<Queries>>,
+    pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
     pub cw20_coins: Vec<Cw20Coin>,
 }
@@ -290,7 +290,7 @@ pub struct TaskResponse {
     pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
 
     pub actions: Vec<Action>,
-    pub rules: Option<Vec<Queries>>,
+    pub rules: Option<Vec<CroncatQuery>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -298,7 +298,7 @@ pub struct TaskWithRulesResponse {
     pub task_hash: String,
     pub interval: Interval,
     pub boundary: Option<Boundary>,
-    pub rules: Option<Vec<Queries>>,
+    pub rules: Option<Vec<CroncatQuery>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -451,5 +451,5 @@ pub struct GetSlotIdsResponse {
 // cw_rules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<Queries>,
+    pub rules: Vec<CroncatQuery>,
 }

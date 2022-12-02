@@ -157,7 +157,7 @@ export type Interval = "Once" | "Immediate" | {
 } | {
   Cron: string;
 };
-export type Queries = {
+export type CroncatQuery = {
   query: {
     contract_addr: string;
     msg: Binary;
@@ -305,7 +305,7 @@ export interface TaskResponse {
   boundary?: Boundary | null;
   interval: Interval;
   owner_id: Addr;
-  rules?: Queries[] | null;
+  rules?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   task_hash: string;
   total_cw20_deposit: Cw20CoinVerified[];
@@ -381,7 +381,7 @@ export interface Task {
   boundary: BoundaryValidated;
   interval: Interval;
   owner_id: Addr;
-  queries?: Queries[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   total_deposit: GenericBalance;
   transforms?: Transform[] | null;
@@ -405,7 +405,7 @@ export interface TaskRequest {
   boundary?: Boundary | null;
   cw20_coins: Cw20Coin[];
   interval: Interval;
-  queries?: Queries[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   transforms?: Transform[] | null;
   [k: string]: unknown;
@@ -542,7 +542,7 @@ export interface SlotWithRuleResponse {
 export interface TaskWithRulesResponse {
   boundary?: Boundary | null;
   interval: Interval;
-  rules?: Queries[] | null;
+  rules?: CroncatQuery[] | null;
   task_hash: string;
   [k: string]: unknown;
 }

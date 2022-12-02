@@ -14,7 +14,7 @@ use cw_croncat_core::msg::{
 };
 use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
-use cw_rules_core::types::{HasBalanceGte, Queries};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use cwd_core::state::ProposalModule;
 use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
@@ -1616,7 +1616,7 @@ fn test_complete_task_with_rule() {
                 msg: send.clone().into(),
                 gas_limit: None,
             }],
-            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
                 required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
@@ -1726,7 +1726,7 @@ fn test_reschedule_task_with_rule() {
                 msg: send.clone().into(),
                 gas_limit: None,
             }],
-            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
                 required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
@@ -2299,7 +2299,7 @@ fn smart_rule() {
         ]),
         path_to_query_value: PathToValue(vec![ValueIndex::from("balance".to_owned())]),
     }]);
-    let smart_rule = Queries::SmartQuery(SmartQueryHead {
+    let smart_rule = CroncatQuery::SmartQuery(SmartQueryHead {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&head_msg).unwrap(),
         path_to_query_value: vec!["admin".to_owned().into()].into(),
@@ -2442,7 +2442,7 @@ fn insertable_rule_res_positive() {
         amount: Uint128::new(5),
     })
     .unwrap();
-    let rule = Queries::GenericQuery(GenericQuery {
+    let rule = CroncatQuery::GenericQuery(GenericQuery {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
         path_to_value: vec!["admin".to_owned().into()].into(),
@@ -2642,7 +2642,7 @@ fn insertable_rule_res_negative() {
         amount: Uint128::new(5),
     })
     .unwrap();
-    let rule = Queries::GenericQuery(GenericQuery {
+    let rule = CroncatQuery::GenericQuery(GenericQuery {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
         path_to_value: vec!["admin".to_owned().into()].into(),

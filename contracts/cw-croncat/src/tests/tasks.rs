@@ -13,7 +13,7 @@ use cw_croncat_core::msg::{
 };
 use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
-use cw_rules_core::types::{HasBalanceGte, Queries};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use std::convert::TryInto;
 
 #[test]
@@ -666,7 +666,7 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),
@@ -741,7 +741,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            queries: Some(vec![Queries::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),

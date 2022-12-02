@@ -5,7 +5,7 @@ use cosmwasm_std::{
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
-use cw_rules_core::types::Queries;
+use cw_rules_core::types::CroncatQuery;
 use generic_query::PathToValue;
 use hex::encode;
 use schemars::JsonSchema;
@@ -328,7 +328,7 @@ pub struct Task {
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
-    pub queries: Option<Vec<Queries>>,
+    pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
     // TODO: funds! should we support funds being attached?
     pub version: String,

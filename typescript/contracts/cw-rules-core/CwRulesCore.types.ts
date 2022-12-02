@@ -28,6 +28,78 @@ export interface CheckProposalStatus {
   status: Status;
   [k: string]: unknown;
 }
+export type CroncatQuery = {
+  query: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
+  has_balance_gte: HasBalanceGte;
+} | {
+  check_owner_of_nft: CheckOwnerOfNft;
+} | {
+  check_proposal_status: CheckProposalStatus;
+} | {
+  generic_query: GenericQuery;
+} | {
+  smart_query: SmartQueryHead;
+};
+export type Balance = {
+  native: NativeBalance;
+} | {
+  cw20: Cw20CoinVerified;
+};
+export type Uint128 = string;
+export type NativeBalance = Coin[];
+export type Addr = string;
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
+export type ValueIndex = {
+  key: string;
+} | {
+  index: number;
+};
+export type PathToValue = ValueIndex[];
+export type SmartQueries = SmartQuery[];
+export interface HasBalanceGte {
+  address: string;
+  required_balance: Balance;
+  [k: string]: unknown;
+}
+export interface Coin {
+  amount: Uint128;
+  denom: string;
+  [k: string]: unknown;
+}
+export interface Cw20CoinVerified {
+  address: Addr;
+  amount: Uint128;
+  [k: string]: unknown;
+}
+export interface GenericQuery {
+  contract_addr: string;
+  msg: Binary;
+  ordering: ValueOrdering;
+  path_to_value: PathToValue;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQueryHead {
+  contract_addr: string;
+  msg: Binary;
+  ordering: ValueOrdering;
+  path_to_query_value: PathToValue;
+  queries: SmartQueries;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQuery {
+  contract_addr: string;
+  msg: Binary;
+  path_to_msg_value: PathToValue;
+  path_to_query_value: PathToValue;
+  [k: string]: unknown;
+}
 export type ExecuteMsg = {
   query_result: {
     [k: string]: unknown;
@@ -53,79 +125,7 @@ export interface HasBalanceGteResponse {
   result: boolean;
   [k: string]: unknown;
 }
-export type Balance = {
-  native: NativeBalance;
-} | {
-  cw20: Cw20CoinVerified;
-};
-export type Uint128 = string;
-export type NativeBalance = Coin[];
-export type Addr = string;
-export interface HasBalanceGte {
-  address: string;
-  required_balance: Balance;
-  [k: string]: unknown;
-}
-export interface Coin {
-  amount: Uint128;
-  denom: string;
-  [k: string]: unknown;
-}
-export interface Cw20CoinVerified {
-  address: Addr;
-  amount: Uint128;
-  [k: string]: unknown;
-}
 export interface InstantiateMsg {
-  [k: string]: unknown;
-}
-export type Queries = {
-  query: {
-    contract_addr: string;
-    msg: Binary;
-    [k: string]: unknown;
-  };
-} | {
-  has_balance_gte: HasBalanceGte;
-} | {
-  check_owner_of_nft: CheckOwnerOfNft;
-} | {
-  check_proposal_status: CheckProposalStatus;
-} | {
-  generic_query: GenericQuery;
-} | {
-  smart_query: SmartQueryHead;
-};
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
-export type ValueIndex = {
-  key: string;
-} | {
-  index: number;
-};
-export type PathToValue = ValueIndex[];
-export type SmartQueries = SmartQuery[];
-export interface GenericQuery {
-  contract_addr: string;
-  msg: Binary;
-  ordering: ValueOrdering;
-  path_to_value: PathToValue;
-  value: Binary;
-  [k: string]: unknown;
-}
-export interface SmartQueryHead {
-  contract_addr: string;
-  msg: Binary;
-  ordering: ValueOrdering;
-  path_to_query_value: PathToValue;
-  queries: SmartQueries;
-  value: Binary;
-  [k: string]: unknown;
-}
-export interface SmartQuery {
-  contract_addr: string;
-  msg: Binary;
-  path_to_msg_value: PathToValue;
-  path_to_query_value: PathToValue;
   [k: string]: unknown;
 }
 export interface QueryConstructResponse {
@@ -134,7 +134,7 @@ export interface QueryConstructResponse {
   [k: string]: unknown;
 }
 export interface QueryConstruct {
-  rules: Queries[];
+  rules: CroncatQuery[];
   [k: string]: unknown;
 }
 export type QueryMsg = {

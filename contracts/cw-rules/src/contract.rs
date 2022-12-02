@@ -1,5 +1,5 @@
 use cw_rules_core::msg::{QueryConstruct, QueryConstructResponse};
-use cw_rules_core::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Queries};
+use cw_rules_core::types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte};
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
 
@@ -234,30 +234,30 @@ fn query_dao_proposal_status(
 // }
 
 // create a smart query into binary
-fn query_construct(deps: Deps, rules: Vec<Queries>) -> StdResult<QueryConstructResponse> {
+fn query_construct(deps: Deps, rules: Vec<CroncatQuery>) -> StdResult<QueryConstructResponse> {
     let mut data = Vec::with_capacity(rules.len());
     for (idx, rule) in rules.into_iter().enumerate() {
         let res = match rule {
-            Queries::Query { contract_addr, msg } => Ok(RuleResponse {
+            CroncatQuery::Query { contract_addr, msg } => Ok(RuleResponse {
                 result: true,
                 data: query_wasm_smart_raw(deps, contract_addr, msg)?,
             }),
-            Queries::HasBalanceGte(HasBalanceGte {
+            CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address,
                 required_balance,
             }) => query_has_balance_gte(deps, address, required_balance),
-            Queries::CheckOwnerOfNft(CheckOwnerOfNft {
+            CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
                 address,
                 nft_address,
                 token_id,
             }) => query_check_owner_nft(deps, address, nft_address, token_id),
-            Queries::CheckProposalStatus(CheckProposalStatus {
+            CroncatQuery::CheckProposalStatus(CheckProposalStatus {
                 dao_address,
                 proposal_id,
                 status,
             }) => query_dao_proposal_status(deps, dao_address, proposal_id, status),
-            Queries::GenericQuery(query) => generic_query(deps, query),
-            Queries::SmartQuery(query) => smart_query(deps, query),
+            CroncatQuery::GenericQuery(query) => generic_query(deps, query),
+            CroncatQuery::SmartQuery(query) => smart_query(deps, query),
         }?;
         if !res.result {
             return Ok(QueryConstructResponse {

@@ -27,7 +27,7 @@ pub enum Status {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum Queries {
+pub enum CroncatQuery {
     Query { contract_addr: String, msg: Binary },
     HasBalanceGte(HasBalanceGte),
     CheckOwnerOfNft(CheckOwnerOfNft),

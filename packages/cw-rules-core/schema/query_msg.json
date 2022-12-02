@@ -215,76 +215,7 @@
         }
       }
     },
-    "Cw20CoinVerified": {
-      "type": "object",
-      "required": [
-        "address",
-        "amount"
-      ],
-      "properties": {
-        "address": {
-          "$ref": "#/definitions/Addr"
-        },
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        }
-      }
-    },
-    "GenericQuery": {
-      "type": "object",
-      "required": [
-        "contract_addr",
-        "msg",
-        "ordering",
-        "path_to_value",
-        "value"
-      ],
-      "properties": {
-        "contract_addr": {
-          "type": "string"
-        },
-        "msg": {
-          "$ref": "#/definitions/Binary"
-        },
-        "ordering": {
-          "$ref": "#/definitions/ValueOrdering"
-        },
-        "path_to_value": {
-          "$ref": "#/definitions/PathToValue"
-        },
-        "value": {
-          "$ref": "#/definitions/Binary"
-        }
-      }
-    },
-    "HasBalanceGte": {
-      "type": "object",
-      "required": [
-        "address",
-        "required_balance"
-      ],
-      "properties": {
-        "address": {
-          "type": "string"
-        },
-        "required_balance": {
-          "$ref": "#/definitions/Balance"
-        }
-      }
-    },
-    "NativeBalance": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
-    },
-    "PathToValue": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/ValueIndex"
-      }
-    },
-    "Queries": {
+    "CroncatQuery": {
       "oneOf": [
         {
           "type": "object",
@@ -372,6 +303,75 @@
         }
       ]
     },
+    "Cw20CoinVerified": {
+      "type": "object",
+      "required": [
+        "address",
+        "amount"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Addr"
+        },
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "GenericQuery": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "msg",
+        "ordering",
+        "path_to_value",
+        "value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        },
+        "ordering": {
+          "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
+        },
+        "value": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
+    },
+    "HasBalanceGte": {
+      "type": "object",
+      "required": [
+        "address",
+        "required_balance"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "required_balance": {
+          "$ref": "#/definitions/Balance"
+        }
+      }
+    },
+    "NativeBalance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Coin"
+      }
+    },
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
+      }
+    },
     "QueryConstruct": {
       "type": "object",
       "required": [
@@ -381,7 +381,7 @@
         "rules": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Queries"
+            "$ref": "#/definitions/CroncatQuery"
           }
         }
       }

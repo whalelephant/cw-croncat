@@ -1,4 +1,4 @@
-use crate::types::{CheckOwnerOfNft, CheckProposalStatus, HasBalanceGte, Queries};
+use crate::types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte};
 use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -56,5 +56,5 @@ pub struct QueryConstructResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<Queries>,
+    pub rules: Vec<CroncatQuery>,
 }
