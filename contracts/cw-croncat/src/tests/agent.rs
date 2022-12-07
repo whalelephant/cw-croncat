@@ -917,7 +917,8 @@ fn test_query_get_agent_tasks() {
     assert_eq!(
         query_task_res.unwrap_err(),
         cosmwasm_std::StdError::GenericErr {
-            msg: "Querier contract error: Generic error: Agent not registered".to_string()
+            msg: "Querier contract error: Generic error: Agent is not in the list of active agents"
+                .to_string()
         }
         .into()
     );

@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use std::ops::Div;
 
-use crate::ContractError::AgentNotRegistered;
+use crate::ContractError::*;
 use cw_croncat_core::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
 use cw_croncat_core::types::{calculate_required_amount, Agent, AgentStatus};
 
@@ -71,9 +71,8 @@ impl<'a> CwCroncat<'a> {
         let account_id = deps.api.addr_validate(&account_id)?;
         let active = self.agent_active_queue.load(deps.storage)?;
         if !active.contains(&account_id) {
-            // TODO: unsure if we can return AgentNotRegistered
             return Err(StdError::GenericErr {
-                msg: AgentNotRegistered {}.to_string(),
+                msg: AgentNotActive {}.to_string(),
             });
         }
         // Get all tasks (the final None means no limit when we take)
