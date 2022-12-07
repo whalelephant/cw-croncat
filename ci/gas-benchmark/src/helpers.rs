@@ -14,8 +14,21 @@ use cosm_orc::{
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
 use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use cw_croncat_core::msg::{TaskRequest, TaskResponse, TaskWithRulesResponse};
+use cw_croncat_core::{
+    msg::{TaskRequest, TaskResponse, TaskWithRulesResponse},
+    types::Action,
+};
 use cw_rules_core::msg::RuleResponse;
+
+const fn add_agent_fee(num: u64) -> u64 {
+    num + (num * 5 / 100)
+}
+
+fn min_gas_for_actions(actions: &[Action]) -> u64 {
+    actions.iter().fold(0, |acc, action| {
+        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE_JUNO)
+    })
+}
 
 pub(crate) fn init_contracts(
     orc: &mut CosmOrc,
@@ -157,17 +170,14 @@ where
 {
     let denom = denom.into();
     let agent_addr = agent_addr.into();
-    let base_attach =
-        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
-    let attach_per_action =
-        (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let prefixes: Vec<String> = tasks
         .iter()
         .map(|(_, _, prefix)| (*prefix).to_owned())
         .collect();
     for (task, extra_funds, prefix) in tasks {
-        let amount =
-            (base_attach + task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
+        let gas_for_task = GAS_BASE_FEE_JUNO + min_gas_for_actions(&task.actions);
+        let gas_to_attached_deposit = add_agent_fee(gas_for_task) / GAS_DENOMINATOR_DEFAULT_JUNO;
+        let amount = (gas_to_attached_deposit + extra_funds) * 3;
         create_task(task, orc, user_key, prefix, &denom, amount)?;
     }
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
