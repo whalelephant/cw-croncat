@@ -18,7 +18,7 @@ cw-rules-core = { version = "0.1.2", path = "../cw-rules-core" }
 generic-query = { version = "0.1.1", path = "../generic-query" }
 cosmwasm-storage = { version = "1.0.0" }
 cw-storage-plus = "0.16.0"
-cron_schedule = "0.2.2"
+cron_schedule = "0.2.3"
 cw2 = "0.16.0"
 cw20 = { version = "0.13.4" }
 schemars = "0.8"

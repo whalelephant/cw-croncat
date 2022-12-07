@@ -21,6 +21,9 @@ pub enum ContractError {
     #[error("Only accepts tokens in the cw20_whitelist")]
     NotInWhitelist {},
 
+    #[error("Agent is not in the list of active agents")]
+    AgentNotActive {},
+
     #[error("Agent not registered")]
     AgentNotRegistered {},
 
