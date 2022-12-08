@@ -198,7 +198,7 @@ impl<'a> CwCroncat<'a> {
     /// Computes whether a task should continue further or not
     /// Makes a cross-contract call with the task configuration
     /// Called directly by a registered agent
-    pub fn proxy_call_with_rules(
+    pub fn proxy_call_with_queries(
         &mut self,
         deps: DepsMut,
         info: MessageInfo,
@@ -211,32 +211,32 @@ impl<'a> CwCroncat<'a> {
 
         let cfg: Config = self.config.load(deps.storage)?;
         let some_task = self
-            .tasks_with_rules
+            .tasks_with_queries
             .may_load(deps.storage, task_hash.as_bytes())?;
         let mut task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
         let task_ready =
-            self.task_with_rule_ready(task.interval.clone(), deps.as_ref(), hash, &env)?;
+            self.task_with_query_ready(task.interval.clone(), deps.as_ref(), hash, &env)?;
         if !task_ready {
             return Err(ContractError::CustomError {
                 val: "Task is not ready".to_string(),
             });
         }
         // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-        let rules = if let Some(rules) = task.queries.clone() {
-            rules
+        let queries = if let Some(queries) = task.queries.clone() {
+            queries
         } else {
             // TODO: else should be unreachable
-            return Err(ContractError::NoRulesForThisTask { task_hash });
+            return Err(ContractError::NoQueriesForThisTask { task_hash });
         };
         // Check rules
-        let rules_res: QueryConstructResponse = deps.querier.query_wasm_smart(
+        let queries_res: QueryConstructResponse = deps.querier.query_wasm_smart(
             &cfg.cw_rules_addr,
-            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { rules }),
+            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { queries }),
         )?;
-        if !rules_res.result {
-            return Err(ContractError::RulesNotReady {
-                index: from_binary(&rules_res.data[0])?,
+        if !queries_res.result {
+            return Err(ContractError::QueriesNotReady {
+                index: from_binary(&queries_res.data[0])?,
             });
         };
 
@@ -245,7 +245,12 @@ impl<'a> CwCroncat<'a> {
         // This may be different to the one we keep in the storage
         // due to the insertable messages
         let (sub_msgs, fee_price) = match task
-            .replace_values(deps.api, &env.contract.address, &task_hash, rules_res.data)
+            .replace_values(
+                deps.api,
+                &env.contract.address,
+                &task_hash,
+                queries_res.data,
+            )
             .map_err(Into::into)
             .and(proxy_call_submsgs_price(&task, cfg, next_idx))
         {
@@ -256,7 +261,7 @@ impl<'a> CwCroncat<'a> {
                     .add_attribute("method", "proxy_call")
                     .add_attribute("agent", info.sender)
                     .add_attribute("task_hash", task_hash)
-                    .add_attribute("task_with_rules", true.to_string())
+                    .add_attribute("task_with_queries", true.to_string())
                     .add_attribute("task_removed_without_execution", err.to_string()));
             }
         };
@@ -264,7 +269,7 @@ impl<'a> CwCroncat<'a> {
         let mut agent = agent;
         agent.update(env.block.height);
         agent.balance.native.find_checked_add(&fee_price)?;
-        self.tasks_with_rules
+        self.tasks_with_queries
             .update(deps.storage, hash, |task| -> Result<_, ContractError> {
                 let mut task = task.ok_or(ContractError::NoTaskFound {})?;
                 task.total_deposit.native.find_checked_sub(&fee_price)?;
@@ -289,13 +294,13 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
             .add_attribute("task_hash", task_hash)
-            .add_attribute("task_with_rules", true.to_string())
+            .add_attribute("task_with_queries", true.to_string())
             .add_submessages(sub_msgs);
         Ok(final_res)
     }
 
     /// Check that this task can be executed in current slot
-    fn task_with_rule_ready(
+    fn task_with_query_ready(
         &mut self,
         task_interval: Interval,
         deps: Deps,
@@ -304,11 +309,11 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<bool, ContractError> {
         let task_ready = match task_interval {
             Interval::Cron(_) => {
-                let block = self.time_map_rules.load(deps.storage, hash)?;
+                let block = self.time_map_queries.load(deps.storage, hash)?;
                 env.block.height >= block
             }
             _ => {
-                let time = self.block_map_rules.load(deps.storage, hash)?;
+                let time = self.block_map_queries.load(deps.storage, hash)?;
                 env.block.time.nanos() >= time
             }
         };
@@ -370,7 +375,7 @@ impl<'a> CwCroncat<'a> {
                 .add_events(resp.events))
         } else {
             self.reschedule_task(
-                task.with_rules(),
+                task.with_queries(),
                 slot_kind,
                 deps.storage,
                 task_hash,
@@ -387,21 +392,21 @@ impl<'a> CwCroncat<'a> {
     /// Update time or block of next time this task should be executed
     fn reschedule_task(
         &self,
-        task_with_rules: bool,
+        task_with_queries: bool,
         slot_kind: SlotType,
         storage: &mut dyn Storage,
         task_hash: String,
         next_id: u64,
     ) -> Result<(), ContractError> {
-        if task_with_rules {
+        if task_with_queries {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_map_rules
+                    self.block_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_map_rules
+                    self.time_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
             }

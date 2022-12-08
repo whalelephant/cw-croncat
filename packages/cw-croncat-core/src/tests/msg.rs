@@ -127,7 +127,7 @@ fn everything_can_be_de_serialized() {
         amount_for_one_task_native: vec![coin(4, "earth")],
         amount_for_one_task_cw20: vec![],
         actions: vec![],
-        rules: None,
+        queries: None,
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();

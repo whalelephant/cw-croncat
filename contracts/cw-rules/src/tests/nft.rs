@@ -3,7 +3,7 @@ use cw721_base::MintMsg;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use cw_rules_core::types::CheckOwnerOfNft;
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 
 pub fn contract_template() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
@@ -102,7 +102,7 @@ fn test_check_owner_nft() -> StdResult<()> {
         nft_address: cw721_contract.to_string(),
         token_id: "croncat".to_string(),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -114,7 +114,7 @@ fn test_check_owner_nft() -> StdResult<()> {
         nft_address: cw721_contract.to_string(),
         token_id: "croncat".to_string(),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -126,7 +126,7 @@ fn test_check_owner_nft() -> StdResult<()> {
         nft_address: cw721_contract.to_string(),
         token_id: "croncat2".to_string(),
     });
-    let err: StdResult<RuleResponse> = app.wrap().query_wasm_smart(contract_addr, &msg);
+    let err: StdResult<QueryResponse> = app.wrap().query_wasm_smart(contract_addr, &msg);
     assert!(err.is_err());
 
     Ok(())

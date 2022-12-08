@@ -4,7 +4,7 @@ use cw4::Member;
 use cw_multi_test::{App, Executor};
 use serde_json::json;
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 use generic_query::{GenericQuery, ValueIndex, ValueOrdering};
 
 use crate::tests::helpers::{cw20_template, cw4_contract, cw_rules_contract, CREATOR_ADDR};
@@ -73,7 +73,7 @@ fn test_generic() {
         contract_addr: cw4_addr.into_string(),
     };
     let msg = QueryMsg::GenericQuery(generic_query);
-    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.result);
 }
 
@@ -139,7 +139,7 @@ fn test_generic_json_repr() {
         msg: Binary(msg),
     }
     .into();
-    let res: RuleResponse = app.wrap().query(&request).unwrap();
+    let res: QueryResponse = app.wrap().query(&request).unwrap();
     assert!(res.result);
 }
 
@@ -198,6 +198,6 @@ fn test_generic_bigint() {
     //     pub total_supply: Uint128,
     // }
     let msg = QueryMsg::GenericQuery(generic_query);
-    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.result);
 }

@@ -9,7 +9,8 @@ use cosmwasm_std::{
 use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
     BalancesResponse, CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse,
-    GetWalletBalancesResponse, RoundRobinBalancerModeResponse, SlotResponse, SlotWithRuleResponse,
+    GetWalletBalancesResponse, RoundRobinBalancerModeResponse, SlotResponse,
+    SlotWithQueriesResponse,
 };
 use cw_croncat_core::traits::FindAndMutate;
 
@@ -367,28 +368,28 @@ impl<'a> CwCroncat<'a> {
         //     })
         //     .collect();
 
-        let time_slots_rules: Vec<SlotWithRuleResponse> = self
-            .time_map_rules
+        let time_slots_queries: Vec<SlotWithQueriesResponse> = self
+            .time_map_queries
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
             .map(|res| {
                 let res = res.unwrap();
-                SlotWithRuleResponse {
+                SlotWithQueriesResponse {
                     task_hash: res.0,
                     slot: res.1.into(),
                 }
             })
             .collect();
 
-        let block_slots_rules: Vec<SlotWithRuleResponse> = self
-            .block_map_rules
+        let block_slots_queries: Vec<SlotWithQueriesResponse> = self
+            .block_map_queries
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
             .take(limit_unwrap as usize)
             .map(|res| {
                 let res = res.unwrap();
-                SlotWithRuleResponse {
+                SlotWithQueriesResponse {
                     task_hash: res.0,
                     slot: res.1.into(),
                 }
@@ -412,13 +413,14 @@ impl<'a> CwCroncat<'a> {
             time_slots,
             block_slots,
 
-            tasks_with_rules: self.query_get_tasks_with_rules(deps, from_index, limit)?,
-            tasks_with_rules_total: Uint64::from(self.tasks_with_rules_total.load(deps.storage)?),
-            time_slots_rules,
-            block_slots_rules,
+            tasks_with_queries: self.query_get_tasks_with_queries(deps, from_index, limit)?,
+            tasks_with_queries_total: Uint64::from(
+                self.tasks_with_queries_total.load(deps.storage)?,
+            ),
+            time_slots_queries,
+            block_slots_queries,
 
             reply_index: Uint64::from(self.reply_index.load(deps.storage)?),
-            // reply_queue,
             agent_nomination_begin_time: self.agent_nomination_begin_time.load(deps.storage)?,
 
             balances,

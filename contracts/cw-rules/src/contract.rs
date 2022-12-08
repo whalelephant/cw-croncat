@@ -17,7 +17,7 @@ use smart_query::SmartQueryHead;
 
 use crate::error::ContractError;
 use crate::helpers::{bin_to_value, query_wasm_smart_raw};
-use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, QueryResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
@@ -89,8 +89,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         )?),
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
         QueryMsg::SmartQuery(query) => to_binary(&smart_query(deps, query)?),
-        QueryMsg::QueryConstruct(QueryConstruct { rules }) => {
-            to_binary(&query_construct(deps, rules)?)
+        QueryMsg::QueryConstruct(QueryConstruct { queries }) => {
+            to_binary(&query_construct(deps, queries)?)
         }
     }
 }
@@ -99,10 +99,10 @@ pub fn query_result(_deps: DepsMut, _info: MessageInfo) -> Result<Response, Cont
     Ok(Response::new().add_attribute("method", "query_result"))
 }
 
-fn query_get_balance(deps: Deps, address: String, denom: String) -> StdResult<RuleResponse> {
+fn query_get_balance(deps: Deps, address: String, denom: String) -> StdResult<QueryResponse> {
     let valid_addr = deps.api.addr_validate(&address)?;
     let coin = deps.querier.query_balance(valid_addr, denom)?;
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result: true,
         data: to_binary(&coin)?,
     })
@@ -112,7 +112,7 @@ fn query_get_cw20_balance(
     deps: Deps,
     cw20_contract: String,
     address: String,
-) -> StdResult<RuleResponse> {
+) -> StdResult<QueryResponse> {
     let valid_cw20 = deps.api.addr_validate(&cw20_contract)?;
     let valid_address = deps.api.addr_validate(&address)?;
     let balance_response: BalanceResponse = deps.querier.query_wasm_smart(
@@ -122,7 +122,7 @@ fn query_get_cw20_balance(
         },
     )?;
     let coin = coin(balance_response.balance.into(), cw20_contract);
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result: true,
         data: to_binary(&coin)?,
     })
@@ -132,7 +132,7 @@ fn query_has_balance_gte(
     deps: Deps,
     address: String,
     required_balance: Balance,
-) -> StdResult<RuleResponse> {
+) -> StdResult<QueryResponse> {
     let valid_address = deps.api.addr_validate(&address)?;
     let balance;
     let res = match required_balance {
@@ -157,7 +157,7 @@ fn query_has_balance_gte(
             balance_response.balance >= required_cw20.amount
         }
     };
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result: res,
         data: to_binary(&balance)?,
     })
@@ -168,7 +168,7 @@ fn query_check_owner_nft(
     address: String,
     nft_address: String,
     token_id: String,
-) -> StdResult<RuleResponse> {
+) -> StdResult<QueryResponse> {
     let valid_nft = deps.api.addr_validate(&nft_address)?;
     let res: OwnerOfResponse = deps.querier.query_wasm_smart(
         valid_nft,
@@ -177,7 +177,7 @@ fn query_check_owner_nft(
             include_expired: None,
         },
     )?;
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result: address == res.owner,
         data: to_binary(&res)?,
     })
@@ -188,7 +188,7 @@ fn query_dao_proposal_status(
     dao_address: String,
     proposal_id: u64,
     status: Status,
-) -> StdResult<RuleResponse> {
+) -> StdResult<QueryResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
     let bin = query_wasm_smart_raw(
         deps,
@@ -197,7 +197,7 @@ fn query_dao_proposal_status(
     )?;
 
     let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result: resp.proposal.status == status,
         data: bin,
     })
@@ -234,11 +234,11 @@ fn query_dao_proposal_status(
 // }
 
 // create a smart query into binary
-fn query_construct(deps: Deps, rules: Vec<CroncatQuery>) -> StdResult<QueryConstructResponse> {
-    let mut data = Vec::with_capacity(rules.len());
-    for (idx, rule) in rules.into_iter().enumerate() {
-        let res = match rule {
-            CroncatQuery::Query { contract_addr, msg } => Ok(RuleResponse {
+fn query_construct(deps: Deps, queries: Vec<CroncatQuery>) -> StdResult<QueryConstructResponse> {
+    let mut data = Vec::with_capacity(queries.len());
+    for (idx, query) in queries.into_iter().enumerate() {
+        let res = match query {
+            CroncatQuery::Query { contract_addr, msg } => Ok(QueryResponse {
                 result: true,
                 data: query_wasm_smart_raw(deps, contract_addr, msg)?,
             }),
@@ -270,7 +270,7 @@ fn query_construct(deps: Deps, rules: Vec<CroncatQuery>) -> StdResult<QueryConst
     Ok(QueryConstructResponse { result: true, data })
 }
 
-fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse> {
+fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<QueryResponse> {
     let mut json_val = query_wasm_smart_raw(deps, query.contract_addr, query.msg)
         .and_then(|bin| bin_to_value(bin.as_slice()))?;
     let json_rhs = cosmwasm_std::from_binary(&query.value)
@@ -294,13 +294,13 @@ fn smart_query(deps: Deps, query: SmartQueryHead) -> StdResult<RuleResponse> {
     }
 
     let result = query.ordering.val_cmp(head_val, &json_rhs)?;
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result,
         data: to_binary(&head_val)?,
     })
 }
 
-fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse> {
+fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<QueryResponse> {
     let mut json_val = query_wasm_smart_raw(deps, query.contract_addr, query.msg)
         .and_then(|bin| bin_to_value(bin.as_slice()))?;
     let json_rhs = cosmwasm_std::from_slice(query.value.as_slice())
@@ -308,7 +308,7 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<RuleResponse> {
     let value = query.path_to_value.find_value(&mut json_val)?;
 
     let result = query.ordering.val_cmp(value, &json_rhs)?;
-    Ok(RuleResponse {
+    Ok(QueryResponse {
         result,
         data: to_binary(&value)?,
     })

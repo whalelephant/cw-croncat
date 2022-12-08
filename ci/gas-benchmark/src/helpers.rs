@@ -15,10 +15,10 @@ use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
 use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use cw_croncat_core::{
-    msg::{TaskRequest, TaskResponse, TaskWithRulesResponse},
+    msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
     types::Action,
 };
-use cw_rules_core::msg::RuleResponse;
+use cw_rules_core::msg::QueryResponse;
 
 const fn add_agent_fee(num: u64) -> u64 {
     num + (num * 5 / 100)
@@ -148,7 +148,7 @@ where
         .res
         .data
         .ok_or_else(|| anyhow::anyhow!("No result from query_balance"))?;
-    let query_res: RuleResponse = serde_json::from_slice(&res_bin)?;
+    let query_res: QueryResponse = serde_json::from_slice(&res_bin)?;
     let balance_bin: Binary = query_res.data;
     let balance: cosmwasm_std::Coin = serde_json::from_slice(balance_bin.as_slice())?;
 
@@ -329,11 +329,11 @@ pub(crate) fn proxy_call_with_hash(
     Ok(res)
 }
 
-pub(crate) fn query_tasks_with_rules(orc: &CosmOrc) -> Result<Vec<TaskWithRulesResponse>> {
+pub(crate) fn query_tasks_with_rules(orc: &CosmOrc) -> Result<Vec<TaskWithQueriesResponse>> {
     let tasks = orc
         .query(
             CRONCAT_NAME,
-            &cw_croncat::QueryMsg::GetTasksWithRules {
+            &cw_croncat::QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },

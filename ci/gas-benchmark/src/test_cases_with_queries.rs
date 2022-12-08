@@ -4,7 +4,7 @@ use cosm_orc::{
 };
 use cosmwasm_std::coins;
 use cw_croncat_core::{
-    msg::TaskWithRulesResponse,
+    msg::TaskWithQueriesResponse,
     types::{Action, Interval},
 };
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
@@ -55,10 +55,10 @@ where
     )?;
 
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
-    let mut active_tasks: Vec<TaskWithRulesResponse> = orc
+    let mut active_tasks: Vec<TaskWithQueriesResponse> = orc
         .query(
             CRONCAT_NAME,
-            &cw_croncat_core::msg::QueryMsg::GetTasksWithRules {
+            &cw_croncat_core::msg::QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },

@@ -212,8 +212,8 @@ impl<'a> CwCroncat<'a> {
                 config.available_balance.cw20.find_checked_sub(&sent)?;
             };
             self.config.save(storage, &config)?;
-            if task.with_rules() {
-                self.tasks_with_rules.save(storage, &task_hash, &task)?;
+            if task.with_queries() {
+                self.tasks_with_queries.save(storage, &task_hash, &task)?;
             } else {
                 self.tasks.save(storage, &task_hash, &task)?;
             }

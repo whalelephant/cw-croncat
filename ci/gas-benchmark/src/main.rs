@@ -1,7 +1,7 @@
 mod helpers;
 mod report;
 mod test_cases;
-mod test_cases_with_rules;
+mod test_cases_with_queries;
 mod types;
 
 use anyhow::Result;
@@ -23,7 +23,7 @@ use crate::{
         send_cw20_to_bob_recurring, send_cw20_to_insertable_addr, send_to_bob_and_alice_recurring,
         send_to_bob_recurring,
     },
-    test_cases_with_rules::complete_simple_rule,
+    test_cases_with_queries::complete_simple_rule,
     types::ApproxGasCosts,
 };
 

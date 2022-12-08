@@ -91,7 +91,7 @@ impl<'a> CwCroncat<'a> {
         self.task_total.save(deps.storage, &Default::default())?;
         self.reply_index.save(deps.storage, &Default::default())?;
         self.agent_nomination_begin_time.save(deps.storage, &None)?;
-        self.tasks_with_rules_total.save(deps.storage, &0)?;
+        self.tasks_with_queries_total.save(deps.storage, &0)?;
 
         // all instantiated data
         Ok(Response::new()
@@ -168,7 +168,7 @@ impl<'a> CwCroncat<'a> {
             } => self.refill_task_cw20(deps, info, task_hash, cw20_coins),
             ExecuteMsg::ProxyCall {
                 task_hash: Some(task_hash),
-            } => self.proxy_call_with_rules(deps, info, env, task_hash),
+            } => self.proxy_call_with_queries(deps, info, env, task_hash),
             ExecuteMsg::ProxyCall { task_hash: None } => self.proxy_call(deps, info, env),
             ExecuteMsg::Receive(msg) => self.receive_cw20(deps, info, msg),
             ExecuteMsg::WithdrawWalletBalance {
@@ -194,8 +194,8 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetTasks { from_index, limit } => {
                 to_binary(&self.query_get_tasks(deps, from_index, limit)?)
             }
-            QueryMsg::GetTasksWithRules { from_index, limit } => {
-                to_binary(&self.query_get_tasks_with_rules(deps, from_index, limit)?)
+            QueryMsg::GetTasksWithQueries { from_index, limit } => {
+                to_binary(&self.query_get_tasks_with_queries(deps, from_index, limit)?)
             }
             QueryMsg::GetTasksByOwner { owner_id } => {
                 to_binary(&self.query_get_tasks_by_owner(deps, owner_id)?)

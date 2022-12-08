@@ -3,7 +3,9 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 use cw_rules_core::{
-    msg::{ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse},
+    msg::{
+        ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse, QueryResponse,
+    },
     types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte},
 };
 
@@ -25,34 +27,38 @@ fn main() {
     export_schema(&schema_for!(CheckOwnerOfNft), &out_dir);
     export_schema(&schema_for!(CheckProposalStatus), &out_dir);
 
-    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "RuleResponse");
+    export_schema_with_title(&schema_for!(QueryResponse), &out_dir, "RuleResponse");
     export_schema_with_title(
-        &schema_for!(RuleResponse),
+        &schema_for!(QueryResponse),
         &out_dir,
         "QueryConstructResponse",
     );
 
-    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "GetBalanceResponse");
+    export_schema_with_title(&schema_for!(QueryResponse), &out_dir, "GetBalanceResponse");
     export_schema_with_title(
-        &schema_for!(RuleResponse),
+        &schema_for!(QueryResponse),
         &out_dir,
         "GetCw20BalanceResponse",
     );
     export_schema_with_title(
-        &schema_for!(RuleResponse),
+        &schema_for!(QueryResponse),
         &out_dir,
         "CheckOwnerOfNftResponse",
     );
     export_schema_with_title(
-        &schema_for!(RuleResponse),
+        &schema_for!(QueryResponse),
         &out_dir,
         "HasBalanceGteResponse",
     );
     export_schema_with_title(
-        &schema_for!(RuleResponse),
+        &schema_for!(QueryResponse),
         &out_dir,
         "CheckProposalStatusResponse",
     );
-    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "GenericQueryResponse");
-    export_schema_with_title(&schema_for!(RuleResponse), &out_dir, "SmartQueryResponse");
+    export_schema_with_title(
+        &schema_for!(QueryResponse),
+        &out_dir,
+        "GenericQueryResponse",
+    );
+    export_schema_with_title(&schema_for!(QueryResponse), &out_dir, "SmartQueryResponse");
 }

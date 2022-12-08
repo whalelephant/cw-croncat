@@ -451,10 +451,10 @@ impl Task {
     // }
 
     /// Get whether the task is with rules
-    pub fn with_rules(&self) -> bool {
+    pub fn with_queries(&self) -> bool {
         self.queries
             .as_ref()
-            .map_or(false, |rules| !rules.is_empty())
+            .map_or(false, |queries| !queries.is_empty())
     }
 
     /// Check if given Addr is the owner

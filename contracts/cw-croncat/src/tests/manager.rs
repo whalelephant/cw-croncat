@@ -10,7 +10,7 @@ use cosmwasm_std::{
 use cw20::Cw20Coin;
 use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
-    TaskResponse, TaskWithRulesResponse,
+    TaskResponse, TaskWithQueriesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
@@ -1596,7 +1596,7 @@ fn test_no_reschedule_if_lack_balance() {
 }
 
 #[test]
-fn test_complete_task_with_rule() {
+fn test_complete_task_with_query() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
@@ -1654,17 +1654,17 @@ fn test_complete_task_with_rule() {
         .unwrap();
     assert!(agent_tasks.is_none());
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     app.send_tokens(
         Addr::unchecked(ADMIN),
         Addr::unchecked("addr2"),
@@ -1692,21 +1692,21 @@ fn test_complete_task_with_rule() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert!(tasks_with_rules.is_empty());
+    assert!(tasks_with_queries.is_empty());
 }
 
 #[test]
-fn test_reschedule_task_with_rule() {
+fn test_reschedule_task_with_queries() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
@@ -1764,17 +1764,17 @@ fn test_reschedule_task_with_rule() {
         .unwrap();
     assert!(agent_tasks.is_none());
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
 
     app.send_tokens(
         Addr::unchecked(ADMIN),
@@ -1802,7 +1802,7 @@ fn test_reschedule_task_with_rule() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    // Shouldn't affect tasks without rules
+    // Shouldn't affect tasks without queries
     let tasks_response: Vec<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -1829,18 +1829,18 @@ fn test_reschedule_task_with_rule() {
             .is_ok());
     }
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    println!("{:?}", tasks_with_rules);
-    assert!(tasks_with_rules.is_empty());
+    println!("{:?}", tasks_with_queries);
+    assert!(tasks_with_queries.is_empty());
 }
 
 #[test]
@@ -2249,7 +2249,7 @@ fn testing_fee_works() {
 }
 
 #[test]
-fn smart_rule() {
+fn smart_query() {
     let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -2299,7 +2299,7 @@ fn smart_rule() {
         ]),
         path_to_query_value: PathToValue(vec![ValueIndex::from("balance".to_owned())]),
     }]);
-    let smart_rule = CroncatQuery::SmartQuery(SmartQueryHead {
+    let smart_query = CroncatQuery::SmartQuery(SmartQueryHead {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&head_msg).unwrap(),
         path_to_query_value: vec!["admin".to_owned().into()].into(),
@@ -2316,7 +2316,7 @@ fn smart_rule() {
                 msg: send.clone().into(),
                 gas_limit: None,
             }],
-            queries: Some(vec![smart_rule]),
+            queries: Some(vec![smart_query]),
             transforms: None,
             cw20_coins: vec![],
         },
@@ -2347,17 +2347,17 @@ fn smart_rule() {
     )
     .unwrap();
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    let our_task = tasks_with_rules.first();
+    let our_task = tasks_with_queries.first();
     assert!(our_task.is_some());
     let task_hash = our_task.unwrap().task_hash.as_ref();
 
@@ -2381,21 +2381,21 @@ fn smart_rule() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert!(tasks_with_rules.is_empty());
+    assert!(tasks_with_queries.is_empty());
 }
 
 #[test]
-fn insertable_rule_res_positive() {
+fn insertable_query_res_positive() {
     let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -2442,7 +2442,7 @@ fn insertable_rule_res_positive() {
         amount: Uint128::new(5),
     })
     .unwrap();
-    let rule = CroncatQuery::GenericQuery(GenericQuery {
+    let query = CroncatQuery::GenericQuery(GenericQuery {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
         path_to_value: vec!["admin".to_owned().into()].into(),
@@ -2463,7 +2463,7 @@ fn insertable_rule_res_positive() {
                 .into(),
                 gas_limit: Some(300_000),
             }],
-            queries: Some(vec![rule]),
+            queries: Some(vec![query]),
             transforms: Some(vec![Transform {
                 action_idx: 0,
                 query_idx: 0,
@@ -2498,17 +2498,17 @@ fn insertable_rule_res_positive() {
 
     app.update_block(add_little_time);
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    let our_task = tasks_with_rules.first();
+    let our_task = tasks_with_queries.first();
     assert!(our_task.is_some());
     let task_hash: &str = our_task.unwrap().task_hash.as_ref();
 
@@ -2524,7 +2524,7 @@ fn insertable_rule_res_positive() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(res, ContractError::RulesNotReady { index: 0 });
+    assert_eq!(res, ContractError::QueriesNotReady { index: 0 });
 
     let old_balance_of_agent3: cw20::BalanceResponse = app
         .wrap()
@@ -2566,17 +2566,17 @@ fn insertable_rule_res_positive() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert!(tasks_with_rules.is_empty());
+    assert!(tasks_with_queries.is_empty());
 
     let new_balance_of_agent3: cw20::BalanceResponse = app
         .wrap()
@@ -2595,7 +2595,7 @@ fn insertable_rule_res_positive() {
 
 #[ignore = "it gets cancelled too early now, have to redo this test"]
 #[test]
-fn insertable_rule_res_negative() {
+fn insertable_query_res_negative() {
     let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -2642,7 +2642,7 @@ fn insertable_rule_res_negative() {
         amount: Uint128::new(5),
     })
     .unwrap();
-    let rule = CroncatQuery::GenericQuery(GenericQuery {
+    let query = CroncatQuery::GenericQuery(GenericQuery {
         contract_addr: cw4_addr.to_string(),
         msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
         path_to_value: vec!["admin".to_owned().into()].into(),
@@ -2663,7 +2663,7 @@ fn insertable_rule_res_negative() {
                 .into(),
                 gas_limit: None,
             }],
-            queries: Some(vec![rule]),
+            queries: Some(vec![query]),
             transforms: Some(vec![Transform {
                 action_idx: 0,
                 query_idx: 0,
@@ -2699,17 +2699,17 @@ fn insertable_rule_res_negative() {
 
     app.update_block(add_little_time);
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    let our_task = tasks_with_rules.first();
+    let our_task = tasks_with_queries.first();
     assert!(our_task.is_some());
     let task_hash: &str = our_task.unwrap().task_hash.as_ref();
 
@@ -2725,7 +2725,7 @@ fn insertable_rule_res_negative() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(res, ContractError::RulesNotReady { index: 0 });
+    assert_eq!(res, ContractError::QueriesNotReady { index: 0 });
 
     let old_balance_of_agent3: cw20::BalanceResponse = app
         .wrap()
@@ -2767,17 +2767,17 @@ fn insertable_rule_res_negative() {
         .iter()
         .any(|attr| attr.key == "task_removed_without_execution")));
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert!(tasks_with_rules.is_empty());
+    assert!(tasks_with_queries.is_empty());
 
     let new_balance_of_agent3: cw20::BalanceResponse = app
         .wrap()

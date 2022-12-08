@@ -3,7 +3,7 @@ use cw20::{Balance, Cw20CoinVerified};
 use cw_rules_core::types::HasBalanceGte;
 use cw_utils::NativeBalance;
 
-use cw_rules_core::msg::{QueryMsg, RuleResponse};
+use cw_rules_core::msg::{QueryMsg, QueryResponse};
 
 use crate::tests::helpers::{proper_instantiate, ANOTHER};
 
@@ -17,7 +17,7 @@ fn test_get_balance() -> StdResult<()> {
         address: ANYONE.to_string(),
         denom: NATIVE_DENOM.to_string(),
     };
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -29,7 +29,7 @@ fn test_get_balance() -> StdResult<()> {
         address: ANYONE.to_string(),
         denom: "juno".to_string(),
     };
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -41,7 +41,7 @@ fn test_get_balance() -> StdResult<()> {
         address: ANOTHER.to_string(),
         denom: NATIVE_DENOM.to_string(),
     };
-    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert!(res.result);
     assert_eq!(res.data, to_binary(&coin(0, NATIVE_DENOM))?);
 
@@ -57,7 +57,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         cw20_contract: cw20_contract.to_string(),
         address: ANYONE.to_string(),
     };
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -69,7 +69,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         cw20_contract: cw20_contract.to_string(),
         address: ADMIN_CW20.to_string(),
     };
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -81,7 +81,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         cw20_contract: cw20_contract.to_string(),
         address: ANOTHER.to_string(),
     };
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -93,7 +93,7 @@ fn test_get_cw20_balance() -> StdResult<()> {
         cw20_contract: contract_addr.to_string(),
         address: ANYONE.to_string(),
     };
-    let res: StdResult<RuleResponse> = app.wrap().query_wasm_smart(contract_addr, &msg);
+    let res: StdResult<QueryResponse> = app.wrap().query_wasm_smart(contract_addr, &msg);
     assert!(res.is_err());
 
     Ok(())
@@ -111,7 +111,7 @@ fn test_has_balance_native() -> StdResult<()> {
             NATIVE_DENOM.to_string(),
         ))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -129,7 +129,7 @@ fn test_has_balance_native() -> StdResult<()> {
             NATIVE_DENOM.to_string(),
         ))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -147,7 +147,7 @@ fn test_has_balance_native() -> StdResult<()> {
             NATIVE_DENOM.to_string(),
         ))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -162,7 +162,7 @@ fn test_has_balance_native() -> StdResult<()> {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1_000_000u128, "juno".to_string()))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -177,7 +177,7 @@ fn test_has_balance_native() -> StdResult<()> {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1u128, NATIVE_DENOM.to_string()))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -192,7 +192,7 @@ fn test_has_balance_native() -> StdResult<()> {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(0u128, NATIVE_DENOM.to_string()))),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -217,7 +217,7 @@ fn test_has_balance_cw20() -> StdResult<()> {
             amount: Uint128::from(14u128),
         }),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -239,7 +239,7 @@ fn test_has_balance_cw20() -> StdResult<()> {
             amount: Uint128::from(15u128),
         }),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -261,7 +261,7 @@ fn test_has_balance_cw20() -> StdResult<()> {
             amount: Uint128::from(16u128),
         }),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -283,7 +283,7 @@ fn test_has_balance_cw20() -> StdResult<()> {
             amount: Uint128::from(2u128),
         }),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
@@ -305,7 +305,7 @@ fn test_has_balance_cw20() -> StdResult<()> {
             amount: Uint128::zero(),
         }),
     });
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();

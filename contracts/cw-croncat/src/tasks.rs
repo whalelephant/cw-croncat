@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
-    GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithRulesResponse,
+    GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
 use cw_croncat_core::types::{
@@ -37,22 +37,22 @@ impl<'a> CwCroncat<'a> {
             .collect()
     }
 
-    /// Returns task with rules data
-    /// For now it returns only task_hash, interval, boundary and rules,
+    /// Returns task with queries data
+    /// For now it returns only task_hash, interval, boundary and queries,
     /// so that agent doesn't know details of his task
     /// Used by the frontend for viewing tasks
-    pub(crate) fn query_get_tasks_with_rules(
+    pub(crate) fn query_get_tasks_with_queries(
         &self,
         deps: Deps,
         from_index: Option<u64>,
         limit: Option<u64>,
-    ) -> StdResult<Vec<TaskWithRulesResponse>> {
-        let size: u64 = self.tasks_with_rules_total.load(deps.storage)?.min(1000);
+    ) -> StdResult<Vec<TaskWithQueriesResponse>> {
+        let size: u64 = self.tasks_with_queries_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
         let limit = limit
             .unwrap_or(self.config.load(deps.storage)?.limit)
             .min(size);
-        self.tasks_with_rules
+        self.tasks_with_queries
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
@@ -87,7 +87,7 @@ impl<'a> CwCroncat<'a> {
             if let Some(task) = task {
                 Some(task)
             } else {
-                self.tasks_with_rules
+                self.tasks_with_queries
                     .may_load(deps.storage, task_hash.as_bytes())?
             }
         };
@@ -317,11 +317,11 @@ impl<'a> CwCroncat<'a> {
             });
         }
 
-        let with_rules = item.with_rules();
+        let with_queries = item.with_queries();
         // Add task to catalog
-        if with_rules {
-            // Add task with rules
-            self.tasks_with_rules
+        if with_queries {
+            // Add task with queries
+            self.tasks_with_queries
                 .update(deps.storage, hash.as_bytes(), |old| match old {
                     Some(_) => Err(ContractError::CustomError {
                         val: "Task already exists".to_string(),
@@ -330,7 +330,7 @@ impl<'a> CwCroncat<'a> {
                 })?;
 
             // Increment task totals
-            let size_res = self.increment_tasks_with_rules(deps.storage);
+            let size_res = self.increment_tasks_with_queries(deps.storage);
             if size_res.is_err() {
                 return Err(ContractError::CustomError {
                     val: "Problem incrementing task total".to_string(),
@@ -340,16 +340,16 @@ impl<'a> CwCroncat<'a> {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_map_rules
+                    self.block_map_queries
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_map_rules
+                    self.time_map_queries
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
             }
         } else {
-            // Add task without rules
+            // Add task without queries
             let hash = item.to_hash_vec();
             self.tasks.update(deps.storage, &hash, |old| match old {
                 Some(_) => Err(ContractError::CustomError {
@@ -368,7 +368,7 @@ impl<'a> CwCroncat<'a> {
             let size = size_res.unwrap();
 
             // If the creation of this task means we'd like another agent, update config
-            // TODO: should we do it for tasks with rules
+            // TODO: should we do it for tasks with queries
             let min_tasks_per_agent = cfg.min_tasks_per_agent;
             let num_active_agents = self.agent_active_queue.load(deps.storage)?.len() as u64;
             let num_agents_to_accept =
@@ -415,7 +415,7 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind))
             .add_attribute("task_hash", hash)
-            .add_attribute("with_rules", with_rules.to_string()))
+            .add_attribute("with_queries", with_queries.to_string()))
     }
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
@@ -479,8 +479,8 @@ impl<'a> CwCroncat<'a> {
             }
             task
         } else {
-            // Find a task with rules
-            self.pop_task_with_rule(storage, hash_vec, info)?
+            // Find a task with queries
+            self.pop_task_with_queries(storage, hash_vec, info)?
         };
 
         // return any remaining total_cw20_deposit to the owner
@@ -513,14 +513,14 @@ impl<'a> CwCroncat<'a> {
         }
     }
 
-    fn pop_task_with_rule(
+    fn pop_task_with_queries(
         &self,
         storage: &mut dyn Storage,
         hash_vec: Vec<u8>,
         info: Option<MessageInfo>,
     ) -> Result<Task, ContractError> {
         let task = self
-            .tasks_with_rules
+            .tasks_with_queries
             .may_load(storage, &hash_vec)?
             .ok_or(ContractError::NoTaskFound {})?;
         if let Some(info) = info {
@@ -528,10 +528,10 @@ impl<'a> CwCroncat<'a> {
                 return Err(ContractError::Unauthorized {});
             }
         }
-        self.tasks_with_rules.remove(storage, &hash_vec)?;
+        self.tasks_with_queries.remove(storage, &hash_vec)?;
         match task.interval {
-            Interval::Cron(_) => self.time_map_rules.remove(storage, &hash_vec),
-            _ => self.block_map_rules.remove(storage, &hash_vec),
+            Interval::Cron(_) => self.time_map_queries.remove(storage, &hash_vec),
+            _ => self.block_map_queries.remove(storage, &hash_vec),
         }
         Ok(task)
     }

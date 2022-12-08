@@ -43,7 +43,7 @@ pub struct QueryMultiResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct RuleResponse<T = cosmwasm_std::Binary> {
+pub struct QueryResponse<T = cosmwasm_std::Binary> {
     pub result: bool,
     pub data: T,
 }
@@ -56,5 +56,5 @@ pub struct QueryConstructResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<CroncatQuery>,
+    pub queries: Vec<CroncatQuery>,
 }

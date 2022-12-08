@@ -3,7 +3,7 @@ use cw20::Cw20Coin;
 use cw4::Member;
 use cw_multi_test::{App, Executor};
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 use generic_query::{PathToValue, ValueIndex, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
@@ -98,10 +98,10 @@ fn test_smart() {
     };
 
     let msg = QueryMsg::SmartQuery(smart_query);
-    let res: RuleResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: true,
             data: to_binary(&Uint128::from(2022_u128)).unwrap()
         }

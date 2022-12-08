@@ -9,7 +9,7 @@ use cw2::ContractVersion;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
-    TaskRequest, TaskResponse, TaskWithRulesResponse,
+    TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
@@ -648,7 +648,7 @@ fn check_task_create_success() -> StdResult<()> {
 }
 
 #[test]
-fn check_task_with_rules_create_success() -> StdResult<()> {
+fn check_task_with_queries_create_success() -> StdResult<()> {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -685,11 +685,11 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
@@ -707,13 +707,13 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     assert_eq!(tasks.len(), 0);
 
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "with_rules" && a.value == "true" {
+            if a.key == "with_queries" && a.value == "true" {
                 has_created_hash = true;
             }
         }
@@ -723,7 +723,7 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
 }
 
 #[test]
-fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
+fn check_task_with_queries_and_without_create_success() -> StdResult<()> {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -732,7 +732,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
-    let with_rules_msg = ExecuteMsg::CreateTask {
+    let with_queries_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
             interval: Interval::Immediate,
             boundary: None,
@@ -750,7 +750,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         },
     };
 
-    let without_rules_msg = ExecuteMsg::CreateTask {
+    let without_queries_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
             interval: Interval::Immediate,
             boundary: None,
@@ -770,7 +770,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &with_rules_msg,
+            &with_queries_msg,
             &coins(315006, NATIVE_DENOM),
         )
         .unwrap();
@@ -779,16 +779,16 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &without_rules_msg,
+            &without_queries_msg,
             &coins(315006, NATIVE_DENOM),
         )
         .unwrap();
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
@@ -806,13 +806,13 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     assert_eq!(tasks.len(), 1);
 
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "with_rules" && a.value == "true" {
+            if a.key == "with_queries" && a.value == "true" {
                 has_created_hash = true;
             }
         }
@@ -821,7 +821,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
     res2.events.into_iter().any(|ev| {
         ev.attributes
             .into_iter()
-            .any(|attr| attr.key == "with_rules" && attr.value == "false")
+            .any(|attr| attr.key == "with_queries" && attr.value == "false")
     });
     assert!(has_created_hash);
     Ok(())

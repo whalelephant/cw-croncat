@@ -15,7 +15,7 @@ use cwd_voting::{
 };
 use cwd_voting_cw20_staked::msg::ActiveThreshold;
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 
 use crate::tests::helpers::{
     cw_rules_contract, multiple_proposal_contract, single_proposal_contract,
@@ -201,7 +201,7 @@ fn test_dao_single_proposal_ready() {
     .unwrap();
 
     // It is not ready to execute yet, so false
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -214,7 +214,7 @@ fn test_dao_single_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: false,
             data: to_binary(&cwd_proposal_single::query::ProposalResponse {
                 id: 1,
@@ -254,7 +254,7 @@ fn test_dao_single_proposal_ready() {
     .unwrap();
 
     // It's now ready to be executed
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -267,7 +267,7 @@ fn test_dao_single_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: true,
             data: to_binary(&cwd_proposal_single::query::ProposalResponse {
                 id: 1,
@@ -303,7 +303,7 @@ fn test_dao_single_proposal_ready() {
 
     // It's executed now
     // Test if other types of status works
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -316,7 +316,7 @@ fn test_dao_single_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: true,
             data: to_binary(&cwd_proposal_single::query::ProposalResponse {
                 id: 1,
@@ -462,7 +462,7 @@ fn test_dao_multiple_proposal_ready() {
     .unwrap();
 
     // It is not ready to execute yet, so false
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -475,7 +475,7 @@ fn test_dao_multiple_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: false,
             data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
                 id: 1,
@@ -535,7 +535,7 @@ fn test_dao_multiple_proposal_ready() {
     .unwrap();
 
     // It's now ready to be executed
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -548,7 +548,7 @@ fn test_dao_multiple_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: true,
             data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
                 id: 1,
@@ -605,7 +605,7 @@ fn test_dao_multiple_proposal_ready() {
 
     // It's executed now
     // Test if other types of status works
-    let res: RuleResponse = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -618,7 +618,7 @@ fn test_dao_multiple_proposal_ready() {
         .unwrap();
     assert_eq!(
         res,
-        RuleResponse {
+        QueryResponse {
             result: true,
             data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
                 id: 1,
