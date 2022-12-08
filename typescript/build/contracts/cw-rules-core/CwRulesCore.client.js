@@ -70,10 +70,10 @@ class CwRulesCoreQueryClient {
                 }
             });
         });
-        this.queryConstruct = ({ rules }) => __awaiter(this, void 0, void 0, function* () {
+        this.queryConstruct = ({ queries }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 query_construct: {
-                    rules
+                    queries
                 }
             });
         });

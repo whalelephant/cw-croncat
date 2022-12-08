@@ -62,9 +62,9 @@ export interface CwRulesCoreReadOnlyInterface {
     value: Binary;
   }) => Promise<GenericQueryResponse>;
   queryConstruct: ({
-    rules
+    queries
   }: {
-    rules: CroncatQuery[];
+    queries: CroncatQuery[];
   }) => Promise<QueryConstructResponse>;
   smartQuery: ({
     contractAddr,
@@ -199,13 +199,13 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
     });
   };
   queryConstruct = async ({
-    rules
+    queries
   }: {
-    rules: CroncatQuery[];
+    queries: CroncatQuery[];
   }): Promise<QueryConstructResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       query_construct: {
-        rules
+        queries
       }
     });
   };

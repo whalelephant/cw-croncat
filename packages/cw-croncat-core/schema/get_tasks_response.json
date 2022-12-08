@@ -1062,7 +1062,7 @@
         "owner_id": {
           "$ref": "#/definitions/Addr"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"

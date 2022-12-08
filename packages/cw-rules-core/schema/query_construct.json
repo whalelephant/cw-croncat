@@ -3,10 +3,10 @@
   "title": "QueryConstruct",
   "type": "object",
   "required": [
-    "rules"
+    "queries"
   ],
   "properties": {
-    "rules": {
+    "queries": {
       "type": "array",
       "items": {
         "$ref": "#/definitions/CroncatQuery"

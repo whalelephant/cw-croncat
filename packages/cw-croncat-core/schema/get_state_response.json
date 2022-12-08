@@ -9,15 +9,15 @@
     "balancer_mode",
     "balances",
     "block_slots",
-    "block_slots_rules",
+    "block_slots_queries",
     "config",
     "reply_index",
     "task_total",
     "tasks",
-    "tasks_with_rules",
-    "tasks_with_rules_total",
+    "tasks_with_queries",
+    "tasks_with_queries_total",
     "time_slots",
-    "time_slots_rules"
+    "time_slots_queries"
   ],
   "properties": {
     "agent_active_queue": {
@@ -63,10 +63,10 @@
         "$ref": "#/definitions/SlotResponse"
       }
     },
-    "block_slots_rules": {
+    "block_slots_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/SlotWithRuleResponse"
+        "$ref": "#/definitions/SlotWithQueriesResponse"
       }
     },
     "config": {
@@ -89,13 +89,13 @@
         "$ref": "#/definitions/TaskResponse"
       }
     },
-    "tasks_with_rules": {
+    "tasks_with_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/TaskWithRulesResponse"
+        "$ref": "#/definitions/TaskWithQueriesResponse"
       }
     },
-    "tasks_with_rules_total": {
+    "tasks_with_queries_total": {
       "$ref": "#/definitions/Uint64"
     },
     "time_slots": {
@@ -104,10 +104,10 @@
         "$ref": "#/definitions/SlotResponse"
       }
     },
-    "time_slots_rules": {
+    "time_slots_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/SlotWithRuleResponse"
+        "$ref": "#/definitions/SlotWithQueriesResponse"
       }
     }
   },
@@ -1169,7 +1169,7 @@
         "Cron"
       ]
     },
-    "SlotWithRuleResponse": {
+    "SlotWithQueriesResponse": {
       "type": "object",
       "required": [
         "slot",
@@ -1446,7 +1446,7 @@
         "owner_id": {
           "$ref": "#/definitions/Addr"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
@@ -1475,7 +1475,7 @@
         }
       }
     },
-    "TaskWithRulesResponse": {
+    "TaskWithQueriesResponse": {
       "type": "object",
       "required": [
         "interval",
@@ -1495,7 +1495,7 @@
         "interval": {
           "$ref": "#/definitions/Interval"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"

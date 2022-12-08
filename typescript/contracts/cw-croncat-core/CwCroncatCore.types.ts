@@ -305,7 +305,7 @@ export interface TaskResponse {
   boundary?: Boundary | null;
   interval: Interval;
   owner_id: Addr;
-  rules?: CroncatQuery[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   task_hash: string;
   total_cw20_deposit: Cw20CoinVerified[];
@@ -513,15 +513,15 @@ export interface GetStateResponse {
   balancer_mode: RoundRobinBalancerModeResponse;
   balances: BalancesResponse[];
   block_slots: SlotResponse[];
-  block_slots_rules: SlotWithRuleResponse[];
+  block_slots_queries: SlotWithQueriesResponse[];
   config: GetConfigResponse;
   reply_index: Uint64;
   task_total: Uint64;
   tasks: TaskResponse[];
-  tasks_with_rules: TaskWithRulesResponse[];
-  tasks_with_rules_total: Uint64;
+  tasks_with_queries: TaskWithQueriesResponse[];
+  tasks_with_queries_total: Uint64;
   time_slots: SlotResponse[];
-  time_slots_rules: SlotWithRuleResponse[];
+  time_slots_queries: SlotWithQueriesResponse[];
   [k: string]: unknown;
 }
 export interface BalancesResponse {
@@ -534,15 +534,15 @@ export interface SlotResponse {
   tasks: number[][];
   [k: string]: unknown;
 }
-export interface SlotWithRuleResponse {
+export interface SlotWithQueriesResponse {
   slot: Uint64;
   task_hash: number[];
   [k: string]: unknown;
 }
-export interface TaskWithRulesResponse {
+export interface TaskWithQueriesResponse {
   boundary?: Boundary | null;
   interval: Interval;
-  rules?: CroncatQuery[] | null;
+  queries?: CroncatQuery[] | null;
   task_hash: string;
   [k: string]: unknown;
 }
@@ -550,7 +550,7 @@ export type GetTaskHashResponse = string;
 export type GetTaskResponse = TaskResponse | null;
 export type GetTasksByOwnerResponse = TaskResponse[];
 export type GetTasksResponse = TaskResponse[];
-export type GetTasksWithRulesResponse = TaskWithRulesResponse[];
+export type GetTasksWithQueriesResponse = TaskWithQueriesResponse[];
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   cw_rules_addr: string;
@@ -590,7 +590,7 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 } | {
-  get_tasks_with_rules: {
+  get_tasks_with_queries: {
     from_index?: number | null;
     limit?: number | null;
     [k: string]: unknown;

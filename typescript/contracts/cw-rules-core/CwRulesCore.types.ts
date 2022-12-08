@@ -134,7 +134,7 @@ export interface QueryConstructResponse {
   [k: string]: unknown;
 }
 export interface QueryConstruct {
-  rules: CroncatQuery[];
+  queries: CroncatQuery[];
   [k: string]: unknown;
 }
 export type QueryMsg = {

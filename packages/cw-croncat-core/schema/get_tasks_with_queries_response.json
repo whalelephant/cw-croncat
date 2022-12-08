@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "GetTasksWithRulesResponse",
+  "title": "GetTasksWithQueriesResponse",
   "type": "array",
   "items": {
-    "$ref": "#/definitions/TaskWithRulesResponse"
+    "$ref": "#/definitions/TaskWithQueriesResponse"
   },
   "definitions": {
     "Addr": {
@@ -498,7 +498,7 @@
         }
       ]
     },
-    "TaskWithRulesResponse": {
+    "TaskWithQueriesResponse": {
       "type": "object",
       "required": [
         "interval",
@@ -518,7 +518,7 @@
         "interval": {
           "$ref": "#/definitions/Interval"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
