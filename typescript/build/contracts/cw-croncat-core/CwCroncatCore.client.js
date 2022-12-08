@@ -54,9 +54,9 @@ class CwCroncatCoreQueryClient {
                 }
             });
         });
-        this.getTasksWithRules = ({ fromIndex, limit }) => __awaiter(this, void 0, void 0, function* () {
+        this.getTasksWithQueries = ({ fromIndex, limit }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
-                get_tasks_with_rules: {
+                get_tasks_with_queries: {
                     from_index: fromIndex,
                     limit
                 }
@@ -125,7 +125,7 @@ class CwCroncatCoreQueryClient {
         this.getAgentIds = this.getAgentIds.bind(this);
         this.getAgentTasks = this.getAgentTasks.bind(this);
         this.getTasks = this.getTasks.bind(this);
-        this.getTasksWithRules = this.getTasksWithRules.bind(this);
+        this.getTasksWithQueries = this.getTasksWithQueries.bind(this);
         this.getTasksByOwner = this.getTasksByOwner.bind(this);
         this.getTask = this.getTask.bind(this);
         this.getTaskHash = this.getTaskHash.bind(this);

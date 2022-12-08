@@ -1,21 +1,23 @@
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{
-    add_1000_blocks, add_little_time, add_one_duration_of_time, proper_instantiate,
+    add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
+    AGENT3,
 };
 use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, StakingMsg, StdResult, Uint128,
-    WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
+use cw20::Cw20Coin;
 use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
-    TaskResponse, TaskWithRulesResponse,
+    TaskResponse, TaskWithQueriesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval};
+use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
-use cw_rules_core::msg::RuleResponse;
-use cw_rules_core::types::{CheckProposalStatus, HasBalanceGte, Rule, Status};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use cwd_core::state::ProposalModule;
+use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
+use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
 use super::helpers::{
     proper_instantiate_with_dao, ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM,
@@ -43,7 +45,8 @@ fn proxy_call_fail_cases() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -267,7 +270,8 @@ fn proxy_call_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -421,7 +425,8 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
                 msg,
                 gas_limit: Some(gas_limit),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -521,7 +526,8 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -643,7 +649,8 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -746,7 +753,8 @@ fn proxy_callback_block_slots() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -874,7 +882,8 @@ fn proxy_callback_time_slots() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1012,7 +1021,8 @@ fn proxy_call_several_tasks() -> StdResult<()> {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1026,7 +1036,8 @@ fn proxy_call_several_tasks() -> StdResult<()> {
                 msg: msg2,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1040,7 +1051,8 @@ fn proxy_call_several_tasks() -> StdResult<()> {
                 msg: msg3,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1140,7 +1152,8 @@ fn test_proxy_call_with_bank_message() -> StdResult<()> {
                 msg,
                 gas_limit: Some(gas_limit),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1198,7 +1211,8 @@ fn test_proxy_call_with_bank_message_should_fail() -> StdResult<()> {
                 msg,
                 gas_limit: Some(gas_limit),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1273,7 +1287,8 @@ fn test_multi_action() {
                     gas_limit: None,
                 },
             ],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1344,7 +1359,8 @@ fn test_balance_changes() {
                     gas_limit: None,
                 },
             ],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1476,7 +1492,8 @@ fn test_no_reschedule_if_lack_balance() {
                 msg: send.into(),
                 gas_limit: None,
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1579,7 +1596,7 @@ fn test_no_reschedule_if_lack_balance() {
 }
 
 #[test]
-fn test_complete_task_with_rule() {
+fn test_complete_task_with_query() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
@@ -1599,10 +1616,11 @@ fn test_complete_task_with_rule() {
                 msg: send.clone().into(),
                 gas_limit: None,
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
                 required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1636,17 +1654,17 @@ fn test_complete_task_with_rule() {
         .unwrap();
     assert!(agent_tasks.is_none());
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     app.send_tokens(
         Addr::unchecked(ADMIN),
         Addr::unchecked("addr2"),
@@ -1674,21 +1692,21 @@ fn test_complete_task_with_rule() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert!(tasks_with_rules.is_empty());
+    assert!(tasks_with_queries.is_empty());
 }
 
 #[test]
-fn test_reschedule_task_with_rule() {
+fn test_reschedule_task_with_queries() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
     let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
@@ -1708,10 +1726,11 @@ fn test_reschedule_task_with_rule() {
                 msg: send.clone().into(),
                 gas_limit: None,
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: String::from("addr2"),
                 required_balance: coins(1, NATIVE_DENOM).into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1745,17 +1764,17 @@ fn test_reschedule_task_with_rule() {
         .unwrap();
     assert!(agent_tasks.is_none());
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
 
     app.send_tokens(
         Addr::unchecked(ADMIN),
@@ -1783,7 +1802,7 @@ fn test_reschedule_task_with_rule() {
         .iter()
         .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
 
-    // Shouldn't affect tasks without rules
+    // Shouldn't affect tasks without queries
     let tasks_response: Vec<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -1810,18 +1829,18 @@ fn test_reschedule_task_with_rule() {
             .is_ok());
     }
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
         )
         .unwrap();
-    println!("{:?}", tasks_with_rules);
-    assert!(tasks_with_rules.is_empty());
+    println!("{:?}", tasks_with_queries);
+    assert!(tasks_with_queries.is_empty());
 }
 
 #[test]
@@ -1983,7 +2002,8 @@ fn tick_task() -> StdResult<()> {
                 msg: msg_tick.clone(),
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -2008,7 +2028,8 @@ fn tick_task() -> StdResult<()> {
                 msg: msg_tick,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -2096,7 +2117,8 @@ fn testing_fee_works() {
                 msg: send.into(),
                 gas_limit: None,
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -2113,7 +2135,8 @@ fn testing_fee_works() {
                 msg: delegate.into(),
                 gas_limit: None,
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -2226,6 +2249,552 @@ fn testing_fee_works() {
 }
 
 #[test]
+fn smart_query() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ANYONE.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    let addr1 = String::from("addr1");
+    let amount = coins(3, NATIVE_DENOM);
+    let send = BankMsg::Send {
+        to_address: addr1,
+        amount,
+    };
+
+    let head_msg = cw4_group::msg::QueryMsg::Admin {};
+
+    let queries = SmartQueries(vec![SmartQuery {
+        contract_addr: cw20_addr.to_string(),
+        msg: to_binary(&cw20_base::msg::QueryMsg::Balance {
+            address: "lol".to_owned(),
+        })
+        .unwrap(),
+        path_to_msg_value: PathToValue(vec![
+            ValueIndex::from("balance".to_owned()),
+            ValueIndex::from("address".to_owned()),
+        ]),
+        path_to_query_value: PathToValue(vec![ValueIndex::from("balance".to_owned())]),
+    }]);
+    let smart_query = CroncatQuery::SmartQuery(SmartQueryHead {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&head_msg).unwrap(),
+        path_to_query_value: vec!["admin".to_owned().into()].into(),
+        queries,
+        ordering: ValueOrdering::Equal,
+        value: to_binary(&Uint128::from(10_u128)).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: send.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![smart_query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    app.send_tokens(
+        Addr::unchecked(ADMIN),
+        Addr::unchecked("addr2"),
+        &coins(1, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_queries.first();
+    assert!(our_task.is_some());
+    let task_hash = our_task.unwrap().task_hash.as_ref();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_queries.is_empty());
+}
+
+#[test]
+fn insertable_query_res_positive() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ADMIN.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    // Send cw20 coins you plan to use
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        cw20_addr.clone(),
+        &cw20_base::msg::ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 10u128.into(),
+            msg: vec![].into(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let cw20_send = to_binary(&cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: "lol".to_owned(),
+        amount: Uint128::new(5),
+    })
+    .unwrap();
+    let query = CroncatQuery::GenericQuery(GenericQuery {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
+        path_to_value: vec!["admin".to_owned().into()].into(),
+        ordering: ValueOrdering::NotEqual,
+        value: to_binary(&ADMIN.to_owned()).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: cw20_send,
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: Some(300_000),
+            }],
+            queries: Some(vec![query]),
+            transforms: Some(vec![Transform {
+                action_idx: 0,
+                query_idx: 0,
+                action_path: PathToValue(vec![
+                    ValueIndex::from("transfer".to_string()),
+                    ValueIndex::from("recipient".to_string()),
+                ]),
+                query_response_path: PathToValue(vec![]),
+            }]),
+            cw20_coins: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: 10u128.into(),
+            }],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_queries.first();
+    assert!(our_task.is_some());
+    let task_hash: &str = our_task.unwrap().task_hash.as_ref();
+
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::QueriesNotReady { index: 0 });
+
+    let old_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+
+    // Replace admin
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw4_addr.clone(),
+        &cw4_group::msg::ExecuteMsg::UpdateAdmin {
+            admin: Some(AGENT3.to_owned()),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "proxy_callback")));
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_queries.is_empty());
+
+    let new_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        new_balance_of_agent3.balance - old_balance_of_agent3.balance,
+        Uint128::from(5u128)
+    );
+}
+
+#[ignore = "it gets cancelled too early now, have to redo this test"]
+#[test]
+fn insertable_query_res_negative() {
+    let (mut app, cw_template_contract, cw20_addr) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let cw4_id = app.store_code(cw4_template());
+    let instantiate_cw4 = cw4_group::msg::InstantiateMsg {
+        admin: Some(ADMIN.to_owned()),
+        members: vec![
+            cw4::Member {
+                addr: "alice".to_string(),
+                weight: 1,
+            },
+            cw4::Member {
+                addr: "bob".to_string(),
+                weight: 2,
+            },
+        ],
+    };
+    let cw4_addr = app
+        .instantiate_contract(
+            cw4_id,
+            Addr::unchecked(ADMIN),
+            &instantiate_cw4,
+            &[],
+            "cw4-group",
+            None,
+        )
+        .unwrap();
+
+    // Send cw20 coins you plan to use
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        cw20_addr.clone(),
+        &cw20_base::msg::ExecuteMsg::Send {
+            contract: contract_addr.to_string(),
+            amount: 10u128.into(),
+            msg: vec![].into(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let cw20_send = to_binary(&cw20_base::msg::ExecuteMsg::Transfer {
+        recipient: "lol".to_owned(),
+        amount: Uint128::new(5),
+    })
+    .unwrap();
+    let query = CroncatQuery::GenericQuery(GenericQuery {
+        contract_addr: cw4_addr.to_string(),
+        msg: to_binary(&cw4_group::msg::QueryMsg::Admin {}).unwrap(),
+        path_to_value: vec!["admin".to_owned().into()].into(),
+        ordering: ValueOrdering::NotEqual,
+        value: to_binary(&ADMIN.to_owned()).unwrap(),
+    });
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: cw20_send,
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![query]),
+            transforms: Some(vec![Transform {
+                action_idx: 0,
+                query_idx: 0,
+                action_path: PathToValue(vec![
+                    ValueIndex::from("transfer".to_string()),
+                    ValueIndex::from("recipient".to_string()),
+                ]),
+                query_response_path: PathToValue(vec![]),
+            }]),
+            cw20_coins: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                // Notice that would be not enough
+                amount: 1u128.into(),
+            }],
+        },
+    };
+
+    let attached_balance = 900058;
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let our_task = tasks_with_queries.first();
+    assert!(our_task.is_some());
+    let task_hash: &str = our_task.unwrap().task_hash.as_ref();
+
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::QueriesNotReady { index: 0 });
+
+    let old_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+
+    // Replace admin
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw4_addr.clone(),
+        &cw4_group::msg::ExecuteMsg::UpdateAdmin {
+            admin: Some(AGENT3.to_owned()),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(String::from(task_hash)),
+            },
+            &[],
+        )
+        .unwrap();
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "task_removed_without_execution")));
+
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_with_queries.is_empty());
+
+    let new_balance_of_agent3: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: AGENT3.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        new_balance_of_agent3.balance - old_balance_of_agent3.balance,
+        Uint128::from(0u128)
+    );
+}
+
+#[test]
 fn test_error_in_reply() {
     let (mut app, cw_template_contract, _cw20_addr, governance_addr) =
         proper_instantiate_with_dao(None, None, None, None);
@@ -2320,7 +2889,8 @@ fn test_error_in_reply() {
                 msg: wasm.clone().into(),
                 gas_limit: Some(200_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };

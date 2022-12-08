@@ -117,12 +117,12 @@ pub struct CwCroncat<'a> {
     /// this is done instead of forcing a block height into a range of timestamps for reliability
     pub block_slots: Map<'a, u64, Vec<Vec<u8>>>,
 
-    pub tasks_with_rules: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
-    pub tasks_with_rules_total: Item<'a, u64>,
+    pub tasks_with_queries: IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>>,
+    pub tasks_with_queries_total: Item<'a, u64>,
 
     /// Time and block based maps by the corresponding task hash
-    pub time_map_rules: Map<'a, &'a [u8], u64>,
-    pub block_map_rules: Map<'a, &'a [u8], u64>,
+    pub time_map_queries: Map<'a, &'a [u8], u64>,
+    pub block_map_queries: Map<'a, &'a [u8], u64>,
 
     /// Reply Queue
     /// Keeping ordered sub messages & reply id's
@@ -142,9 +142,9 @@ impl Default for CwCroncat<'static> {
     fn default() -> Self {
         Self::new(
             "tasks",
-            "tasks_with_rules",
+            "tasks_with_queries",
             "tasks__owner",
-            "tasks_with_rules__owner",
+            "tasks_with_queries__owner",
         )
     }
 }
@@ -152,18 +152,18 @@ impl Default for CwCroncat<'static> {
 impl<'a> CwCroncat<'a> {
     fn new(
         tasks_key: &'a str,
-        tasks_with_rules_key: &'a str,
+        tasks_with_queries_key: &'a str,
         tasks_owner_key: &'a str,
-        tasks_with_rules_owner_key: &'a str,
+        tasks_with_queries_owner_key: &'a str,
     ) -> Self {
         let indexes = TaskIndexes {
             owner: MultiIndex::new(token_owner_idx, tasks_key, tasks_owner_key),
         };
-        let indexes_rules = TaskIndexes {
+        let indexes_queries = TaskIndexes {
             owner: MultiIndex::new(
                 token_owner_idx,
-                tasks_with_rules_key,
-                tasks_with_rules_owner_key,
+                tasks_with_queries_key,
+                tasks_with_queries_owner_key,
             ),
         };
         Self {
@@ -173,12 +173,12 @@ impl<'a> CwCroncat<'a> {
             agent_pending_queue: Deque::new("agent_pending_queue"),
             tasks: IndexedMap::new(tasks_key, indexes),
             task_total: Item::new("task_total"),
-            tasks_with_rules: IndexedMap::new(tasks_with_rules_key, indexes_rules),
-            tasks_with_rules_total: Item::new("tasks_with_rules_total"),
+            tasks_with_queries: IndexedMap::new(tasks_with_queries_key, indexes_queries),
+            tasks_with_queries_total: Item::new("tasks_with_queries_total"),
             time_slots: Map::new("time_slots"),
             block_slots: Map::new("block_slots"),
-            time_map_rules: Map::new("time_slots_rules"),
-            block_map_rules: Map::new("block_slots_rules"),
+            time_map_queries: Map::new("time_slots_queries"),
+            block_map_queries: Map::new("block_slots_queries"),
             reply_queue: Map::new("reply_queue"),
             reply_index: Item::new("reply_index"),
             agent_nomination_begin_time: Item::new("agent_nomination_begin_time"),
@@ -203,9 +203,9 @@ impl<'a> CwCroncat<'a> {
         Ok(val)
     }
 
-    pub fn increment_tasks_with_rules(&self, storage: &mut dyn Storage) -> StdResult<u64> {
+    pub fn increment_tasks_with_queries(&self, storage: &mut dyn Storage) -> StdResult<u64> {
         let val = self
-            .tasks_with_rules_total
+            .tasks_with_queries_total
             .update(storage, |total| -> StdResult<u64> { Ok(total + 1) })?;
         Ok(val)
     }
@@ -253,12 +253,12 @@ impl<'a> CwCroncat<'a> {
         if let Some(task) = some_task {
             Ok(task)
         } else {
-            self.tasks_with_rules
+            self.tasks_with_queries
                 .may_load(storage, task_hash)?
                 .ok_or(ContractError::NoTaskFound {})
         }
     }
-    pub fn query_contract_info(
+    pub(crate) fn query_contract_info(
         &self,
         deps: Deps,
         contract_address: String,

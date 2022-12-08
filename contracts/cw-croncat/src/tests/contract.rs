@@ -159,13 +159,13 @@ fn replies() {
 
 // TODO: make it for every item in cw_croncat
 #[test]
-pub fn tasks_with_rules_total_initialized() {
+pub fn tasks_with_queries_total_initialized() {
     let mut deps = mock_dependencies_with_balance(&coins(200, ""));
     let store = CwCroncat::default();
     mock_init(&store, deps.as_mut()).unwrap();
 
     let total = store
-        .tasks_with_rules_total
+        .tasks_with_queries_total
         .may_load(deps.as_ref().storage)
         .unwrap();
     assert_eq!(total, Some(0));

@@ -1,13 +1,13 @@
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::helpers::{proxy_call_submsgs_price, ReplyMsgParser};
+use crate::helpers::proxy_call_submsgs_price;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
+    from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
-use cw_rules_core::msg::QueryConstruct;
+use cw_rules_core::msg::{QueryConstruct, QueryConstructResponse};
 
 impl<'a> CwCroncat<'a> {
     /// Executes a task based on the current task slot
@@ -66,9 +66,8 @@ impl<'a> CwCroncat<'a> {
                 &self.agent_active_queue,
                 info.sender.clone(),
                 slot,
-            )
-            .unwrap()
-            .unwrap();
+            )?
+            .ok_or(ContractError::NoTaskFound {})?;
         //Balanacer gives not task to this agent, return error
         let has_tasks = balancer_result.has_any_slot_tasks(slot_type);
         if !has_tasks {
@@ -135,7 +134,7 @@ impl<'a> CwCroncat<'a> {
         //     let mut rule_success: bool = false;
         //     // let mut previous_msg: Option<Binary>;
         //     for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
-        //         let rule_res: RuleResponse<Option<Binary>> = deps
+        //         let rule_res: RuleResponse = deps
         //             .querier
         //             .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
         //         println!("{:?}", rule_res);
@@ -199,7 +198,7 @@ impl<'a> CwCroncat<'a> {
     /// Computes whether a task should continue further or not
     /// Makes a cross-contract call with the task configuration
     /// Called directly by a registered agent
-    pub fn proxy_call_with_rules(
+    pub fn proxy_call_with_queries(
         &mut self,
         deps: DepsMut,
         info: MessageInfo,
@@ -212,51 +211,77 @@ impl<'a> CwCroncat<'a> {
 
         let cfg: Config = self.config.load(deps.storage)?;
         let some_task = self
-            .tasks_with_rules
+            .tasks_with_queries
             .may_load(deps.storage, task_hash.as_bytes())?;
-        let task = some_task.ok_or(ContractError::NoTaskFound {})?;
+        let mut task = some_task.ok_or(ContractError::NoTaskFound {})?;
 
-        let task_ready = self.task_with_rule_ready(task.interval, deps.as_ref(), hash, &env)?;
+        let task_ready =
+            self.task_with_query_ready(task.interval.clone(), deps.as_ref(), hash, &env)?;
         if !task_ready {
             return Err(ContractError::CustomError {
                 val: "Task is not ready".to_string(),
             });
         }
-        let rules = if let Some(ref rules) = task.rules {
-            rules
+        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
+        let queries = if let Some(queries) = task.queries.clone() {
+            queries
         } else {
             // TODO: else should be unreachable
-            return Err(ContractError::NoRulesForThisTask { task_hash });
+            return Err(ContractError::NoQueriesForThisTask { task_hash });
         };
         // Check rules
-        let (res, idx): (bool, Option<u64>) = deps.querier.query_wasm_smart(
+        let queries_res: QueryConstructResponse = deps.querier.query_wasm_smart(
             &cfg.cw_rules_addr,
-            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct {
-                rules: rules.clone(),
-            }),
+            &cw_rules_core::msg::QueryMsg::QueryConstruct(QueryConstruct { queries }),
         )?;
-        if !res {
-            return Err(ContractError::RulesNotReady {
-                index: idx.unwrap(),
+        if !queries_res.result {
+            return Err(ContractError::QueriesNotReady {
+                index: from_binary(&queries_res.data[0])?,
             });
         };
 
         // Add submessages for all actions
         let next_idx = self.rq_next_id(deps.storage)?;
-        let mut task = self.tasks_with_rules.load(deps.storage, hash)?;
+        // This may be different to the one we keep in the storage
+        // due to the insertable messages
+        let (sub_msgs, fee_price) = match task
+            .replace_values(
+                deps.api,
+                &env.contract.address,
+                &task_hash,
+                queries_res.data,
+            )
+            .map_err(Into::into)
+            .and(proxy_call_submsgs_price(&task, cfg, next_idx))
+        {
+            Ok((sub_msgs, fee_price)) => (sub_msgs, fee_price),
+            Err(err) => {
+                let resp = self.remove_task(deps.storage, &task_hash, None)?;
+                return Ok(resp
+                    .add_attribute("method", "proxy_call")
+                    .add_attribute("agent", info.sender)
+                    .add_attribute("task_hash", task_hash)
+                    .add_attribute("task_with_queries", true.to_string())
+                    .add_attribute("task_removed_without_execution", err.to_string()));
+            }
+        };
+
         let mut agent = agent;
         agent.update(env.block.height);
-        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
-        task.total_deposit.native.find_checked_sub(&fee_price)?;
         agent.balance.native.find_checked_add(&fee_price)?;
-        self.tasks_with_rules.save(deps.storage, hash, &task)?;
+        self.tasks_with_queries
+            .update(deps.storage, hash, |task| -> Result<_, ContractError> {
+                let mut task = task.ok_or(ContractError::NoTaskFound {})?;
+                task.total_deposit.native.find_checked_sub(&fee_price)?;
+                Ok(task)
+            })?;
         self.agents.save(deps.storage, &info.sender, &agent)?;
         // Keep track for later scheduling
         self.rq_push(
             deps.storage,
             QueueItem {
                 action_idx: 0,
-                task_hash: Some(task_hash.into_bytes()),
+                task_hash: Some(task_hash.clone().into_bytes()),
                 contract_addr: Some(env.contract.address),
                 task_is_extra: Some(false),
                 agent_id: Some(info.sender.clone()),
@@ -268,14 +293,14 @@ impl<'a> CwCroncat<'a> {
         let final_res = Response::new()
             .add_attribute("method", "proxy_call")
             .add_attribute("agent", info.sender)
-            .add_attribute("task_hash", task.to_hash())
-            .add_attribute("task_with_rules", "true".to_string())
+            .add_attribute("task_hash", task_hash)
+            .add_attribute("task_with_queries", true.to_string())
             .add_submessages(sub_msgs);
         Ok(final_res)
     }
 
     /// Check that this task can be executed in current slot
-    fn task_with_rule_ready(
+    fn task_with_query_ready(
         &mut self,
         task_interval: Interval,
         deps: Deps,
@@ -284,11 +309,11 @@ impl<'a> CwCroncat<'a> {
     ) -> Result<bool, ContractError> {
         let task_ready = match task_interval {
             Interval::Cron(_) => {
-                let block = self.time_map_rules.load(deps.storage, hash)?;
+                let block = self.time_map_queries.load(deps.storage, hash)?;
                 env.block.height >= block
             }
             _ => {
-                let time = self.block_map_rules.load(deps.storage, hash)?;
+                let time = self.block_map_queries.load(deps.storage, hash)?;
                 env.block.time.nanos() >= time
             }
         };
@@ -301,7 +326,7 @@ impl<'a> CwCroncat<'a> {
         &self,
         deps: DepsMut,
         env: Env,
-        msg: Reply,
+        _msg: Reply,
         task: Task,
         queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
@@ -309,7 +334,7 @@ impl<'a> CwCroncat<'a> {
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
 
-        let agent_id = queue_item.agent_id.unwrap();
+        let agent_id = queue_item.agent_id.ok_or(ContractError::Unauthorized {})?;
 
         // Parse interval into a future timestamp, then convert to a slot
         let cfg: Config = self.config.load(deps.storage)?;
@@ -317,8 +342,8 @@ impl<'a> CwCroncat<'a> {
             task.interval
                 .next(&env, task.boundary, cfg.slot_granularity_time);
 
-        let response = if queue_item.failure.is_some() {
-            Response::new().add_attribute("with_failure", queue_item.failure.clone().unwrap())
+        let response = if let Some(ref failure) = queue_item.failure {
+            Response::new().add_attribute("with_failure", failure)
         } else {
             Response::new()
         };
@@ -340,7 +365,7 @@ impl<'a> CwCroncat<'a> {
                 slot_kind,
                 agent_id,
             };
-            self.complete_agent_task(deps.storage, env, msg, &task_info)?;
+            self.complete_agent_task(deps.storage, env, &task_info)?;
             let resp = self.remove_task(deps.storage, &task_hash, None)?;
             Ok(response
                 .add_attribute("method", "proxy_callback")
@@ -350,7 +375,7 @@ impl<'a> CwCroncat<'a> {
                 .add_events(resp.events))
         } else {
             self.reschedule_task(
-                task.with_rules(),
+                task.with_queries(),
                 slot_kind,
                 deps.storage,
                 task_hash,
@@ -367,21 +392,21 @@ impl<'a> CwCroncat<'a> {
     /// Update time or block of next time this task should be executed
     fn reschedule_task(
         &self,
-        task_with_rules: bool,
+        task_with_queries: bool,
         slot_kind: SlotType,
         storage: &mut dyn Storage,
         task_hash: String,
         next_id: u64,
     ) -> Result<(), ContractError> {
-        if task_with_rules {
+        if task_with_queries {
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    self.block_map_rules
+                    self.block_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
                 SlotType::Cron => {
-                    self.time_map_rules
+                    self.time_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
             }
@@ -459,37 +484,15 @@ impl<'a> CwCroncat<'a> {
         Ok(agent)
     }
 
-    // // Restrict bank msg so contract doesnt get drained
-    // fn check_bank_msg(
-    //     &self,
-    //     deps: Deps,
-    //     info: &MessageInfo,
-    //     env: &Env,
-    //     task: &Task,
-    // ) -> Result<(), ContractError> {
-    //     //Restrict bank msg so contract doesnt get drained
-    //     let c: Config = self.config.load(deps.storage)?;
-    //     if task.is_recurring()
-    //         && task.contains_send_msg()
-    //         && !task.is_valid_msg_calculate_usage(&env.contract.address, &info.sender, &c.owner_id).unwrap()
-    //     {
-    //         return Err(ContractError::CustomError {
-    //             val: "Invalid process_call message!".to_string(),
-    //         });
-    //     };
-    //     Ok(())
-    // }
-
     fn complete_agent_task(
         &self,
         storage: &mut dyn Storage,
         env: Env,
-        msg: Reply,
         task_info: &TaskInfo,
     ) -> Result<(), ContractError> {
-        let TaskInfo {
-            task_hash, task, ..
-        } = task_info;
+        // let TaskInfo {
+        //     task_hash, task, ..
+        // } = task_info;
 
         //no fail
         self.balancer.on_task_completed(
@@ -498,24 +501,7 @@ impl<'a> CwCroncat<'a> {
             &self.config,
             &self.agent_active_queue,
             task_info,
-        ); //send completed event to balancer
-           //If Send and reccuring task increment withdrawn funds so contract doesnt get drained
-        let transferred_bank_tokens = msg.transferred_bank_tokens();
-        let mut task_to_finalize = task.clone();
-        if task_to_finalize.contains_send_msg()
-            && task_to_finalize.is_recurring()
-            && !transferred_bank_tokens.is_empty()
-        {
-            task_to_finalize
-                .funds_withdrawn_recurring
-                .extend_from_slice(&transferred_bank_tokens);
-            if task_to_finalize.with_rules() {
-                self.tasks_with_rules
-                    .save(storage, task_hash, &task_to_finalize)?;
-            } else {
-                self.tasks.save(storage, task_hash, &task_to_finalize)?;
-            }
-        }
+        )?;
         Ok(())
     }
 

@@ -367,9 +367,9 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "cosm-orc"
-version = "2.6.2"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49badda8d580cbb0a093f1d9c077f934860cc451d0c230d70f22c4ce9900007e"
+checksum = "2d4cddb6fe8379ffa8537b5f0c74bf6b38d990fe299d742116175ce7f48a7cd1"
 dependencies = [
  "config",
  "cosmos-sdk-proto",
@@ -477,7 +477,7 @@ dependencies = [
  "hex",
  "schemars",
  "serde",
- "serde-json-wasm",
+ "serde-json-wasm 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "uint",
 ]
@@ -645,7 +645,7 @@ dependencies = [
 
 [[package]]
 name = "cw-croncat"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -661,15 +661,19 @@ dependencies = [
  "cw20",
  "cw20-base",
  "cw20-stake",
+ "cw4 0.13.4",
+ "cw4-group 0.13.4",
  "cwd-core",
  "cwd-interface",
  "cwd-proposal-single",
  "cwd-voting",
  "cwd-voting-cw20-staked",
+ "generic-query",
  "hex",
  "schemars",
  "serde",
  "sha2 0.10.6",
+ "smart-query",
  "thiserror",
 ]
 
@@ -687,10 +691,12 @@ dependencies = [
  "cw2 0.16.0",
  "cw20",
  "cw20-base",
+ "generic-query",
  "hex",
  "schemars",
  "serde",
- "serde-json-wasm",
+ "serde-cw-value",
+ "serde-json-wasm 0.4.1 (git+https://github.com/CyberHoward/serde-json-wasm?rev=cdc78130b25d65981b74a5e4a10a9f8667292d36)",
  "sha2 0.10.6",
  "thiserror",
 ]
@@ -788,8 +794,8 @@ dependencies = [
  "cw20",
  "cw20-base",
  "cw20-stake",
- "cw4",
- "cw4-group",
+ "cw4 0.16.0",
+ "cw4-group 0.16.0",
  "cw721 0.15.0",
  "cw721-base",
  "cwd-core",
@@ -802,14 +808,16 @@ dependencies = [
  "schemars",
  "serde",
  "serde-cw-value",
+ "serde-json-wasm 0.4.1 (git+https://github.com/CyberHoward/serde-json-wasm?rev=cdc78130b25d65981b74a5e4a10a9f8667292d36)",
  "serde_json",
+ "smart-query",
  "thiserror",
  "voting",
 ]
 
 [[package]]
 name = "cw-rules-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -818,6 +826,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde-cw-value",
+ "smart-query",
 ]
 
 [[package]]
@@ -994,6 +1003,18 @@ dependencies = [
 
 [[package]]
 name = "cw4"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0acc3549d5ce11c6901b3a676f2e2628684722197054d97cd0101ea174ed5cbd"
+dependencies = [
+ "cosmwasm-std",
+ "cw-storage-plus 0.13.4",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "cw4"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86a93c2764ddb44038b948d9a9a8aadc9f92f5ef3e61249af2fad16091e43412"
@@ -1003,6 +1024,23 @@ dependencies = [
  "cw-storage-plus 0.16.0",
  "schemars",
  "serde",
+]
+
+[[package]]
+name = "cw4-group"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6c95c89153e7831c8306c8eba40a3daa76f9c7b8f5179dd0b8628aca168ec7a"
+dependencies = [
+ "cosmwasm-std",
+ "cw-controllers 0.13.4",
+ "cw-storage-plus 0.13.4",
+ "cw-utils 0.13.4",
+ "cw2 0.13.4",
+ "cw4 0.13.4",
+ "schemars",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -1017,7 +1055,7 @@ dependencies = [
  "cw-storage-plus 0.16.0",
  "cw-utils 0.16.0",
  "cw2 0.16.0",
- "cw4",
+ "cw4 0.16.0",
  "schemars",
  "serde",
  "thiserror",
@@ -1650,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "gas-benchmark"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "cosm-orc",
@@ -1661,6 +1699,7 @@ dependencies = [
  "cw20",
  "cw20-base",
  "env_logger",
+ "generic-query",
  "serde",
  "serde_json",
 ]
@@ -1677,7 +1716,7 @@ dependencies = [
 
 [[package]]
 name = "generic-query"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cosmwasm-std",
  "schemars",
@@ -2911,6 +2950,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-json-wasm"
+version = "0.4.1"
+source = "git+https://github.com/CyberHoward/serde-json-wasm?rev=cdc78130b25d65981b74a5e4a10a9f8667292d36#cdc78130b25d65981b74a5e4a10a9f8667292d36"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_bytes"
 version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3025,6 +3072,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4614a76b2a8be0058caa9dbbaf66d988527d86d003c11a94fbd335d7661edcef"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "smart-query"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "generic-query",
+ "schemars",
+ "serde",
+ "serde-cw-value",
+ "thiserror",
 ]
 
 [[package]]

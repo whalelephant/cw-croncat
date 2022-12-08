@@ -7,7 +7,7 @@ It is also used by [CronCat Agent](https://github.com/CronCats/croncat-rs) and [
 
 ### Instantiate message
 
-`InstantiateMsg` defines `denom`, `cw_rules_addr` for contract address for the rules and some other optional parameters. 
+`InstantiateMsg` defines `denom`, `cw_rules_addr` for contract address for the queries and some other optional parameters. 
 
 ### Execute message
 
@@ -58,13 +58,13 @@ pub enum ExecuteMsg {
 
 ```rust
 pub enum QueryMsg {
-    // Query all tasks with rules starting with `from_index` till `limit`
+    // Query all tasks with queries starting with `from_index` till `limit`
     GetTasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    // Query all tasks without rules starting with `from_index` till `limit`
-    GetTasksWithRules {
+    // Query all tasks without queries starting with `from_index` till `limit`
+    GetTasksWithQueries {
         from_index: Option<u64>,
         limit: Option<u64>,
     },

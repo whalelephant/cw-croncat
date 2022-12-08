@@ -157,7 +157,13 @@ export type Interval = "Once" | "Immediate" | {
 } | {
   Cron: string;
 };
-export type Rule = {
+export type CroncatQuery = {
+  query: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
   has_balance_gte: HasBalanceGte;
 } | {
   check_owner_of_nft: CheckOwnerOfNft;
@@ -165,6 +171,8 @@ export type Rule = {
   check_proposal_status: CheckProposalStatus;
 } | {
   generic_query: GenericQuery;
+} | {
+  smart_query: SmartQueryHead;
 };
 export type Balance = {
   native: NativeBalance;
@@ -173,12 +181,14 @@ export type Balance = {
 };
 export type NativeBalance = Coin[];
 export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
 export type ValueIndex = {
   key: string;
 } | {
   index: number;
 };
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
+export type PathToValue = ValueIndex[];
+export type SmartQueries = SmartQuery[];
 export interface Croncat {
   Agent?: Agent | null;
   BalanceResponse?: GetBalancesResponse | null;
@@ -293,10 +303,9 @@ export interface TaskResponse {
   amount_for_one_task_cw20: Cw20CoinVerified[];
   amount_for_one_task_native: Coin[];
   boundary?: Boundary | null;
-  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
-  rules?: Rule[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   task_hash: string;
   total_cw20_deposit: Cw20CoinVerified[];
@@ -340,10 +349,26 @@ export interface CheckProposalStatus {
 }
 export interface GenericQuery {
   contract_addr: string;
-  gets: ValueIndex[];
   msg: Binary;
   ordering: ValueOrdering;
+  path_to_value: PathToValue;
   value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQueryHead {
+  contract_addr: string;
+  msg: Binary;
+  ordering: ValueOrdering;
+  path_to_query_value: PathToValue;
+  queries: SmartQueries;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQuery {
+  contract_addr: string;
+  msg: Binary;
+  path_to_msg_value: PathToValue;
+  path_to_query_value: PathToValue;
   [k: string]: unknown;
 }
 export interface GetWalletBalancesResponse {
@@ -354,12 +379,12 @@ export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
   boundary: BoundaryValidated;
-  funds_withdrawn_recurring: Coin[];
   interval: Interval;
   owner_id: Addr;
-  rules?: Rule[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
   total_deposit: GenericBalance;
+  transforms?: Transform[] | null;
   version: string;
   [k: string]: unknown;
 }
@@ -368,13 +393,21 @@ export interface BoundaryValidated {
   start?: number | null;
   [k: string]: unknown;
 }
+export interface Transform {
+  action_idx: number;
+  action_path: PathToValue;
+  query_idx: number;
+  query_response_path: PathToValue;
+  [k: string]: unknown;
+}
 export interface TaskRequest {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
   cw20_coins: Cw20Coin[];
   interval: Interval;
-  rules?: Rule[] | null;
+  queries?: CroncatQuery[] | null;
   stop_on_fail: boolean;
+  transforms?: Transform[] | null;
   [k: string]: unknown;
 }
 export interface Cw20Coin {
@@ -480,16 +513,15 @@ export interface GetStateResponse {
   balancer_mode: RoundRobinBalancerModeResponse;
   balances: BalancesResponse[];
   block_slots: SlotResponse[];
-  block_slots_rules: SlotWithRuleResponse[];
+  block_slots_queries: SlotWithQueriesResponse[];
   config: GetConfigResponse;
   reply_index: Uint64;
-  reply_queue: ReplyQueueResponse[];
   task_total: Uint64;
   tasks: TaskResponse[];
-  tasks_with_rules: TaskWithRulesResponse[];
-  tasks_with_rules_total: Uint64;
+  tasks_with_queries: TaskWithQueriesResponse[];
+  tasks_with_queries_total: Uint64;
   time_slots: SlotResponse[];
-  time_slots_rules: SlotWithRuleResponse[];
+  time_slots_queries: SlotWithQueriesResponse[];
   [k: string]: unknown;
 }
 export interface BalancesResponse {
@@ -502,29 +534,15 @@ export interface SlotResponse {
   tasks: number[][];
   [k: string]: unknown;
 }
-export interface SlotWithRuleResponse {
+export interface SlotWithQueriesResponse {
   slot: Uint64;
   task_hash: number[];
   [k: string]: unknown;
 }
-export interface ReplyQueueResponse {
-  index: Uint64;
-  item: QueueItemResponse;
-  [k: string]: unknown;
-}
-export interface QueueItemResponse {
-  action_idx: Uint64;
-  agent_id?: Addr | null;
-  contract_addr?: Addr | null;
-  failed: boolean;
-  task_hash?: number[] | null;
-  task_is_extra?: boolean | null;
-  [k: string]: unknown;
-}
-export interface TaskWithRulesResponse {
+export interface TaskWithQueriesResponse {
   boundary?: Boundary | null;
   interval: Interval;
-  rules?: Rule[] | null;
+  queries?: CroncatQuery[] | null;
   task_hash: string;
   [k: string]: unknown;
 }
@@ -532,7 +550,7 @@ export type GetTaskHashResponse = string;
 export type GetTaskResponse = TaskResponse | null;
 export type GetTasksByOwnerResponse = TaskResponse[];
 export type GetTasksResponse = TaskResponse[];
-export type GetTasksWithRulesResponse = TaskWithRulesResponse[];
+export type GetTasksWithQueriesResponse = TaskWithQueriesResponse[];
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   cw_rules_addr: string;
@@ -572,7 +590,7 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 } | {
-  get_tasks_with_rules: {
+  get_tasks_with_queries: {
     from_index?: number | null;
     limit?: number | null;
     [k: string]: unknown;

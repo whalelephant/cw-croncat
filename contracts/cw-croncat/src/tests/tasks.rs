@@ -1,8 +1,7 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use crate::tests::helpers::{self, proper_instantiate};
+use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
-use cosmwasm_std::testing::mock_dependencies;
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
@@ -10,18 +9,17 @@ use cw2::ContractVersion;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
-    TaskRequest, TaskResponse, TaskWithRulesResponse,
+    TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
-use cw_rules_core::types::{HasBalanceGte, Rule};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use std::convert::TryInto;
 
 #[test]
 fn query_task_hash_success() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let mut deps = mock_dependencies();
 
     let to_address = String::from("you");
     let amount = coins(1015, "earth");
@@ -33,7 +31,6 @@ fn query_task_hash_success() {
     };
 
     let task = Task {
-        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
@@ -50,7 +47,8 @@ fn query_task_hash_success() {
             msg,
             gas_limit: Some(150_000),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         version: version.version,
     };
 
@@ -114,7 +112,8 @@ fn query_get_tasks() {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -175,7 +174,8 @@ fn query_get_tasks_pagination() {
                 .into(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -325,7 +325,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -422,7 +423,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     msg: action_self.clone(),
                     gas_limit: Some(150_000),
                 }],
-                rules: None,
+                queries: None,
+                transforms: None,
                 cw20_coins: vec![],
             },
         },
@@ -451,7 +453,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                     msg: action_self.clone(),
                     gas_limit: None,
                 }],
-                rules: None,
+                queries: None,
+                transforms: None,
                 cw20_coins: vec![],
             },
         },
@@ -476,7 +479,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                         msg: msg.clone(),
                         gas_limit: Some(150_000),
                     }],
-                    rules: None,
+                    queries: None,
+                    transforms: None,
                     cw20_coins: vec![],
                 },
             },
@@ -530,7 +534,8 @@ fn check_task_create_fail_cases() -> StdResult<()> {
                         msg,
                         gas_limit: Some(150_000),
                     }],
-                    rules: None,
+                    queries: None,
+                    transforms: None,
                     cw20_coins: vec![],
                 },
             },
@@ -568,7 +573,8 @@ fn check_task_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -642,7 +648,7 @@ fn check_task_create_success() -> StdResult<()> {
 }
 
 #[test]
-fn check_task_with_rules_create_success() -> StdResult<()> {
+fn check_task_with_queries_create_success() -> StdResult<()> {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -660,10 +666,11 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -678,11 +685,11 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
@@ -700,13 +707,13 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     assert_eq!(tasks.len(), 0);
 
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "with_rules" && a.value == "true" {
+            if a.key == "with_queries" && a.value == "true" {
                 has_created_hash = true;
             }
         }
@@ -716,7 +723,7 @@ fn check_task_with_rules_create_success() -> StdResult<()> {
 }
 
 #[test]
-fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
+fn check_task_with_queries_and_without_create_success() -> StdResult<()> {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -725,7 +732,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
 
-    let with_rules_msg = ExecuteMsg::CreateTask {
+    let with_queries_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
             interval: Interval::Immediate,
             boundary: None,
@@ -734,15 +741,16 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+            queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
                 address: "foo".to_string(),
                 required_balance: coins(5, "bar").into(),
             })]),
+            transforms: None,
             cw20_coins: vec![],
         },
     };
 
-    let without_rules_msg = ExecuteMsg::CreateTask {
+    let without_queries_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
             interval: Interval::Immediate,
             boundary: None,
@@ -751,7 +759,8 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -761,7 +770,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &with_rules_msg,
+            &with_queries_msg,
             &coins(315006, NATIVE_DENOM),
         )
         .unwrap();
@@ -770,16 +779,16 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &without_rules_msg,
+            &without_queries_msg,
             &coins(315006, NATIVE_DENOM),
         )
         .unwrap();
 
-    let tasks_with_rules: Vec<TaskWithRulesResponse> = app
+    let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
-            &QueryMsg::GetTasksWithRules {
+            &QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
@@ -797,13 +806,13 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
         )
         .unwrap();
 
-    assert_eq!(tasks_with_rules.len(), 1);
+    assert_eq!(tasks_with_queries.len(), 1);
     assert_eq!(tasks.len(), 1);
 
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "with_rules" && a.value == "true" {
+            if a.key == "with_queries" && a.value == "true" {
                 has_created_hash = true;
             }
         }
@@ -812,7 +821,7 @@ fn check_task_with_rules_and_without_create_success() -> StdResult<()> {
     res2.events.into_iter().any(|ev| {
         ev.attributes
             .into_iter()
-            .any(|attr| attr.key == "with_rules" && attr.value == "false")
+            .any(|attr| attr.key == "with_queries" && attr.value == "false")
     });
     assert!(has_created_hash);
     Ok(())
@@ -837,7 +846,8 @@ fn check_remove_create() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -946,7 +956,8 @@ fn check_refill_create() -> StdResult<()> {
                 msg,
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1034,7 +1045,8 @@ fn check_gas_minimum() {
                 msg,
                 gas_limit: Some(gas_limit),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -1095,7 +1107,8 @@ fn check_gas_default() {
                 msg,
                 gas_limit: None,
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };

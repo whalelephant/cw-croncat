@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use cosm_orc::{
+    client::chain_res::ExecResponse,
     config::{
         cfg::Coin,
         key::{Key, SigningKey},
@@ -13,8 +14,21 @@ use cosm_orc::{
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
 use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
-use cw_croncat_core::msg::{TaskRequest, TaskResponse};
-use cw_rules_core::msg::RuleResponse;
+use cw_croncat_core::{
+    msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
+    types::Action,
+};
+use cw_rules_core::msg::QueryResponse;
+
+const fn add_agent_fee(num: u64) -> u64 {
+    num + (num * 5 / 100)
+}
+
+fn min_gas_for_actions(actions: &[Action]) -> u64 {
+    actions.iter().fold(0, |acc, action| {
+        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE_JUNO)
+    })
+}
 
 pub(crate) fn init_contracts(
     orc: &mut CosmOrc,
@@ -134,10 +148,8 @@ where
         .res
         .data
         .ok_or_else(|| anyhow::anyhow!("No result from query_balance"))?;
-    let query_res: RuleResponse<Option<Binary>> = serde_json::from_slice(&res_bin)?;
-    let balance_bin: Binary = query_res
-        .1
-        .ok_or_else(|| anyhow::anyhow!("No balance from query"))?;
+    let query_res: QueryResponse = serde_json::from_slice(&res_bin)?;
+    let balance_bin: Binary = query_res.data;
     let balance: cosmwasm_std::Coin = serde_json::from_slice(balance_bin.as_slice())?;
 
     Ok(balance.amount.u128())
@@ -158,28 +170,15 @@ where
 {
     let denom = denom.into();
     let agent_addr = agent_addr.into();
-    let base_attach =
-        (GAS_BASE_FEE_JUNO + (GAS_BASE_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
-    let attach_per_action =
-        (GAS_ACTION_FEE_JUNO + (GAS_ACTION_FEE_JUNO * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
     let prefixes: Vec<String> = tasks
         .iter()
         .map(|(_, _, prefix)| (*prefix).to_owned())
         .collect();
     for (task, extra_funds, prefix) in tasks {
-        let amount =
-            (base_attach + task.actions.len() as u64 * attach_per_action + extra_funds) * 3;
-        let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
-        orc.execute(
-            CRONCAT_NAME,
-            &format!("{prefix}_create_task"),
-            &msg,
-            user_key,
-            vec![Coin {
-                denom: denom.clone(),
-                amount,
-            }],
-        )?;
+        let gas_for_task = GAS_BASE_FEE_JUNO + min_gas_for_actions(&task.actions);
+        let gas_to_attached_deposit = add_agent_fee(gas_for_task) / GAS_DENOMINATOR_DEFAULT_JUNO;
+        let amount = (gas_to_attached_deposit + extra_funds) * 3;
+        create_task(task, orc, user_key, prefix, &denom, amount)?;
     }
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
     let first_proxys = proxy_call_for_n_times(
@@ -247,6 +246,28 @@ where
     Ok(res)
 }
 
+pub(crate) fn create_task(
+    task: TaskRequest,
+    orc: &mut CosmOrc,
+    user_key: &SigningKey,
+    prefix: &str,
+    denom: &str,
+    amount: u64,
+) -> Result<ExecResponse> {
+    let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
+    let res = orc.execute(
+        CRONCAT_NAME,
+        &format!("{prefix}_create_task"),
+        &msg,
+        user_key,
+        vec![Coin {
+            denom: denom.to_string(),
+            amount,
+        }],
+    )?;
+    Ok(res)
+}
+
 pub(crate) fn proxy_call_for_n_times(
     orc: &mut CosmOrc,
     (agent_key, agent_addr): (&SigningKey, String),
@@ -288,4 +309,35 @@ pub(crate) fn refill_cw20(orc: &mut CosmOrc, user_key: &SigningKey, amount: u128
     };
     orc.execute(CW20_NAME, "refill_cw20", &msg, user_key, vec![])?;
     Ok(())
+}
+
+pub(crate) fn proxy_call_with_hash(
+    orc: &mut CosmOrc,
+    agent_key: &SigningKey,
+    task_hash: String,
+    op_name: &str,
+) -> Result<ExecResponse> {
+    let res = orc.execute(
+        CRONCAT_NAME,
+        op_name,
+        &cw_croncat_core::msg::ExecuteMsg::ProxyCall {
+            task_hash: Some(task_hash),
+        },
+        agent_key,
+        vec![],
+    )?;
+    Ok(res)
+}
+
+pub(crate) fn query_tasks_with_rules(orc: &CosmOrc) -> Result<Vec<TaskWithQueriesResponse>> {
+    let tasks = orc
+        .query(
+            CRONCAT_NAME,
+            &cw_croncat::QueryMsg::GetTasksWithQueries {
+                from_index: None,
+                limit: None,
+            },
+        )?
+        .data()?;
+    Ok(tasks)
 }

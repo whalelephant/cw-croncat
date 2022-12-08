@@ -3,16 +3,19 @@ use cw20::Cw20Coin;
 use cw_multi_test::{next_block, App, Executor};
 use cw_rules_core::types::{CheckProposalStatus, Status};
 use cwd_core::state::ProposalModule;
+use cwd_proposal_multiple::proposal::MultipleChoiceProposal;
+use cwd_proposal_single::proposal::SingleChoiceProposal;
 use cwd_voting::{
     multiple_choice::{
-        MultipleChoiceOption, MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy,
+        CheckedMultipleChoiceOption, MultipleChoiceOption, MultipleChoiceOptionType,
+        MultipleChoiceOptions, MultipleChoiceVote, MultipleChoiceVotes, VotingStrategy,
     },
     threshold::{PercentageThreshold, Threshold},
-    voting::Vote,
+    voting::{Vote, Votes},
 };
 use cwd_voting_cw20_staked::msg::ActiveThreshold;
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 
 use crate::tests::helpers::{
     cw_rules_contract, multiple_proposal_contract, single_proposal_contract,
@@ -113,7 +116,7 @@ fn test_dao_single_proposal_ready() {
     };
     let max_voting_period = cw_utils::Duration::Height(6);
     let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
-        threshold,
+        threshold: threshold.clone(),
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
@@ -198,7 +201,7 @@ fn test_dao_single_proposal_ready() {
     .unwrap();
 
     // It is not ready to execute yet, so false
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -209,7 +212,34 @@ fn test_dao_single_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (false, None));
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: false,
+            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+                id: 1,
+                proposal: SingleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    threshold: threshold.clone(),
+                    total_power: Uint128::new(2000),
+                    msgs: vec![],
+                    status: cwd_voting::status::Status::Open,
+                    votes: Votes {
+                        yes: Uint128::zero(),
+                        no: Uint128::zero(),
+                        abstain: Uint128::zero(),
+                    },
+                    allow_revoting: false
+                },
+            })
+            .unwrap()
+        }
+    );
 
     // Approve proposal
     app.execute_contract(
@@ -224,7 +254,7 @@ fn test_dao_single_proposal_ready() {
     .unwrap();
 
     // It's now ready to be executed
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -235,8 +265,34 @@ fn test_dao_single_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (true, None));
-
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: true,
+            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+                id: 1,
+                proposal: SingleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    threshold: threshold.clone(),
+                    total_power: Uint128::new(2000),
+                    msgs: vec![],
+                    status: cwd_voting::status::Status::Passed,
+                    votes: Votes {
+                        yes: Uint128::new(2000),
+                        no: Uint128::zero(),
+                        abstain: Uint128::zero(),
+                    },
+                    allow_revoting: false
+                },
+            })
+            .unwrap()
+        }
+    );
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
@@ -247,7 +303,7 @@ fn test_dao_single_proposal_ready() {
 
     // It's executed now
     // Test if other types of status works
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -258,7 +314,34 @@ fn test_dao_single_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (true, None));
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: true,
+            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+                id: 1,
+                proposal: SingleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    threshold: threshold.clone(),
+                    total_power: Uint128::new(2000),
+                    msgs: vec![],
+                    status: cwd_voting::status::Status::Executed,
+                    votes: Votes {
+                        yes: Uint128::new(2000),
+                        no: Uint128::zero(),
+                        abstain: Uint128::zero(),
+                    },
+                    allow_revoting: false
+                },
+            })
+            .unwrap()
+        }
+    );
 }
 
 #[test]
@@ -283,7 +366,7 @@ fn test_dao_multiple_proposal_ready() {
     };
     let max_voting_period = cw_utils::Duration::Height(6);
     let instantiate_govmod = cwd_proposal_multiple::msg::InstantiateMsg {
-        voting_strategy,
+        voting_strategy: voting_strategy.clone(),
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
@@ -379,7 +462,7 @@ fn test_dao_multiple_proposal_ready() {
     .unwrap();
 
     // It is not ready to execute yet, so false
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -390,7 +473,54 @@ fn test_dao_multiple_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (false, None));
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: false,
+            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+                id: 1,
+                proposal: MultipleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    total_power: Uint128::new(2000),
+                    status: cwd_voting::status::Status::Open,
+                    votes: MultipleChoiceVotes {
+                        vote_weights: vec![Uint128::zero(), Uint128::zero(), Uint128::zero()]
+                    },
+                    allow_revoting: false,
+                    choices: vec![
+                        CheckedMultipleChoiceOption {
+                            index: 0,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "a".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 1,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "b".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 2,
+                            option_type: MultipleChoiceOptionType::None,
+                            description: "None of the above".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        }
+                    ],
+                    voting_strategy: voting_strategy.clone()
+                },
+            })
+            .unwrap()
+        }
+    );
 
     // Approve proposal
     app.execute_contract(
@@ -405,7 +535,7 @@ fn test_dao_multiple_proposal_ready() {
     .unwrap();
 
     // It's now ready to be executed
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -416,7 +546,54 @@ fn test_dao_multiple_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (true, None));
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: true,
+            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+                id: 1,
+                proposal: MultipleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    total_power: Uint128::new(2000),
+                    status: cwd_voting::status::Status::Passed,
+                    votes: MultipleChoiceVotes {
+                        vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
+                    },
+                    allow_revoting: false,
+                    choices: vec![
+                        CheckedMultipleChoiceOption {
+                            index: 0,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "a".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 1,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "b".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 2,
+                            option_type: MultipleChoiceOptionType::None,
+                            description: "None of the above".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        }
+                    ],
+                    voting_strategy: voting_strategy.clone()
+                },
+            })
+            .unwrap()
+        }
+    );
 
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
@@ -428,7 +605,7 @@ fn test_dao_multiple_proposal_ready() {
 
     // It's executed now
     // Test if other types of status works
-    let res: RuleResponse<Option<Binary>> = app
+    let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -439,5 +616,52 @@ fn test_dao_multiple_proposal_ready() {
             }),
         )
         .unwrap();
-    assert_eq!(res, (true, None));
+    assert_eq!(
+        res,
+        QueryResponse {
+            result: true,
+            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+                id: 1,
+                proposal: MultipleChoiceProposal {
+                    title: "Cron".to_string(),
+                    description: "Cat".to_string(),
+                    proposer: Addr::unchecked(CREATOR_ADDR),
+                    start_height: 12346,
+                    min_voting_period: None,
+                    expiration: cw_utils::Expiration::AtHeight(12352),
+                    total_power: Uint128::new(2000),
+                    status: cwd_voting::status::Status::Executed,
+                    votes: MultipleChoiceVotes {
+                        vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
+                    },
+                    allow_revoting: false,
+                    choices: vec![
+                        CheckedMultipleChoiceOption {
+                            index: 0,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "a".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 1,
+                            option_type: MultipleChoiceOptionType::Standard,
+                            description: "b".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        },
+                        CheckedMultipleChoiceOption {
+                            index: 2,
+                            option_type: MultipleChoiceOptionType::None,
+                            description: "None of the above".to_owned(),
+                            msgs: None,
+                            vote_count: Uint128::zero()
+                        }
+                    ],
+                    voting_strategy: voting_strategy.clone()
+                },
+            })
+            .unwrap()
+        }
+    );
 }

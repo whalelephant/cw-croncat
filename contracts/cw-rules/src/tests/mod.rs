@@ -5,3 +5,4 @@ mod generic;
 mod helpers;
 #[cfg(test)]
 mod nft;
+mod smart;

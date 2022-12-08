@@ -100,14 +100,16 @@ impl<'a> CwCroncat<'a> {
             return Ok(None);
         }
 
-        self.balancer.get_agent_tasks(
-            &deps,
-            &env,
-            &self.config,
-            &self.agent_active_queue,
-            account_id,
-            (Some(block_slots as u64), Some(time_slots as u64)),
-        )
+        self.balancer
+            .get_agent_tasks(
+                &deps,
+                &env,
+                &self.config,
+                &self.agent_active_queue,
+                account_id,
+                (Some(block_slots as u64), Some(time_slots as u64)),
+            )
+            .map_err(|err| StdError::generic_err(err.to_string()))
     }
 
     /// Add any account as an agent that will be able to execute tasks.
@@ -332,7 +334,13 @@ impl<'a> CwCroncat<'a> {
             let kicked_agents: Vec<Addr> = {
                 let mut kicked = Vec::with_capacity(agent_position);
                 for _ in 0..=agent_position {
-                    kicked.push(self.agent_pending_queue.pop_front(deps.storage)?.unwrap());
+                    let agent = self.agent_pending_queue.pop_front(deps.storage)?;
+                    // Since we already iterated over it - we know it exists
+                    let kicked_agent;
+                    unsafe {
+                        kicked_agent = agent.unwrap_unchecked();
+                    }
+                    kicked.push(kicked_agent);
                 }
                 kicked
             };
@@ -380,7 +388,7 @@ impl<'a> CwCroncat<'a> {
                 &self.config,
                 &self.agent_active_queue,
                 agent_id.clone(),
-            );
+            )?;
             active_agents.remove(index);
 
             self.agent_active_queue.save(storage, &active_agents)?;

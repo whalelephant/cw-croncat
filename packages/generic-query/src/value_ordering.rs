@@ -12,6 +12,21 @@ pub enum ValueOrdering {
     UnitBelow,
     UnitBelowEqual,
     Equal,
+    NotEqual,
+}
+
+impl ValueOrdering {
+    pub fn val_cmp(&self, lhs: &Value, rhs: &Value) -> StdResult<bool> {
+        let res = match self {
+            ValueOrdering::UnitAbove => lhs.bt_g(rhs)?,
+            ValueOrdering::UnitAboveEqual => lhs.be_g(rhs)?,
+            ValueOrdering::UnitBelow => lhs.lt_g(rhs)?,
+            ValueOrdering::UnitBelowEqual => lhs.le_g(rhs)?,
+            ValueOrdering::Equal => lhs.eq(rhs),
+            ValueOrdering::NotEqual => lhs.ne(rhs),
+        };
+        Ok(res)
+    }
 }
 
 pub trait ValueOrd {

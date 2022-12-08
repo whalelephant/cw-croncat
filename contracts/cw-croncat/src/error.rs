@@ -36,11 +36,11 @@ pub enum ContractError {
     #[error("Only owner can refill their task")]
     RefillNotTaskOwner {},
 
-    #[error("Rules are not ready. Failed at rule {index:?}")]
-    RulesNotReady { index: u64 },
+    #[error("Queries are not ready. Failed at query {index:?}")]
+    QueriesNotReady { index: u64 },
 
-    #[error("No rules for this task hash")]
-    NoRulesForThisTask { task_hash: String },
+    #[error("No queries for this task hash: {task_hash}")]
+    NoQueriesForThisTask { task_hash: String },
 
     #[error("Custom Error val: {val:?}")]
     CustomError { val: String },

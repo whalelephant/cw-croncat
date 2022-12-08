@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, Rule, Balance, NativeBalance, Status, ValueIndex, ValueOrdering, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GasFraction, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNft, CheckProposalStatus, GenericQuery, GetWalletBalancesResponse, Task, BoundaryValidated, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, RoundRobinBalancerModeResponse, GetStateResponse, BalancesResponse, SlotResponse, SlotWithRuleResponse, ReplyQueueResponse, QueueItemResponse, TaskWithRulesResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithRulesResponse, InstantiateMsg, QueryMsg, ValidateIntervalResponse } from "./CwCroncatCore.types";
+import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, CroncatQuery, Balance, NativeBalance, Status, ValueOrdering, ValueIndex, PathToValue, SmartQueries, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GasFraction, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNft, CheckProposalStatus, GenericQuery, SmartQueryHead, SmartQuery, GetWalletBalancesResponse, Task, BoundaryValidated, Transform, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, RoundRobinBalancerModeResponse, GetStateResponse, BalancesResponse, SlotResponse, SlotWithQueriesResponse, TaskWithQueriesResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithQueriesResponse, InstantiateMsg, QueryMsg, ValidateIntervalResponse } from "./CwCroncatCore.types";
 export interface CwCroncatCoreReadOnlyInterface {
   contractAddress: string;
   getConfig: () => Promise<GetConfigResponse>;
@@ -29,13 +29,13 @@ export interface CwCroncatCoreReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<GetTasksResponse>;
-  getTasksWithRules: ({
+  getTasksWithQueries: ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }) => Promise<GetTasksWithRulesResponse>;
+  }) => Promise<GetTasksWithQueriesResponse>;
   getTasksByOwner: ({
     ownerId
   }: {
@@ -88,7 +88,7 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
     this.getAgentIds = this.getAgentIds.bind(this);
     this.getAgentTasks = this.getAgentTasks.bind(this);
     this.getTasks = this.getTasks.bind(this);
-    this.getTasksWithRules = this.getTasksWithRules.bind(this);
+    this.getTasksWithQueries = this.getTasksWithQueries.bind(this);
     this.getTasksByOwner = this.getTasksByOwner.bind(this);
     this.getTask = this.getTask.bind(this);
     this.getTaskHash = this.getTaskHash.bind(this);
@@ -150,15 +150,15 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
       }
     });
   };
-  getTasksWithRules = async ({
+  getTasksWithQueries = async ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }): Promise<GetTasksWithRulesResponse> => {
+  }): Promise<GetTasksWithQueriesResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
-      get_tasks_with_rules: {
+      get_tasks_with_queries: {
         from_index: fromIndex,
         limit
       }

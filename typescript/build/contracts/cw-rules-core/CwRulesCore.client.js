@@ -59,21 +59,33 @@ class CwRulesCoreQueryClient {
                 }
             });
         });
-        this.genericQuery = ({ contractAddr, gets, msg, ordering, value }) => __awaiter(this, void 0, void 0, function* () {
+        this.genericQuery = ({ contractAddr, msg, ordering, pathToValue, value }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 generic_query: {
                     contract_addr: contractAddr,
-                    gets,
                     msg,
                     ordering,
+                    path_to_value: pathToValue,
                     value
                 }
             });
         });
-        this.queryConstruct = ({ rules }) => __awaiter(this, void 0, void 0, function* () {
+        this.queryConstruct = ({ queries }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 query_construct: {
-                    rules
+                    queries
+                }
+            });
+        });
+        this.smartQuery = ({ contractAddr, msg, ordering, pathToQueryValue, queries, value }) => __awaiter(this, void 0, void 0, function* () {
+            return this.client.queryContractSmart(this.contractAddress, {
+                smart_query: {
+                    contract_addr: contractAddr,
+                    msg,
+                    ordering,
+                    path_to_query_value: pathToQueryValue,
+                    queries,
+                    value
                 }
             });
         });
@@ -86,6 +98,7 @@ class CwRulesCoreQueryClient {
         this.checkProposalStatus = this.checkProposalStatus.bind(this);
         this.genericQuery = this.genericQuery.bind(this);
         this.queryConstruct = this.queryConstruct.bind(this);
+        this.smartQuery = this.smartQuery.bind(this);
     }
 }
 exports.CwRulesCoreQueryClient = CwRulesCoreQueryClient;

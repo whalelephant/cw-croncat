@@ -4,7 +4,7 @@ use cw4::Member;
 use cw_multi_test::{App, Executor};
 use serde_json::json;
 
-use cw_rules_core::msg::{InstantiateMsg, QueryMsg, RuleResponse};
+use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 use generic_query::{GenericQuery, ValueIndex, ValueOrdering};
 
 use crate::tests::helpers::{cw20_template, cw4_contract, cw_rules_contract, CREATOR_ADDR};
@@ -62,21 +62,19 @@ fn test_generic() {
             limit: None,
         })
         .unwrap(),
-        gets: vec![
+        path_to_value: vec![
             ValueIndex::Key("members".to_string()),
             ValueIndex::Index(1),
             ValueIndex::Key("weight".to_string()),
-        ],
+        ]
+        .into(),
         ordering: ValueOrdering::UnitAbove,
         value: to_binary(&1).unwrap(),
         contract_addr: cw4_addr.into_string(),
     };
     let msg = QueryMsg::GenericQuery(generic_query);
-    let ser = serde_json::to_string_pretty(&msg).unwrap();
-    println!("{ser}");
-    let res: RuleResponse<Option<Binary>> =
-        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res.0);
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.result);
 }
 
 #[test]
@@ -130,7 +128,7 @@ fn test_generic_json_repr() {
         "generic_query": {
             "contract_addr": cw4_addr.to_string(),
             "msg": query_binary,
-            "gets": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
+            "path_to_value": [{"key": "members"}, {"index": 1}, {"key": "weight"}],
             "ordering": "unit_above",
             "value": to_binary(&1).unwrap(),
         }
@@ -141,8 +139,8 @@ fn test_generic_json_repr() {
         msg: Binary(msg),
     }
     .into();
-    let res: RuleResponse<Option<Binary>> = app.wrap().query(&request).unwrap();
-    assert!(res.0);
+    let res: QueryResponse = app.wrap().query(&request).unwrap();
+    assert!(res.result);
 }
 
 #[test]
@@ -187,7 +185,7 @@ fn test_generic_bigint() {
 
     let generic_query = GenericQuery {
         msg: to_binary(&cw20::Cw20QueryMsg::TokenInfo {}).unwrap(),
-        gets: vec![ValueIndex::Key("total_supply".to_string())],
+        path_to_value: vec![ValueIndex::Key("total_supply".to_string())].into(),
         ordering: ValueOrdering::UnitAbove,
         value: to_binary("2012").unwrap(),
         contract_addr: cw20_addr.into_string(),
@@ -200,7 +198,6 @@ fn test_generic_bigint() {
     //     pub total_supply: Uint128,
     // }
     let msg = QueryMsg::GenericQuery(generic_query);
-    let res: RuleResponse<Option<Binary>> =
-        app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
-    assert!(res.0);
+    let res: QueryResponse = app.wrap().query_wasm_smart(contract_addr, &msg).unwrap();
+    assert!(res.result);
 }

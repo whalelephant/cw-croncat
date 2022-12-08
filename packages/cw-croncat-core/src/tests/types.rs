@@ -1,14 +1,14 @@
 use crate::{
     error::CoreError,
     msg::TaskRequest,
-    types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task},
+    types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task, Transform},
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
     IbcTimeout, StdError, Timestamp, Uint64, VoteOption, WasmMsg,
 };
 use cw20::Cw20CoinVerified;
-use cw_rules_core::types::{HasBalanceGte, Rule};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 
@@ -29,7 +29,8 @@ fn is_valid_msg_once_block_based() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert!(task
@@ -61,7 +62,8 @@ fn is_valid_msg_once_time_based() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert!(task
@@ -90,7 +92,8 @@ fn is_valid_msg_recurring() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert!(task
@@ -123,7 +126,8 @@ fn is_valid_msg_wrong_account() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert_eq!(
@@ -157,7 +161,8 @@ fn is_valid_msg_vote() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert_eq!(
@@ -193,7 +198,8 @@ fn is_valid_msg_transfer() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert_eq!(
@@ -226,7 +232,8 @@ fn is_valid_msg_burn() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert_eq!(
@@ -260,7 +267,8 @@ fn is_valid_msg_send_doesnt_fail() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert!(task
@@ -292,7 +300,8 @@ fn is_valid_msg_send_should_success() {
             }),
             gas_limit: Some(5),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         cw20_coins: Default::default(),
     };
     assert!(task
@@ -469,7 +478,6 @@ fn test_minus_tokens_overflow_cw20() {
 #[test]
 fn hashing() {
     let task = Task {
-        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Block(5),
         boundary: BoundaryValidated {
@@ -485,16 +493,22 @@ fn hashing() {
             }),
             gas_limit: Some(5),
         }],
-        rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
             address: "foo".to_string(),
             required_balance: coins(5, "atom").into(),
         })]),
+        transforms: Some(vec![Transform {
+            action_idx: 0,
+            query_idx: 0,
+            action_path: vec![].into(),
+            query_response_path: vec![].into(),
+        }]),
         version: String::from(""),
     };
 
     let message = format!(
         "{:?}{:?}{:?}{:?}{:?}",
-        task.owner_id, task.interval, task.boundary, task.actions, task.rules
+        task.owner_id, task.interval, task.boundary, task.actions, task.queries
     );
 
     let hash = Sha256::digest(message.as_bytes());

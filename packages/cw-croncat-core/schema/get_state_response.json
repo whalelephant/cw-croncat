@@ -9,16 +9,15 @@
     "balancer_mode",
     "balances",
     "block_slots",
-    "block_slots_rules",
+    "block_slots_queries",
     "config",
     "reply_index",
-    "reply_queue",
     "task_total",
     "tasks",
-    "tasks_with_rules",
-    "tasks_with_rules_total",
+    "tasks_with_queries",
+    "tasks_with_queries_total",
     "time_slots",
-    "time_slots_rules"
+    "time_slots_queries"
   ],
   "properties": {
     "agent_active_queue": {
@@ -64,10 +63,10 @@
         "$ref": "#/definitions/SlotResponse"
       }
     },
-    "block_slots_rules": {
+    "block_slots_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/SlotWithRuleResponse"
+        "$ref": "#/definitions/SlotWithQueriesResponse"
       }
     },
     "config": {
@@ -75,12 +74,6 @@
     },
     "reply_index": {
       "$ref": "#/definitions/Uint64"
-    },
-    "reply_queue": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/ReplyQueueResponse"
-      }
     },
     "task_total": {
       "$ref": "#/definitions/Uint64"
@@ -91,13 +84,13 @@
         "$ref": "#/definitions/TaskResponse"
       }
     },
-    "tasks_with_rules": {
+    "tasks_with_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/TaskWithRulesResponse"
+        "$ref": "#/definitions/TaskWithQueriesResponse"
       }
     },
-    "tasks_with_rules_total": {
+    "tasks_with_queries_total": {
       "$ref": "#/definitions/Uint64"
     },
     "time_slots": {
@@ -106,10 +99,10 @@
         "$ref": "#/definitions/SlotResponse"
       }
     },
-    "time_slots_rules": {
+    "time_slots_queries": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/SlotWithRuleResponse"
+        "$ref": "#/definitions/SlotWithQueriesResponse"
       }
     }
   },
@@ -533,6 +526,94 @@
         }
       ]
     },
+    "CroncatQuery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "has_balance_gte"
+          ],
+          "properties": {
+            "has_balance_gte": {
+              "$ref": "#/definitions/HasBalanceGte"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_owner_of_nft"
+          ],
+          "properties": {
+            "check_owner_of_nft": {
+              "$ref": "#/definitions/CheckOwnerOfNft"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_proposal_status"
+          ],
+          "properties": {
+            "check_proposal_status": {
+              "$ref": "#/definitions/CheckProposalStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "generic_query"
+          ],
+          "properties": {
+            "generic_query": {
+              "$ref": "#/definitions/GenericQuery"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "smart_query"
+          ],
+          "properties": {
+            "smart_query": {
+              "$ref": "#/definitions/SmartQueryHead"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Cw20CoinVerified": {
       "type": "object",
       "required": [
@@ -645,26 +726,23 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_value",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
         },
         "value": {
           "$ref": "#/definitions/Binary"
@@ -1043,71 +1121,10 @@
         "$ref": "#/definitions/Coin"
       }
     },
-    "QueueItemResponse": {
-      "type": "object",
-      "required": [
-        "action_idx",
-        "failed"
-      ],
-      "properties": {
-        "action_idx": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "agent_id": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "contract_addr": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "failed": {
-          "type": "boolean"
-        },
-        "task_hash": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 0.0
-          }
-        },
-        "task_is_extra": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        }
-      }
-    },
-    "ReplyQueueResponse": {
-      "type": "object",
-      "required": [
-        "index",
-        "item"
-      ],
-      "properties": {
-        "index": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "item": {
-          "$ref": "#/definitions/QueueItemResponse"
-        }
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
       }
     },
     "RoundRobinBalancerModeResponse": {
@@ -1115,58 +1132,6 @@
       "enum": [
         "ActivationOrder",
         "Equalizer"
-      ]
-    },
-    "Rule": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "has_balance_gte"
-          ],
-          "properties": {
-            "has_balance_gte": {
-              "$ref": "#/definitions/HasBalanceGte"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_owner_of_nft"
-          ],
-          "properties": {
-            "check_owner_of_nft": {
-              "$ref": "#/definitions/CheckOwnerOfNft"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "check_proposal_status"
-          ],
-          "properties": {
-            "check_proposal_status": {
-              "$ref": "#/definitions/CheckProposalStatus"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": [
-            "generic_query"
-          ],
-          "properties": {
-            "generic_query": {
-              "$ref": "#/definitions/GenericQuery"
-            }
-          },
-          "additionalProperties": false
-        }
       ]
     },
     "SlotResponse": {
@@ -1199,7 +1164,7 @@
         "Cron"
       ]
     },
-    "SlotWithRuleResponse": {
+    "SlotWithQueriesResponse": {
       "type": "object",
       "required": [
         "slot",
@@ -1216,6 +1181,86 @@
             "format": "uint8",
             "minimum": 0.0
           }
+        }
+      }
+    },
+    "SmartQueries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SmartQuery"
+      }
+    },
+    "SmartQuery": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "msg",
+        "path_to_msg_value",
+        "path_to_query_value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "msg": {
+          "$ref": "#/definitions/Binary"
+        },
+        "path_to_msg_value": {
+          "description": "Replace value inside this query",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
+        },
+        "path_to_query_value": {
+          "description": "Value passed to the next iteration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
+        }
+      }
+    },
+    "SmartQueryHead": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "msg",
+        "ordering",
+        "path_to_query_value",
+        "queries",
+        "value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "msg": {
+          "description": "First query without placeholder!",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            }
+          ]
+        },
+        "ordering": {
+          "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_query_value": {
+          "description": "Value from this message",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
+        },
+        "queries": {
+          "$ref": "#/definitions/SmartQueries"
+        },
+        "value": {
+          "$ref": "#/definitions/Binary"
         }
       }
     },
@@ -1354,7 +1399,6 @@
         "actions",
         "amount_for_one_task_cw20",
         "amount_for_one_task_native",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -1391,25 +1435,19 @@
             }
           ]
         },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        },
         "interval": {
           "$ref": "#/definitions/Interval"
         },
         "owner_id": {
           "$ref": "#/definitions/Addr"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/CroncatQuery"
           }
         },
         "stop_on_fail": {
@@ -1432,7 +1470,7 @@
         }
       }
     },
-    "TaskWithRulesResponse": {
+    "TaskWithQueriesResponse": {
       "type": "object",
       "required": [
         "interval",
@@ -1452,13 +1490,13 @@
         "interval": {
           "$ref": "#/definitions/Interval"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/CroncatQuery"
           }
         },
         "task_hash": {
@@ -1519,7 +1557,8 @@
         "unit_above_equal",
         "unit_below",
         "unit_below_equal",
-        "equal"
+        "equal",
+        "not_equal"
       ]
     },
     "VoteOption": {

@@ -314,11 +314,10 @@ fn test_get_state() {
     assert_eq!(state.task_total, Uint64::zero());
     assert!(state.time_slots.is_empty());
     assert!(state.block_slots.is_empty());
-    assert!(state.tasks_with_rules.is_empty());
-    assert_eq!(state.tasks_with_rules_total, Uint64::zero());
-    assert!(state.time_slots_rules.is_empty());
-    assert!(state.block_slots_rules.is_empty());
-    assert!(state.reply_queue.is_empty());
+    assert!(state.tasks_with_queries.is_empty());
+    assert_eq!(state.tasks_with_queries_total, Uint64::zero());
+    assert!(state.time_slots_queries.is_empty());
+    assert!(state.block_slots_queries.is_empty());
     assert_eq!(state.reply_index, Uint64::zero());
     assert_eq!(state.agent_nomination_begin_time, None);
     assert_eq!(
@@ -346,7 +345,8 @@ fn test_get_state() {
                 msg,
                 gas_limit: Some(250_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };
@@ -396,11 +396,10 @@ fn test_get_state() {
     assert_eq!(state.task_total, Uint64::from(1u64));
     assert!(state.time_slots.is_empty());
     assert_eq!(state.block_slots.len(), 1);
-    assert!(state.tasks_with_rules.is_empty());
-    assert_eq!(state.tasks_with_rules_total, Uint64::zero());
-    assert!(state.time_slots_rules.is_empty());
-    assert!(state.block_slots_rules.is_empty());
-    assert!(state.reply_queue.is_empty());
+    assert!(state.tasks_with_queries.is_empty());
+    assert_eq!(state.tasks_with_queries_total, Uint64::zero());
+    assert!(state.time_slots_queries.is_empty());
+    assert!(state.block_slots_queries.is_empty());
     assert_eq!(state.reply_index, Uint64::zero());
     assert!(state.agent_nomination_begin_time.is_some());
     assert!(state.balances.is_empty());

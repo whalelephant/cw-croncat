@@ -51,7 +51,8 @@ fn test_cw20_action() {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![Cw20Coin {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
@@ -177,7 +178,8 @@ fn test_cw20_balances() {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![Cw20Coin {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
@@ -258,7 +260,8 @@ fn test_cw20_negative() {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![Cw20Coin {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
@@ -317,7 +320,8 @@ fn test_cw20_negative() {
                 msg: msg.clone(),
                 gas_limit: Some(150_000),
             }],
-            rules: None,
+            queries: None,
+            transforms: None,
             cw20_coins: vec![],
         },
     };

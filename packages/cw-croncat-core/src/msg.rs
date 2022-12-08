@@ -1,10 +1,11 @@
 use crate::types::{
     Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
+    Transform,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
 use cw20::{Balance, Cw20Coin, Cw20CoinVerified};
-use cw_rules_core::types::Rule;
+use cw_rules_core::types::CroncatQuery;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -138,7 +139,7 @@ pub enum QueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    GetTasksWithRules {
+    GetTasksWithQueries {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
@@ -268,7 +269,8 @@ pub struct TaskRequest {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
-    pub rules: Option<Vec<Rule>>,
+    pub queries: Option<Vec<CroncatQuery>>,
+    pub transforms: Option<Vec<Transform>>,
     pub cw20_coins: Vec<Cw20Coin>,
 }
 
@@ -288,16 +290,15 @@ pub struct TaskResponse {
     pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
 
     pub actions: Vec<Action>,
-    pub rules: Option<Vec<Rule>>,
-    pub funds_withdrawn_recurring: Vec<Coin>,
+    pub queries: Option<Vec<CroncatQuery>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct TaskWithRulesResponse {
+pub struct TaskWithQueriesResponse {
     pub task_hash: String,
     pub interval: Interval,
     pub boundary: Option<Boundary>,
-    pub rules: Option<Vec<Rule>>,
+    pub queries: Option<Vec<CroncatQuery>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -313,13 +314,12 @@ pub struct CwCroncatResponse {
 
     pub time_slots: Vec<SlotResponse>,
     pub block_slots: Vec<SlotResponse>,
-    pub tasks_with_rules: Vec<TaskWithRulesResponse>,
-    pub tasks_with_rules_total: Uint64,
+    pub tasks_with_queries: Vec<TaskWithQueriesResponse>,
+    pub tasks_with_queries_total: Uint64,
 
-    pub time_slots_rules: Vec<SlotWithRuleResponse>,
-    pub block_slots_rules: Vec<SlotWithRuleResponse>,
+    pub time_slots_queries: Vec<SlotWithQueriesResponse>,
+    pub block_slots_queries: Vec<SlotWithQueriesResponse>,
 
-    pub reply_queue: Vec<ReplyQueueResponse>,
     pub reply_index: Uint64,
 
     pub agent_nomination_begin_time: Option<Timestamp>,
@@ -346,24 +346,24 @@ pub enum RoundRobinBalancerModeResponse {
     Equalizer,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct ReplyQueueResponse {
-    pub index: Uint64,
-    pub item: QueueItemResponse,
-}
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+// pub struct ReplyQueueResponse {
+//     pub index: Uint64,
+//     pub item: QueueItemResponse,
+// }
+
+// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+// pub struct QueueItemResponse {
+//     pub contract_addr: Option<Addr>,
+//     pub action_idx: Uint64,
+//     pub task_hash: Option<Vec<u8>>,
+//     pub task_is_extra: Option<bool>,
+//     pub agent_id: Option<Addr>,
+//     pub failed: bool,
+// }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct QueueItemResponse {
-    pub contract_addr: Option<Addr>,
-    pub action_idx: Uint64,
-    pub task_hash: Option<Vec<u8>>,
-    pub task_is_extra: Option<bool>,
-    pub agent_id: Option<Addr>,
-    pub failed: bool,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct SlotWithRuleResponse {
+pub struct SlotWithQueriesResponse {
     pub task_hash: Vec<u8>,
     pub slot: Uint64,
 }
@@ -392,19 +392,18 @@ impl From<Task> for TaskResponse {
             owner_id: task.owner_id,
             interval: task.interval,
             boundary,
-            funds_withdrawn_recurring: task.funds_withdrawn_recurring,
             stop_on_fail: task.stop_on_fail,
             total_deposit: task.total_deposit.native,
             total_cw20_deposit: task.total_deposit.cw20,
             amount_for_one_task_native: task.amount_for_one_task.native,
             amount_for_one_task_cw20: task.amount_for_one_task.cw20,
             actions: task.actions,
-            rules: task.rules,
+            queries: task.queries,
         }
     }
 }
 
-impl From<Task> for TaskWithRulesResponse {
+impl From<Task> for TaskWithQueriesResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
             (
@@ -423,11 +422,11 @@ impl From<Task> for TaskWithRulesResponse {
                 end: end.map(Into::into),
             }),
         };
-        TaskWithRulesResponse {
+        TaskWithQueriesResponse {
             task_hash: task.to_hash(),
             interval: task.interval,
             boundary,
-            rules: task.rules,
+            queries: task.queries,
         }
     }
 }
@@ -449,5 +448,5 @@ pub struct GetSlotIdsResponse {
 // cw_rules
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
-    pub rules: Vec<Rule>,
+    pub queries: Vec<CroncatQuery>,
 }

@@ -4,15 +4,23 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-export type CheckOwnerOfNftResponse = [boolean, Binary | null];
 export type Binary = string;
+export interface CheckOwnerOfNftResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
 export interface CheckOwnerOfNft {
   address: string;
   nft_address: string;
   token_id: string;
   [k: string]: unknown;
 }
-export type CheckProposalStatusResponse = [boolean, Binary | null];
+export interface CheckProposalStatusResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
 export type Status = "execution_failed" | "open" | "rejected" | "passed" | "executed" | "closed";
 export interface CheckProposalStatus {
   dao_address: string;
@@ -20,15 +28,23 @@ export interface CheckProposalStatus {
   status: Status;
   [k: string]: unknown;
 }
-export type ExecuteMsg = {
-  query_result: {
+export type CroncatQuery = {
+  query: {
+    contract_addr: string;
+    msg: Binary;
     [k: string]: unknown;
   };
+} | {
+  has_balance_gte: HasBalanceGte;
+} | {
+  check_owner_of_nft: CheckOwnerOfNft;
+} | {
+  check_proposal_status: CheckProposalStatus;
+} | {
+  generic_query: GenericQuery;
+} | {
+  smart_query: SmartQueryHead;
 };
-export type GenericQueryResponse = [boolean, Binary | null];
-export type GetBalanceResponse = [boolean, Binary | null];
-export type GetCw20BalanceResponse = [boolean, Binary | null];
-export type HasBalanceGteResponse = [boolean, Binary | null];
 export type Balance = {
   native: NativeBalance;
 } | {
@@ -37,6 +53,14 @@ export type Balance = {
 export type Uint128 = string;
 export type NativeBalance = Coin[];
 export type Addr = string;
+export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
+export type ValueIndex = {
+  key: string;
+} | {
+  index: number;
+};
+export type PathToValue = ValueIndex[];
+export type SmartQueries = SmartQuery[];
 export interface HasBalanceGte {
   address: string;
   required_balance: Balance;
@@ -52,35 +76,65 @@ export interface Cw20CoinVerified {
   amount: Uint128;
   [k: string]: unknown;
 }
+export interface GenericQuery {
+  contract_addr: string;
+  msg: Binary;
+  ordering: ValueOrdering;
+  path_to_value: PathToValue;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQueryHead {
+  contract_addr: string;
+  msg: Binary;
+  ordering: ValueOrdering;
+  path_to_query_value: PathToValue;
+  queries: SmartQueries;
+  value: Binary;
+  [k: string]: unknown;
+}
+export interface SmartQuery {
+  contract_addr: string;
+  msg: Binary;
+  path_to_msg_value: PathToValue;
+  path_to_query_value: PathToValue;
+  [k: string]: unknown;
+}
+export type ExecuteMsg = {
+  query_result: {
+    [k: string]: unknown;
+  };
+};
+export interface GenericQueryResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface GetBalanceResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface GetCw20BalanceResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface HasBalanceGteResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
 export interface InstantiateMsg {
   [k: string]: unknown;
 }
-export type QueryConstructResponse = [boolean, number | null];
-export type Rule = {
-  has_balance_gte: HasBalanceGte;
-} | {
-  check_owner_of_nft: CheckOwnerOfNft;
-} | {
-  check_proposal_status: CheckProposalStatus;
-} | {
-  generic_query: GenericQuery;
-};
-export type ValueIndex = {
-  key: string;
-} | {
-  index: number;
-};
-export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal";
-export interface QueryConstruct {
-  rules: Rule[];
+export interface QueryConstructResponse {
+  data: Binary;
+  result: boolean;
   [k: string]: unknown;
 }
-export interface GenericQuery {
-  contract_addr: string;
-  gets: ValueIndex[];
-  msg: Binary;
-  ordering: ValueOrdering;
-  value: Binary;
+export interface QueryConstruct {
+  queries: CroncatQuery[];
   [k: string]: unknown;
 }
 export type QueryMsg = {
@@ -105,9 +159,20 @@ export type QueryMsg = {
   generic_query: GenericQuery;
 } | {
   query_construct: QueryConstruct;
+} | {
+  smart_query: SmartQueryHead;
 };
 export interface QueryMultiResponse {
   data: string[];
   [k: string]: unknown;
 }
-export type RuleResponse = [boolean, Binary | null];
+export interface RuleResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface SmartQueryResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}

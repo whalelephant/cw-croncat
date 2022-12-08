@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { CheckOwnerOfNftResponse, Binary, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, Balance, Uint128, NativeBalance, Addr, HasBalanceGte, Coin, Cw20CoinVerified, InstantiateMsg, QueryConstructResponse, Rule, ValueIndex, ValueOrdering, QueryConstruct, GenericQuery, QueryMsg, QueryMultiResponse, RuleResponse } from "./CwRulesCore.types";
+import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, CroncatQuery, Balance, Uint128, NativeBalance, Addr, ValueOrdering, ValueIndex, PathToValue, SmartQueries, HasBalanceGte, Coin, Cw20CoinVerified, GenericQuery, SmartQueryHead, SmartQuery, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, InstantiateMsg, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRulesCore.types";
 export interface CwRulesCoreReadOnlyInterface {
   contractAddress: string;
   getBalance: ({
@@ -50,22 +50,37 @@ export interface CwRulesCoreReadOnlyInterface {
   }) => Promise<CheckProposalStatusResponse>;
   genericQuery: ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToValue,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToValue: PathToValue;
     value: Binary;
   }) => Promise<GenericQueryResponse>;
   queryConstruct: ({
-    rules
+    queries
   }: {
-    rules: Rule[];
+    queries: CroncatQuery[];
   }) => Promise<QueryConstructResponse>;
+  smartQuery: ({
+    contractAddr,
+    msg,
+    ordering,
+    pathToQueryValue,
+    queries,
+    value
+  }: {
+    contractAddr: string;
+    msg: Binary;
+    ordering: ValueOrdering;
+    pathToQueryValue: PathToValue;
+    queries: SmartQueries;
+    value: Binary;
+  }) => Promise<SmartQueryResponse>;
 }
 export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
   client: CosmWasmClient;
@@ -81,6 +96,7 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
     this.checkProposalStatus = this.checkProposalStatus.bind(this);
     this.genericQuery = this.genericQuery.bind(this);
     this.queryConstruct = this.queryConstruct.bind(this);
+    this.smartQuery = this.smartQuery.bind(this);
   }
 
   getBalance = async ({
@@ -161,35 +177,61 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
   };
   genericQuery = async ({
     contractAddr,
-    gets,
     msg,
     ordering,
+    pathToValue,
     value
   }: {
     contractAddr: string;
-    gets: ValueIndex[];
     msg: Binary;
     ordering: ValueOrdering;
+    pathToValue: PathToValue;
     value: Binary;
   }): Promise<GenericQueryResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       generic_query: {
         contract_addr: contractAddr,
-        gets,
         msg,
         ordering,
+        path_to_value: pathToValue,
         value
       }
     });
   };
   queryConstruct = async ({
-    rules
+    queries
   }: {
-    rules: Rule[];
+    queries: CroncatQuery[];
   }): Promise<QueryConstructResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       query_construct: {
-        rules
+        queries
+      }
+    });
+  };
+  smartQuery = async ({
+    contractAddr,
+    msg,
+    ordering,
+    pathToQueryValue,
+    queries,
+    value
+  }: {
+    contractAddr: string;
+    msg: Binary;
+    ordering: ValueOrdering;
+    pathToQueryValue: PathToValue;
+    queries: SmartQueries;
+    value: Binary;
+  }): Promise<SmartQueryResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      smart_query: {
+        contract_addr: contractAddr,
+        msg,
+        ordering,
+        path_to_query_value: pathToQueryValue,
+        queries,
+        value
       }
     });
   };

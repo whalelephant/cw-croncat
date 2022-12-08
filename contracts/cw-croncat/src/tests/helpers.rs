@@ -1,20 +1,15 @@
 use cosmwasm_std::{
     coin, coins,
     testing::{mock_env, mock_info},
-    to_binary, Addr, Binary, BlockInfo, DepsMut, Empty, Querier, QuerierWrapper, QueryRequest,
-    Response, StdResult, Uint128, WasmQuery,
+    to_binary, Addr, Binary, BlockInfo, DepsMut, Empty, Response, Uint128,
 };
-use cw2::ContractVersion;
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::InstantiateMsg,
     types::{BoundaryValidated, Interval, Task},
 };
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cwd_voting::{
-    multiple_choice::VotingStrategy,
-    threshold::{PercentageThreshold, Threshold},
-};
+use cwd_voting::threshold::{PercentageThreshold, Threshold};
 use cwd_voting_cw20_staked::msg::ActiveThreshold;
 
 use crate::{helpers::CwTemplateContract, ContractError, CwCroncat};
@@ -117,6 +112,15 @@ pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
     )
     .with_reply(cwd_proposal_single::contract::reply)
     .with_migrate(cwd_proposal_single::contract::migrate);
+    Box::new(contract)
+}
+
+pub fn cw4_template() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cw4_group::contract::execute,
+        cw4_group::contract::instantiate,
+        cw4_group::contract::query,
+    );
     Box::new(contract)
 }
 
@@ -327,12 +331,12 @@ pub fn default_task() -> Task {
             start: None,
             end: None,
         },
-        funds_withdrawn_recurring: Default::default(),
         stop_on_fail: Default::default(),
         total_deposit: Default::default(),
         amount_for_one_task: Default::default(),
         actions: Default::default(),
-        rules: Default::default(),
+        queries: Default::default(),
+        transforms: Default::default(),
         version: "1.0.0".to_string(),
     }
 }

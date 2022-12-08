@@ -364,6 +364,94 @@
         }
       ]
     },
+    "CroncatQuery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "query"
+          ],
+          "properties": {
+            "query": {
+              "type": "object",
+              "required": [
+                "contract_addr",
+                "msg"
+              ],
+              "properties": {
+                "contract_addr": {
+                  "type": "string"
+                },
+                "msg": {
+                  "$ref": "#/definitions/Binary"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "has_balance_gte"
+          ],
+          "properties": {
+            "has_balance_gte": {
+              "$ref": "#/definitions/HasBalanceGte"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_owner_of_nft"
+          ],
+          "properties": {
+            "check_owner_of_nft": {
+              "$ref": "#/definitions/CheckOwnerOfNft"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "check_proposal_status"
+          ],
+          "properties": {
+            "check_proposal_status": {
+              "$ref": "#/definitions/CheckProposalStatus"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "generic_query"
+          ],
+          "properties": {
+            "generic_query": {
+              "$ref": "#/definitions/GenericQuery"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "smart_query"
+          ],
+          "properties": {
+            "smart_query": {
+              "$ref": "#/definitions/SmartQueryHead"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Cw20CoinVerified": {
       "type": "object",
       "required": [
@@ -436,26 +524,23 @@
       "type": "object",
       "required": [
         "contract_addr",
-        "gets",
         "msg",
         "ordering",
+        "path_to_value",
         "value"
       ],
       "properties": {
         "contract_addr": {
           "type": "string"
         },
-        "gets": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ValueIndex"
-          }
-        },
         "msg": {
           "$ref": "#/definitions/Binary"
         },
         "ordering": {
           "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_value": {
+          "$ref": "#/definitions/PathToValue"
         },
         "value": {
           "$ref": "#/definitions/Binary"
@@ -714,57 +799,91 @@
         "$ref": "#/definitions/Coin"
       }
     },
-    "Rule": {
-      "oneOf": [
-        {
-          "type": "object",
-          "required": [
-            "has_balance_gte"
-          ],
-          "properties": {
-            "has_balance_gte": {
-              "$ref": "#/definitions/HasBalanceGte"
-            }
-          },
-          "additionalProperties": false
+    "PathToValue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ValueIndex"
+      }
+    },
+    "SmartQueries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/SmartQuery"
+      }
+    },
+    "SmartQuery": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "msg",
+        "path_to_msg_value",
+        "path_to_query_value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
         },
-        {
-          "type": "object",
-          "required": [
-            "check_owner_of_nft"
-          ],
-          "properties": {
-            "check_owner_of_nft": {
-              "$ref": "#/definitions/CheckOwnerOfNft"
-            }
-          },
-          "additionalProperties": false
+        "msg": {
+          "$ref": "#/definitions/Binary"
         },
-        {
-          "type": "object",
-          "required": [
-            "check_proposal_status"
-          ],
-          "properties": {
-            "check_proposal_status": {
-              "$ref": "#/definitions/CheckProposalStatus"
+        "path_to_msg_value": {
+          "description": "Replace value inside this query",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
             }
-          },
-          "additionalProperties": false
+          ]
         },
-        {
-          "type": "object",
-          "required": [
-            "generic_query"
-          ],
-          "properties": {
-            "generic_query": {
-              "$ref": "#/definitions/GenericQuery"
+        "path_to_query_value": {
+          "description": "Value passed to the next iteration",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
             }
-          },
-          "additionalProperties": false
+          ]
         }
-      ]
+      }
+    },
+    "SmartQueryHead": {
+      "type": "object",
+      "required": [
+        "contract_addr",
+        "msg",
+        "ordering",
+        "path_to_query_value",
+        "queries",
+        "value"
+      ],
+      "properties": {
+        "contract_addr": {
+          "type": "string"
+        },
+        "msg": {
+          "description": "First query without placeholder!",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Binary"
+            }
+          ]
+        },
+        "ordering": {
+          "$ref": "#/definitions/ValueOrdering"
+        },
+        "path_to_query_value": {
+          "description": "Value from this message",
+          "allOf": [
+            {
+              "$ref": "#/definitions/PathToValue"
+            }
+          ]
+        },
+        "queries": {
+          "$ref": "#/definitions/SmartQueries"
+        },
+        "value": {
+          "$ref": "#/definitions/Binary"
+        }
+      }
     },
     "StakingMsg": {
       "description": "The message types of the staking module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto",
@@ -901,7 +1020,6 @@
         "actions",
         "amount_for_one_task_cw20",
         "amount_for_one_task_native",
-        "funds_withdrawn_recurring",
         "interval",
         "owner_id",
         "stop_on_fail",
@@ -938,25 +1056,19 @@
             }
           ]
         },
-        "funds_withdrawn_recurring": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        },
         "interval": {
           "$ref": "#/definitions/Interval"
         },
         "owner_id": {
           "$ref": "#/definitions/Addr"
         },
-        "rules": {
+        "queries": {
           "type": [
             "array",
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/Rule"
+            "$ref": "#/definitions/CroncatQuery"
           }
         },
         "stop_on_fail": {
@@ -1032,7 +1144,8 @@
         "unit_above_equal",
         "unit_below",
         "unit_below_equal",
-        "equal"
+        "equal",
+        "not_equal"
       ]
     },
     "VoteOption": {

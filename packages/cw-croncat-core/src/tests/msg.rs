@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
@@ -40,7 +38,6 @@ fn everything_can_be_de_serialized() {
     .into();
 
     let task = Task {
-        funds_withdrawn_recurring: vec![],
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
         boundary: BoundaryValidated {
@@ -54,7 +51,8 @@ fn everything_can_be_de_serialized() {
             msg,
             gas_limit: Some(150_000),
         }],
-        rules: None,
+        queries: None,
+        transforms: None,
         version: String::from(""),
     }
     .into();
@@ -110,7 +108,8 @@ fn everything_can_be_de_serialized() {
         }),
         stop_on_fail: true,
         actions: vec![],
-        rules: None, // TODO
+        queries: None,
+        transforms: None, // TODO
         cw20_coins: vec![],
     }
     .into();
@@ -128,8 +127,7 @@ fn everything_can_be_de_serialized() {
         amount_for_one_task_native: vec![coin(4, "earth")],
         amount_for_one_task_cw20: vec![],
         actions: vec![],
-        rules: None,
-        funds_withdrawn_recurring: vec![],
+        queries: None,
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();

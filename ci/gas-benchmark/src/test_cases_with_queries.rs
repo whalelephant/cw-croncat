@@ -4,10 +4,10 @@ use cosm_orc::{
 };
 use cosmwasm_std::coins;
 use cw_croncat_core::{
-    msg::TaskWithRulesResponse,
+    msg::TaskWithQueriesResponse,
     types::{Action, Interval},
 };
-use cw_rules_core::types::{HasBalanceGte, Rule};
+use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 
 use crate::{helpers::query_balance, types::GasInformation, BOB_ADDR, CRONCAT_NAME};
 use anyhow::Result;
@@ -35,10 +35,11 @@ where
             }),
             gas_limit: None,
         }],
-        rules: Some(vec![Rule::HasBalanceGte(HasBalanceGte {
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
             address: agent_addr.clone(),
             required_balance: coins(1, &denom).into(),
         })]),
+        transforms: None,
         cw20_coins: vec![],
     };
     let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
@@ -54,10 +55,10 @@ where
     )?;
 
     orc.poll_for_n_blocks(1, std::time::Duration::from_millis(20_000), false)?;
-    let mut active_tasks: Vec<TaskWithRulesResponse> = orc
+    let mut active_tasks: Vec<TaskWithQueriesResponse> = orc
         .query(
             CRONCAT_NAME,
-            &cw_croncat_core::msg::QueryMsg::GetTasksWithRules {
+            &cw_croncat_core::msg::QueryMsg::GetTasksWithQueries {
                 from_index: None,
                 limit: None,
             },
