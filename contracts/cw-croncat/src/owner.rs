@@ -346,28 +346,6 @@ impl<'a> CwCroncat<'a> {
             BalancerMode::Equalizer => RoundRobinBalancerModeResponse::Equalizer,
         };
 
-        // let reply_queue: Vec<ReplyQueueResponse> = self
-        //     .reply_queue
-        //     .range(deps.storage, None, None, Order::Ascending)
-        //     .skip(from_index_unwrap as usize)
-        //     .take(limit_unwrap as usize)
-        //     .map(|res| {
-        //         let res = res.unwrap();
-        //         let item = res.1;
-        //         ReplyQueueResponse {
-        //             index: res.0.into(),
-        //             item: QueueItemResponse {
-        //                 contract_addr: item.contract_addr,
-        //                 action_idx: item.action_idx.into(),
-        //                 task_hash: item.task_hash,
-        //                 task_is_extra: item.task_is_extra,
-        //                 agent_id: item.agent_id,
-        //                 failed: item.failure.is_some(),
-        //             },
-        //         }
-        //     })
-        //     .collect();
-
         let time_slots_queries: Vec<SlotWithQueriesResponse> = self
             .time_map_queries
             .range(deps.storage, None, None, Order::Ascending)

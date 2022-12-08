@@ -320,9 +320,6 @@ pub struct CwCroncatResponse {
     pub time_slots_queries: Vec<SlotWithQueriesResponse>,
     pub block_slots_queries: Vec<SlotWithQueriesResponse>,
 
-    /// Pretty sure it should be always empty
-    /// P.S: we can recover it after split, needed few non-critical Kbs
-    // pub reply_queue: Vec<ReplyQueueResponse>,
     pub reply_index: Uint64,
 
     pub agent_nomination_begin_time: Option<Timestamp>,
