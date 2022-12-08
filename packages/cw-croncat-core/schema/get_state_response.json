@@ -73,12 +73,7 @@
       "$ref": "#/definitions/GetConfigResponse"
     },
     "reply_index": {
-      "description": "Pretty sure it should be always empty P.S: we can recover it after split, needed few non-critical Kbs",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Uint64"
-        }
-      ]
+      "$ref": "#/definitions/Uint64"
     },
     "task_total": {
       "$ref": "#/definitions/Uint64"
