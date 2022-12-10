@@ -166,6 +166,11 @@ pub enum QueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+
+    SimulateTask {
+        task: TaskRequest,
+        funds: GenericBalance,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -438,7 +443,11 @@ pub struct GetSlotHashesResponse {
     pub time_id: u64,
     pub time_task_hash: Vec<String>,
 }
-
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+pub struct GasSimulationResponse {
+    pub estimated_gas: u64,
+    pub occurrences: u64,
+}
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct GetSlotIdsResponse {
     pub time_ids: Vec<u64>,

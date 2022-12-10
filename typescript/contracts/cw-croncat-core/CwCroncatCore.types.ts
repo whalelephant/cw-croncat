@@ -635,5 +635,11 @@ export type QueryMsg = {
     limit?: number | null;
     [k: string]: unknown;
   };
+} | {
+  simulate_task: {
+    funds: GenericBalance;
+    task: TaskRequest;
+    [k: string]: unknown;
+  };
 };
 export type ValidateIntervalResponse = boolean;

@@ -74,6 +74,13 @@ export interface CwCroncatCoreReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<GetStateResponse>;
+  simulateTask: ({
+    funds,
+    task
+  }: {
+    funds: GenericBalance;
+    task: TaskRequest;
+  }) => Promise<SimulateTaskResponse>;
 }
 export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface {
   client: CosmWasmClient;
@@ -97,6 +104,7 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
     this.getSlotIds = this.getSlotIds.bind(this);
     this.getWalletBalances = this.getWalletBalances.bind(this);
     this.getState = this.getState.bind(this);
+    this.simulateTask = this.simulateTask.bind(this);
   }
 
   getConfig = async (): Promise<GetConfigResponse> => {
@@ -246,6 +254,20 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
       get_state: {
         from_index: fromIndex,
         limit
+      }
+    });
+  };
+  simulateTask = async ({
+    funds,
+    task
+  }: {
+    funds: GenericBalance;
+    task: TaskRequest;
+  }): Promise<SimulateTaskResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      simulate_task: {
+        funds,
+        task
       }
     });
   };

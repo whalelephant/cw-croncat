@@ -9,11 +9,12 @@ use cosmwasm_std::{
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
-    GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse, TaskWithQueriesResponse,
+    GasSimulationResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse,
+    TaskWithQueriesResponse,
 };
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
 use cw_croncat_core::types::{
-    calculate_required_amount, BoundaryValidated, GenericBalance, SlotType, Task,
+    calculate_required_amount, simulate_task, BoundaryValidated, GenericBalance, SlotType, Task,
 };
 
 impl<'a> CwCroncat<'a> {
@@ -198,6 +199,24 @@ impl<'a> CwCroncat<'a> {
         Ok(GetSlotIdsResponse {
             time_ids,
             block_ids,
+        })
+    }
+
+    /// Query returns gas estimation and number of occurrences by TaskRequest
+    pub(crate) fn query_simulate_task(
+        &self,
+        env: Env,
+        deps: Deps,
+        task: TaskRequest,
+        funds: GenericBalance,
+    ) -> StdResult<GasSimulationResponse> {
+        let cfg: Config = self.config.load(deps.storage)?;
+
+        let sim =
+            simulate_task(task, funds, cfg.gas_base_fee, cfg.gas_action_fee, env.block).unwrap();
+        Ok(GasSimulationResponse {
+            estimated_gas: sim.0,
+            occurrences: sim.1,
         })
     }
 

@@ -213,6 +213,9 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetState { from_index, limit } => {
                 to_binary(&self.get_state(deps, env, from_index, limit)?)
             }
+            QueryMsg::SimulateTask { task, funds } => {
+                to_binary(&self.query_simulate_task(env, deps, task, funds)?)
+            }
         }
     }
 

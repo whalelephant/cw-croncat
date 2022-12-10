@@ -301,6 +301,30 @@
         }
       },
       "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "simulate_task"
+      ],
+      "properties": {
+        "simulate_task": {
+          "type": "object",
+          "required": [
+            "funds",
+            "task"
+          ],
+          "properties": {
+            "funds": {
+              "$ref": "#/definitions/GenericBalance"
+            },
+            "task": {
+              "$ref": "#/definitions/TaskRequest"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   ],
   "definitions": {
@@ -421,6 +445,78 @@
     "Binary": {
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
       "type": "string"
+    },
+    "Boundary": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "Height"
+          ],
+          "properties": {
+            "Height": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint64"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Time"
+          ],
+          "properties": {
+            "Time": {
+              "type": "object",
+              "properties": {
+                "end": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "start": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Timestamp"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "BoundaryValidated": {
       "type": "object",
@@ -698,6 +794,21 @@
           "additionalProperties": false
         }
       ]
+    },
+    "Cw20Coin": {
+      "type": "object",
+      "required": [
+        "address",
+        "amount"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "amount": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
     },
     "Cw20CoinVerified": {
       "type": "object",
@@ -1357,6 +1468,63 @@
         },
         "version": {
           "type": "string"
+        }
+      }
+    },
+    "TaskRequest": {
+      "type": "object",
+      "required": [
+        "actions",
+        "cw20_coins",
+        "interval",
+        "stop_on_fail"
+      ],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Action_for_Empty"
+          }
+        },
+        "boundary": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Boundary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cw20_coins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20Coin"
+          }
+        },
+        "interval": {
+          "$ref": "#/definitions/Interval"
+        },
+        "queries": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/CroncatQuery"
+          }
+        },
+        "stop_on_fail": {
+          "type": "boolean"
+        },
+        "transforms": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Transform"
+          }
         }
       }
     },

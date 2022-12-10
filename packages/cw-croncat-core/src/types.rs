@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg, OverflowError,
-    OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp, Uint128, Uint64,
-    WasmMsg,
+    Addr, Api, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg,
+    OverflowError, OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp,
+    Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -562,6 +562,68 @@ impl Task {
     }
 }
 
+pub fn simulate_task(
+    task: TaskRequest,
+    funds: GenericBalance,
+    gas_base_fee: u64,
+    gas_action_fee: u64,
+    block_info: BlockInfo,
+) -> Result<(u64, u64), CoreError> {
+    let mut occurrences: u64 = 0;
+    let interval = task.interval;
+    let mut gas_amount: u64 = gas_base_fee;
+
+    for action in task.actions.iter() {
+        gas_amount = gas_amount
+            .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
+            .ok_or(CoreError::NoGasLimit {})?;
+    }
+
+    match interval {
+        Interval::Once | Interval::Immediate => {
+            occurrences = occurrences.checked_add(1).unwrap_or_default();
+        }
+        Interval::Block(block) => {
+            let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval).unwrap();
+            let mut start_block: u64 = boundary.start.unwrap();
+            let end_block: u64;
+
+            match (boundary.start, boundary.end) {
+                (Some(start), None) => {
+                    let mut amount = 0u128;
+                    if let Some(coin) = funds.native.get(0) {
+                        amount = coin.amount.u128();
+                    } else if let Some(cw20) = funds.cw20.get(0) {
+                        amount = cw20.amount.u128();
+                    }
+                    amount = amount.checked_div(gas_amount.into()).unwrap_or_default();
+
+                    end_block = start.checked_add(amount as u64).unwrap_or_default();
+                }
+                (Some(_), Some(end)) => {
+                    if block_info.height >= end {
+                        return Err(CoreError::InvalidBoundary {});
+                    }
+                    end_block = boundary.end.unwrap();
+                }
+                _ => {
+                    start_block = 0;
+                    end_block = 0
+                }
+            }
+            occurrences = end_block
+                .checked_sub(start_block)
+                .unwrap_or_default()
+                .checked_div(block)
+                .unwrap_or_default();
+        }
+        Interval::Cron(_) => {
+            // let schedule = Schedule::from_str(&crontab);
+        }
+    }
+
+    Ok((gas_amount, occurrences))
+}
 /// Calculate the amount including agent_fee
 pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
     amount
