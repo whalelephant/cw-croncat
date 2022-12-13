@@ -5,5 +5,3 @@ pub mod query;
 pub mod tests;
 pub mod traits;
 pub mod types;
-
-mod helpers;

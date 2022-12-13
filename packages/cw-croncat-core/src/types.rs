@@ -15,7 +15,6 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
-    iif,
     msg::TaskRequest,
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
@@ -623,11 +622,11 @@ pub fn simulate_task(
                 current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
             let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
             // put task in the next slot if next_ts_slot in the current slot
-            let next_slot = iif!(
-                next_ts_slot == current_block_slot,
-                next_ts_slot + slot_granularity_time,
+            let next_slot = if next_ts_slot == current_block_slot {
+                next_ts_slot + slot_granularity_time
+            } else {
                 next_ts_slot
-            );
+            };
             let diff = next_slot.saturating_sub(current_block_slot);
             let end_time: u64;
 

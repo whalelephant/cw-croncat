@@ -66,9 +66,4 @@ fn main() {
         &out_dir,
         "SimulateTaskResponse",
     );
-    export_schema_with_title(
-        &schema_for!(Vec<SimulateTaskResponse>),
-        &out_dir,
-        "SimulateTaskResponse",
-    );
 }
