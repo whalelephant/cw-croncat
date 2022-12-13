@@ -212,8 +212,15 @@ impl<'a> CwCroncat<'a> {
     ) -> StdResult<GasSimulationResponse> {
         let cfg: Config = self.config.load(deps.storage)?;
 
-        let sim =
-            simulate_task(task, funds, cfg.gas_base_fee, cfg.gas_action_fee, env.block).unwrap();
+        let sim = simulate_task(
+            task,
+            funds,
+            cfg.gas_base_fee,
+            cfg.gas_action_fee,
+            env.block,
+            cfg.slot_granularity_time,
+        )
+        .unwrap();
         Ok(GasSimulationResponse {
             estimated_gas: sim.0,
             occurrences: sim.1,

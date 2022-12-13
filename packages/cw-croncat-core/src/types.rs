@@ -15,6 +15,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
+    iif,
     msg::TaskRequest,
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
@@ -568,6 +569,7 @@ pub fn simulate_task(
     gas_base_fee: u64,
     gas_action_fee: u64,
     block_info: BlockInfo,
+    slot_granularity_time: u64,
 ) -> Result<(u64, u64), CoreError> {
     let mut occurrences: u64 = 0;
     let interval = task.interval;
@@ -578,15 +580,56 @@ pub fn simulate_task(
             .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
             .ok_or(CoreError::NoGasLimit {})?;
     }
+    let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval).unwrap();
 
     match interval {
         Interval::Once | Interval::Immediate => {
-            occurrences = occurrences.checked_add(1).unwrap_or_default();
+            occurrences = occurrences.saturating_add(1);
         }
         Interval::Block(block) => {
-            let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval).unwrap();
             let mut start_block: u64 = boundary.start.unwrap();
             let end_block: u64;
+            match (boundary.start, boundary.end) {
+                (Some(start), None) => {
+                    let mut amount = 0u128;
+                    if let Some(coin) = funds.native.get(0) {
+                        amount = coin.amount.u128();
+                    } else if let Some(cw20) = funds.cw20.get(0) {
+                        amount = cw20.amount.u128();
+                    }
+                    amount = amount.saturating_div(gas_amount.into());
+                    end_block = start.saturating_add(amount as u64 * block);
+                }
+                (Some(_), Some(end)) => {
+                    end_block = end;
+                }
+                _ => {
+                    start_block = 0;
+                    end_block = 0
+                }
+            }
+            if block_info.height >= end_block {
+                return Err(CoreError::InvalidBoundary {});
+            }
+            occurrences = end_block.saturating_sub(start_block).saturating_div(block);
+        }
+        Interval::Cron(crontab) => {
+            let schedule = Schedule::from_str(&crontab).unwrap();
+            let mut start_time: u64 = boundary.start.unwrap();
+            let current_block_ts = block_info.time.nanos();
+            let current_ts = std::cmp::max(current_block_ts, start_time);
+            let next_ts = schedule.next_after(&current_ts).unwrap();
+            let current_block_slot =
+                current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
+            let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
+            // put task in the next slot if next_ts_slot in the current slot
+            let next_slot = iif!(
+                next_ts_slot == current_block_slot,
+                next_ts_slot + slot_granularity_time,
+                next_ts_slot
+            );
+            let diff = next_slot.saturating_sub(current_block_slot);
+            let end_time: u64;
 
             match (boundary.start, boundary.end) {
                 (Some(start), None) => {
@@ -596,34 +639,28 @@ pub fn simulate_task(
                     } else if let Some(cw20) = funds.cw20.get(0) {
                         amount = cw20.amount.u128();
                     }
-                    amount = amount.checked_div(gas_amount.into()).unwrap_or_default();
-
-                    end_block = start.checked_add(amount as u64).unwrap_or_default();
+                    amount = amount.saturating_div(gas_amount.into());
+                    end_time = start.saturating_add(diff * amount as u64);
                 }
                 (Some(_), Some(end)) => {
-                    if block_info.height >= end {
+                    if block_info.time.seconds() >= end {
                         return Err(CoreError::InvalidBoundary {});
                     }
-                    end_block = boundary.end.unwrap();
+                    end_time = boundary.end.unwrap();
                 }
                 _ => {
-                    start_block = 0;
-                    end_block = 0
+                    start_time = 0;
+                    end_time = 0
                 }
             }
-            occurrences = end_block
-                .checked_sub(start_block)
-                .unwrap_or_default()
-                .checked_div(block)
-                .unwrap_or_default();
-        }
-        Interval::Cron(_) => {
-            // let schedule = Schedule::from_str(&crontab);
+
+            occurrences = end_time.saturating_sub(start_time).saturating_div(diff);
         }
     }
 
     Ok((gas_amount, occurrences))
 }
+
 /// Calculate the amount including agent_fee
 pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
     amount
