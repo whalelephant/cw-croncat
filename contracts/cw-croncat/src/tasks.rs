@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
-    GasSimulationResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskRequest, TaskResponse,
+    GetSlotHashesResponse, GetSlotIdsResponse, SimulateTaskResponse, TaskRequest, TaskResponse,
     TaskWithQueriesResponse,
 };
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
@@ -209,7 +209,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task: TaskRequest,
         funds: GenericBalance,
-    ) -> StdResult<GasSimulationResponse> {
+    ) -> StdResult<SimulateTaskResponse> {
         let cfg: Config = self.config.load(deps.storage)?;
 
         let sim = simulate_task(
@@ -221,7 +221,7 @@ impl<'a> CwCroncat<'a> {
             cfg.slot_granularity_time,
         )
         .unwrap();
-        Ok(GasSimulationResponse {
+        Ok(SimulateTaskResponse {
             estimated_gas: sim.0,
             occurrences: sim.1,
         })

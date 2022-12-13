@@ -117,6 +117,14 @@ class CwCroncatCoreQueryClient {
                 }
             });
         });
+        this.simulateTask = ({ funds, task }) => __awaiter(this, void 0, void 0, function* () {
+            return this.client.queryContractSmart(this.contractAddress, {
+                simulate_task: {
+                    funds,
+                    task
+                }
+            });
+        });
         this.client = client;
         this.contractAddress = contractAddress;
         this.getConfig = this.getConfig.bind(this);
@@ -134,6 +142,7 @@ class CwCroncatCoreQueryClient {
         this.getSlotIds = this.getSlotIds.bind(this);
         this.getWalletBalances = this.getWalletBalances.bind(this);
         this.getState = this.getState.bind(this);
+        this.simulateTask = this.simulateTask.bind(this);
     }
 }
 exports.CwCroncatCoreQueryClient = CwCroncatCoreQueryClient;

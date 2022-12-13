@@ -642,4 +642,10 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 };
+export type SimulateTaskResponse = SimulateTaskResponse1[];
+export interface SimulateTaskResponse1 {
+  estimated_gas: number;
+  occurrences: number;
+  [k: string]: unknown;
+}
 export type ValidateIntervalResponse = boolean;

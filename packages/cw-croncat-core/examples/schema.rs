@@ -3,8 +3,8 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, export_schema_with_title, remove_schemas, schema_for};
 use cw_croncat_core::msg::{
-    AgentResponse, Croncat, CwCroncatResponse, ExecuteMsg, InstantiateMsg, QueryMsg, TaskResponse,
-    TaskWithQueriesResponse,
+    AgentResponse, Croncat, CwCroncatResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    SimulateTaskResponse, TaskResponse, TaskWithQueriesResponse,
 };
 
 fn main() {
@@ -55,5 +55,20 @@ fn main() {
         &schema_for!(CwCroncatResponse),
         &out_dir,
         "GetStateResponse",
+    );
+    export_schema_with_title(
+        &schema_for!(SimulateTaskResponse),
+        &out_dir,
+        "GasSimulationResponse",
+    );
+    export_schema_with_title(
+        &schema_for!(SimulateTaskResponse),
+        &out_dir,
+        "SimulateTaskResponse",
+    );
+    export_schema_with_title(
+        &schema_for!(Vec<SimulateTaskResponse>),
+        &out_dir,
+        "SimulateTaskResponse",
     );
 }

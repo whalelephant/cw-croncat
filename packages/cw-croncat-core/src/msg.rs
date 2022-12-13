@@ -444,7 +444,7 @@ pub struct GetSlotHashesResponse {
     pub time_task_hash: Vec<String>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
-pub struct GasSimulationResponse {
+pub struct SimulateTaskResponse {
     pub estimated_gas: u64,
     pub occurrences: u64,
 }
