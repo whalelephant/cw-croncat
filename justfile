@@ -2,12 +2,16 @@ test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accou
 set export
 check:
 	cargo fmt && cargo clippy -- -D warnings
+test:
+	./scripts/test.sh
 build:
 	./scripts/build.sh
 deploy:
 	./scripts/uni-testnet/start.sh -c -w
 checksum:
 	./scripts/update-checksum.sh
+schema:
+	./scripts/schema.sh
 juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data
