@@ -277,13 +277,24 @@ pub struct TaskRequestBuilder {
     pub interval: Interval,
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
-    pub actions: Vec<Action>,
-    pub queries: Option<Vec<CroncatQuery>>,
-    pub transforms: Option<Vec<Transform>>,
-    pub cw20_coins: Vec<Cw20Coin>,
+    pub actions: Option<Vec<Action>>,
+    pub queries: Option<Option<Vec<CroncatQuery>>>,
+    pub transforms: Option<Option<Vec<Transform>>>,
+    pub cw20_coins: Option<Vec<Cw20Coin>>,
 }
 #[allow(dead_code)]
 impl TaskRequestBuilder {
+    fn new() -> Self {
+        Self {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: None,
+            queries: None,
+            transforms: None,
+            cw20_coins: None,
+        }
+    }
     fn with_interval(&mut self, interval: Interval) -> &Self {
         self.interval = interval;
         self
@@ -322,35 +333,35 @@ impl TaskRequestBuilder {
     }
 
     fn with_action(&mut self, action: Action) -> &Self {
-        self.actions = vec![action];
+        self.actions = Some(vec![action]);
         self
     }
     fn with_actions(&mut self, actions: Vec<Action>) -> &Self {
-        self.actions = actions;
+        self.actions = Some(actions);
         self
     }
     fn with_query(&mut self, query: CroncatQuery) -> &Self {
-        self.queries = Some(vec![query]);
+        self.queries = Some(Some(vec![query]));
         self
     }
     fn with_queries(&mut self, queries: Vec<CroncatQuery>) -> &Self {
-        self.queries = Some(queries);
+        self.queries = Some(Some(queries));
         self
     }
     fn with_transform(&mut self, transform: Transform) -> &Self {
-        self.transforms = Some(vec![transform]);
+        self.transforms = Some(Some(vec![transform]));
         self
     }
     fn with_transforms(&mut self, transforms: Vec<Transform>) -> &Self {
-        self.transforms = Some(transforms);
+        self.transforms = Some(Some(transforms));
         self
     }
     fn with_cw20(&mut self, cw20: Cw20Coin) -> &Self {
-        self.cw20_coins = vec![cw20];
+        self.cw20_coins = Some(vec![cw20]);
         self
     }
     fn with_cw20s(&mut self, cw20s: Vec<Cw20Coin>) -> &Self {
-        self.cw20_coins = cw20s;
+        self.cw20_coins = Some(cw20s);
         self
     }
     fn build(&self) -> TaskRequest {
@@ -358,10 +369,10 @@ impl TaskRequestBuilder {
             interval: self.interval.clone(),
             boundary: self.boundary,
             stop_on_fail: self.stop_on_fail,
-            actions: self.actions.clone(),
-            queries: self.queries.clone(),
-            transforms: self.transforms.clone(),
-            cw20_coins: self.cw20_coins.clone(),
+            actions: self.actions.clone().unwrap(),
+            queries: self.queries.clone().unwrap(),
+            transforms: self.transforms.clone().unwrap(),
+            cw20_coins: self.cw20_coins.clone().unwrap(),
         }
     }
 }
