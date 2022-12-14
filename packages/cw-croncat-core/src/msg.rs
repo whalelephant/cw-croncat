@@ -273,7 +273,98 @@ pub struct TaskRequest {
     pub transforms: Option<Vec<Transform>>,
     pub cw20_coins: Vec<Cw20Coin>,
 }
+pub struct TaskRequestBuilder {
+    pub interval: Interval,
+    pub boundary: Option<Boundary>,
+    pub stop_on_fail: bool,
+    pub actions: Vec<Action>,
+    pub queries: Option<Vec<CroncatQuery>>,
+    pub transforms: Option<Vec<Transform>>,
+    pub cw20_coins: Vec<Cw20Coin>,
+}
+#[allow(dead_code)]
+impl TaskRequestBuilder {
+    fn with_interval(&mut self, interval: Interval) -> &Self {
+        self.interval = interval;
+        self
+    }
+    fn once(&mut self) -> &Self {
+        self.with_interval(Interval::Once)
+    }
+    fn block(&mut self, block_inerval: u64) -> &Self {
+        self.with_interval(Interval::Block(block_inerval))
+    }
+    fn cron(&mut self, crontab: String) -> &Self {
+        self.with_interval(Interval::Cron(crontab))
+    }
+    fn immediate(&mut self) -> &Self {
+        self.with_interval(Interval::Immediate)
+    }
+    fn with_boundary(&mut self, boundary: Boundary) -> &Self {
+        self.boundary = Some(boundary);
+        self
+    }
+    fn with_time_boundary(&mut self, start: Timestamp, end: Timestamp) -> &Self {
+        self.with_boundary(Boundary::Time {
+            start: Some(start),
+            end: Some(end),
+        })
+    }
+    fn with_height_boundary(&mut self, start: Uint64, end: Uint64) -> &Self {
+        self.with_boundary(Boundary::Height {
+            start: Some(start),
+            end: Some(end),
+        })
+    }
+    fn should_stop_on_fail(&mut self, stop_on_fail: bool) -> &Self {
+        self.stop_on_fail = stop_on_fail;
+        self
+    }
 
+    fn with_action(&mut self, action: Action) -> &Self {
+        self.actions = vec![action];
+        self
+    }
+    fn with_actions(&mut self, actions: Vec<Action>) -> &Self {
+        self.actions = actions;
+        self
+    }
+    fn with_query(&mut self, query: CroncatQuery) -> &Self {
+        self.queries = Some(vec![query]);
+        self
+    }
+    fn with_queries(&mut self, queries: Vec<CroncatQuery>) -> &Self {
+        self.queries = Some(queries);
+        self
+    }
+    fn with_transform(&mut self, transform: Transform) -> &Self {
+        self.transforms = Some(vec![transform]);
+        self
+    }
+    fn with_transforms(&mut self, transforms: Vec<Transform>) -> &Self {
+        self.transforms = Some(transforms);
+        self
+    }
+    fn with_cw20(&mut self, cw20: Cw20Coin) -> &Self {
+        self.cw20_coins = vec![cw20];
+        self
+    }
+    fn with_cw20s(&mut self, cw20s: Vec<Cw20Coin>) -> &Self {
+        self.cw20_coins = cw20s;
+        self
+    }
+    fn build(&self) -> TaskRequest {
+        TaskRequest {
+            interval: self.interval.clone(),
+            boundary: self.boundary,
+            stop_on_fail: self.stop_on_fail,
+            actions: self.actions.clone(),
+            queries: self.queries.clone(),
+            transforms: self.transforms.clone(),
+            cw20_coins: self.cw20_coins.clone(),
+        }
+    }
+}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct TaskResponse {
     pub task_hash: String,
