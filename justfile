@@ -2,6 +2,10 @@ test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accou
 set export
 check:
 	cargo fmt && cargo clippy -- -D warnings
+build:
+	./scripts/build.sh
+deploy:
+	./scripts/uni-testnet/start.sh -c -w
 checksum:
 	./scripts/update-checksum.sh
 juno-local:

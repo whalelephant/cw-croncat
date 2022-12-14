@@ -366,7 +366,7 @@ impl TaskRequestBuilder {
         self
     }
     pub fn build(&self) -> Result<TaskRequest, CoreError> {
-        BoundaryValidated::validate_boundary(self.boundary,&self.interval)?;
+        BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
         Ok(TaskRequest {
             interval: self.interval.clone(),
             boundary: self.boundary,
@@ -376,6 +376,11 @@ impl TaskRequestBuilder {
             transforms: self.transforms.clone().unwrap_or_default(),
             cw20_coins: self.cw20_coins.clone().unwrap_or_default(),
         })
+    }
+}
+impl Default for TaskRequestBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

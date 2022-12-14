@@ -229,5 +229,5 @@ fn test_task_request_builder() {
         .build()
         .unwrap_err();
 
-    assert!(matches!(invalid_result, CoreError::InvalidBoundary{}));
+    assert!(matches!(invalid_result, CoreError::InvalidBoundary {}));
 }
