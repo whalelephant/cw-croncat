@@ -117,8 +117,8 @@ impl BoundaryValidated {
                             return Err(CoreError::InvalidBoundary {});
                         }
                         Ok(Self {
-                            start: start.map(|start| start.nanos()),
-                            end: end.map(|end| end.nanos()),
+                            start: Some(s.nanos()),
+                            end: Some(e.nanos()),
                         })
                     }
                     _ => Ok(Self {
