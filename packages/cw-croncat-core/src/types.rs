@@ -135,8 +135,8 @@ impl BoundaryValidated {
                             return Err(CoreError::InvalidBoundary {});
                         }
                         Ok(Self {
-                            start: start.map(Into::into),
-                            end: end.map(Into::into),
+                            start: Some(s.u64)),
+                            end: Some(e.u64()),
                         })
                     }
                     _ => Ok(Self {
