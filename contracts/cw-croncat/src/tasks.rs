@@ -220,7 +220,7 @@ impl<'a> CwCroncat<'a> {
             env.block,
             cfg.slot_granularity_time,
         )
-        .unwrap();
+        .map_err(|e| cosmwasm_std::StdError::generic_err(e.to_string()))?;
         Ok(SimulateTaskResponse {
             estimated_gas: sim.0,
             occurrences: sim.1,
