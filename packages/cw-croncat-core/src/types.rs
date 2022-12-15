@@ -586,7 +586,7 @@ pub fn simulate_task(
             occurrences = occurrences.saturating_add(1);
         }
         Interval::Block(block) => {
-            let mut start_block: u64 = boundary.start.unwrap();
+            let mut start_block: u64 = boundary.start.unwrap_or(env.block.height);
             let end_block: u64;
             match (boundary.start, boundary.end) {
                 (Some(start), None) => {
