@@ -23,18 +23,17 @@ to the world, once you are ready to deploy it on a running blockchain.
 
 ## Commands
 ```bash
-cd contracts/cw-croncat/scripts
-```
+# Install just
+cargo install just
 
-```bash
 # For building + fmt
-./build.sh
+just build
 
 # For testing everything
-./test.sh
+just test
 
 # For schemas
-./schema.sh
+just schema
 
 # Production compilation, run before deploying to live network
 docker run --rm -v "$(pwd)":/code \
@@ -46,13 +45,9 @@ docker run --rm -v "$(pwd)":/code \
 ## Testnet examples
 
 There are some scripts for testnet, mainnet and local node
-```bash
-cd scripts/uni-testnet
-```
-
 To build and deploy to testnet:
 ```bash
-./start.sh -w -c
+just deploy
 ```
 
 Save the address of the created contract:
@@ -114,7 +109,7 @@ cargo run -- help
 
 Schema Update
 ```bash
-./build.sh
+just build
 ```
 Install yarn packages
 ```bash

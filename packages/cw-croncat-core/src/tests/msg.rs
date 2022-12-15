@@ -2,10 +2,11 @@ use cosmwasm_std::{coin, coins, Addr, BankMsg, CosmosMsg, Timestamp, Uint64};
 use cw20::Cw20CoinVerified;
 
 use crate::{
+    error::CoreError,
     msg::{
         AgentResponse, AgentTaskResponse, Croncat, GetAgentIdsResponse, GetBalancesResponse,
         GetConfigResponse, GetSlotHashesResponse, GetSlotIdsResponse, GetWalletBalancesResponse,
-        TaskRequest, TaskResponse,
+        TaskRequest, TaskRequestBuilder, TaskResponse,
     },
     types::{
         Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance,
@@ -189,4 +190,45 @@ fn everything_can_be_de_serialized() {
 
     let deser: Result<Croncat, _> = serde_json_wasm::from_str(&ser.unwrap());
     assert!(deser.is_ok());
+}
+#[test]
+fn test_task_request_builder() {
+    const ALICE_ADDR: &str = "juno1l8hl8e0ut8jdaecxwazs9m32ak02ez4rssq4wl";
+    const DENOM: &str = "ujunox";
+
+    let valid_result = TaskRequestBuilder::new()
+        .once()
+        .with_height_boundary(10, 20)
+        .should_stop_on_fail(true)
+        .with_action(Action {
+            msg: cosmwasm_std::CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+                to_address: ALICE_ADDR.to_string(),
+                amount: coins(1, DENOM),
+            }),
+            gas_limit: None,
+        })
+        .build()
+        .unwrap();
+
+    assert!(valid_result.boundary.is_some());
+    assert!(valid_result.stop_on_fail);
+    assert!(valid_result.actions.len() == 1);
+
+    assert!(matches!(valid_result.interval, Interval::Once));
+
+    let invalid_result = TaskRequestBuilder::new()
+        .once()
+        .with_height_boundary(10, 5)
+        .should_stop_on_fail(true)
+        .with_action(Action {
+            msg: cosmwasm_std::CosmosMsg::Bank(cosmwasm_std::BankMsg::Send {
+                to_address: ALICE_ADDR.to_string(),
+                amount: coins(1, DENOM),
+            }),
+            gas_limit: None,
+        })
+        .build()
+        .unwrap_err();
+
+    assert!(matches!(invalid_result, CoreError::InvalidBoundary {}));
 }
