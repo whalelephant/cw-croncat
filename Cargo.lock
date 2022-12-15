@@ -650,7 +650,6 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
  "cw-croncat-core",
  "cw-multi-test",
  "cw-rules",
@@ -683,7 +682,6 @@ version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
  "cron_schedule",
  "cw-multi-test",
  "cw-rules-core",
@@ -784,8 +782,6 @@ dependencies = [
  "base64",
  "cosmwasm-schema",
  "cosmwasm-std",
- "cosmwasm-storage",
- "cw-croncat-core",
  "cw-multi-test",
  "cw-rules-core",
  "cw-storage-plus 0.16.0",
@@ -812,7 +808,6 @@ dependencies = [
  "serde_json",
  "smart-query",
  "thiserror",
- "voting",
 ]
 
 [[package]]

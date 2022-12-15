@@ -367,8 +367,8 @@ impl TaskRequestBuilder {
         self
     }
     pub fn build(&self) -> Result<TaskRequest, CoreError> {
-        if !self.interval.is_valid(){
-            return Err(CoreError::InvalidInterval {  });
+        if !self.interval.is_valid() {
+            return Err(CoreError::InvalidInterval {});
         }
         BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
 
