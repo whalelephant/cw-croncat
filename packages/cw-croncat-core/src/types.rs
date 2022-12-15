@@ -586,7 +586,7 @@ pub fn simulate_task(
             occurrences = occurrences.saturating_add(1);
         }
         Interval::Block(block) => {
-            let mut start_block: u64 = boundary.start.unwrap_or(env.block.height);
+            let mut start_block: u64 = boundary.start.unwrap_or(block_info.height);
             let end_block: u64;
             match (boundary.start, boundary.end) {
                 (Some(start), None) => {
@@ -614,7 +614,7 @@ pub fn simulate_task(
         }
         Interval::Cron(crontab) => {
             let schedule = Schedule::from_str(&crontab).unwrap();
-            let mut start_time: u64 = boundary.start.unwrap_or(env.block.height);
+            let mut start_time: u64 = boundary.start.unwrap_or(block_info.height);
             let current_block_ts = block_info.time.nanos();
             let current_ts = std::cmp::max(current_block_ts, start_time);
             let next_ts = schedule.next_after(&current_ts).unwrap();
