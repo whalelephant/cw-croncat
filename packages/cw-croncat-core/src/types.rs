@@ -579,7 +579,7 @@ pub fn simulate_task(
             .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
             .ok_or(CoreError::NoGasLimit {})?;
     }
-    let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval).unwrap();
+    let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval)?;
 
     match interval {
         Interval::Once | Interval::Immediate => {
