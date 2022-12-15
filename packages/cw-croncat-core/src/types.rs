@@ -645,7 +645,7 @@ pub fn simulate_task(
                     if block_info.time.seconds() >= end {
                         return Err(CoreError::InvalidBoundary {});
                     }
-                    end_time = boundary.end.unwrap();
+                    end_time = end;
                 }
                 _ => {
                     start_time = 0;
