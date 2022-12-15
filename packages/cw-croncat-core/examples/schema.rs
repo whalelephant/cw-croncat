@@ -59,11 +59,6 @@ fn main() {
     export_schema_with_title(
         &schema_for!(SimulateTaskResponse),
         &out_dir,
-        "GasSimulationResponse",
-    );
-    export_schema_with_title(
-        &schema_for!(SimulateTaskResponse),
-        &out_dir,
         "SimulateTaskResponse",
     );
 }
