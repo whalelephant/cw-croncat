@@ -614,7 +614,7 @@ pub fn simulate_task(
         }
         Interval::Cron(crontab) => {
             let schedule = Schedule::from_str(&crontab).unwrap();
-            let mut start_time: u64 = boundary.start.unwrap();
+            let mut start_time: u64 = boundary.start.unwrap_or(env.block.height);
             let current_block_ts = block_info.time.nanos();
             let current_ts = std::cmp::max(current_block_ts, start_time);
             let next_ts = schedule.next_after(&current_ts).unwrap();
