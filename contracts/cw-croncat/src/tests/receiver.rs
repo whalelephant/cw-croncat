@@ -57,6 +57,7 @@ fn test_cw20_action() {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
             }],
+            sender: None,
         },
     };
     app.execute_contract(
@@ -184,6 +185,7 @@ fn test_cw20_balances() {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
             }],
+            sender: None,
         },
     };
     let mut resp = app
@@ -266,6 +268,7 @@ fn test_cw20_negative() {
                 address: cw20_contract.to_string(),
                 amount: 10u128.into(),
             }],
+            sender: None,
         },
     };
     let resp: ContractError = app
@@ -323,6 +326,7 @@ fn test_cw20_negative() {
             queries: None,
             transforms: None,
             cw20_coins: vec![],
+            sender: None,
         },
     };
     let resp: ContractError = app

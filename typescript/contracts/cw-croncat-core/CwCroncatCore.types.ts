@@ -406,6 +406,7 @@ export interface TaskRequest {
   cw20_coins: Cw20Coin[];
   interval: Interval;
   queries?: CroncatQuery[] | null;
+  sender?: string | null;
   stop_on_fail: boolean;
   transforms?: Transform[] | null;
   [k: string]: unknown;
@@ -500,11 +501,6 @@ export interface Cw20ReceiveMsg {
   amount: Uint128;
   msg: Binary;
   sender: string;
-  [k: string]: unknown;
-}
-export interface GasSimulationResponse {
-  estimated_gas: number;
-  occurrences: number;
   [k: string]: unknown;
 }
 export type GetAgentResponse = AgentResponse | null;
@@ -642,7 +638,7 @@ export type QueryMsg = {
   };
 } | {
   simulate_task: {
-    funds: GenericBalance;
+    funds: Coin[];
     task: TaskRequest;
     [k: string]: unknown;
   };
@@ -650,6 +646,7 @@ export type QueryMsg = {
 export interface SimulateTaskResponse {
   estimated_gas: number;
   occurrences: number;
+  task_hash: string;
   [k: string]: unknown;
 }
 export type ValidateIntervalResponse = boolean;

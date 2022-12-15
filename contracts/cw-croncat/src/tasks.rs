@@ -1,21 +1,19 @@
 use crate::error::ContractError;
 use crate::slots::Interval;
 use crate::state::{Config, CwCroncat};
-use cosmwasm_std::{coin, Storage};
 use cosmwasm_std::{
     to_binary, BankMsg, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, SubMsg,
     WasmMsg,
 };
+use cosmwasm_std::{Coin, Storage};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     GetSlotHashesResponse, GetSlotIdsResponse, SimulateTaskResponse, TaskRequest, TaskResponse,
     TaskWithQueriesResponse,
 };
-use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
-use cw_croncat_core::types::{
-    calculate_required_amount, simulate_task, BoundaryValidated, GenericBalance, SlotType, Task,
-};
+use cw_croncat_core::traits::{BalancesOperations, Intervals};
+use cw_croncat_core::types::{simulate_task, ContractInfo, EconomicsContext, SlotType, Task};
 
 impl<'a> CwCroncat<'a> {
     /// Returns task data
@@ -208,25 +206,40 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         deps: Deps,
         task: TaskRequest,
-        funds: GenericBalance,
+        funds: Vec<Coin>,
     ) -> StdResult<SimulateTaskResponse> {
         let cfg: Config = self.config.load(deps.storage)?;
-
+        let version = self.get_contract_version(&env, &deps);
         let sim = simulate_task(
+            &env,
+            &deps,
             task,
             funds,
-            cfg.gas_base_fee,
-            cfg.gas_action_fee,
-            env.block,
+            EconomicsContext {
+                gas_base_fee: cfg.gas_base_fee,
+                gas_action_fee: cfg.gas_action_fee,
+                agent_fee: cfg.agent_fee,
+                native_denom: &cfg.native_denom,
+                gas_fraction: &cfg.gas_fraction,
+            },
+            &ContractInfo {
+                addr: &env.contract.address,
+                owner_addr: &cfg.owner_id,
+                version: &version,
+            },
             cfg.slot_granularity_time,
         )
         .map_err(|e| cosmwasm_std::StdError::generic_err(e.to_string()))?;
-        Ok(SimulateTaskResponse {
-            estimated_gas: sim.0,
-            occurrences: sim.1,
-        })
+        Ok(sim)
     }
 
+    fn get_contract_version(&self, env: &Env, deps: &Deps) -> cw2::ContractVersion {
+        self.query_contract_info(deps.to_owned(), env.contract.address.to_string())
+            .unwrap_or(cw2::ContractVersion {
+                contract: "test".to_string(),
+                version: "1.0.0".to_string(),
+            })
+    }
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
     /// the task is no longer executed, any additional funds will be returned to task owner.
@@ -250,7 +263,7 @@ impl<'a> CwCroncat<'a> {
         }
 
         let owner_id = &info.sender;
-        let cw20 = if !task.cw20_coins.is_empty() {
+        if !task.cw20_coins.is_empty() {
             let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(task.cw20_coins.len());
             for coin in &task.cw20_coins {
                 cw20.push(Cw20CoinVerified {
@@ -269,54 +282,35 @@ impl<'a> CwCroncat<'a> {
                     Ok(balances)
                 },
             )?;
-            cw20
-        } else {
-            vec![]
-        };
-        let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
-
+        }
         if !task.interval.is_valid() {
             return Err(ContractError::CustomError {
                 val: "Interval invalid".to_string(),
             });
         }
 
-        let (mut amount_for_one_task, gas_amount) = task.is_valid_msg_calculate_usage(
-            deps.api,
-            &env.contract.address,
-            owner_id,
-            &cfg.owner_id,
-            cfg.gas_base_fee,
-            cfg.gas_action_fee,
-        )?;
-        let gas_price = calculate_required_amount(gas_amount, cfg.agent_fee)?;
-        let price = cfg.gas_fraction.calculate(gas_price, 1)?;
-        amount_for_one_task
-            .native
-            .find_checked_add(&coin(price, &cfg.native_denom))?;
-
+        let mut req = task.clone();
+        req.sender = Some(task.sender.unwrap_or_else(|| info.sender.to_string()));
         //ToDo: Change this method as env.contract.address does not exist in testing env
-        let version = self
-            .query_contract_info(deps.as_ref(), env.contract.address.to_string())
-            .unwrap_or(cw2::ContractVersion {
-                contract: "test".to_string(),
-                version: "1.0.0".to_string(),
-            });
-        let item = Task {
-            owner_id: owner_id.clone(),
-            interval: task.interval,
-            boundary,
-            stop_on_fail: task.stop_on_fail,
-            total_deposit: GenericBalance {
-                native: info.funds.clone(),
-                cw20,
+        let version = self.get_contract_version(&env, &deps.as_ref());
+
+        let item = req.as_task(
+            &env,
+            &deps.as_ref(),
+            &ContractInfo {
+                addr: &env.contract.address,
+                version: &version,
+                owner_addr: &cfg.owner_id,
             },
-            amount_for_one_task,
-            actions: task.actions,
-            queries: task.queries,
-            transforms: task.transforms,
-            version: version.version,
-        };
+            info.funds.clone(),
+            EconomicsContext {
+                gas_base_fee: cfg.gas_base_fee,
+                gas_action_fee: cfg.gas_action_fee,
+                agent_fee: cfg.agent_fee,
+                native_denom: &cfg.native_denom,
+                gas_fraction: &cfg.gas_fraction,
+            },
+        )?;
 
         // Check that balance is sufficient for 1 execution minimum
         let recurring = item.interval != Interval::Once;

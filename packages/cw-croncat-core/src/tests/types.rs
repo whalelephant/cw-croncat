@@ -32,6 +32,7 @@ fn is_valid_msg_once_block_based() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -65,6 +66,7 @@ fn is_valid_msg_once_time_based() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -95,6 +97,7 @@ fn is_valid_msg_recurring() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -129,6 +132,7 @@ fn is_valid_msg_wrong_account() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert_eq!(
         CoreError::InvalidAction {},
@@ -164,6 +168,7 @@ fn is_valid_msg_vote() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert_eq!(
         CoreError::InvalidAction {},
@@ -201,6 +206,7 @@ fn is_valid_msg_transfer() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert_eq!(
         CoreError::InvalidAction {},
@@ -235,6 +241,7 @@ fn is_valid_msg_burn() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert_eq!(
         CoreError::InvalidAction {},
@@ -270,6 +277,7 @@ fn is_valid_msg_send_doesnt_fail() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert!(task
         .is_valid_msg_calculate_usage(
@@ -303,6 +311,7 @@ fn is_valid_msg_send_should_success() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert!(task
         .is_valid_msg_calculate_usage(

@@ -1727,6 +1727,12 @@
             "$ref": "#/definitions/CroncatQuery"
           }
         },
+        "sender": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "stop_on_fail": {
           "type": "boolean"
         },

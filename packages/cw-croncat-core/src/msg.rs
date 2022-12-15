@@ -169,7 +169,7 @@ pub enum QueryMsg {
 
     SimulateTask {
         task: TaskRequest,
-        funds: GenericBalance,
+        funds: Vec<Coin>,
     },
 }
 
@@ -277,6 +277,7 @@ pub struct TaskRequest {
     pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
     pub cw20_coins: Vec<Cw20Coin>,
+    pub sender: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -447,6 +448,7 @@ pub struct GetSlotHashesResponse {
 pub struct SimulateTaskResponse {
     pub estimated_gas: u64,
     pub occurrences: u64,
+    pub task_hash: String,
 }
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct GetSlotIdsResponse {

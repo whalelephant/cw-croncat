@@ -55,6 +55,7 @@ fn add_task_exec(app: &mut App, contract_addr: &Addr, sender: &str) -> AppRespon
                 queries: None,
                 transforms: None,
                 cw20_coins: vec![],
+                sender: None,
             },
         },
         send_funds.as_ref(),
@@ -88,6 +89,7 @@ fn add_block_task_exec(
                 queries: None,
                 transforms: None,
                 cw20_coins: vec![],
+                sender: None,
             },
         },
         send_funds.as_ref(),
@@ -121,6 +123,7 @@ fn add_cron_task_exec(
                 queries: None,
                 transforms: None,
                 cw20_coins: vec![],
+                sender: None,
             },
         },
         send_funds.as_ref(),
@@ -155,6 +158,7 @@ fn contract_create_task(
             queries: None,
             transforms: None,
             cw20_coins: vec![],
+            sender: None,
         },
     )
 }

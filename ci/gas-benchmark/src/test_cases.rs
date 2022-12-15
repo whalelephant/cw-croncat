@@ -40,6 +40,7 @@ where
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     };
     let msg = cw_croncat_core::msg::ExecuteMsg::CreateTask { task };
     orc.execute(
@@ -86,6 +87,7 @@ pub(crate) fn send_to_bob_recurring(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -114,6 +116,7 @@ pub(crate) fn send_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -144,6 +147,7 @@ pub(crate) fn send_cw20_to_bob_recurring(cw20_addr: &str, times: u128) -> TaskRe
             address: cw20_addr.to_owned(),
             amount: (times * amount).into(),
         }],
+        sender: None,
     }
 }
 
@@ -188,6 +192,7 @@ pub(crate) fn send_cw20_to_bob_and_alice_recurring(cw20_addr: &str, times: u128)
             address: cw20_addr.to_owned(),
             amount: (times * amount).into(),
         }],
+        sender: None,
     }
 }
 
@@ -206,6 +211,7 @@ pub(crate) fn delegate_to_bob_recurring(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -232,6 +238,7 @@ pub(crate) fn delegate_to_bob_and_alice_recurring(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -254,6 +261,7 @@ pub(crate) fn delegate_to_validator(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -276,6 +284,7 @@ pub(crate) fn delegate_to_validator_twice(denom: &str) -> TaskRequest {
         queries: None,
         transforms: None,
         cw20_coins: vec![],
+        sender: None,
     }
 }
 
@@ -326,5 +335,6 @@ pub(crate) fn send_cw20_to_insertable_addr(
             address: cw20_addr.to_owned(),
             amount: amount.into(),
         }],
+        sender: None,
     }
 }

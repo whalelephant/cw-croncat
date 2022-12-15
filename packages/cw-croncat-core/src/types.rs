@@ -1,9 +1,10 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Empty, Env, GovMsg, IbcMsg,
+    coin, Addr, Api, BankMsg, Binary, Coin, CosmosMsg, Deps, Empty, Env, GovMsg, IbcMsg,
     OverflowError, OverflowOperation::Sub, StakingMsg, StdError, SubMsg, SubMsgResult, Timestamp,
     Uint128, Uint64, WasmMsg,
 };
 use cron_schedule::Schedule;
+use cw2::ContractVersion;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_rules_core::types::CroncatQuery;
 use generic_query::PathToValue;
@@ -15,7 +16,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
-    msg::TaskRequest,
+    msg::{SimulateTaskResponse, TaskRequest},
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
@@ -304,6 +305,61 @@ impl TaskRequest {
         }
         Ok((amount_for_one_task, gas_amount))
     }
+
+    pub fn as_task(
+        &self,
+        env: &Env,
+        deps: &Deps,
+        contract_info: &ContractInfo,
+        funds: Vec<Coin>,
+        economics: EconomicsContext,
+    ) -> Result<Task, CoreError> {
+        let sender = deps.api.addr_validate(&self.sender.clone().unwrap())?;
+
+        let cw20 = if !self.cw20_coins.is_empty() {
+            let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(self.cw20_coins.len());
+            for coin in &self.cw20_coins {
+                cw20.push(Cw20CoinVerified {
+                    address: deps.api.addr_validate(&coin.address)?,
+                    amount: coin.amount,
+                })
+            }
+            cw20
+        } else {
+            vec![]
+        };
+        let boundary = BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
+
+        let (mut amount_for_one_task, gas_amount) = self.is_valid_msg_calculate_usage(
+            deps.api,
+            &env.contract.address,
+            &sender,
+            contract_info.owner_addr,
+            economics.gas_base_fee,
+            economics.gas_action_fee,
+        )?;
+        let gas_price = calculate_required_amount(gas_amount, economics.agent_fee)?;
+        let price = economics.gas_fraction.calculate(gas_price, 1)?;
+        amount_for_one_task
+            .native
+            .find_checked_add(&coin(price, economics.native_denom))?;
+
+        Ok(Task {
+            owner_id: sender,
+            interval: self.interval.clone(),
+            boundary,
+            stop_on_fail: self.stop_on_fail,
+            total_deposit: GenericBalance {
+                native: funds,
+                cw20,
+            },
+            amount_for_one_task,
+            actions: self.actions.clone(),
+            queries: self.queries.clone(),
+            transforms: self.transforms.clone(),
+            version: contract_info.version.version.clone(),
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -563,20 +619,27 @@ impl Task {
 }
 
 pub fn simulate_task(
+    env: &Env,
+    deps: &Deps,
     task: TaskRequest,
-    funds: GenericBalance,
-    gas_base_fee: u64,
-    gas_action_fee: u64,
-    block_info: BlockInfo,
+    funds: Vec<Coin>,
+    economics: EconomicsContext,
+    contract_info: &ContractInfo,
     slot_granularity_time: u64,
-) -> Result<(u64, u64), CoreError> {
+) -> Result<SimulateTaskResponse, CoreError> {
     let mut occurrences: u64 = 0;
+    let mut gas_amount: u64 = economics.gas_base_fee;
+    let gac_action_fee = economics.gas_action_fee;
+    let task_info = task
+        .as_task(env, deps, contract_info, funds.clone(), economics)
+        .unwrap();
+    let task_hash = task_info.to_hash();
+
     let interval = task.interval;
-    let mut gas_amount: u64 = gas_base_fee;
 
     for action in task.actions.iter() {
         gas_amount = gas_amount
-            .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
+            .checked_add(action.gas_limit.unwrap_or(gac_action_fee))
             .ok_or(CoreError::NoGasLimit {})?;
     }
     let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval)?;
@@ -586,14 +649,14 @@ pub fn simulate_task(
             occurrences = occurrences.saturating_add(1);
         }
         Interval::Block(block) => {
-            let mut start_block: u64 = boundary.start.unwrap_or(block_info.height);
+            let mut start_block: u64 = boundary.start.unwrap_or(env.block.height);
             let end_block: u64;
             match (boundary.start, boundary.end) {
                 (Some(start), None) => {
                     let mut amount = 0u128;
-                    if let Some(coin) = funds.native.get(0) {
+                    if let Some(coin) = funds.get(0) {
                         amount = coin.amount.u128();
-                    } else if let Some(cw20) = funds.cw20.get(0) {
+                    } else if let Some(cw20) = task.cw20_coins.get(0) {
                         amount = cw20.amount.u128();
                     }
                     amount = amount.saturating_div(gas_amount.into());
@@ -607,15 +670,15 @@ pub fn simulate_task(
                     end_block = 0
                 }
             }
-            if block_info.height >= end_block {
+            if env.block.height >= end_block {
                 return Err(CoreError::InvalidBoundary {});
             }
             occurrences = end_block.saturating_sub(start_block).saturating_div(block);
         }
         Interval::Cron(crontab) => {
             let schedule = Schedule::from_str(&crontab).unwrap();
-            let mut start_time: u64 = boundary.start.unwrap_or(block_info.height);
-            let current_block_ts = block_info.time.nanos();
+            let mut start_time: u64 = boundary.start.unwrap_or(env.block.height);
+            let current_block_ts = env.block.time.nanos();
             let current_ts = std::cmp::max(current_block_ts, start_time);
             let next_ts = schedule.next_after(&current_ts).unwrap();
             let current_block_slot =
@@ -633,16 +696,16 @@ pub fn simulate_task(
             match (boundary.start, boundary.end) {
                 (Some(start), None) => {
                     let mut amount = 0u128;
-                    if let Some(coin) = funds.native.get(0) {
+                    if let Some(coin) = funds.get(0) {
                         amount = coin.amount.u128();
-                    } else if let Some(cw20) = funds.cw20.get(0) {
+                    } else if let Some(cw20) = task.cw20_coins.get(0) {
                         amount = cw20.amount.u128();
                     }
                     amount = amount.saturating_div(gas_amount.into());
                     end_time = start.saturating_add(diff * amount as u64);
                 }
                 (Some(_), Some(end)) => {
-                    if block_info.time.seconds() >= end {
+                    if env.block.time.seconds() >= end {
                         return Err(CoreError::InvalidBoundary {});
                     }
                     end_time = end;
@@ -657,7 +720,11 @@ pub fn simulate_task(
         }
     }
 
-    Ok((gas_amount, occurrences))
+    Ok(SimulateTaskResponse {
+        estimated_gas: gas_amount,
+        occurrences,
+        task_hash,
+    })
 }
 
 /// Calculate the amount including agent_fee
@@ -972,4 +1039,18 @@ pub struct Transform {
     pub query_idx: u64,
     pub action_path: PathToValue,
     pub query_response_path: PathToValue,
+}
+#[derive(Clone)]
+pub struct EconomicsContext<'a> {
+    pub gas_base_fee: u64,
+    pub gas_action_fee: u64,
+    pub agent_fee: u64,
+    pub native_denom: &'a str,
+    pub gas_fraction: &'a GasFraction,
+}
+#[derive(Clone)]
+pub struct ContractInfo<'a> {
+    pub addr: &'a Addr,
+    pub version: &'a ContractVersion,
+    pub owner_addr: &'a Addr,
 }

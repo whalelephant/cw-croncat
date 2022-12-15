@@ -111,6 +111,7 @@ fn everything_can_be_de_serialized() {
         queries: None,
         transforms: None, // TODO
         cw20_coins: vec![],
+        sender: None,
     }
     .into();
     let task_response_raw = TaskResponse {

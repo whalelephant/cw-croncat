@@ -4,7 +4,8 @@
   "type": "object",
   "required": [
     "estimated_gas",
-    "occurrences"
+    "occurrences",
+    "task_hash"
   ],
   "properties": {
     "estimated_gas": {
@@ -16,6 +17,9 @@
       "type": "integer",
       "format": "uint64",
       "minimum": 0.0
+    },
+    "task_hash": {
+      "type": "string"
     }
   }
 }

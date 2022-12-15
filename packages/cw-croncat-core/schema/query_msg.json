@@ -316,7 +316,10 @@
           ],
           "properties": {
             "funds": {
-              "$ref": "#/definitions/GenericBalance"
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Coin"
+              }
             },
             "task": {
               "$ref": "#/definitions/TaskRequest"
@@ -1513,6 +1516,12 @@
           "items": {
             "$ref": "#/definitions/CroncatQuery"
           }
+        },
+        "sender": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "stop_on_fail": {
           "type": "boolean"
