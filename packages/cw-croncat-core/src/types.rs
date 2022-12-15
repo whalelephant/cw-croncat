@@ -135,7 +135,7 @@ impl BoundaryValidated {
                             return Err(CoreError::InvalidBoundary {});
                         }
                         Ok(Self {
-                            start: Some(s.u64)),
+                            start: Some(s.u64()),
                             end: Some(e.u64()),
                         })
                     }

@@ -1,4 +1,5 @@
 use crate::error::CoreError;
+use crate::traits::Intervals;
 use crate::types::{
     Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
     Transform,
@@ -366,7 +367,11 @@ impl TaskRequestBuilder {
         self
     }
     pub fn build(&self) -> Result<TaskRequest, CoreError> {
+        if !self.interval.is_valid(){
+            return Err(CoreError::InvalidInterval {  });
+        }
         BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
+
         Ok(TaskRequest {
             interval: self.interval.clone(),
             boundary: self.boundary,
