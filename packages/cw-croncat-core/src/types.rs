@@ -131,7 +131,7 @@ impl BoundaryValidated {
                     Boundary::Height { start, end },
                 ) => match (start, end) {
                     (Some(s), Some(e)) => {
-                        if s.u64() >= e.u64() {
+                        if s.u64() > e.u64() {
                             return Err(CoreError::InvalidBoundary {});
                         }
                         Ok(Self {
