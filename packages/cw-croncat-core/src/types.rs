@@ -111,17 +111,39 @@ impl BoundaryValidated {
     ) -> Result<Self, CoreError> {
         if let Some(boundary) = boundary {
             match (interval, boundary) {
-                (Interval::Cron(_), Boundary::Time { start, end }) => Ok(Self {
-                    start: start.map(|start| start.nanos()),
-                    end: end.map(|end| end.nanos()),
-                }),
+                (Interval::Cron(_), Boundary::Time { start, end }) => match (start, end) {
+                    (Some(s), Some(e)) => {
+                        if s.nanos() >= e.nanos() {
+                            return Err(CoreError::InvalidBoundary {});
+                        }
+                        Ok(Self {
+                            start: Some(s.nanos()),
+                            end: Some(e.nanos()),
+                        })
+                    }
+                    _ => Ok(Self {
+                        start: start.map(|start| start.nanos()),
+                        end: end.map(|end| end.nanos()),
+                    }),
+                },
                 (
                     Interval::Once | Interval::Immediate | Interval::Block(_),
                     Boundary::Height { start, end },
-                ) => Ok(Self {
-                    start: start.map(Into::into),
-                    end: end.map(Into::into),
-                }),
+                ) => match (start, end) {
+                    (Some(s), Some(e)) => {
+                        if s.u64() > e.u64() {
+                            return Err(CoreError::InvalidBoundary {});
+                        }
+                        Ok(Self {
+                            start: Some(s.u64()),
+                            end: Some(e.u64()),
+                        })
+                    }
+                    _ => Ok(Self {
+                        start: start.map(Into::into),
+                        end: end.map(Into::into),
+                    }),
+                },
                 _ => Err(CoreError::InvalidBoundary {}),
             }
         } else {
