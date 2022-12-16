@@ -289,6 +289,7 @@ pub struct TaskRequestBuilder {
     queries: Option<Option<Vec<CroncatQuery>>>,
     transforms: Option<Option<Vec<Transform>>>,
     cw20_coins: Option<Vec<Cw20Coin>>,
+    sender: Option<String>,
 }
 #[allow(dead_code)]
 impl TaskRequestBuilder {
@@ -301,6 +302,7 @@ impl TaskRequestBuilder {
             queries: None,
             transforms: None,
             cw20_coins: None,
+            sender: None,
         }
     }
     pub fn with_interval(&mut self, interval: Interval) -> &mut Self {
@@ -368,6 +370,10 @@ impl TaskRequestBuilder {
         self.cw20_coins = Some(vec![cw20]);
         self
     }
+    fn with_sender(&mut self, sender: String) -> &mut Self {
+        self.sender = Some(sender);
+        self
+    }
     pub fn with_cw20s(&mut self, cw20s: Vec<Cw20Coin>) -> &mut Self {
         self.cw20_coins = Some(cw20s);
         self
@@ -386,6 +392,7 @@ impl TaskRequestBuilder {
             queries: self.queries.clone().unwrap_or_default(),
             transforms: self.transforms.clone().unwrap_or_default(),
             cw20_coins: self.cw20_coins.clone().unwrap_or_default(),
+            sender: self.sender.clone(),
         })
     }
 }
