@@ -9,6 +9,9 @@ pub enum CoreError {
     #[error("Boundary is not in valid format")]
     InvalidBoundary {},
 
+    #[error("Interval is not valid")]
+    InvalidInterval {},
+
     #[error("No coin balance found")]
     EmptyBalance {},
 
@@ -29,6 +32,7 @@ pub enum CoreError {
 
     #[error("Task({task_hash}) became invalid after replacing placeholder")]
     TaskNoLongerValid { task_hash: String },
+
     #[error("Must provide gas limit for WASM actions")]
     NoGasLimit {},
 }
