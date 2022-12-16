@@ -1,7 +1,2 @@
-<<<<<<< HEAD
 aa78f414bb3a10e445feb82ab6e5a3dc6c706d7e0532b83e74327e0ea935fb7e  cw_croncat.wasm
 5863a5417a530690c765c9ca4f3943c96071b1ee7faecfc408fce01da08aec56  cw_rules.wasm
-=======
-de7f6716cf0380e7eaff2440d24dada99fe054aaf51e190b80c5a8ebf35c97d5  cw_croncat.wasm
-de2d1a0c648e41760020dd261f818da085c358240059acf85128f60eb0e05db2  cw_rules.wasm
->>>>>>> main
