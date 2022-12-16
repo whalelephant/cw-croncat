@@ -1062,7 +1062,6 @@ pub struct Transform {
     pub action_path: PathToValue,
     pub query_response_path: PathToValue,
 }
-#[derive(Clone)]
 pub struct EconomicsContext<'a> {
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
@@ -1070,7 +1069,6 @@ pub struct EconomicsContext<'a> {
     pub native_denom: &'a str,
     pub gas_fraction: &'a GasFraction,
 }
-#[derive(Clone)]
 pub struct ContractInfo<'a> {
     pub addr: &'a Addr,
     pub version: &'a ContractVersion,
