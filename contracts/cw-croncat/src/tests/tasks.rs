@@ -17,58 +17,6 @@ use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use std::convert::TryInto;
 
 #[test]
-fn query_task_hash_success() {
-    let (app, cw_template_contract, _) = proper_instantiate();
-    let contract_addr = cw_template_contract.addr();
-
-    let to_address = String::from("you");
-    let amount = coins(1015, "earth");
-    let bank = BankMsg::Send { to_address, amount };
-    let msg: CosmosMsg = bank.clone().into();
-    let version = ContractVersion {
-        version: "0.0.1".to_string(),
-        contract: "nobidy".to_string(),
-    };
-
-    let task = Task {
-        owner_id: Addr::unchecked("nobody".to_string()),
-        interval: Interval::Immediate,
-        boundary: BoundaryValidated {
-            start: None,
-            end: None,
-        },
-        stop_on_fail: false,
-        total_deposit: GenericBalance {
-            native: coins(37, NATIVE_DENOM),
-            cw20: Default::default(),
-        },
-        amount_for_one_task: Default::default(),
-        actions: vec![Action {
-            msg,
-            gas_limit: Some(150_000),
-        }],
-        queries: None,
-        transforms: None,
-        version: version.version,
-    };
-
-    // HASH CHECK!
-    let task_hash: String = app
-        .wrap()
-        .query_wasm_smart(
-            &contract_addr.clone(),
-            &QueryMsg::GetTaskHash {
-                task: Box::new(task),
-            },
-        )
-        .unwrap();
-    assert_eq!(
-        "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
-        task_hash
-    );
-}
-
-#[test]
 fn query_validate_interval_success() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();

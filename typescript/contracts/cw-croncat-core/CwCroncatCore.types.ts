@@ -606,11 +606,6 @@ export type QueryMsg = {
     [k: string]: unknown;
   };
 } | {
-  get_task_hash: {
-    task: Task;
-    [k: string]: unknown;
-  };
-} | {
   validate_interval: {
     interval: Interval;
     [k: string]: unknown;

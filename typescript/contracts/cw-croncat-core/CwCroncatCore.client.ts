@@ -46,11 +46,6 @@ export interface CwCroncatCoreReadOnlyInterface {
   }: {
     taskHash: string;
   }) => Promise<GetTaskResponse>;
-  getTaskHash: ({
-    task
-  }: {
-    task: Task;
-  }) => Promise<GetTaskHashResponse>;
   validateInterval: ({
     interval
   }: {
@@ -91,7 +86,6 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
     this.getTasksWithQueries = this.getTasksWithQueries.bind(this);
     this.getTasksByOwner = this.getTasksByOwner.bind(this);
     this.getTask = this.getTask.bind(this);
-    this.getTaskHash = this.getTaskHash.bind(this);
     this.validateInterval = this.validateInterval.bind(this);
     this.getSlotHashes = this.getSlotHashes.bind(this);
     this.getSlotIds = this.getSlotIds.bind(this);
@@ -183,17 +177,6 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
     return this.client.queryContractSmart(this.contractAddress, {
       get_task: {
         task_hash: taskHash
-      }
-    });
-  };
-  getTaskHash = async ({
-    task
-  }: {
-    task: Task;
-  }): Promise<GetTaskHashResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      get_task_hash: {
-        task
       }
     });
   };
