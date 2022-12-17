@@ -201,7 +201,6 @@ impl<'a> CwCroncat<'a> {
                 to_binary(&self.query_get_tasks_by_owner(deps, owner_id)?)
             }
             QueryMsg::GetTask { task_hash } => to_binary(&self.query_get_task(deps, task_hash)?),
-            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
             QueryMsg::ValidateInterval { interval } => {
                 to_binary(&self.query_validate_interval(interval)?)
             }
@@ -213,6 +212,7 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetState { from_index, limit } => {
                 to_binary(&self.get_state(deps, env, from_index, limit)?)
             }
+            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
         }
     }
 
