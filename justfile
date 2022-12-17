@@ -3,16 +3,24 @@ set export
 check:
 	cargo fmt --all && cargo clippy -- -D warnings
 test:
-	./scripts/test.sh
+	#!/bin/bash
+	set -e
+	export RUSTFLAGS='-C link-arg=-s'
+	cargo unit-test
+	cargo wasm
 build:
 	#!/bin/bash
 	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	./scripts/uni-testnet/start.sh -c -w
 checksum:
-	./scripts/update-checksum.sh
+	#!/bin/bash
+	cat artifacts/checksums.txt | grep -e cw_croncat.wasm -e cw_rules.wasm > checksum
 schema:
-	./scripts/schema.sh
+	#!/bin/bash
+	set -e
+	cargo run --example schema
+	cargo run --example rules_schema
 gen:
 	#!/usr/bin/env bash
 	cd typescript

@@ -76,6 +76,13 @@ class CwCroncatCoreQueryClient {
                 }
             });
         });
+        this.getTaskHash = ({ task }) => __awaiter(this, void 0, void 0, function* () {
+            return this.client.queryContractSmart(this.contractAddress, {
+                get_task_hash: {
+                    task
+                }
+            });
+        });
         this.validateInterval = ({ interval }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 validate_interval: {
@@ -121,6 +128,7 @@ class CwCroncatCoreQueryClient {
         this.getTasksWithQueries = this.getTasksWithQueries.bind(this);
         this.getTasksByOwner = this.getTasksByOwner.bind(this);
         this.getTask = this.getTask.bind(this);
+        this.getTaskHash = this.getTaskHash.bind(this);
         this.validateInterval = this.validateInterval.bind(this);
         this.getSlotHashes = this.getSlotHashes.bind(this);
         this.getSlotIds = this.getSlotIds.bind(this);
