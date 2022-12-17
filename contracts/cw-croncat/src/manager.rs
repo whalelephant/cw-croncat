@@ -3,7 +3,8 @@ use crate::error::ContractError;
 use crate::helpers::proxy_call_submsgs_price;
 use crate::state::{Config, CwCroncat, QueueItem, TaskInfo};
 use cosmwasm_std::{
-    from_binary, Addr, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
+    from_binary, Addr, Attribute, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    Storage,
 };
 use cw_croncat_core::traits::{FindAndMutate, Intervals};
 use cw_croncat_core::types::{Agent, Interval, SlotType, Task};
@@ -528,11 +529,8 @@ impl<'a> CwCroncat<'a> {
         let cfg = self.config.load(deps.storage)?;
         let mut attributes = vec![];
         let mut submessages = vec![];
-        for agent_id in self
-            .agents
-            .keys(deps.storage, None, None, Order::Ascending)
-            .collect::<StdResult<Vec<Addr>>>()?
-        {
+
+        for agent_id in self.agent_active_queue.load(deps.storage)? {
             let agent = self.agents.load(deps.storage, &agent_id)?;
             if current_slot > agent.last_executed_slot + cfg.agents_eject_threshold {
                 let resp = self
@@ -542,6 +540,13 @@ impl<'a> CwCroncat<'a> {
                 attributes.extend_from_slice(&resp.attributes);
                 submessages.extend_from_slice(&resp.messages);
             }
+        }
+
+        // Check if there isn't any active or pending agents
+        if self.agent_active_queue.load(deps.storage)?.is_empty()
+            && self.agent_pending_queue.is_empty(deps.storage)?
+        {
+            attributes.push(Attribute::new("lifecycle", "tick_failure"))
         }
         let response = Response::new()
             .add_attribute("method", "tick")
