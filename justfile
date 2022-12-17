@@ -40,6 +40,9 @@ download-deps:
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO?: test dao-contracts
 
+all: build test check optimize checksum
+	print "Done!\n";
+
 gas-benchmark: juno-local download-deps optimize
 	#!/usr/bin/env bash
 	sleep 1

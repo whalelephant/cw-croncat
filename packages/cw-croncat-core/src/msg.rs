@@ -125,7 +125,7 @@ pub enum ExecuteMsg {
     Tick {},
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     GetConfig {},
@@ -150,6 +150,9 @@ pub enum QueryMsg {
     },
     GetTask {
         task_hash: String,
+    },
+    GetTaskHash {
+        task: Box<Task>,
     },
     ValidateInterval {
         interval: Interval,

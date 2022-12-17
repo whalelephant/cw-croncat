@@ -94,6 +94,11 @@ impl<'a> CwCroncat<'a> {
         Ok(res.map(Into::into))
     }
 
+    /// Returns a hash computed by the input task data
+    pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<String> {
+        Ok(task.to_hash())
+    }
+
     /// Check if interval params are valid by attempting to parse
     pub(crate) fn query_validate_interval(&self, interval: Interval) -> StdResult<bool> {
         Ok(interval.is_valid())
