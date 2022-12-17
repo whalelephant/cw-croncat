@@ -431,6 +431,7 @@ impl<'a> CwCroncat<'a> {
         };
 
         Ok(Response::new()
+            .set_data(hash.as_bytes())
             .add_attribute("method", "create_task")
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind))
