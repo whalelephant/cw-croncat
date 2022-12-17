@@ -1,17 +1,23 @@
 test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
 set export
 check:
-	cargo fmt && cargo clippy -- -D warnings
+	cargo fmt --all && cargo clippy -- -D warnings
 test:
 	./scripts/test.sh
 build:
-	./scripts/build.sh
+	#!/bin/bash
+	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	./scripts/uni-testnet/start.sh -c -w
 checksum:
 	./scripts/update-checksum.sh
 schema:
 	./scripts/schema.sh
+gen:
+	#!/usr/bin/env bash
+	cd typescript
+	yarn --cwd ./typescript install --frozen-lockfile
+	yarn --cwd ./typescript codegen
 juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data
@@ -40,8 +46,8 @@ download-deps:
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO?: test dao-contracts
 
-all: build test check schema optimize checksum
-
+all: build test check schema gen optimize checksum
+	#!/usr/bin/env bash
 
 gas-benchmark: juno-local download-deps optimize
 	#!/usr/bin/env bash
