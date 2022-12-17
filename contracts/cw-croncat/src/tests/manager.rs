@@ -1,7 +1,7 @@
 use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
-    AGENT3,
+    AGENT1, AGENT2, AGENT3,
 };
 use crate::ContractError;
 use cosmwasm_std::{
@@ -1854,7 +1854,7 @@ fn tick() {
         owner_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
-        agents_eject_threshold: Some(1000), // allow to miss 100 slots
+        agents_eject_threshold: Some(1000), // allow to miss 1000 slots
         gas_action_fee: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
@@ -1876,10 +1876,61 @@ fn tick() {
     app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
         .unwrap();
 
+    // Add 1001 blocks and call tick
+    app.update_block(add_1000_blocks);
+    app.update_block(add_little_time);
+    let tick_msg = ExecuteMsg::Tick {};
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &tick_msg,
+            &vec![],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "tick")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "unregister_agent")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
+
+    // The agent missed 1001 blocks and he was unregistered
+    // Pending agents weren't deleted
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
+        .unwrap();
+    assert!(agents.active.is_empty());
+    assert!(agents.pending.is_empty());
+
+    // quick agent register
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    // Two agents added to the pending queue
+    app.execute_contract(Addr::unchecked(AGENT1), contract_addr.clone(), &msg, &[])
+        .unwrap();
+    app.execute_contract(Addr::unchecked(AGENT2), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
     // need block advancement
     app.update_block(add_little_time);
 
-    let tick_msg = ExecuteMsg::Tick {};
+    // Call tick
+    // Not enough time passed to delete the agent
     let res = app
         .execute_contract(
             Addr::unchecked(AGENT0),
@@ -1904,7 +1955,25 @@ fn tick() {
         .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
         .unwrap();
     assert_eq!(agents.active.len(), 1);
+    assert_eq!(agents.pending.len(), 2);
 
+    // First pending agent wasn't nominated
+    let err = app
+        .execute_contract(
+            Addr::unchecked(AGENT1),
+            contract_addr.clone(),
+            &ExecuteMsg::CheckInAgent {},
+            &[],
+        )
+        .unwrap_err();
+    assert_eq!(
+        ContractError::CustomError {
+            val: "Not accepting new agents".to_string()
+        },
+        err.downcast().unwrap()
+    );
+
+    // Add enough time and call tick
     app.update_block(add_1000_blocks);
     let res = app
         .execute_contract(
@@ -1928,14 +1997,43 @@ fn tick() {
         .attributes
         .iter()
         .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+    assert!(!res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
 
     // The agent missed 1001 blocks and he was unregistered
+    // Pending agents weren't deleted
     let agents: GetAgentIdsResponse = app
         .wrap()
         .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetAgentIds {})
         .unwrap();
     assert!(agents.active.is_empty());
-    assert!(agents.pending.is_empty());
+    assert_eq!(agents.pending.len(), 2);
+
+    // First agent was nominated and can call CheckInAgent
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+    // Second agent wasn't nominated
+    let err = app
+        .execute_contract(
+            Addr::unchecked(AGENT2),
+            contract_addr.clone(),
+            &ExecuteMsg::CheckInAgent {},
+            &[],
+        )
+        .unwrap_err();
+    assert_eq!(
+        ContractError::CustomError {
+            val: "Not accepting new agents".to_string()
+        },
+        err.downcast().unwrap()
+    );
 }
 
 #[test]
