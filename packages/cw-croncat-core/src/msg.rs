@@ -436,7 +436,6 @@ pub struct CwCroncatResponse {
     pub balancer_mode: RoundRobinBalancerModeResponse,
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum RoundRobinBalancerModeResponse {
     ActivationOrder,

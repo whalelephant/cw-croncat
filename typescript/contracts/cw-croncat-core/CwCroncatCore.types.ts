@@ -606,6 +606,12 @@ export type QueryMsg = {
     wallet: string;
     [k: string]: unknown;
   };
+} | {
+  simulate_task: {
+    funds: Coin[];
+    task: TaskRequest;
+    [k: string]: unknown;
+  };
 };
 export interface SimulateTaskResponse {
   estimated_gas: number;
