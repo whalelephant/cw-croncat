@@ -39,21 +39,17 @@ use serde::{Deserialize, Serialize};
 pub struct Croncat {
     pub(crate) agent: Option<Agent>,
     pub(crate) task: Option<Task>,
-    pub(crate) config_response: Option<GetConfigResponse>,
-    pub(crate) balance_response: Option<GetBalancesResponse>,
-    pub(crate) get_agent_ids_response: Option<GetAgentIdsResponse>,
+
     pub(crate) get_agent_tasks_response: Option<AgentTaskResponse>,
     pub(crate) task_request: Option<TaskRequest>,
     pub(crate) task_response: Option<TaskResponse>,
     pub(crate) validate_interval_response: Option<bool>,
-    pub(crate) get_agent_response: Option<Option<AgentResponse>>,
     pub(crate) get_tasks_response: Option<Vec<TaskResponse>>,
     pub(crate) get_tasks_by_owner_response: Option<Vec<TaskResponse>>,
     pub(crate) get_task_response: Option<Option<TaskResponse>>,
     pub(crate) get_task_hash_response: Option<String>,
     pub(crate) get_slot_hashes_response: Option<GetSlotHashesResponse>,
     pub(crate) get_slot_ids_response: Option<GetSlotIdsResponse>,
-    pub(crate) get_wallet_balances_response: Option<GetWalletBalancesResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -164,68 +160,6 @@ pub enum QueryMsg {
     GetWalletBalances {
         wallet: String,
     },
-    GetState {
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetConfigResponse {
-    pub paused: bool,
-    pub owner_id: Addr,
-    // pub treasury_id: Option<Addr>,
-    pub min_tasks_per_agent: u64,
-    pub agents_eject_threshold: u64,
-    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
-    pub agent_nomination_duration: u16,
-
-    pub cw_rules_addr: Addr,
-
-    pub agent_fee: u64,
-    pub gas_fraction: GasFraction,
-    pub gas_base_fee: u64,
-    pub gas_action_fee: u64,
-    pub proxy_callback_gas: u32,
-    pub slot_granularity_time: u64,
-
-    pub cw20_whitelist: Vec<Addr>,
-    pub native_denom: String,
-    pub available_balance: GenericBalance, // tasks + rewards balances
-    pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
-
-    // The default amount of tasks to query
-    pub limit: u64,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetBalancesResponse {
-    pub native_denom: String,
-    pub available_balance: GenericBalance,
-    pub staked_balance: GenericBalance,
-    pub cw20_whitelist: Vec<Addr>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct GetWalletBalancesResponse {
-    pub cw20_balances: Vec<Cw20CoinVerified>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct GetAgentIdsResponse {
-    pub active: Vec<Addr>,
-    pub pending: Vec<Addr>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct AgentResponse {
-    // This field doesn't exist in the Agent struct and is the only one that differs
-    pub status: AgentStatus,
-    pub payable_account_id: Addr,
-    pub balance: GenericBalance,
-    pub total_tasks_executed: u64,
-    pub last_executed_slot: u64,
-    pub register_start: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -417,69 +351,49 @@ pub struct TaskWithQueriesResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CwCroncatResponse {
-    pub config: GetConfigResponse,
-
     pub agent_active_queue: Vec<Addr>,
     pub agent_pending_queue: Vec<Addr>,
-    pub agents: Vec<AgentResponse>,
-
     pub tasks: Vec<TaskResponse>,
     pub task_total: Uint64,
-
-    pub time_slots: Vec<SlotResponse>,
-    pub block_slots: Vec<SlotResponse>,
-    pub tasks_with_queries: Vec<TaskWithQueriesResponse>,
-    pub tasks_with_queries_total: Uint64,
-
-    pub time_slots_queries: Vec<SlotWithQueriesResponse>,
-    pub block_slots_queries: Vec<SlotWithQueriesResponse>,
-
     pub reply_index: Uint64,
 
     pub agent_nomination_begin_time: Option<Timestamp>,
 
     pub balancer_mode: RoundRobinBalancerModeResponse,
-    pub balances: Vec<BalancesResponse>,
 }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct SlotResponse {
-    pub slot: Uint64,
-    pub tasks: Vec<Vec<u8>>,
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetBalancesResponse {
+    pub native_denom: String,
+    pub available_balance: GenericBalance,
+    pub staked_balance: GenericBalance,
+    pub cw20_whitelist: Vec<Addr>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct BalancesResponse {
-    pub address: Addr,
-    pub balances: Vec<Cw20CoinVerified>,
+pub struct GetWalletBalancesResponse {
+    pub cw20_balances: Vec<Cw20CoinVerified>,
+}
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct GetAgentIdsResponse {
+    pub active: Vec<Addr>,
+    pub pending: Vec<Addr>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct AgentResponse {
+    // This field doesn't exist in the Agent struct and is the only one that differs
+    pub status: AgentStatus,
+    pub payable_account_id: Addr,
+    pub balance: GenericBalance,
+    pub total_tasks_executed: u64,
+    pub last_executed_slot: u64,
+    pub register_start: Timestamp,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum RoundRobinBalancerModeResponse {
     ActivationOrder,
     Equalizer,
-}
-
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub struct ReplyQueueResponse {
-//     pub index: Uint64,
-//     pub item: QueueItemResponse,
-// }
-
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub struct QueueItemResponse {
-//     pub contract_addr: Option<Addr>,
-//     pub action_idx: Uint64,
-//     pub task_hash: Option<Vec<u8>>,
-//     pub task_is_extra: Option<bool>,
-//     pub agent_id: Option<Addr>,
-//     pub failed: bool,
-// }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct SlotWithQueriesResponse {
-    pub task_hash: Vec<u8>,
-    pub slot: Uint64,
 }
 
 impl From<Task> for TaskResponse {
@@ -563,4 +477,32 @@ pub struct GetSlotIdsResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct QueryConstruct {
     pub queries: Vec<CroncatQuery>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct GetConfigResponse {
+    pub paused: bool,
+    pub owner_id: Addr,
+    // pub treasury_id: Option<Addr>,
+    pub min_tasks_per_agent: u64,
+    pub agents_eject_threshold: u64,
+    pub agent_active_indices: Vec<(SlotType, u32, u32)>,
+    pub agent_nomination_duration: u16,
+
+    pub cw_rules_addr: Addr,
+
+    pub agent_fee: u64,
+    pub gas_fraction: GasFraction,
+    pub gas_base_fee: u64,
+    pub gas_action_fee: u64,
+    pub proxy_callback_gas: u32,
+    pub slot_granularity_time: u64,
+
+    pub cw20_whitelist: Vec<Addr>,
+    pub native_denom: String,
+    pub available_balance: GenericBalance, // tasks + rewards balances
+    pub staked_balance: GenericBalance, // surplus that is temporary staking (to be used in conjunction with external treasury)
+
+    // The default amount of tasks to query
+    pub limit: u64,
 }

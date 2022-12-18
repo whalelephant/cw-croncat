@@ -5,19 +5,10 @@
   "required": [
     "agent_active_queue",
     "agent_pending_queue",
-    "agents",
     "balancer_mode",
-    "balances",
-    "block_slots",
-    "block_slots_queries",
-    "config",
     "reply_index",
     "task_total",
-    "tasks",
-    "tasks_with_queries",
-    "tasks_with_queries_total",
-    "time_slots",
-    "time_slots_queries"
+    "tasks"
   ],
   "properties": {
     "agent_active_queue": {
@@ -42,35 +33,8 @@
         "$ref": "#/definitions/Addr"
       }
     },
-    "agents": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/AgentResponse"
-      }
-    },
     "balancer_mode": {
       "$ref": "#/definitions/RoundRobinBalancerModeResponse"
-    },
-    "balances": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/BalancesResponse"
-      }
-    },
-    "block_slots": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/SlotResponse"
-      }
-    },
-    "block_slots_queries": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/SlotWithQueriesResponse"
-      }
-    },
-    "config": {
-      "$ref": "#/definitions/GetConfigResponse"
     },
     "reply_index": {
       "$ref": "#/definitions/Uint64"
@@ -82,27 +46,6 @@
       "type": "array",
       "items": {
         "$ref": "#/definitions/TaskResponse"
-      }
-    },
-    "tasks_with_queries": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/TaskWithQueriesResponse"
-      }
-    },
-    "tasks_with_queries_total": {
-      "$ref": "#/definitions/Uint64"
-    },
-    "time_slots": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/SlotResponse"
-      }
-    },
-    "time_slots_queries": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/SlotWithQueriesResponse"
       }
     }
   },
@@ -136,49 +79,6 @@
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
     },
-    "AgentResponse": {
-      "type": "object",
-      "required": [
-        "balance",
-        "last_executed_slot",
-        "payable_account_id",
-        "register_start",
-        "status",
-        "total_tasks_executed"
-      ],
-      "properties": {
-        "balance": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "last_executed_slot": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "payable_account_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "register_start": {
-          "$ref": "#/definitions/Timestamp"
-        },
-        "status": {
-          "$ref": "#/definitions/AgentStatus"
-        },
-        "total_tasks_executed": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
-    "AgentStatus": {
-      "type": "string",
-      "enum": [
-        "Active",
-        "Pending",
-        "Nominated"
-      ]
-    },
     "Balance": {
       "oneOf": [
         {
@@ -206,24 +106,6 @@
           "additionalProperties": false
         }
       ]
-    },
-    "BalancesResponse": {
-      "type": "object",
-      "required": [
-        "address",
-        "balances"
-      ],
-      "properties": {
-        "address": {
-          "$ref": "#/definitions/Addr"
-        },
-        "balances": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Cw20CoinVerified"
-          }
-        }
-      }
     },
     "BankMsg": {
       "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
@@ -682,46 +564,6 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GasFraction": {
-      "type": "object",
-      "required": [
-        "denominator",
-        "numerator"
-      ],
-      "properties": {
-        "denominator": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "numerator": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
-    "GenericBalance": {
-      "type": "object",
-      "required": [
-        "cw20",
-        "native"
-      ],
-      "properties": {
-        "cw20": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Cw20CoinVerified"
-          }
-        },
-        "native": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        }
-      }
-    },
     "GenericQuery": {
       "type": "object",
       "required": [
@@ -746,126 +588,6 @@
         },
         "value": {
           "$ref": "#/definitions/Binary"
-        }
-      }
-    },
-    "GetConfigResponse": {
-      "type": "object",
-      "required": [
-        "agent_active_indices",
-        "agent_fee",
-        "agent_nomination_duration",
-        "agents_eject_threshold",
-        "available_balance",
-        "cw20_whitelist",
-        "cw_rules_addr",
-        "gas_action_fee",
-        "gas_base_fee",
-        "gas_fraction",
-        "limit",
-        "min_tasks_per_agent",
-        "native_denom",
-        "owner_id",
-        "paused",
-        "proxy_callback_gas",
-        "slot_granularity_time",
-        "staked_balance"
-      ],
-      "properties": {
-        "agent_active_indices": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "items": [
-              {
-                "$ref": "#/definitions/SlotType"
-              },
-              {
-                "type": "integer",
-                "format": "uint32",
-                "minimum": 0.0
-              },
-              {
-                "type": "integer",
-                "format": "uint32",
-                "minimum": 0.0
-              }
-            ],
-            "maxItems": 3,
-            "minItems": 3
-          }
-        },
-        "agent_fee": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "agent_nomination_duration": {
-          "type": "integer",
-          "format": "uint16",
-          "minimum": 0.0
-        },
-        "agents_eject_threshold": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "available_balance": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "cw20_whitelist": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Addr"
-          }
-        },
-        "cw_rules_addr": {
-          "$ref": "#/definitions/Addr"
-        },
-        "gas_action_fee": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "gas_base_fee": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "gas_fraction": {
-          "$ref": "#/definitions/GasFraction"
-        },
-        "limit": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "min_tasks_per_agent": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "native_denom": {
-          "type": "string"
-        },
-        "owner_id": {
-          "$ref": "#/definitions/Addr"
-        },
-        "paused": {
-          "type": "boolean"
-        },
-        "proxy_callback_gas": {
-          "type": "integer",
-          "format": "uint32",
-          "minimum": 0.0
-        },
-        "slot_granularity_time": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "staked_balance": {
-          "$ref": "#/definitions/GenericBalance"
         }
       }
     },
@@ -1133,56 +855,6 @@
         "ActivationOrder",
         "Equalizer"
       ]
-    },
-    "SlotResponse": {
-      "type": "object",
-      "required": [
-        "slot",
-        "tasks"
-      ],
-      "properties": {
-        "slot": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "tasks": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "uint8",
-              "minimum": 0.0
-            }
-          }
-        }
-      }
-    },
-    "SlotType": {
-      "type": "string",
-      "enum": [
-        "Block",
-        "Cron"
-      ]
-    },
-    "SlotWithQueriesResponse": {
-      "type": "object",
-      "required": [
-        "slot",
-        "task_hash"
-      ],
-      "properties": {
-        "slot": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "task_hash": {
-          "type": "array",
-          "items": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 0.0
-          }
-        }
-      }
     },
     "SmartQueries": {
       "type": "array",
@@ -1467,40 +1139,6 @@
           "items": {
             "$ref": "#/definitions/Coin"
           }
-        }
-      }
-    },
-    "TaskWithQueriesResponse": {
-      "type": "object",
-      "required": [
-        "interval",
-        "task_hash"
-      ],
-      "properties": {
-        "boundary": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/Boundary"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "interval": {
-          "$ref": "#/definitions/Interval"
-        },
-        "queries": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "$ref": "#/definitions/CroncatQuery"
-          }
-        },
-        "task_hash": {
-          "type": "string"
         }
       }
     },
