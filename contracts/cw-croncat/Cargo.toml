@@ -60,3 +60,4 @@ cwd-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts"
 cwd-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cwd-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
 cwd-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
+rusty-hook = "0.11.2"
