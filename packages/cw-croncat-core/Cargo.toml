@@ -33,3 +33,4 @@ serde-json-wasm = { version = "0.4.1", git = "https://github.com/CyberHoward/ser
 cosmwasm-schema = { version = "1.0.0" }
 cw-multi-test = { version = "0.16.0", features = ["staking"] }
 cw20-base = { version = "0.13.4", features = ["library"] }
+rusty-hook = "0.11.2"
