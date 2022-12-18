@@ -4,6 +4,7 @@ repos:
       - id: just-all
         name: just-all
         entry: just all
+        verbose: true
         language: system
         types: [rust]
         pass_filenames: false
