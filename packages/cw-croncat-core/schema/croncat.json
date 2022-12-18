@@ -13,6 +13,53 @@
         }
       ]
     },
+    "BalanceResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetBalancesResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ConfigResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetConfigResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetAgentIdsResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetAgentIdsResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "GetAgentResponse": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AgentResponse"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "GetAgentTasksResponse": {
       "anyOf": [
         {
@@ -83,6 +130,16 @@
       "items": {
         "$ref": "#/definitions/TaskResponse"
       }
+    },
+    "GetWalletBalancesResponse": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetWalletBalancesResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "Task": {
       "anyOf": [
@@ -181,6 +238,49 @@
           "minimum": 0.0
         }
       }
+    },
+    "AgentResponse": {
+      "type": "object",
+      "required": [
+        "balance",
+        "last_executed_slot",
+        "payable_account_id",
+        "register_start",
+        "status",
+        "total_tasks_executed"
+      ],
+      "properties": {
+        "balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "last_executed_slot": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "payable_account_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "register_start": {
+          "$ref": "#/definitions/Timestamp"
+        },
+        "status": {
+          "$ref": "#/definitions/AgentStatus"
+        },
+        "total_tasks_executed": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
+    "AgentStatus": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Pending",
+        "Nominated"
+      ]
     },
     "AgentTaskResponse": {
       "type": "object",
@@ -726,6 +826,25 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
+    "GasFraction": {
+      "type": "object",
+      "required": [
+        "denominator",
+        "numerator"
+      ],
+      "properties": {
+        "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "numerator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    },
     "GenericBalance": {
       "type": "object",
       "required": [
@@ -771,6 +890,173 @@
         },
         "value": {
           "$ref": "#/definitions/Binary"
+        }
+      }
+    },
+    "GetAgentIdsResponse": {
+      "type": "object",
+      "required": [
+        "active",
+        "pending"
+      ],
+      "properties": {
+        "active": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
+        "pending": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        }
+      }
+    },
+    "GetBalancesResponse": {
+      "type": "object",
+      "required": [
+        "available_balance",
+        "cw20_whitelist",
+        "native_denom",
+        "staked_balance"
+      ],
+      "properties": {
+        "available_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "cw20_whitelist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "staked_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        }
+      }
+    },
+    "GetConfigResponse": {
+      "type": "object",
+      "required": [
+        "agent_active_indices",
+        "agent_fee",
+        "agent_nomination_duration",
+        "agents_eject_threshold",
+        "available_balance",
+        "cw20_whitelist",
+        "cw_rules_addr",
+        "gas_action_fee",
+        "gas_base_fee",
+        "gas_fraction",
+        "limit",
+        "min_tasks_per_agent",
+        "native_denom",
+        "owner_id",
+        "paused",
+        "proxy_callback_gas",
+        "slot_granularity_time",
+        "staked_balance"
+      ],
+      "properties": {
+        "agent_active_indices": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": [
+              {
+                "$ref": "#/definitions/SlotType"
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              },
+              {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0.0
+              }
+            ],
+            "maxItems": 3,
+            "minItems": 3
+          }
+        },
+        "agent_fee": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "agent_nomination_duration": {
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "agents_eject_threshold": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "available_balance": {
+          "$ref": "#/definitions/GenericBalance"
+        },
+        "cw20_whitelist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        },
+        "cw_rules_addr": {
+          "$ref": "#/definitions/Addr"
+        },
+        "gas_action_fee": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_base_fee": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_fraction": {
+          "$ref": "#/definitions/GasFraction"
+        },
+        "limit": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "min_tasks_per_agent": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "native_denom": {
+          "type": "string"
+        },
+        "owner_id": {
+          "$ref": "#/definitions/Addr"
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "proxy_callback_gas": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "slot_granularity_time": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "staked_balance": {
+          "$ref": "#/definitions/GenericBalance"
         }
       }
     },
@@ -828,6 +1114,20 @@
             "type": "integer",
             "format": "uint64",
             "minimum": 0.0
+          }
+        }
+      }
+    },
+    "GetWalletBalancesResponse": {
+      "type": "object",
+      "required": [
+        "cw20_balances"
+      ],
+      "properties": {
+        "cw20_balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
           }
         }
       }
@@ -1089,6 +1389,13 @@
       "items": {
         "$ref": "#/definitions/ValueIndex"
       }
+    },
+    "SlotType": {
+      "type": "string",
+      "enum": [
+        "Block",
+        "Cron"
+      ]
     },
     "SmartQueries": {
       "type": "array",

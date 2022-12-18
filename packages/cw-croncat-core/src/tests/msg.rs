@@ -58,7 +58,7 @@ fn everything_can_be_de_serialized() {
     }
     .into();
 
-    let config_response: GetConfigResponse = GetConfigResponse {
+    let config_response = GetConfigResponse {
         paused: true,
         owner_id: Addr::unchecked("bob"),
         min_tasks_per_agent: 5,
@@ -82,14 +82,14 @@ fn everything_can_be_de_serialized() {
         limit: 100,
     }
     .into();
-    let balance_response: GetBalancesResponse = GetBalancesResponse {
+    let balance_response = GetBalancesResponse {
         native_denom: "some".to_string(),
         available_balance: generic_balance.clone(),
         staked_balance: generic_balance.clone(),
         cw20_whitelist: vec![Addr::unchecked("bob")],
     }
     .into();
-    let get_agent_ids_response: GetAgentIdsResponse = GetAgentIdsResponse {
+    let get_agent_ids_response = GetAgentIdsResponse {
         active: vec![Addr::unchecked("bob")],
         pending: vec![Addr::unchecked("bob")],
     }
@@ -132,7 +132,7 @@ fn everything_can_be_de_serialized() {
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();
-    let get_agent_response: Option<AgentResponse> = Some(AgentResponse {
+    let get_agent_response = Some(AgentResponse {
         status: AgentStatus::Active,
         payable_account_id: Addr::unchecked("bob"),
         balance: generic_balance.clone(),
@@ -157,7 +157,7 @@ fn everything_can_be_de_serialized() {
         block_ids: vec![3],
     }
     .into();
-    let get_wallet_balances_response: GetWalletBalancesResponse = GetWalletBalancesResponse {
+    let get_wallet_balances_response = GetWalletBalancesResponse {
         cw20_balances: vec![Cw20CoinVerified {
             address: Addr::unchecked("Bob"),
             amount: 5u128.into(),
@@ -167,17 +167,21 @@ fn everything_can_be_de_serialized() {
     let croncat = Croncat {
         agent,
         task,
-
+        config_response,
+        balance_response,
+        get_agent_ids_response,
         get_agent_tasks_response,
         task_request,
         task_response,
         validate_interval_response,
+        get_agent_response,
         get_tasks_response,
         get_tasks_by_owner_response,
         get_task_response,
         get_task_hash_response,
         get_slot_hashes_response,
         get_slot_ids_response,
+        get_wallet_balances_response,
     };
 
     let ser = serde_json_wasm::to_string(&croncat);

@@ -39,17 +39,21 @@ use serde::{Deserialize, Serialize};
 pub struct Croncat {
     pub(crate) agent: Option<Agent>,
     pub(crate) task: Option<Task>,
-
+    pub(crate) config_response: Option<GetConfigResponse>,
+    pub(crate) balance_response: Option<GetBalancesResponse>,
+    pub(crate) get_agent_ids_response: Option<GetAgentIdsResponse>,
     pub(crate) get_agent_tasks_response: Option<AgentTaskResponse>,
     pub(crate) task_request: Option<TaskRequest>,
     pub(crate) task_response: Option<TaskResponse>,
     pub(crate) validate_interval_response: Option<bool>,
+    pub(crate) get_agent_response: Option<Option<AgentResponse>>,
     pub(crate) get_tasks_response: Option<Vec<TaskResponse>>,
     pub(crate) get_tasks_by_owner_response: Option<Vec<TaskResponse>>,
     pub(crate) get_task_response: Option<Option<TaskResponse>>,
     pub(crate) get_task_hash_response: Option<String>,
     pub(crate) get_slot_hashes_response: Option<GetSlotHashesResponse>,
     pub(crate) get_slot_ids_response: Option<GetSlotIdsResponse>,
+    pub(crate) get_wallet_balances_response: Option<GetWalletBalancesResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

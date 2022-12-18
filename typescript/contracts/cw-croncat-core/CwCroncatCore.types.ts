@@ -8,6 +8,8 @@ export type Addr = string;
 export type Uint128 = string;
 export type Timestamp = Uint64;
 export type Uint64 = string;
+export type SlotType = "Block" | "Cron";
+export type AgentStatus = "Active" | "Pending" | "Nominated";
 export type CosmosMsgForEmpty = {
   bank: BankMsg;
 } | {
@@ -189,6 +191,10 @@ export type PathToValue = ValueIndex[];
 export type SmartQueries = SmartQuery[];
 export interface Croncat {
   Agent?: Agent | null;
+  BalanceResponse?: GetBalancesResponse | null;
+  ConfigResponse?: GetConfigResponse | null;
+  GetAgentIdsResponse?: GetAgentIdsResponse | null;
+  GetAgentResponse?: (AgentResponse | null) | null;
   GetAgentTasksResponse?: AgentTaskResponse | null;
   GetSlotHashesResponse?: GetSlotHashesResponse | null;
   GetSlotIdsResponse?: GetSlotIdsResponse | null;
@@ -196,6 +202,7 @@ export interface Croncat {
   GetTaskResponse?: (TaskResponse | null) | null;
   GetTasksByOwnerResponse?: TaskResponse[] | null;
   GetTasksResponse?: TaskResponse[] | null;
+  GetWalletBalancesResponse?: GetWalletBalancesResponse | null;
   Task?: Task | null;
   TaskRequest?: TaskRequest | null;
   TaskResponse?: TaskResponse | null;
@@ -223,6 +230,53 @@ export interface Cw20CoinVerified {
 export interface Coin {
   amount: Uint128;
   denom: string;
+  [k: string]: unknown;
+}
+export interface GetBalancesResponse {
+  available_balance: GenericBalance;
+  cw20_whitelist: Addr[];
+  native_denom: string;
+  staked_balance: GenericBalance;
+  [k: string]: unknown;
+}
+export interface GetConfigResponse {
+  agent_active_indices: [SlotType, number, number][];
+  agent_fee: number;
+  agent_nomination_duration: number;
+  agents_eject_threshold: number;
+  available_balance: GenericBalance;
+  cw20_whitelist: Addr[];
+  cw_rules_addr: Addr;
+  gas_action_fee: number;
+  gas_base_fee: number;
+  gas_fraction: GasFraction;
+  limit: number;
+  min_tasks_per_agent: number;
+  native_denom: string;
+  owner_id: Addr;
+  paused: boolean;
+  proxy_callback_gas: number;
+  slot_granularity_time: number;
+  staked_balance: GenericBalance;
+  [k: string]: unknown;
+}
+export interface GasFraction {
+  denominator: number;
+  numerator: number;
+  [k: string]: unknown;
+}
+export interface GetAgentIdsResponse {
+  active: Addr[];
+  pending: Addr[];
+  [k: string]: unknown;
+}
+export interface AgentResponse {
+  balance: GenericBalance;
+  last_executed_slot: number;
+  payable_account_id: Addr;
+  register_start: Timestamp;
+  status: AgentStatus;
+  total_tasks_executed: number;
   [k: string]: unknown;
 }
 export interface AgentTaskResponse {
@@ -315,6 +369,10 @@ export interface SmartQuery {
   msg: Binary;
   path_to_msg_value: PathToValue;
   path_to_query_value: PathToValue;
+  [k: string]: unknown;
+}
+export interface GetWalletBalancesResponse {
+  cw20_balances: Cw20CoinVerified[];
   [k: string]: unknown;
 }
 export interface Task {
@@ -438,11 +496,6 @@ export type ExecuteMsg = {
     [k: string]: unknown;
   };
 };
-export interface GasFraction {
-  denominator: number;
-  numerator: number;
-  [k: string]: unknown;
-}
 export interface Cw20ReceiveMsg {
   amount: Uint128;
   msg: Binary;
@@ -450,16 +503,6 @@ export interface Cw20ReceiveMsg {
   [k: string]: unknown;
 }
 export type GetAgentResponse = AgentResponse | null;
-export type AgentStatus = "Active" | "Pending" | "Nominated";
-export interface AgentResponse {
-  balance: GenericBalance;
-  last_executed_slot: number;
-  payable_account_id: Addr;
-  register_start: Timestamp;
-  status: AgentStatus;
-  total_tasks_executed: number;
-  [k: string]: unknown;
-}
 export type GetAgentTasksResponse = TaskResponse | null;
 export type RoundRobinBalancerModeResponse = "ActivationOrder" | "Equalizer";
 export interface GetStateResponse {
