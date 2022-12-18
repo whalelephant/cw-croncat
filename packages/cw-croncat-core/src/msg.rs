@@ -164,11 +164,6 @@ pub enum QueryMsg {
     GetWalletBalances {
         wallet: String,
     },
-    GetState {
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    },
-
     SimulateTask {
         task: TaskRequest,
         funds: Vec<Coin>,
@@ -430,69 +425,22 @@ pub struct TaskWithQueriesResponse {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct CwCroncatResponse {
-    pub config: GetConfigResponse,
-
     pub agent_active_queue: Vec<Addr>,
     pub agent_pending_queue: Vec<Addr>,
-    pub agents: Vec<AgentResponse>,
-
     pub tasks: Vec<TaskResponse>,
     pub task_total: Uint64,
-
-    pub time_slots: Vec<SlotResponse>,
-    pub block_slots: Vec<SlotResponse>,
-    pub tasks_with_queries: Vec<TaskWithQueriesResponse>,
-    pub tasks_with_queries_total: Uint64,
-
-    pub time_slots_queries: Vec<SlotWithQueriesResponse>,
-    pub block_slots_queries: Vec<SlotWithQueriesResponse>,
-
     pub reply_index: Uint64,
 
     pub agent_nomination_begin_time: Option<Timestamp>,
 
     pub balancer_mode: RoundRobinBalancerModeResponse,
-    pub balances: Vec<BalancesResponse>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct SlotResponse {
-    pub slot: Uint64,
-    pub tasks: Vec<Vec<u8>>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct BalancesResponse {
-    pub address: Addr,
-    pub balances: Vec<Cw20CoinVerified>,
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub enum RoundRobinBalancerModeResponse {
     ActivationOrder,
     Equalizer,
-}
-
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub struct ReplyQueueResponse {
-//     pub index: Uint64,
-//     pub item: QueueItemResponse,
-// }
-
-// #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-// pub struct QueueItemResponse {
-//     pub contract_addr: Option<Addr>,
-//     pub action_idx: Uint64,
-//     pub task_hash: Option<Vec<u8>>,
-//     pub task_is_extra: Option<bool>,
-//     pub agent_id: Option<Addr>,
-//     pub failed: bool,
-// }
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct SlotWithQueriesResponse {
-    pub task_hash: Vec<u8>,
-    pub slot: Uint64,
 }
 
 impl From<Task> for TaskResponse {

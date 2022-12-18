@@ -271,63 +271,6 @@
         }
       },
       "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_state"
-      ],
-      "properties": {
-        "get_state": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "simulate_task"
-      ],
-      "properties": {
-        "simulate_task": {
-          "type": "object",
-          "required": [
-            "funds",
-            "task"
-          ],
-          "properties": {
-            "funds": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
-            },
-            "task": {
-              "$ref": "#/definitions/TaskRequest"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
     }
   ],
   "definitions": {
