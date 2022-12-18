@@ -7,5 +7,4 @@ repos:
         verbose: true
         language: system
         types: [rust]
-        stages: [post-commit]
         pass_filenames: false

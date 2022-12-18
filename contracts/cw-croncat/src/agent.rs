@@ -59,9 +59,6 @@ impl<'a> CwCroncat<'a> {
         Ok(GetAgentIdsResponse { active, pending })
     }
 
-    fn _my_function(){
-
-    }
     // TODO: Change this to solid round-table implementation. Setup this simple version for PoC
     /// Get how many tasks an agent can execute
     /// TODO: Remove this function, replaced by balancer
