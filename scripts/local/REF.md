@@ -1,7 +1,7 @@
 # Build the contract
 Building:
 ```bash
-sh build.sh
+just build
 ```
 Optimizing the binary size:
 ```bash

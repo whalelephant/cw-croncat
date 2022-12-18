@@ -65,7 +65,7 @@ jobs:
           args: -- -D warnings
       
       - name: Generate Schema
-        run: ./scripts/schema.sh
+        run: just schema
 
       - name: Show Schema changes
         run: git status --porcelain
