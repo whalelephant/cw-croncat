@@ -1,0 +1,5 @@
+[hooks]
+post-commit = "just all"
+
+[logging]
+verbose = true
