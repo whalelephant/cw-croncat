@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: just-all
         name: just-all
-        entry: bash -c 'cargo check'
+        entry: just build
         language: system
         types: [python]
         pass_filenames: false
