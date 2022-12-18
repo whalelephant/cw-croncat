@@ -5,5 +5,11 @@ repos:
         name: just-all
         entry: just build
         language: system
-        types: [python]
-        pass_filenames: false
+        types: [rust]
+      - id: build
+        name: build
+        description: Format files with cargo fmt.
+        entry: cargo build
+        language: system
+        types: [rust]
+        args: ["--"]
