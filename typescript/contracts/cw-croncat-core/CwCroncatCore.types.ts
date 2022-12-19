@@ -504,17 +504,6 @@ export interface Cw20ReceiveMsg {
 }
 export type GetAgentResponse = AgentResponse | null;
 export type GetAgentTasksResponse = TaskResponse | null;
-export type RoundRobinBalancerModeResponse = "ActivationOrder" | "Equalizer";
-export interface GetStateResponse {
-  agent_active_queue: Addr[];
-  agent_nomination_begin_time?: Timestamp | null;
-  agent_pending_queue: Addr[];
-  balancer_mode: RoundRobinBalancerModeResponse;
-  reply_index: Uint64;
-  task_total: Uint64;
-  tasks: TaskResponse[];
-  [k: string]: unknown;
-}
 export type GetTaskHashResponse = string;
 export type GetTaskResponse = TaskResponse | null;
 export type GetTasksByOwnerResponse = TaskResponse[];
