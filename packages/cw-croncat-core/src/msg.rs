@@ -354,18 +354,6 @@ pub struct TaskWithQueriesResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CwCroncatResponse {
-    pub agent_active_queue: Vec<Addr>,
-    pub agent_pending_queue: Vec<Addr>,
-    pub tasks: Vec<TaskResponse>,
-    pub task_total: Uint64,
-    pub reply_index: Uint64,
-
-    pub agent_nomination_begin_time: Option<Timestamp>,
-
-    pub balancer_mode: RoundRobinBalancerModeResponse,
-}
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct GetBalancesResponse {
     pub native_denom: String,
     pub available_balance: GenericBalance,
@@ -392,12 +380,6 @@ pub struct AgentResponse {
     pub total_tasks_executed: u64,
     pub last_executed_slot: u64,
     pub register_start: Timestamp,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub enum RoundRobinBalancerModeResponse {
-    ActivationOrder,
-    Equalizer,
 }
 
 impl From<Task> for TaskResponse {

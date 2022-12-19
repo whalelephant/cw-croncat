@@ -1,19 +1,12 @@
 use crate::error::ContractError;
 use crate::state::CwCroncat;
-use crate::tests::helpers::{
-    add_little_time, proper_instantiate, ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM,
-};
+use crate::tests::helpers::NATIVE_DENOM;
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, CosmosMsg, MessageInfo, StdResult, Uint64, WasmMsg,
-};
+use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
 use cw20::Balance;
 use cw_croncat_core::msg::{
-    CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg,
-    QueryMsg, RoundRobinBalancerModeResponse, TaskRequest,
+    ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg, QueryMsg,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval};
-use cw_multi_test::Executor;
 
 #[test]
 fn update_settings() {
