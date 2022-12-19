@@ -41,6 +41,8 @@ pub struct Config {
     pub gas_fraction: GasFraction,
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
+    pub gas_query_fee: u64,
+    pub gas_wasm_query_fee: u64,
     pub proxy_callback_gas: u32,
     pub slot_granularity_time: u64,
 

@@ -235,6 +235,8 @@ impl TaskRequest {
         owner_id: &Addr,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
     ) -> Result<(GenericBalance, u64), CoreError> {
         let mut gas_amount: u64 = base_gas;
         let mut amount_for_one_task = GenericBalance::default();
@@ -322,6 +324,23 @@ impl TaskRequest {
                 }
                 // TODO: Check authZ messages
                 _ => (),
+            }
+        }
+
+        if let Some(queries) = self.queries.as_ref() {
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas_amount
+                            .checked_add(query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                    _ => {
+                        gas_amount
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                }
             }
         }
         Ok((amount_for_one_task, gas_amount))

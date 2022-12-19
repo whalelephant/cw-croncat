@@ -1,4 +1,4 @@
-use crate::contract::GAS_DENOMINATOR_DEFAULT_JUNO;
+use crate::contract::GAS_DENOMINATOR;
 use crate::state::QueueItem;
 use crate::tests::helpers::mock_init;
 use crate::tests::helpers::AGENT0;
@@ -55,7 +55,7 @@ fn configure() {
     assert_eq!(
         GasFraction {
             numerator: 1,
-            denominator: GAS_DENOMINATOR_DEFAULT_JUNO
+            denominator: GAS_DENOMINATOR
         },
         value.gas_fraction
     );

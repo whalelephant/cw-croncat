@@ -1,5 +1,5 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
-use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR};
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
@@ -23,9 +23,9 @@ fn mock_config() -> Config {
         agent_fee: 5,
         gas_fraction: GasFraction {
             numerator: 1,
-            denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
+            denominator: GAS_DENOMINATOR,
         },
-        gas_action_fee: GAS_ACTION_FEE_JUNO,
+        gas_action_fee: GAS_ACTION_FEE,
         proxy_callback_gas: 3,
         slot_granularity_time: 60_000_000_000,
         native_denom: NATIVE_DENOM.to_owned(),
@@ -33,7 +33,7 @@ fn mock_config() -> Config {
         agent_nomination_duration: 9,
         limit: 100,
         cw_rules_addr: Addr::unchecked("todo"),
-        gas_base_fee: GAS_BASE_FEE_JUNO,
+        gas_base_fee: GAS_BASE_FEE,
     }
 }
 #[test]

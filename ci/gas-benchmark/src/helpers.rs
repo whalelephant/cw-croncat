@@ -13,7 +13,7 @@ use cosm_orc::{
 };
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
-use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use cw_croncat::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR};
 use cw_croncat_core::{
     msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
     types::Action,
@@ -26,7 +26,7 @@ const fn add_agent_fee(num: u64) -> u64 {
 
 fn min_gas_for_actions(actions: &[Action]) -> u64 {
     actions.iter().fold(0, |acc, action| {
-        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE_JUNO)
+        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE)
     })
 }
 
@@ -175,8 +175,8 @@ where
         .map(|(_, _, prefix)| (*prefix).to_owned())
         .collect();
     for (task, extra_funds, prefix) in tasks {
-        let gas_for_task = GAS_BASE_FEE_JUNO + min_gas_for_actions(&task.actions);
-        let gas_to_attached_deposit = add_agent_fee(gas_for_task) / GAS_DENOMINATOR_DEFAULT_JUNO;
+        let gas_for_task = GAS_BASE_FEE + min_gas_for_actions(&task.actions);
+        let gas_to_attached_deposit = add_agent_fee(gas_for_task) / GAS_DENOMINATOR;
         let amount = (gas_to_attached_deposit + extra_funds) * 3;
         create_task(task, orc, user_key, prefix, &denom, amount)?;
     }
