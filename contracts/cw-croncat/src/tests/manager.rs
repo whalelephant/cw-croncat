@@ -1,4 +1,7 @@
-use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT};
+use crate::contract::{
+    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
+    GAS_WASM_QUERY_FEE,
+};
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
     AGENT1, AGENT2, AGENT3,
@@ -3035,4 +3038,81 @@ fn test_error_in_reply() {
         }
     }
     assert!(without_failure);
+}
+
+#[test]
+fn queries_fees() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    let query = CroncatQuery::HasBalanceGte(HasBalanceGte {
+        address: contract_addr.to_string(),
+        required_balance: coins(1, NATIVE_DENOM).into(),
+    });
+
+    let transfer_to_bob = BankMsg::Send {
+        to_address: "bob".to_string(),
+        amount: coins(1, NATIVE_DENOM),
+    };
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let attached_balance = (gas_to_amount + 1) as u128;
+
+    let task_hash = app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+    app.update_block(add_little_time);
+
+        // execute proxy_call
+        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+        let res = app
+            .execute_contract(
+                Addr::unchecked(AGENT0),
+                contract_addr.clone(),
+                &proxy_call_msg,
+                &vec![],
+            )
+            .unwrap();
+        print!("{:#?}", res);
+    
+        // Check attributes, should have an error since we can't execute proposal yet
+        let mut without_failure: bool = false;
+        for e in res.events {
+            for a in e.attributes {
+                if a.key == "with_failure" && a.value.contains("error executing WasmMsg") {
+                    without_failure = true;
+                }
+            }
+        }
+        assert!(without_failure);
 }
