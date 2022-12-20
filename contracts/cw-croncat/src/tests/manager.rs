@@ -11,6 +11,7 @@ use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20Coin;
+use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
     TaskResponse, TaskWithQueriesResponse,
@@ -3054,6 +3055,7 @@ fn queries_fees() {
 
     app.update_block(add_little_time);
 
+    // Non-wasm query
     let query = CroncatQuery::HasBalanceGte(HasBalanceGte {
         address: contract_addr.to_string(),
         required_balance: coins(1, NATIVE_DENOM).into(),
@@ -3079,40 +3081,256 @@ fn queries_fees() {
         },
     };
 
+    // Base + action + calling rules + non-wasm query
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
     let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
     let attached_balance = (gas_to_amount + 1) as u128;
 
-    let task_hash = app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(attached_balance, NATIVE_DENOM),
-    )
-    .unwrap();
+    let task_hash_binary = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap()
+        .data
+        .unwrap();
+    let task_hash: String = String::from_utf8(task_hash_binary.to_vec()).unwrap();
     app.update_block(add_little_time);
 
-        // execute proxy_call
-        let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
-        let res = app
-            .execute_contract(
-                Addr::unchecked(AGENT0),
-                contract_addr.clone(),
-                &proxy_call_msg,
-                &vec![],
-            )
-            .unwrap();
-        print!("{:#?}", res);
-    
-        // Check attributes, should have an error since we can't execute proposal yet
-        let mut without_failure: bool = false;
-        for e in res.events {
-            for a in e.attributes {
-                if a.key == "with_failure" && a.value.contains("error executing WasmMsg") {
-                    without_failure = true;
-                }
-            }
-        }
-        assert!(without_failure);
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task.amount_for_one_task_native,
+        coins(attached_balance, NATIVE_DENOM)
+    );
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall {
+        task_hash: Some(task_hash),
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap();
+    print!("{:#?}", res);
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "remove_task")));
+
+    // Wasm query
+    let wasm_query = CroncatQuery::Query {
+        contract_addr: contract_addr.to_string(),
+        msg: to_binary(&QueryMsg::GetAgent {
+            account_id: AGENT0.to_string(),
+        })
+        .unwrap(),
+    };
+
+    let transfer_to_bob = BankMsg::Send {
+        to_address: "bob".to_string(),
+        amount: coins(1, NATIVE_DENOM),
+    };
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![wasm_query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    // Base + action + calling rules + wasm query
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let attached_balance = (gas_to_amount + 1) as u128;
+
+    let task_hash_binary = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap()
+        .data
+        .unwrap();
+    let task_hash: String = String::from_utf8(task_hash_binary.to_vec()).unwrap();
+    app.update_block(add_little_time);
+
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task.amount_for_one_task_native,
+        coins(attached_balance, NATIVE_DENOM)
+    );
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall {
+        task_hash: Some(task_hash),
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap();
+    print!("{:#?}", res);
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "remove_task")));
+}
+
+#[test]
+fn queries_fees_negative() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    app.update_block(add_little_time);
+
+    // Non-wasm query
+    let query = CroncatQuery::HasBalanceGte(HasBalanceGte {
+        address: contract_addr.to_string(),
+        required_balance: coins(1, NATIVE_DENOM).into(),
+    });
+
+    let transfer_to_bob = BankMsg::Send {
+        to_address: "bob".to_string(),
+        amount: coins(1, NATIVE_DENOM),
+    };
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    // Base + action + calling rules + non-wasm query
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let attached_balance = (gas_to_amount + 1 - 1) as u128; // missing 1 amount
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::CoreError(CoreError::NotEnoughNative {
+            denom: NATIVE_DENOM.to_string(),
+            lack: Uint128::new(1),
+        })
+    );
+
+    // Wasm query
+    let wasm_query = CroncatQuery::Query {
+        contract_addr: contract_addr.to_string(),
+        msg: to_binary(&QueryMsg::GetAgent {
+            account_id: AGENT0.to_string(),
+        })
+        .unwrap(),
+    };
+
+    let transfer_to_bob = BankMsg::Send {
+        to_address: "bob".to_string(),
+        amount: coins(1, NATIVE_DENOM),
+    };
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![wasm_query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    // Base + action + calling rules + wasm query
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let attached_balance = (gas_to_amount + 1 - 1) as u128;
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::CoreError(CoreError::NotEnoughNative {
+            denom: NATIVE_DENOM.to_string(),
+            lack: Uint128::new(1),
+        })
+    );
 }

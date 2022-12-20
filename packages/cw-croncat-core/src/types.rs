@@ -331,18 +331,18 @@ impl TaskRequest {
 
         if let Some(queries) = self.queries.as_ref() {
             // If task has queries - Rules contract is queried which is wasm query
-            gas_amount
+            gas_amount = gas_amount
                 .checked_add(wasm_query_gas)
                 .ok_or(CoreError::InvalidWasmMsg {})?;
             for query in queries.iter() {
                 match query {
                     CroncatQuery::HasBalanceGte(_) => {
-                        gas_amount
+                        gas_amount = gas_amount
                             .checked_add(query_gas)
                             .ok_or(CoreError::InvalidWasmMsg {})?;
                     }
                     _ => {
-                        gas_amount
+                        gas_amount = gas_amount
                             .checked_add(wasm_query_gas)
                             .ok_or(CoreError::InvalidWasmMsg {})?;
                     }
