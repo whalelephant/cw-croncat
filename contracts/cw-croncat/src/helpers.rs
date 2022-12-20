@@ -228,8 +228,13 @@ pub(crate) fn proxy_call_submsgs_price(
     cfg: Config,
     next_idx: u64,
 ) -> Result<(Vec<SubMsg>, Coin), ContractError> {
-    let (sub_msgs, gas_total) =
-        task.get_submsgs_with_total_gas(cfg.gas_base_fee, cfg.gas_action_fee, next_idx)?;
+    let (sub_msgs, gas_total) = task.get_submsgs_with_total_gas(
+        cfg.gas_base_fee,
+        cfg.gas_action_fee,
+        cfg.gas_query_fee,
+        cfg.gas_wasm_query_fee,
+        next_idx,
+    )?;
     let gas_amount = calculate_required_amount(gas_total, cfg.agent_fee)?;
     let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
     let price = coin(price_amount, cfg.native_denom);

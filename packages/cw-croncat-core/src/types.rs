@@ -459,6 +459,8 @@ impl Task {
         &self,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
         next_idx: u64,
     ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
         let mut gas: u64 = base_gas;
@@ -472,6 +474,25 @@ impl Task {
                 sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
             } else {
                 sub_msgs.push(sub_msg);
+            }
+        }
+
+        if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas = gas
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidGas {})?;
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas = gas.checked_add(query_gas).ok_or(CoreError::InvalidGas {})?;
+                    }
+                    _ => {
+                        gas = gas
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidGas {})?;
+                    }
+                }
             }
         }
         Ok((sub_msgs, gas))

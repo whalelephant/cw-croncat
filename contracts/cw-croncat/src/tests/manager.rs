@@ -1744,7 +1744,7 @@ fn test_reschedule_task_with_queries() {
         },
     };
 
-    let attached_balance = 27093 * 8;
+    let attached_balance = 31188 * 8;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1752,7 +1752,16 @@ fn test_reschedule_task_with_queries() {
         &coins(attached_balance, NATIVE_DENOM),
     )
     .unwrap();
-
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.to_string(),
+            },
+        )
+        .unwrap();
+    println!("task: {:?}", task);
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
         payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
@@ -3156,7 +3165,7 @@ fn queries_fees() {
                 msg: transfer_to_bob.clone().into(),
                 gas_limit: None,
             }],
-            queries: Some(vec![wasm_query]),
+            queries: Some(vec![wasm_query.clone()]),
             transforms: None,
             cw20_coins: vec![],
         },
@@ -3208,6 +3217,132 @@ fn queries_fees() {
         )
         .unwrap();
     print!("{:#?}", res);
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "remove_task")));
+
+    // With reschedule to check balance changes
+
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Immediate,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: Some(vec![wasm_query]),
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let one_proxy_call_amount = (gas_to_amount + 1) as u128;
+
+    let task_hash_binary = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(one_proxy_call_amount * 3, NATIVE_DENOM),
+        )
+        .unwrap()
+        .data
+        .unwrap();
+    let task_hash: String = String::from_utf8(task_hash_binary.to_vec()).unwrap();
+    app.update_block(add_little_time);
+
+    // Initial balance for 3 proxy calls
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task.amount_for_one_task_native,
+        coins(one_proxy_call_amount, NATIVE_DENOM)
+    );
+    assert_eq!(
+        task.total_deposit,
+        coins(one_proxy_call_amount * 3, NATIVE_DENOM)
+    );
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall {
+        task_hash: Some(task_hash.clone()),
+    };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &proxy_call_msg,
+        &vec![],
+    )
+    .unwrap();
+
+    // for 2 proxies should have left
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task.total_deposit,
+        coins(one_proxy_call_amount * 2, NATIVE_DENOM)
+    );
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall {
+        task_hash: Some(task_hash.clone()),
+    };
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        contract_addr.clone(),
+        &proxy_call_msg,
+        &vec![],
+    )
+    .unwrap();
+
+    // for 2 proxies should have left
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetTask {
+                task_hash: task_hash.to_string(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task.total_deposit,
+        coins(one_proxy_call_amount, NATIVE_DENOM)
+    );
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall {
+        task_hash: Some(task_hash.clone()),
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap();
 
     assert!(res.events.iter().any(|ev| ev
         .attributes
