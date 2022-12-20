@@ -227,6 +227,8 @@ impl TaskRequest {
     /// Validate the task actions only use the supported messages
     /// We're iterating over all actions
     /// so it's a great place for calculaing balance usages
+    // Consider moving Config to teh cw-croncat-core so this method can take reference of that
+    #[allow(clippy::too_many_arguments)]
     pub fn is_valid_msg_calculate_usage(
         &self,
         api: &dyn Api,
@@ -328,6 +330,10 @@ impl TaskRequest {
         }
 
         if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas_amount
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidWasmMsg {})?;
             for query in queries.iter() {
                 match query {
                     CroncatQuery::HasBalanceGte(_) => {

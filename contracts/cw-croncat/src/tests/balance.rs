@@ -1,5 +1,8 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
-use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR};
+use crate::contract::{
+    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
+    GAS_WASM_QUERY_FEE,
+};
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
@@ -22,10 +25,12 @@ fn mock_config() -> Config {
         staked_balance: GenericBalance::default(),
         agent_fee: 5,
         gas_fraction: GasFraction {
-            numerator: 1,
+            numerator: GAS_NUMERATOR_DEFAULT,
             denominator: GAS_DENOMINATOR,
         },
         gas_action_fee: GAS_ACTION_FEE,
+        gas_query_fee: GAS_QUERY_FEE,
+        gas_wasm_query_fee: GAS_WASM_QUERY_FEE,
         proxy_callback_gas: 3,
         slot_granularity_time: 60_000_000_000,
         native_denom: NATIVE_DENOM.to_owned(),

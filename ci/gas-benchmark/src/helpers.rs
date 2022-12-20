@@ -71,6 +71,8 @@ pub(crate) fn init_contracts(
         cw_rules_addr: rules_res.address,
         owner_id: Some(admin_addr.to_owned()),
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: None,
         gas_base_fee: None,

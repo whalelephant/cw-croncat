@@ -1,4 +1,4 @@
-use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR};
+use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT};
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
     AGENT1, AGENT2, AGENT3,
@@ -103,6 +103,8 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -169,6 +171,8 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             slot_granularity_time: None,
             gas_base_fee: None,
             gas_action_fee: None,
+            gas_query_fee: None,
+            gas_wasm_query_fee: None,
         },
         &vec![],
     )
@@ -431,7 +435,7 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
         },
     };
     let gas_for_one = GAS_BASE_FEE + gas_limit;
-    let amount_for_one_task = gas_for_one / GAS_DENOMINATOR;
+    let amount_for_one_task = gas_for_one * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
     let agent_fee = amount_for_one_task * 5 / 100;
     let amount_with_fee = gas_limit + agent_fee + 1000;
     // create a task
@@ -598,7 +602,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                     attr_key = Some(a.clone().key);
                     attr_value = Some(a.clone().value);
                 }
-                if e.ty == "transfer" && a.clone().key == "amount" && a.clone().value == "64172atom"
+                if e.ty == "transfer" && a.clone().key == "amount" && a.clone().value == "93688atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -697,7 +701,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
                 }
                 if e.ty == "transfer"
                     && a.clone().key == "amount"
-                    && a.clone().value == "460840atom"
+                    && a.clone().value == "490356atom"
                 // task didn't pay for the failed execution
                 {
                     has_submsg_method = true;
@@ -1367,7 +1371,8 @@ fn test_balance_changes() {
     let gas_for_one = GAS_BASE_FEE + (GAS_ACTION_FEE * 2);
     let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking refunds at task removal
-    let amount_for_one_task = (gas_for_one + agent_fee) / GAS_DENOMINATOR + 3 + 4 + extra; // + 3 + 4 atoms sent
+    let amount_for_one_task =
+        (gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3 + 4 + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1500,7 +1505,8 @@ fn test_no_reschedule_if_lack_balance() {
     let gas_for_one = GAS_BASE_FEE + GAS_ACTION_FEE;
     let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking nonzero task balance
-    let amount_for_one_task = (gas_for_one + agent_fee) / GAS_DENOMINATOR + 3; // + 3 atoms sent
+    let amount_for_one_task =
+        (gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3; // + 3 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1548,7 +1554,7 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert_eq!(
         task.unwrap().total_deposit[0].amount,
-        Uint128::from((gas_for_one + agent_fee) / GAS_DENOMINATOR + extra)
+        Uint128::from((gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + extra)
     );
 
     app.update_block(add_little_time);
@@ -1734,7 +1740,7 @@ fn test_reschedule_task_with_queries() {
         },
     };
 
-    let attached_balance = 100338 * 4;
+    let attached_balance = 27093 * 8;
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -1855,6 +1861,8 @@ fn tick() {
         min_tasks_per_agent: None,
         agents_eject_threshold: Some(1000), // allow to miss 1000 slots
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
@@ -2050,6 +2058,8 @@ fn tick_task() -> StdResult<()> {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
     };
     app.execute_contract(
@@ -2238,7 +2248,8 @@ fn testing_fee_works() {
         },
     };
     let total_gas = GAS_BASE_FEE + GAS_ACTION_FEE;
-    let attach_per_action = (total_gas + (total_gas * 5 / 100)) / GAS_DENOMINATOR;
+    let attach_per_action =
+        (total_gas + (total_gas * 5 / 100)) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
     let extra = 100;
     let amount_for_three = (attach_per_action * 3) as u128 + extra;
 
