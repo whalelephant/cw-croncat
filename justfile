@@ -25,8 +25,8 @@ gen:
 	#!/usr/bin/env bash
 	cd typescript
 	yarn --cwd ./typescript build
-	yarn --cwd ./typescript install --frozen-lockfile
 	yarn --cwd ./typescript codegen
+	yarn --cwd ./typescript install --frozen-lockfile
 juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data
