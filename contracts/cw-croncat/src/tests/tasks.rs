@@ -217,17 +217,17 @@ fn query_get_tasks_pagination() {
     let expected_amnt: usize = (tasks_amnt - from_index).try_into().unwrap();
     assert_eq!(part_of_tasks.len(), expected_amnt);
 
-    println!(
-        "half_tasks: {:?}\n hash_vec:{:?}",
-        part_of_tasks
-            .iter()
-            .map(|t| t.task_hash.clone())
-            .collect::<Vec<String>>(),
-        all_tasks
-            .iter()
-            .map(|t| t.task_hash.clone())
-            .collect::<Vec<String>>(),
-    );
+    // println!(
+    //     "half_tasks: {:?}\n hash_vec:{:?}",
+    //     part_of_tasks
+    //         .iter()
+    //         .map(|t| t.task_hash.clone())
+    //         .collect::<Vec<String>>(),
+    //     all_tasks
+    //         .iter()
+    //         .map(|t| t.task_hash.clone())
+    //         .collect::<Vec<String>>(),
+    // );
 
     // Check it's in right order
     for i in 0..expected_amnt {

@@ -393,8 +393,6 @@ fn proxy_call_success() -> StdResult<()> {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
                     has_required_attributes = false;
-                    println!("{:?}", _key);
-                    println!("{:?}", value);
                 }
             } else {
                 has_required_attributes = false;
@@ -623,8 +621,6 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
                     has_required_attributes = false;
-                    println!("{:?}", _key);
-                    println!("{:?}", value);
                 }
             } else {
                 has_required_attributes = false;
@@ -851,9 +847,6 @@ fn proxy_callback_block_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("{:?}", _key);
-                    println!("{:?}", value);
-
                     has_required_attributes = false;
                 }
             } else {
@@ -985,8 +978,6 @@ fn proxy_callback_time_slots() -> StdResult<()> {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
                     has_required_attributes = false;
-                    println!("{:?}", _key);
-                    println!("{:?}", value);
                 }
             } else {
                 has_required_attributes = false;
@@ -1778,7 +1769,6 @@ fn test_reschedule_task_with_queries() {
     for e in create_task_resp.events {
         for a in e.attributes {
             if a.key == "task_hash" && a.value.len() > 0 {
-                println!("{:?}", a.value);
                 task_hash = a.value;
             }
         }
@@ -3153,7 +3143,6 @@ fn queries_fees() {
             &vec![],
         )
         .unwrap();
-    print!("{:#?}", res);
 
     assert!(res.events.iter().any(|ev| ev
         .attributes
