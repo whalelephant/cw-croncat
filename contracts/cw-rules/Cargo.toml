@@ -69,3 +69,4 @@ cw4 = "0.16.0"
 cw4-group = "0.16.0"
 base64 = "0.13.0"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+rusty-hook = "0.11.2"
