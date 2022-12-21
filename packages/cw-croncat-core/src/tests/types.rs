@@ -353,6 +353,8 @@ fn is_valid_empty_actions() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5,
         )
         .unwrap_err(),
         CoreError::InvalidAction {}
