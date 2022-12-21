@@ -384,7 +384,7 @@ fn test_get_state() {
     let state = state.unwrap();
 
     let task_id_str =
-        "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
+        "62c7a2dd020ace2169b3d61ac32a5e5fd98050d73584f121d424a9ebbf32e7a0".to_string();
 
     assert_eq!(state.agent_active_queue.len(), 1);
     assert_eq!(state.agent_active_queue[0].as_str(), AGENT0);

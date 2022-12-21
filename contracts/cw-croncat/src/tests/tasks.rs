@@ -63,7 +63,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
+        "85a5729f478d96fbb12eec7886992a53635d22bba4d8d8ef2fde16dc7f1f1605",
         task_hash
     );
 }
@@ -579,7 +579,7 @@ fn check_task_create_success() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     let res = app
@@ -852,7 +852,7 @@ fn check_remove_create() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     app.execute_contract(
@@ -962,7 +962,7 @@ fn check_refill_create() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     app.execute_contract(
