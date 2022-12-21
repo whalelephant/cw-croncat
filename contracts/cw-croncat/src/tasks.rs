@@ -254,7 +254,9 @@ impl<'a> CwCroncat<'a> {
                 val: "Interval invalid".to_string(),
             });
         }
-
+        if task.actions.is_empty() {
+            return Err(ContractError::CoreError(CoreError::InvalidAction {}));
+        }
         let (mut amount_for_one_task, gas_amount) = task.is_valid_msg_calculate_usage(
             deps.api,
             &env.contract.address,
