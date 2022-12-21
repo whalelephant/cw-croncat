@@ -27,7 +27,7 @@ fn configure() {
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
-        gas_fraction: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -62,7 +62,7 @@ fn configure() {
             denominator: GAS_DENOMINATOR,
             gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
         },
-        value.gas_fraction
+        value.gas_price
     );
     assert_eq!(3, value.proxy_callback_gas);
     assert_eq!(10_000_000_000, value.slot_granularity_time);

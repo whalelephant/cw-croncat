@@ -41,7 +41,7 @@
         }
       ]
     },
-    "gas_fraction": {
+    "gas_price": {
       "anyOf": [
         {
           "$ref": "#/definitions/GasPrice"

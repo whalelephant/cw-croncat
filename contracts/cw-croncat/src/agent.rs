@@ -140,10 +140,9 @@ impl<'a> CwCroncat<'a> {
 
         // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
         // Check if native token balance is sufficient for a few txns, in this case 4 txns
-        // TODO: Adjust gas & costs based on real usage cost
         let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
         let gas_amount_with_agent_fee = gas_amount_with_agent_fee(c.gas_action_fee, c.agent_fee)?;
-        let unit_cost = c.gas_fraction.calculate(4 * gas_amount_with_agent_fee)?;
+        let unit_cost = c.gas_price.calculate(4 * gas_amount_with_agent_fee)?;
         if !has_coins(
             &agent_wallet_balances,
             &Coin::new(unit_cost, c.native_denom),

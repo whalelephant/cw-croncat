@@ -959,7 +959,7 @@
         "cw_rules_addr",
         "gas_action_fee",
         "gas_base_fee",
-        "gas_fraction",
+        "gas_price",
         "limit",
         "min_tasks_per_agent",
         "native_denom",
@@ -1030,7 +1030,7 @@
           "format": "uint64",
           "minimum": 0.0
         },
-        "gas_fraction": {
+        "gas_price": {
           "$ref": "#/definitions/GasPrice"
         },
         "limit": {

@@ -24,7 +24,7 @@ fn mock_config() -> Config {
         available_balance: GenericBalance::default(),
         staked_balance: GenericBalance::default(),
         agent_fee: 5,
-        gas_fraction: GasPrice {
+        gas_price: GasPrice {
             numerator: GAS_NUMERATOR_DEFAULT,
             denominator: GAS_DENOMINATOR,
             gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,

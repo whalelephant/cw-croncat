@@ -236,7 +236,7 @@ export interface CwCroncatCoreInterface extends CwCroncatCoreReadOnlyInterface {
     agentsEjectThreshold,
     gasActionFee,
     gasBaseFee,
-    gasFraction,
+    gasPrice,
     gasQueryFee,
     gasWasmQueryFee,
     minTasksPerAgent,
@@ -249,7 +249,7 @@ export interface CwCroncatCoreInterface extends CwCroncatCoreReadOnlyInterface {
     agentsEjectThreshold?: number;
     gasActionFee?: Uint64;
     gasBaseFee?: Uint64;
-    gasFraction?: GasPrice;
+    gasPrice?: GasPrice;
     gasQueryFee?: Uint64;
     gasWasmQueryFee?: Uint64;
     minTasksPerAgent?: number;
@@ -357,7 +357,7 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
     agentsEjectThreshold,
     gasActionFee,
     gasBaseFee,
-    gasFraction,
+    gasPrice,
     gasQueryFee,
     gasWasmQueryFee,
     minTasksPerAgent,
@@ -370,7 +370,7 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
     agentsEjectThreshold?: number;
     gasActionFee?: Uint64;
     gasBaseFee?: Uint64;
-    gasFraction?: GasPrice;
+    gasPrice?: GasPrice;
     gasQueryFee?: Uint64;
     gasWasmQueryFee?: Uint64;
     minTasksPerAgent?: number;
@@ -385,7 +385,7 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
         agents_eject_threshold: agentsEjectThreshold,
         gas_action_fee: gasActionFee,
         gas_base_fee: gasBaseFee,
-        gas_fraction: gasFraction,
+        gas_price: gasPrice,
         gas_query_fee: gasQueryFee,
         gas_wasm_query_fee: gasWasmQueryFee,
         min_tasks_per_agent: minTasksPerAgent,

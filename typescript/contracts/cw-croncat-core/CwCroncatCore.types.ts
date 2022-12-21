@@ -249,7 +249,7 @@ export interface GetConfigResponse {
   cw_rules_addr: Addr;
   gas_action_fee: number;
   gas_base_fee: number;
-  gas_fraction: GasPrice;
+  gas_price: GasPrice;
   limit: number;
   min_tasks_per_agent: number;
   native_denom: string;
@@ -422,7 +422,7 @@ export type ExecuteMsg = {
     agents_eject_threshold?: number | null;
     gas_action_fee?: Uint64 | null;
     gas_base_fee?: Uint64 | null;
-    gas_fraction?: GasPrice | null;
+    gas_price?: GasPrice | null;
     gas_query_fee?: Uint64 | null;
     gas_wasm_query_fee?: Uint64 | null;
     min_tasks_per_agent?: number | null;
@@ -525,7 +525,7 @@ export interface InstantiateMsg {
   denom: string;
   gas_action_fee?: Uint64 | null;
   gas_base_fee?: Uint64 | null;
-  gas_fraction?: GasPrice | null;
+  gas_price?: GasPrice | null;
   gas_query_fee?: Uint64 | null;
   gas_wasm_query_fee?: Uint64 | null;
   owner_id?: string | null;

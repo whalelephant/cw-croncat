@@ -38,7 +38,7 @@ pub struct Config {
 
     // Economics
     pub agent_fee: u64,
-    pub gas_fraction: GasPrice,
+    pub gas_price: GasPrice,
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
     pub gas_query_fee: u64,

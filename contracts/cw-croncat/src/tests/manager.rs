@@ -13,10 +13,10 @@ use cosmwasm_std::{
 use cw20::Cw20Coin;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
-    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
-    TaskResponse, TaskWithQueriesResponse,
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, GetConfigResponse, QueryMsg,
+    TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
+use cw_croncat_core::types::{Action, Boundary, GasPrice, Interval, Transform};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use cwd_core::state::ProposalModule;
@@ -102,7 +102,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
@@ -170,7 +170,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             agent_fee: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
-            gas_fraction: None,
+            gas_price: None,
             proxy_callback_gas: None,
             slot_granularity_time: None,
             gas_base_fee: None,
@@ -1894,7 +1894,7 @@ fn tick() {
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
-        gas_fraction: None,
+        gas_price: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -2088,7 +2088,7 @@ fn tick_task() -> StdResult<()> {
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
-        gas_fraction: None,
+        gas_price: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -3498,4 +3498,131 @@ fn queries_fees_negative() {
             lack: Uint128::new(1),
         })
     );
+}
+
+#[test]
+fn gas_fees_configurable() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    // quick agent register
+    let msg = ExecuteMsg::RegisterAgent {
+        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
+    };
+    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
+        .unwrap();
+
+    let mut initial_config: GetConfigResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetConfig {})
+        .unwrap();
+    let modified_gas_price = GasPrice {
+        numerator: 10,
+        denominator: 1000,
+        gas_adjustment_numerator: 120,
+    };
+    let update_gas_price_msg = ExecuteMsg::UpdateSettings {
+        owner_id: None,
+        slot_granularity_time: None,
+        paused: None,
+        agent_fee: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: Some(modified_gas_price.clone()),
+        proxy_callback_gas: None,
+        min_tasks_per_agent: None,
+        agents_eject_threshold: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &update_gas_price_msg,
+        &[],
+    )
+    .unwrap();
+    let new_config: GetConfigResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::GetConfig {})
+        .unwrap();
+    assert_ne!(initial_config, new_config);
+    initial_config.gas_price = modified_gas_price.clone();
+    assert_eq!(initial_config, new_config);
+
+    app.update_block(add_little_time);
+    let transfer_to_bob = BankMsg::Send {
+        to_address: "bob".to_string(),
+        amount: coins(1, NATIVE_DENOM),
+    };
+    let create_task_msg = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![Action {
+                msg: transfer_to_bob.clone().into(),
+                gas_limit: None,
+            }],
+            queries: None,
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    // Base + action + calling rules + non-wasm query
+    let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE;
+    let agent_fee = gas_needed * 5 / 100;
+    let gas_to_amount = (gas_needed + agent_fee) * modified_gas_price.gas_adjustment_numerator
+        / modified_gas_price.denominator
+        * modified_gas_price.numerator
+        / modified_gas_price.denominator;
+    let attached_balance = (gas_to_amount + 1) as u128;
+
+    // making sure new config values is applied
+    // one off coin
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance - 1, NATIVE_DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::CoreError(CoreError::NotEnoughNative {
+            denom: NATIVE_DENOM.to_owned(),
+            lack: Uint128::new(1)
+        })
+    );
+
+    // should work
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &create_task_msg,
+        &coins(attached_balance, NATIVE_DENOM),
+    )
+    .unwrap();
+    app.update_block(add_little_time);
+
+    // execute proxy_call
+    let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            contract_addr.clone(),
+            &proxy_call_msg,
+            &vec![],
+        )
+        .unwrap();
+    print!("{:#?}", res);
+
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "method" && attr.value == "remove_task")));
 }

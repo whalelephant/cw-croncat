@@ -236,7 +236,7 @@ pub(crate) fn proxy_call_submsgs_price(
         next_idx,
     )?;
     let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_total, cfg.agent_fee)?;
-    let price_amount = cfg.gas_fraction.calculate(gas_amount_with_agent_fee)?;
+    let price_amount = cfg.gas_price.calculate(gas_amount_with_agent_fee)?;
     let price = coin(price_amount, cfg.native_denom);
     Ok((sub_msgs, price))
 }

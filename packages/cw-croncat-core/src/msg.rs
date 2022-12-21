@@ -66,7 +66,7 @@ pub struct InstantiateMsg {
     pub gas_action_fee: Option<Uint64>,
     pub gas_query_fee: Option<Uint64>,
     pub gas_wasm_query_fee: Option<Uint64>,
-    pub gas_fraction: Option<GasPrice>,
+    pub gas_price: Option<GasPrice>,
     pub agent_nomination_duration: Option<u16>,
 }
 
@@ -82,7 +82,7 @@ pub enum ExecuteMsg {
         gas_action_fee: Option<Uint64>,
         gas_query_fee: Option<Uint64>,
         gas_wasm_query_fee: Option<Uint64>,
-        gas_fraction: Option<GasPrice>,
+        gas_price: Option<GasPrice>,
         proxy_callback_gas: Option<u32>,
         min_tasks_per_agent: Option<u64>,
         agents_eject_threshold: Option<u64>,
@@ -482,7 +482,7 @@ pub struct GetConfigResponse {
     pub cw_rules_addr: Addr,
 
     pub agent_fee: u64,
-    pub gas_fraction: GasPrice,
+    pub gas_price: GasPrice,
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
     pub proxy_callback_gas: u32,

@@ -63,7 +63,7 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_fraction: msg.gas_fraction.unwrap_or(GasPrice {
+            gas_price: msg.gas_price.unwrap_or(GasPrice {
                 numerator: GAS_NUMERATOR_DEFAULT,
                 denominator: GAS_DENOMINATOR,
                 gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
@@ -126,7 +126,6 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute(
                 "slot_granularity_time",

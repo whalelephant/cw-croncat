@@ -89,7 +89,7 @@ pub(crate) fn init_contracts(
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
-        gas_fraction: None,
+        gas_price: None,
         agent_nomination_duration: None,
         gas_base_fee: None,
     };

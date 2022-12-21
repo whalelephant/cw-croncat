@@ -266,7 +266,7 @@ impl<'a> CwCroncat<'a> {
             cfg.gas_wasm_query_fee,
         )?;
         let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_amount, cfg.agent_fee)?;
-        let price = cfg.gas_fraction.calculate(gas_amount_with_agent_fee)?;
+        let price = cfg.gas_price.calculate(gas_amount_with_agent_fee)?;
         amount_for_one_task
             .native
             .find_checked_add(&coin(price, &cfg.native_denom))?;
