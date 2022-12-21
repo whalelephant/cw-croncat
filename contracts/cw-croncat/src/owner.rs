@@ -23,7 +23,7 @@ impl<'a> CwCroncat<'a> {
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
             agent_fee: c.agent_fee,
-            gas_fraction: c.gas_fraction,
+            gas_price: c.gas_price,
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity_time: c.slot_granularity_time,
             cw_rules_addr: c.cw_rules_addr,
@@ -84,7 +84,7 @@ impl<'a> CwCroncat<'a> {
                 gas_action_fee,
                 gas_query_fee,
                 gas_wasm_query_fee,
-                gas_fraction,
+                gas_price,
                 proxy_callback_gas,
                 min_tasks_per_agent,
                 agents_eject_threshold,
@@ -112,7 +112,7 @@ impl<'a> CwCroncat<'a> {
                             agent_nomination_duration: old_config.agent_nomination_duration,
                             cw_rules_addr: old_config.cw_rules_addr,
                             agent_fee: agent_fee.unwrap_or(old_config.agent_fee),
-                            gas_fraction: gas_fraction.unwrap_or(old_config.gas_fraction),
+                            gas_price: gas_price.unwrap_or(old_config.gas_price),
                             gas_base_fee: gas_base_fee
                                 .map(Into::into)
                                 .unwrap_or(old_config.gas_base_fee),
@@ -165,7 +165,6 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", c.native_denom)
             .add_attribute("agent_fee", c.agent_fee.to_string())
-            //.add_attribute("gas_price", c.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity_time", c.slot_granularity_time.to_string()))
     }

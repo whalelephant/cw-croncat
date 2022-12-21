@@ -11,7 +11,7 @@ use cosmwasm_std::{
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_croncat_core::msg::ExecuteMsg;
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate};
-use cw_croncat_core::types::{calculate_required_amount, AgentStatus};
+use cw_croncat_core::types::{gas_amount_with_agent_fee, AgentStatus};
 pub use cw_croncat_core::types::{GenericBalance, Task};
 //use regex::Regex;
 use schemars::JsonSchema;
@@ -235,8 +235,8 @@ pub(crate) fn proxy_call_submsgs_price(
         cfg.gas_wasm_query_fee,
         next_idx,
     )?;
-    let gas_amount = calculate_required_amount(gas_total, cfg.agent_fee)?;
-    let price_amount = cfg.gas_fraction.calculate(gas_amount, 1)?;
+    let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_total, cfg.agent_fee)?;
+    let price_amount = cfg.gas_price.calculate(gas_amount_with_agent_fee)?;
     let price = coin(price_amount, cfg.native_denom);
     Ok((sub_msgs, price))
 }

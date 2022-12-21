@@ -203,7 +203,7 @@ fn main() -> Result<()> {
                 gas_action_fee: None,
                 gas_query_fee: None,
                 gas_wasm_query_fee: None,
-                gas_fraction: None,
+                gas_price: None,
                 proxy_callback_gas: None,
                 min_tasks_per_agent: None,
                 agents_eject_threshold: None,
