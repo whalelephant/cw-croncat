@@ -40,6 +40,8 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
@@ -74,6 +76,8 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -104,6 +108,8 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -137,6 +143,8 @@ fn is_valid_msg_wrong_account() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -172,6 +180,8 @@ fn is_valid_msg_vote() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -210,6 +220,8 @@ fn is_valid_msg_transfer() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .unwrap_err()
@@ -243,6 +255,8 @@ fn is_valid_msg_burn() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -278,6 +292,8 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
@@ -310,6 +326,8 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -508,8 +526,8 @@ fn hashing() {
     };
 
     let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}",
-        task.owner_id, task.interval, task.boundary, task.actions, task.queries
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        task.owner_id, task.interval, task.boundary, task.actions, task.queries, task.transforms
     );
 
     let hash = Sha256::digest(message.as_bytes());

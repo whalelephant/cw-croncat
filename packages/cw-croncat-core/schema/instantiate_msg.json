@@ -51,6 +51,26 @@
         }
       ]
     },
+    "gas_query_fee": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint64"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gas_wasm_query_fee": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint64"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "owner_id": {
       "type": [
         "string",

@@ -1,6 +1,6 @@
 test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
 set export
-check:
+lint:
 	cargo fmt --all && cargo clippy -- -D warnings
 test:
 	#!/bin/bash
@@ -24,6 +24,7 @@ schema:
 gen:
 	#!/usr/bin/env bash
 	cd typescript
+	yarn --cwd ./typescript build
 	yarn --cwd ./typescript install --frozen-lockfile
 	yarn --cwd ./typescript codegen
 juno-local:
@@ -54,7 +55,7 @@ download-deps:
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO?: test dao-contracts
 
-all: build test check schema gen optimize checksum
+all: build test lint schema gen optimize checksum
 	#!/usr/bin/env bash
 
 gas-benchmark: juno-local download-deps optimize

@@ -1,4 +1,5 @@
-use crate::contract::GAS_DENOMINATOR_DEFAULT_JUNO;
+use crate::contract::GAS_DENOMINATOR;
+use crate::contract::GAS_NUMERATOR_DEFAULT;
 use crate::state::QueueItem;
 use crate::tests::helpers::mock_init;
 use crate::tests::helpers::AGENT0;
@@ -23,6 +24,8 @@ fn configure() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
@@ -54,8 +57,8 @@ fn configure() {
     assert_eq!(5, value.agent_fee);
     assert_eq!(
         GasFraction {
-            numerator: 1,
-            denominator: GAS_DENOMINATOR_DEFAULT_JUNO
+            numerator: GAS_NUMERATOR_DEFAULT,
+            denominator: GAS_DENOMINATOR
         },
         value.gas_fraction
     );

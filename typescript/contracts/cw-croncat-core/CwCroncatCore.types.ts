@@ -423,6 +423,8 @@ export type ExecuteMsg = {
     gas_action_fee?: Uint64 | null;
     gas_base_fee?: Uint64 | null;
     gas_fraction?: GasFraction | null;
+    gas_query_fee?: Uint64 | null;
+    gas_wasm_query_fee?: Uint64 | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
     paused?: boolean | null;
@@ -505,41 +507,11 @@ export interface Cw20ReceiveMsg {
 }
 export type GetAgentResponse = AgentResponse | null;
 export type GetAgentTasksResponse = TaskResponse | null;
-export type RoundRobinBalancerModeResponse = "ActivationOrder" | "Equalizer";
-export interface GetStateResponse {
-  agent_active_queue: Addr[];
-  agent_nomination_begin_time?: Timestamp | null;
-  agent_pending_queue: Addr[];
-  agents: AgentResponse[];
-  balancer_mode: RoundRobinBalancerModeResponse;
-  balances: BalancesResponse[];
-  block_slots: SlotResponse[];
-  block_slots_queries: SlotWithQueriesResponse[];
-  config: GetConfigResponse;
-  reply_index: Uint64;
-  task_total: Uint64;
-  tasks: TaskResponse[];
-  tasks_with_queries: TaskWithQueriesResponse[];
-  tasks_with_queries_total: Uint64;
-  time_slots: SlotResponse[];
-  time_slots_queries: SlotWithQueriesResponse[];
-  [k: string]: unknown;
-}
-export interface BalancesResponse {
-  address: Addr;
-  balances: Cw20CoinVerified[];
-  [k: string]: unknown;
-}
-export interface SlotResponse {
-  slot: Uint64;
-  tasks: number[][];
-  [k: string]: unknown;
-}
-export interface SlotWithQueriesResponse {
-  slot: Uint64;
-  task_hash: number[];
-  [k: string]: unknown;
-}
+export type GetTaskHashResponse = string;
+export type GetTaskResponse = TaskResponse | null;
+export type GetTasksByOwnerResponse = TaskResponse[];
+export type GetTasksResponse = TaskResponse[];
+export type GetTasksWithQueriesResponse = TaskWithQueriesResponse[];
 export interface TaskWithQueriesResponse {
   boundary?: Boundary | null;
   interval: Interval;
@@ -547,11 +519,6 @@ export interface TaskWithQueriesResponse {
   task_hash: string;
   [k: string]: unknown;
 }
-export type GetTaskHashResponse = string;
-export type GetTaskResponse = TaskResponse | null;
-export type GetTasksByOwnerResponse = TaskResponse[];
-export type GetTasksResponse = TaskResponse[];
-export type GetTasksWithQueriesResponse = TaskWithQueriesResponse[];
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   cw_rules_addr: string;
@@ -559,6 +526,8 @@ export interface InstantiateMsg {
   gas_action_fee?: Uint64 | null;
   gas_base_fee?: Uint64 | null;
   gas_fraction?: GasFraction | null;
+  gas_query_fee?: Uint64 | null;
+  gas_wasm_query_fee?: Uint64 | null;
   owner_id?: string | null;
   [k: string]: unknown;
 }
@@ -628,12 +597,6 @@ export type QueryMsg = {
 } | {
   get_wallet_balances: {
     wallet: string;
-    [k: string]: unknown;
-  };
-} | {
-  get_state: {
-    from_index?: number | null;
-    limit?: number | null;
     [k: string]: unknown;
   };
 };
