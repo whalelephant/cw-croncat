@@ -3570,7 +3570,7 @@ fn gas_fees_configurable() {
         },
     };
 
-    // Base + action + calling rules + non-wasm query
+    // Base + action
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE;
     let agent_fee = gas_needed * 5 / 100;
     let gas_to_amount = (gas_needed + agent_fee) * modified_gas_price.gas_adjustment_numerator
