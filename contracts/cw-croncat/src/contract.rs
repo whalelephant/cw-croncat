@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::types::{GasFraction, SlotType};
+use cw_croncat_core::types::{GasPrice, SlotType};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -25,10 +25,13 @@ pub const GAS_QUERY_FEE: u64 = 5_000;
 pub const GAS_WASM_QUERY_FEE: u64 = 60_000;
 /// We can't store gas_price as floats inside cosmwasm
 /// so insted of having 0.04 we use GasFraction{4/100}
-/// and multiply numerator by `gas_adjustment` (1.5)
-pub const GAS_NUMERATOR_DEFAULT: u64 = 6;
-pub const GAS_DENOMINATOR: u64 = 100;
-
+/// and after that multiply Gas by `gas_adjustment` {150/100} (1.5)
+pub mod gas_price_defaults {
+    pub const GAS_NUMERATOR_DEFAULT: u64 = 4;
+    pub const GAS_ADJUSTMENT_NUMERATOR_DEFAULT: u64 = 150;
+    pub const GAS_DENOMINATOR: u64 = 100;
+}
+pub use gas_price_defaults::*;
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
     pub fn instantiate(
@@ -60,9 +63,10 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_fraction: msg.gas_fraction.unwrap_or(GasFraction {
+            gas_price: msg.gas_price.unwrap_or(GasPrice {
                 numerator: GAS_NUMERATOR_DEFAULT,
                 denominator: GAS_DENOMINATOR,
+                gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
             }),
             proxy_callback_gas: 3,
             gas_base_fee: msg.gas_base_fee.map(Into::into).unwrap_or(GAS_BASE_FEE),
@@ -122,7 +126,6 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute(
                 "slot_granularity_time",

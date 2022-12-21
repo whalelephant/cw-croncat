@@ -14,12 +14,12 @@ use cosm_orc::{
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
 use cw_croncat::contract::{
-    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
-    GAS_WASM_QUERY_FEE,
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
 };
 use cw_croncat_core::{
     msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
-    types::Action,
+    types::{Action, GasPrice},
 };
 use cw_rules_core::{msg::QueryResponse, types::CroncatQuery};
 
@@ -89,7 +89,7 @@ pub(crate) fn init_contracts(
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
-        gas_fraction: None,
+        gas_price: None,
         agent_nomination_duration: None,
         gas_base_fee: None,
     };
@@ -196,8 +196,13 @@ where
         let gas_for_task = GAS_BASE_FEE
             + min_gas_for_actions(&task.actions)
             + min_gas_for_queries(task.queries.as_ref());
-        let gas_to_attached_deposit =
-            add_agent_fee(gas_for_task) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+        let gas_to_attached_deposit = GasPrice {
+            numerator: GAS_NUMERATOR_DEFAULT,
+            denominator: GAS_DENOMINATOR,
+            gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
+        }
+        .calculate(add_agent_fee(gas_for_task))
+        .unwrap() as u64;
         let amount = (gas_to_attached_deposit + extra_funds) * 3;
         create_task(task, orc, user_key, prefix, &denom, amount)?;
     }

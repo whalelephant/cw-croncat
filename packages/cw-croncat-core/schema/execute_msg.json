@@ -47,10 +47,10 @@
                 }
               ]
             },
-            "gas_fraction": {
+            "gas_price": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/GasFraction"
+                  "$ref": "#/definitions/GasPrice"
                 },
                 {
                   "type": "null"
@@ -935,14 +935,21 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GasFraction": {
+    "GasPrice": {
       "type": "object",
       "required": [
         "denominator",
+        "gas_adjustment_numerator",
         "numerator"
       ],
       "properties": {
         "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_adjustment_numerator": {
+          "description": "Note",
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
