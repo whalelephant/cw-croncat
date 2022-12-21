@@ -13,7 +13,7 @@ use cw_croncat_core::msg::{
 };
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
 use cw_croncat_core::types::{
-    calculate_required_amount, BoundaryValidated, GenericBalance, SlotType, Task,
+    gas_amount_with_agent_fee, BoundaryValidated, GenericBalance, SlotType, Task,
 };
 
 impl<'a> CwCroncat<'a> {
@@ -265,8 +265,8 @@ impl<'a> CwCroncat<'a> {
             cfg.gas_query_fee,
             cfg.gas_wasm_query_fee,
         )?;
-        let gas_price = calculate_required_amount(gas_amount, cfg.agent_fee)?;
-        let price = cfg.gas_fraction.calculate(gas_price, 1)?;
+        let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_amount, cfg.agent_fee)?;
+        let price = cfg.gas_fraction.calculate(gas_amount_with_agent_fee)?;
         amount_for_one_task
             .native
             .find_checked_add(&coin(price, &cfg.native_denom))?;

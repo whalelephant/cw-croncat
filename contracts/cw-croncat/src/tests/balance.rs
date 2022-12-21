@@ -1,13 +1,13 @@
 use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
 use crate::contract::{
-    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
-    GAS_WASM_QUERY_FEE,
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
 };
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4};
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
 use cosmwasm_std::{coins, Addr};
-use cw_croncat_core::types::{GasFraction, GenericBalance, SlotType};
+use cw_croncat_core::types::{GasPrice, GenericBalance, SlotType};
 
 use crate::CwCroncat;
 
@@ -24,9 +24,10 @@ fn mock_config() -> Config {
         available_balance: GenericBalance::default(),
         staked_balance: GenericBalance::default(),
         agent_fee: 5,
-        gas_fraction: GasFraction {
+        gas_fraction: GasPrice {
             numerator: GAS_NUMERATOR_DEFAULT,
             denominator: GAS_DENOMINATOR,
+            gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
         },
         gas_action_fee: GAS_ACTION_FEE,
         gas_query_fee: GAS_QUERY_FEE,

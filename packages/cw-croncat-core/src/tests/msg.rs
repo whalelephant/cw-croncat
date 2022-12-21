@@ -9,7 +9,7 @@ use crate::{
         TaskRequest, TaskRequestBuilder, TaskResponse,
     },
     types::{
-        Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance,
+        Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasPrice, GenericBalance,
         Interval, SlotType, Task,
     },
 };
@@ -65,9 +65,10 @@ fn everything_can_be_de_serialized() {
         agent_active_indices: vec![(SlotType::Block, 10, 5)],
         agents_eject_threshold: 5,
         agent_fee: 5,
-        gas_fraction: GasFraction {
+        gas_fraction: GasPrice {
             numerator: 1,
             denominator: 2,
+            gas_adjustment_numerator: 3,
         },
         proxy_callback_gas: 3,
         slot_granularity_time: 60_000_000,

@@ -1,5 +1,8 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
-use crate::contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT};
+use crate::contract::{
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT,
+};
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
@@ -1057,7 +1060,10 @@ fn check_gas_minimum() {
     // create 1 token off task
     let gas_for_two = (base_gas + gas_limit) * 2;
     let enough_for_two = u128::from(
-        (gas_for_two + gas_for_two * 5 / 100) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3 * 2,
+        (gas_for_two + gas_for_two * 5 / 100) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3 * 2,
     );
     let res: ContractError = app
         .execute_contract(
@@ -1122,8 +1128,12 @@ fn check_gas_default() {
 
     let gas_for_one = base_gas + gas_limit;
     let gas_for_one_with_fee = gas_for_one + gas_for_one * 5 / 100;
-    let enough_for_two =
-        2 * u128::from(gas_for_one_with_fee * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3);
+    let enough_for_two = 2 * u128::from(
+        gas_for_one_with_fee * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3,
+    );
 
     let res: ContractError = app
         .execute_contract(

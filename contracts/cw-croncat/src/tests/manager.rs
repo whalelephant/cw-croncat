@@ -1,6 +1,6 @@
 use crate::contract::{
-    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
-    GAS_WASM_QUERY_FEE,
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
 };
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
@@ -439,7 +439,9 @@ fn proxy_call_no_task_and_withdraw() -> StdResult<()> {
         },
     };
     let gas_for_one = GAS_BASE_FEE + gas_limit;
-    let amount_for_one_task = gas_for_one * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let amount_for_one_task = gas_for_one * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let agent_fee = amount_for_one_task * 5 / 100;
     let amount_with_fee = gas_limit + agent_fee + 1000;
     // create a task
@@ -1375,8 +1377,13 @@ fn test_balance_changes() {
     let gas_for_one = GAS_BASE_FEE + (GAS_ACTION_FEE * 2);
     let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking refunds at task removal
-    let amount_for_one_task =
-        (gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3 + 4 + extra; // + 3 + 4 atoms sent
+    let amount_for_one_task = (gas_for_one + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        + 3
+        + 4
+        + extra; // + 3 + 4 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1509,8 +1516,11 @@ fn test_no_reschedule_if_lack_balance() {
     let gas_for_one = GAS_BASE_FEE + GAS_ACTION_FEE;
     let agent_fee = gas_for_one * 5 / 100;
     let extra = 50; // extra for checking nonzero task balance
-    let amount_for_one_task =
-        (gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + 3; // + 3 atoms sent
+    let amount_for_one_task = (gas_for_one + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        + 3; // + 3 atoms sent
 
     // create a task
     app.execute_contract(
@@ -1558,7 +1568,12 @@ fn test_no_reschedule_if_lack_balance() {
         .unwrap();
     assert_eq!(
         task.unwrap().total_deposit[0].amount,
-        Uint128::from((gas_for_one + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR + extra)
+        Uint128::from(
+            (gas_for_one + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+                * GAS_NUMERATOR_DEFAULT
+                / GAS_DENOMINATOR
+                + extra
+        )
     );
 
     app.update_block(add_little_time);
@@ -3093,7 +3108,10 @@ fn queries_fees() {
     // Base + action + calling rules + non-wasm query
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
-    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let attached_balance = (gas_to_amount + 1) as u128;
 
     let task_hash_binary = app
@@ -3174,7 +3192,10 @@ fn queries_fees() {
     // Base + action + calling rules + wasm query
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
-    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let attached_balance = (gas_to_amount + 1) as u128;
 
     let task_hash_binary = app
@@ -3242,7 +3263,10 @@ fn queries_fees() {
 
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
-    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let one_proxy_call_amount = (gas_to_amount + 1) as u128;
 
     let task_hash_binary = app
@@ -3393,7 +3417,10 @@ fn queries_fees_negative() {
     // Base + action + calling rules + non-wasm query
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
-    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let attached_balance = (gas_to_amount + 1 - 1) as u128; // missing 1 amount
 
     let err: ContractError = app
@@ -3447,7 +3474,10 @@ fn queries_fees_negative() {
     // Base + action + calling rules + wasm query
     let gas_needed = GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_WASM_QUERY_FEE;
     let agent_fee = gas_needed * 5 / 100;
-    let gas_to_amount = (gas_needed + agent_fee) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
+    let gas_to_amount = (gas_needed + agent_fee) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR
+        * GAS_NUMERATOR_DEFAULT
+        / GAS_DENOMINATOR;
     let attached_balance = (gas_to_amount + 1 - 1) as u128;
 
     let err: ContractError = app

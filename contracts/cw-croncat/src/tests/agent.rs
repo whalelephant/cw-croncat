@@ -11,7 +11,7 @@ use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
     TaskRequest, TaskResponse,
 };
-use cw_croncat_core::types::{Action, Agent, AgentStatus, GasFraction, GenericBalance, Interval};
+use cw_croncat_core::types::{Action, Agent, AgentStatus, GasPrice, GenericBalance, Interval};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{
@@ -345,9 +345,10 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: Some(GasFraction {
+        gas_fraction: Some(GasPrice {
             numerator: 1,
             denominator: 1,
+            gas_adjustment_numerator: 1,
         }),
         proxy_callback_gas: None,
         slot_granularity_time: None,

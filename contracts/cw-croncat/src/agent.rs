@@ -11,7 +11,7 @@ use std::ops::Div;
 
 use crate::ContractError::*;
 use cw_croncat_core::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
-use cw_croncat_core::types::{calculate_required_amount, Agent, AgentStatus};
+use cw_croncat_core::types::{gas_amount_with_agent_fee, Agent, AgentStatus};
 
 impl<'a> CwCroncat<'a> {
     /// Get a single agent details
@@ -142,8 +142,8 @@ impl<'a> CwCroncat<'a> {
         // Check if native token balance is sufficient for a few txns, in this case 4 txns
         // TODO: Adjust gas & costs based on real usage cost
         let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-        let gas_cost = calculate_required_amount(c.gas_action_fee, c.agent_fee)?;
-        let unit_cost = c.gas_fraction.calculate(4 * gas_cost, 1)?;
+        let gas_amount_with_agent_fee = gas_amount_with_agent_fee(c.gas_action_fee, c.agent_fee)?;
+        let unit_cost = c.gas_fraction.calculate(4 * gas_amount_with_agent_fee)?;
         if !has_coins(
             &agent_wallet_balances,
             &Coin::new(unit_cost, c.native_denom),
