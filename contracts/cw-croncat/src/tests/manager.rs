@@ -255,7 +255,7 @@ fn proxy_call_success() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "25753e42d62dc9a1ac3cf6b3fcfd773f6dc802cf0a0fea9f56e4dca7272882e8".to_string();
+        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -295,7 +295,7 @@ fn proxy_call_success() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -393,6 +393,8 @@ fn proxy_call_success() -> StdResult<()> {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
                     has_required_attributes = false;
+                    println!("{:?}", _key);
+                    println!("{:?}", value);
                 }
             } else {
                 has_required_attributes = false;
@@ -512,7 +514,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "a3728ab387cf4b508f1bc729290df8939eb15647ed6efacfd6fc01d401c21840".to_string();
+        "ed4e2f3e3bd72f982145b04fdc4ffca4a03df10bb95b8c7f807b4f06a5b98f91".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let validator = String::from("you");
@@ -551,7 +553,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -621,6 +623,8 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
                     has_required_attributes = false;
+                    println!("{:?}", _key);
+                    println!("{:?}", value);
                 }
             } else {
                 has_required_attributes = false;
@@ -740,7 +744,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "25753e42d62dc9a1ac3cf6b3fcfd773f6dc802cf0a0fea9f56e4dca7272882e8".to_string();
+        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -872,7 +876,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "3a897a48bda24a2bb264e3b5df410e05d6c735df3c268e887626f84ab42ae2d1".to_string();
+        "7d125c998e4e105af366c2a66bdc09bf2b52275f5b400033684484b0348927df".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -980,10 +984,9 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    has_required_attributes = false;
                     println!("{:?}", _key);
                     println!("{:?}", value);
-
-                    has_required_attributes = false;
                 }
             } else {
                 has_required_attributes = false;
@@ -1775,6 +1778,7 @@ fn test_reschedule_task_with_queries() {
     for e in create_task_resp.events {
         for a in e.attributes {
             if a.key == "task_hash" && a.value.len() > 0 {
+                println!("{:?}", a.value);
                 task_hash = a.value;
             }
         }
@@ -1852,17 +1856,17 @@ fn test_reschedule_task_with_queries() {
     assert!(tasks_response.is_empty());
 
     // Run it a bunch of times successfully, until it's removed because the balance falls too low
-    for _ in 1..8 {
-        assert!(app
+    for _ in 1..12 {
+        let _ = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &ExecuteMsg::ProxyCall {
-                    task_hash: Some(String::from(task_hash.clone())),
+                    task_hash: Some(task_hash.clone()),
                 },
                 &[],
             )
-            .is_ok());
+            .is_ok();
     }
 
     let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
@@ -1875,6 +1879,7 @@ fn test_reschedule_task_with_queries() {
             },
         )
         .unwrap();
+
     assert!(tasks_with_queries.is_empty());
 }
 
@@ -2308,20 +2313,20 @@ fn testing_fee_works() {
 
     app.update_block(add_little_time);
 
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2333,20 +2338,20 @@ fn testing_fee_works() {
     .unwrap();
 
     app.update_block(add_little_time);
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2358,20 +2363,20 @@ fn testing_fee_works() {
     .unwrap();
 
     app.update_block(add_little_time);
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(

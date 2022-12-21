@@ -290,4 +290,3 @@ fn move_balances_native() {
 //     // assert_eq!(true, value.paused);
 //     // assert_eq!(info.sender, value.owner_id);
 // }
-

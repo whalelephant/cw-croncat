@@ -38,7 +38,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         transforms: None,
         version: version.version,
     };
-    let task_id_str = "4124b30f4922f756db2660894647d7642ca1f1814744e148016e5557bf5f8f3b";
+    let task_id_str = "74b918b7c8ff739ff30e47e2053b2be194b365de2825eaa21c37b349871db9bb";
     let task_id = task_id_str.to_string().into_bytes();
 
     // create a task

@@ -1,6 +1,6 @@
 [hooks]
-pre-commit = "just lint test"
-pre-push = "just all"
+pre-commit = "just lint"
+
 
 [logging]
 verbose = true
