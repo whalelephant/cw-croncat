@@ -57,6 +57,26 @@
                 }
               ]
             },
+            "gas_query_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_wasm_query_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "min_tasks_per_agent": {
               "type": [
                 "integer",

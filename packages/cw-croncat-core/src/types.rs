@@ -227,6 +227,8 @@ impl TaskRequest {
     /// Validate the task actions only use the supported messages
     /// We're iterating over all actions
     /// so it's a great place for calculaing balance usages
+    // Consider moving Config to teh cw-croncat-core so this method can take reference of that
+    #[allow(clippy::too_many_arguments)]
     pub fn is_valid_msg_calculate_usage(
         &self,
         api: &dyn Api,
@@ -235,6 +237,8 @@ impl TaskRequest {
         owner_id: &Addr,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
     ) -> Result<(GenericBalance, u64), CoreError> {
         let mut gas_amount: u64 = base_gas;
         let mut amount_for_one_task = GenericBalance::default();
@@ -322,6 +326,27 @@ impl TaskRequest {
                 }
                 // TODO: Check authZ messages
                 _ => (),
+            }
+        }
+
+        if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas_amount = gas_amount
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidWasmMsg {})?;
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas_amount = gas_amount
+                            .checked_add(query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                    _ => {
+                        gas_amount = gas_amount
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                }
             }
         }
         Ok((amount_for_one_task, gas_amount))
@@ -439,6 +464,8 @@ impl Task {
         &self,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
         next_idx: u64,
     ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
         let mut gas: u64 = base_gas;
@@ -452,6 +479,25 @@ impl Task {
                 sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
             } else {
                 sub_msgs.push(sub_msg);
+            }
+        }
+
+        if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas = gas
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidGas {})?;
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas = gas.checked_add(query_gas).ok_or(CoreError::InvalidGas {})?;
+                    }
+                    _ => {
+                        gas = gas
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidGas {})?;
+                    }
+                }
             }
         }
         Ok((sub_msgs, gas))

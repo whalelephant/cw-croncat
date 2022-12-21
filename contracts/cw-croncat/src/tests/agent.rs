@@ -256,6 +256,8 @@ fn test_instantiate_sets_balance() {
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
                 gas_action_fee: None,
+                gas_query_fee: None,
+                gas_wasm_query_fee: None,
                 gas_fraction: None,
                 agent_nomination_duration: None,
                 gas_base_fee: None,
@@ -313,6 +315,8 @@ fn register_agent_fail_cases() {
         proxy_callback_gas: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         slot_granularity_time: None,
     };
     app.execute_contract(
@@ -349,6 +353,8 @@ fn register_agent_fail_cases() {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -751,6 +757,8 @@ fn test_get_agent_status() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),

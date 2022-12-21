@@ -13,12 +13,15 @@ use cosm_orc::{
 };
 use cosmwasm_std::Binary;
 use cw20::Cw20Coin;
-use cw_croncat::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use cw_croncat::contract::{
+    GAS_ACTION_FEE, GAS_BASE_FEE, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE,
+    GAS_WASM_QUERY_FEE,
+};
 use cw_croncat_core::{
     msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
     types::Action,
 };
-use cw_rules_core::msg::QueryResponse;
+use cw_rules_core::{msg::QueryResponse, types::CroncatQuery};
 
 const fn add_agent_fee(num: u64) -> u64 {
     num + (num * 5 / 100)
@@ -26,8 +29,21 @@ const fn add_agent_fee(num: u64) -> u64 {
 
 fn min_gas_for_actions(actions: &[Action]) -> u64 {
     actions.iter().fold(0, |acc, action| {
-        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE_JUNO)
+        acc + action.gas_limit.unwrap_or(GAS_ACTION_FEE)
     })
+}
+
+fn min_gas_for_queries(queries: Option<&Vec<CroncatQuery>>) -> u64 {
+    if let Some(queries) = queries {
+        queries.iter().fold(GAS_WASM_QUERY_FEE, |acc, query| {
+            acc + match query {
+                CroncatQuery::HasBalanceGte(_) => GAS_QUERY_FEE,
+                _ => GAS_WASM_QUERY_FEE,
+            }
+        })
+    } else {
+        0
+    }
 }
 
 pub(crate) fn init_contracts(
@@ -71,6 +87,8 @@ pub(crate) fn init_contracts(
         cw_rules_addr: rules_res.address,
         owner_id: Some(admin_addr.to_owned()),
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: None,
         gas_base_fee: None,
@@ -175,8 +193,11 @@ where
         .map(|(_, _, prefix)| (*prefix).to_owned())
         .collect();
     for (task, extra_funds, prefix) in tasks {
-        let gas_for_task = GAS_BASE_FEE_JUNO + min_gas_for_actions(&task.actions);
-        let gas_to_attached_deposit = add_agent_fee(gas_for_task) / GAS_DENOMINATOR_DEFAULT_JUNO;
+        let gas_for_task = GAS_BASE_FEE
+            + min_gas_for_actions(&task.actions)
+            + min_gas_for_queries(task.queries.as_ref());
+        let gas_to_attached_deposit =
+            add_agent_fee(gas_for_task) * GAS_NUMERATOR_DEFAULT / GAS_DENOMINATOR;
         let amount = (gas_to_attached_deposit + extra_funds) * 3;
         create_task(task, orc, user_key, prefix, &denom, amount)?;
     }
