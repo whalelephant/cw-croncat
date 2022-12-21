@@ -395,7 +395,7 @@ fn test_on_agent_unregister() {
         .unwrap();
 
     balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 1));
-    balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Cron, 0, 1));
+    balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Time, 0, 1));
     store.config.save(&mut deps.storage, &config).unwrap();
     balancer
         .on_agent_unregister(

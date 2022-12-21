@@ -102,6 +102,7 @@ pub enum Boundary {
 pub struct BoundaryValidated {
     pub start: Option<u64>,
     pub end: Option<u64>,
+    pub is_block_boundary: Option<bool>,
 }
 
 impl BoundaryValidated {
@@ -111,21 +112,25 @@ impl BoundaryValidated {
     ) -> Result<Self, CoreError> {
         if let Some(boundary) = boundary {
             match (interval, boundary) {
-                (Interval::Cron(_), Boundary::Time { start, end }) => match (start, end) {
-                    (Some(s), Some(e)) => {
-                        if s.nanos() >= e.nanos() {
-                            return Err(CoreError::InvalidBoundary {});
+                (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {
+                    match (start, end) {
+                        (Some(s), Some(e)) => {
+                            if s.nanos() >= e.nanos() {
+                                return Err(CoreError::InvalidBoundary {});
+                            }
+                            Ok(Self {
+                                start: Some(s.nanos()),
+                                end: Some(e.nanos()),
+                                is_block_boundary: Some(false),
+                            })
                         }
-                        Ok(Self {
-                            start: Some(s.nanos()),
-                            end: Some(e.nanos()),
-                        })
+                        _ => Ok(Self {
+                            start: start.map(|start| start.nanos()),
+                            end: end.map(|end| end.nanos()),
+                            is_block_boundary: Some(false),
+                        }),
                     }
-                    _ => Ok(Self {
-                        start: start.map(|start| start.nanos()),
-                        end: end.map(|end| end.nanos()),
-                    }),
-                },
+                }
                 (
                     Interval::Once | Interval::Immediate | Interval::Block(_),
                     Boundary::Height { start, end },
@@ -137,11 +142,13 @@ impl BoundaryValidated {
                         Ok(Self {
                             start: Some(s.u64()),
                             end: Some(e.u64()),
+                            is_block_boundary: Some(true),
                         })
                     }
                     _ => Ok(Self {
                         start: start.map(Into::into),
                         end: end.map(Into::into),
+                        is_block_boundary: Some(true),
                     }),
                 },
                 _ => Err(CoreError::InvalidBoundary {}),
@@ -150,6 +157,7 @@ impl BoundaryValidated {
             Ok(Self {
                 start: None,
                 end: None,
+                is_block_boundary: None,
             })
         }
     }
@@ -160,7 +168,7 @@ impl BoundaryValidated {
 )]
 pub enum SlotType {
     Block,
-    Cron,
+    Time,
 }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -819,12 +827,12 @@ fn get_next_cron_time(
     };
 
     match boundary.end {
-        Some(end) if current_block_ts > end => (0, SlotType::Cron),
+        Some(end) if current_block_ts > end => (0, SlotType::Time),
         Some(end) => {
             let end_slot = end.saturating_sub(end % slot_granularity_time);
-            (u64::min(end_slot, next_slot), SlotType::Cron)
+            (u64::min(end_slot, next_slot), SlotType::Time)
         }
-        _ => (next_slot, SlotType::Cron),
+        _ => (next_slot, SlotType::Time),
     }
 }
 
@@ -838,7 +846,13 @@ impl Intervals for Interval {
         match self {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
-            Interval::Once | Interval::Immediate => get_next_block_limited(env, boundary),
+            Interval::Once | Interval::Immediate => {
+                if boundary.is_block_boundary.unwrap_or_else(|| true) {
+                    return get_next_block_limited(env, boundary);
+                } else {
+                    return get_next_cron_time(env, boundary, "0 0 * * * *", slot_granularity_time);
+                }
+            }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
             Interval::Cron(crontab) => {

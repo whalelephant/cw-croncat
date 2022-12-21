@@ -343,7 +343,7 @@ impl<'a> CwCroncat<'a> {
                     self.block_map_queries
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
-                SlotType::Cron => {
+                SlotType::Time => {
                     self.time_map_queries
                         .save(deps.storage, hash.as_bytes(), &next_id)?;
                 }
@@ -396,17 +396,13 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(vec![hash]),
                 }
             };
-
             // Based on slot kind, put into block or cron slots
-            match slot_kind {
-                SlotType::Block => {
-                    self.block_slots
-                        .update(deps.storage, next_id, update_vec_data)?;
-                }
-                SlotType::Cron => {
-                    self.time_slots
-                        .update(deps.storage, next_id, update_vec_data)?;
-                }
+            if boundary.is_block_boundary.unwrap_or_else(|| true) {
+                self.block_slots
+                    .update(deps.storage, next_id, update_vec_data)?;
+            } else {
+                self.time_slots
+                    .update(deps.storage, next_id, update_vec_data)?;
             }
         };
 

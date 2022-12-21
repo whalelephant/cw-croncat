@@ -330,6 +330,8 @@ pub fn default_task() -> Task {
         boundary: BoundaryValidated {
             start: None,
             end: None,
+            is_block_boundary:Some(true),
+
         },
         stop_on_fail: Default::default(),
         total_deposit: Default::default(),

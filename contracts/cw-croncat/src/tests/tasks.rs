@@ -36,6 +36,7 @@ fn query_task_hash_success() {
         boundary: BoundaryValidated {
             start: None,
             end: None,
+            is_block_boundary: None,
         },
         stop_on_fail: false,
         total_deposit: GenericBalance {
@@ -63,7 +64,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
+        "4124b30f4922f756db2660894647d7642ca1f1814744e148016e5557bf5f8f3b",
         task_hash
     );
 }
@@ -578,8 +579,7 @@ fn check_task_create_success() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+   
 
     // create a task
     let res = app
@@ -592,10 +592,12 @@ fn check_task_create_success() -> StdResult<()> {
         .unwrap();
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
+    let mut task_hash=String::new();
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len()>0 {
                 has_created_hash = true;
+                task_hash=a.value;
             }
         }
     }
@@ -607,7 +609,7 @@ fn check_task_create_success() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -618,7 +620,7 @@ fn check_task_create_success() -> StdResult<()> {
         assert_eq!(None, t.boundary);
         assert_eq!(false, t.stop_on_fail);
         assert_eq!(coins(315006, NATIVE_DENOM), t.total_deposit);
-        assert_eq!(task_id_str.clone(), t.task_hash);
+        assert_eq!(task_hash.clone(), t.task_hash);
     }
 
     // get slot ids
@@ -640,7 +642,7 @@ fn check_task_create_success() -> StdResult<()> {
         .unwrap();
     let s_3: Vec<String> = Vec::new();
     assert_eq!(12346, slot_info.block_id);
-    assert_eq!(vec![task_id_str.clone()], slot_info.block_task_hash);
+    assert_eq!(vec![task_hash], slot_info.block_task_hash);
     assert_eq!(0, slot_info.time_id);
     assert_eq!(s_3, slot_info.time_task_hash);
 
@@ -851,25 +853,33 @@ fn check_remove_create() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
     // create a task
-    app.execute_contract(
+    let create_task_resp=app.execute_contract(
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
         &coins(315006, NATIVE_DENOM),
     )
     .unwrap();
+    
+    let mut task_hash: String = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len()>0 {
+                task_hash=a.value;
+            }
+        }
+    }
 
+    println!("{:?}",task_hash);
     // check storage DOES have the task
     let new_task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -889,7 +899,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &ExecuteMsg::RemoveTask {
-            task_hash: task_id_str.clone(),
+            task_hash: task_hash.clone(),
         },
         &vec![],
     )
@@ -900,7 +910,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &ExecuteMsg::RemoveTask {
-            task_hash: task_id_str.clone(),
+            task_hash: task_hash.clone(),
         },
         &vec![],
     )
@@ -912,7 +922,7 @@ fn check_remove_create() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -961,24 +971,32 @@ fn check_refill_create() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+    
 
     // create a task
-    app.execute_contract(
+   let create_task_resp= app.execute_contract(
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &create_task_msg,
         &coins(315006, NATIVE_DENOM),
     )
     .unwrap();
+    let mut task_hash: String = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len()>0 {
+                task_hash=a.value;
+            }
+        }
+    }
+    
     // refill task
     let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &ExecuteMsg::RefillTaskBalance {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
             &coins(3, NATIVE_DENOM),
         )
@@ -1000,7 +1018,7 @@ fn check_refill_create() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();

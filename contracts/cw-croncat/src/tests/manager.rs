@@ -50,8 +50,6 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
     // Must attach funds
     let res_err = app
@@ -187,7 +185,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -249,7 +247,7 @@ fn proxy_call_success() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
+        "25753e42d62dc9a1ac3cf6b3fcfd773f6dc802cf0a0fea9f56e4dca7272882e8".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -506,7 +504,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "96003a7938c1ac9566fec1be9b0cfa97a56626a574940ef5968364ef4d30c15a".to_string();
+        "a3728ab387cf4b508f1bc729290df8939eb15647ed6efacfd6fc01d401c21840".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let validator = String::from("you");
@@ -735,7 +733,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
+        "41ca949ec8dfad3d751eb98d417af01a9196fd8813c841b9292851e6e49343b1".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -772,7 +770,8 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            println!("{:?}", a.value);
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -864,7 +863,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "164329dc48b4d81075f82c823108d1f1f435af952d4697583b99a9f35962e211".to_string();
+        "e79e765e5679c24517feec6c0a67399348b9fbfaad49fc858f4ad13e3b6ead9f".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -888,6 +887,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         },
     };
 
+
     // create a task
     let res = app
         .execute_contract(
@@ -897,11 +897,14 @@ fn proxy_callback_time_slots() -> StdResult<()> {
             &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
+    println!("{:?}", res);
+
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            println!("{:?}", a.value);
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -940,7 +943,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let attributes = vec![
         ("method", "proxy_callback"),
         ("slot_id", "1571797860000000000"),
-        ("slot_kind", "Cron"),
+        ("slot_kind", "Time"),
         ("task_hash", task_id_str.as_str().clone()),
     ];
 
@@ -971,6 +974,8 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("\n{:?} {:?} {:?}", _key, v.to_string(), value);
+
                     has_required_attributes = false;
                 }
             } else {
@@ -1504,13 +1509,23 @@ fn test_no_reschedule_if_lack_balance() {
     let amount_for_one_task = (gas_for_one + agent_fee) / GAS_DENOMINATOR_DEFAULT_JUNO + 3; // + 3 atoms sent
 
     // create a task
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2 + extra - 3), "atom"),
-    )
-    .unwrap();
+    let resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2 + extra - 3), "atom"),
+        )
+        .unwrap();
+
+    let mut hash = String::new();
+    for e in resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                hash = a.value;
+            }
+        }
+    }
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
@@ -1541,10 +1556,7 @@ fn test_no_reschedule_if_lack_balance() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTask {
-                task_hash: "65237042c224447b7d6d7cdfd6515af3e76cb3270ce6d5ed989a6babc12f1026"
-                    .to_string(),
-            },
+            &QueryMsg::GetTask { task_hash: hash },
         )
         .unwrap();
     assert_eq!(
@@ -1599,7 +1611,6 @@ fn test_no_reschedule_if_lack_balance() {
 fn test_complete_task_with_query() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let task_hash = "259f4b3122822233bee9bc6ec8d38184e4b6ce0908decd68d972639aa92199c7";
 
     let addr1 = String::from("addr1");
     let amount = coins(3, NATIVE_DENOM);
@@ -1626,14 +1637,23 @@ fn test_complete_task_with_query() {
     };
 
     let attached_balance = 900058;
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(attached_balance, NATIVE_DENOM),
-    )
-    .unwrap();
+    let resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap();
 
+    let mut task_hash = String::new();
+    for e in resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
         payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
@@ -1677,7 +1697,7 @@ fn test_complete_task_with_query() {
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
+                task_hash: Some(String::from(task_hash.clone())),
             },
             &[],
         )
@@ -1709,7 +1729,6 @@ fn test_complete_task_with_query() {
 fn test_reschedule_task_with_queries() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let task_hash = "4e74864be3956efe77bafac50944995290a32507bbd4509dd8ff21d3fdfdfec3";
 
     let addr1 = String::from("addr1");
     let amount = coins(3, NATIVE_DENOM);
@@ -1736,13 +1755,22 @@ fn test_reschedule_task_with_queries() {
     };
 
     let attached_balance = 100338 * 4;
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(attached_balance, NATIVE_DENOM),
-    )
-    .unwrap();
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap();
+    let mut task_hash = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
@@ -1788,7 +1816,7 @@ fn test_reschedule_task_with_queries() {
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
+                task_hash: Some(String::from(task_hash.clone())),
             },
             &[],
         )
@@ -1796,7 +1824,7 @@ fn test_reschedule_task_with_queries() {
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
-        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash.clone())));
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
@@ -1822,7 +1850,7 @@ fn test_reschedule_task_with_queries() {
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &ExecuteMsg::ProxyCall {
-                    task_hash: Some(String::from(task_hash)),
+                    task_hash: Some(String::from(task_hash.clone())),
                 },
                 &[],
             )

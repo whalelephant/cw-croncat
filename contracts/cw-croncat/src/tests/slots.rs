@@ -21,6 +21,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
@@ -30,6 +31,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
@@ -39,6 +41,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: Some(12346),
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
@@ -48,6 +51,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: Some(12340),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
@@ -58,6 +62,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
@@ -67,6 +72,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
@@ -76,6 +82,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: Some(12346),
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
@@ -85,6 +92,7 @@ fn interval_get_next_block_limited() {
             BoundaryValidated {
                 start: None,
                 end: Some(12340),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
@@ -109,6 +117,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
@@ -118,6 +127,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12350,
             SlotType::Block,
@@ -127,6 +137,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12400,
             SlotType::Block,
@@ -136,6 +147,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             13000,
             SlotType::Block,
@@ -145,6 +157,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             20000,
             SlotType::Block,
@@ -154,6 +167,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             100000,
             SlotType::Block,
@@ -164,6 +178,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
@@ -173,6 +188,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: Some(12360),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12360,
             SlotType::Block,
@@ -182,6 +198,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: Some(12364),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12370,
             SlotType::Block,
@@ -191,6 +208,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: Some(12364),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12400,
             SlotType::Block,
@@ -201,6 +219,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: Some(12345),
+                is_block_boundary: Some(true),
             },
             12345,
             SlotType::Block,
@@ -210,6 +229,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: Some(12355),
+                is_block_boundary: Some(true),
             },
             12350,
             SlotType::Block,
@@ -219,6 +239,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: Some(12355),
+                is_block_boundary: Some(true),
             },
             12300,
             SlotType::Block,
@@ -228,6 +249,7 @@ fn interval_get_next_block_by_offset() {
             BoundaryValidated {
                 start: None,
                 end: Some(12300),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
@@ -252,36 +274,40 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000, // current time in nanos is 1_571_797_419_879_305_533
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_441_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // with start
         (
@@ -289,27 +315,30 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: Some(1_471_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: Some(1_571_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: Some(1_571_799_700_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_803_215_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // cases when a boundary has end
         // current slot is the end slot
@@ -318,9 +347,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_419_879_305_533),
+                is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_533,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // the next slot is after the end, return end slot
         (
@@ -328,9 +358,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_419_879_305_535),
+                is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_535,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // next slot in boundaries
         (
@@ -338,9 +369,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_420_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // the task has ended
         (
@@ -348,9 +380,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_419_879_305_532),
+                is_block_boundary: Some(false),
             },
             0,
-            SlotType::Cron,
+            SlotType::Time,
         ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
@@ -368,38 +401,42 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             // the timestamp is in the current slot, so we take the next slot
             1_571_797_420_000_000_000_u64.saturating_sub(1_571_797_420_000_000_000 % TWO_MINUTES)
                 + TWO_MINUTES, // current time in nanos is 1_571_797_419_879_305_533
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // with start
         (
@@ -407,27 +444,30 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: Some(1_471_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: Some(1_571_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
             BoundaryValidated {
                 start: Some(1_571_799_700_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_803_200_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // cases when a boundary has end
         // boundary end in the current slot
@@ -436,9 +476,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_419_879_305_535),
+                is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // next slot in boundaries
         (
@@ -446,9 +487,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_560_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // next slot after the end, return end slot
         (
@@ -456,9 +498,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_420_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
-            SlotType::Cron,
+            SlotType::Time,
         ),
         // the task has ended
         (
@@ -466,9 +509,10 @@ fn interval_get_next_cron_time() {
             BoundaryValidated {
                 start: None,
                 end: Some(1_571_797_419_879_305_532),
+                is_block_boundary: Some(false),
             },
             0,
-            SlotType::Cron,
+            SlotType::Time,
         ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
@@ -567,7 +611,7 @@ fn slot_items_pop() {
         .unwrap();
     assert_eq!(
         Ok(None),
-        store.pop_slot_item(&mut deps.storage, 0, SlotType::Cron)
+        store.pop_slot_item(&mut deps.storage, 0, SlotType::Time)
     );
     assert_eq!(
         Ok(None),
@@ -592,7 +636,7 @@ fn slot_items_pop() {
         assert_eq!(
             *task,
             store
-                .pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
+                .pop_slot_item(&mut deps.storage, 1, SlotType::Time)
                 .unwrap()
                 .unwrap()
         );
@@ -608,7 +652,7 @@ fn slot_items_pop() {
     // Slot removed if no hash left
     assert_eq!(
         Ok(None),
-        store.pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
+        store.pop_slot_item(&mut deps.storage, 1, SlotType::Time)
     );
     assert_eq!(
         Ok(None),
