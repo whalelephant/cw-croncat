@@ -1,16 +1,13 @@
-use crate::balancer::BalancerMode;
 use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    has_coins, to_binary, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, SubMsg, Uint64, WasmMsg,
+    has_coins, to_binary, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    SubMsg, WasmMsg,
 };
 use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
-    BalancesResponse, CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse,
-    GetWalletBalancesResponse, RoundRobinBalancerModeResponse, SlotResponse,
-    SlotWithQueriesResponse,
+    ExecuteMsg, GetBalancesResponse, GetConfigResponse, GetWalletBalancesResponse,
 };
 use cw_croncat_core::traits::FindAndMutate;
 
@@ -281,135 +278,5 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("method", "move_balance")
             .add_attribute("account_id", account_id.to_string())
             .add_submessages(messages?))
-    }
-
-    pub(crate) fn get_state(
-        &self,
-        deps: Deps,
-        env: Env,
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    ) -> StdResult<CwCroncatResponse> {
-        let default_limit = self.config.load(deps.storage)?.limit;
-        let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
-        let from_index_unwrap = from_index.unwrap_or_default();
-        let limit_unwrap = limit.unwrap_or(default_limit).min(size) as usize;
-
-        let mut agents = Vec::with_capacity(limit_unwrap);
-        for agent in self
-            .agents
-            .keys(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap)
-        {
-            let agent_info = self.query_get_agent(deps, env.clone(), agent?.to_string())?;
-            agents.push(agent_info.unwrap());
-        }
-
-        let time_slots: Vec<SlotResponse> = self
-            .time_slots
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotResponse {
-                    slot: res.0.into(),
-                    tasks: res.1,
-                }
-            })
-            .collect();
-
-        let block_slots: Vec<SlotResponse> = self
-            .block_slots
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotResponse {
-                    slot: res.0.into(),
-                    tasks: res.1,
-                }
-            })
-            .collect();
-
-        let balances: Vec<BalancesResponse> = self
-            .balances
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                BalancesResponse {
-                    address: res.0,
-                    balances: res.1,
-                }
-            })
-            .collect();
-
-        let balancer_mode = match self.balancer.mode {
-            BalancerMode::ActivationOrder => RoundRobinBalancerModeResponse::ActivationOrder,
-            BalancerMode::Equalizer => RoundRobinBalancerModeResponse::Equalizer,
-        };
-
-        let time_slots_queries: Vec<SlotWithQueriesResponse> = self
-            .time_map_queries
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotWithQueriesResponse {
-                    task_hash: res.0,
-                    slot: res.1.into(),
-                }
-            })
-            .collect();
-
-        let block_slots_queries: Vec<SlotWithQueriesResponse> = self
-            .block_map_queries
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotWithQueriesResponse {
-                    task_hash: res.0,
-                    slot: res.1.into(),
-                }
-            })
-            .collect();
-
-        Ok(CwCroncatResponse {
-            config: self.query_config(deps)?,
-
-            agent_active_queue: self.agent_active_queue.load(deps.storage)?,
-            agent_pending_queue: self
-                .agent_pending_queue
-                .iter(deps.storage)?
-                .take(50)
-                .collect::<StdResult<Vec<cosmwasm_std::Addr>>>()?,
-            agents,
-
-            tasks: self.query_get_tasks(deps, None, None)?,
-            task_total: Uint64::from(self.task_total.load(deps.storage)?),
-
-            time_slots,
-            block_slots,
-
-            tasks_with_queries: self.query_get_tasks_with_queries(deps, from_index, limit)?,
-            tasks_with_queries_total: Uint64::from(
-                self.tasks_with_queries_total.load(deps.storage)?,
-            ),
-            time_slots_queries,
-            block_slots_queries,
-
-            reply_index: Uint64::from(self.reply_index.load(deps.storage)?),
-            agent_nomination_begin_time: self.agent_nomination_begin_time.load(deps.storage)?,
-
-            balances,
-            balancer_mode,
-        })
     }
 }
