@@ -349,13 +349,6 @@ impl<'a> CwCroncat<'a> {
             Response::new()
         };
 
-        println!(
-            "{:?} {:?} {:?} {:?}",
-            task.interval,
-            queue_item.failure.is_some(),
-            task.verify_enough_balances(false).is_err(),
-            next_id
-        );
         // if non-recurring, exit
         if task.interval == Interval::Once
             || (task.stop_on_fail && queue_item.failure.is_some())
