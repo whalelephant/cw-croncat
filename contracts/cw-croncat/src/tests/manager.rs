@@ -8,6 +8,7 @@ use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Coin, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20Coin;
+use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
     TaskResponse, TaskWithQueriesResponse,
@@ -3025,4 +3026,38 @@ fn test_error_in_reply() {
         }
     }
     assert!(without_failure);
+}
+
+#[test]
+fn empty_actions_not_allowed() {
+    let (mut app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let empty_actions = ExecuteMsg::CreateTask {
+        task: TaskRequest {
+            interval: Interval::Once,
+            boundary: None,
+            stop_on_fail: false,
+            actions: vec![],
+            queries: None,
+            transforms: None,
+            cw20_coins: vec![],
+        },
+    };
+
+    let total_gas = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
+    let attach_per_action = (total_gas + (total_gas * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let amount_for_three = (attach_per_action) as u128;
+
+    let res: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &empty_actions,
+            &coins(amount_for_three, NATIVE_DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(res, ContractError::CoreError(CoreError::InvalidAction {}));
 }
