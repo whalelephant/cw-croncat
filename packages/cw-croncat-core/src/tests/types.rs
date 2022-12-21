@@ -525,8 +525,8 @@ fn hashing() {
     };
 
     let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}",
-        task.owner_id, task.interval, task.boundary, task.actions, task.queries
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        task.owner_id, task.interval, task.boundary, task.actions, task.queries, task.transforms
     );
 
     let hash = Sha256::digest(message.as_bytes());
