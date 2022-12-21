@@ -422,6 +422,8 @@ export type ExecuteMsg = {
     gas_action_fee?: Uint64 | null;
     gas_base_fee?: Uint64 | null;
     gas_fraction?: GasFraction | null;
+    gas_query_fee?: Uint64 | null;
+    gas_wasm_query_fee?: Uint64 | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
     paused?: boolean | null;
@@ -523,6 +525,8 @@ export interface InstantiateMsg {
   gas_action_fee?: Uint64 | null;
   gas_base_fee?: Uint64 | null;
   gas_fraction?: GasFraction | null;
+  gas_query_fee?: Uint64 | null;
+  gas_wasm_query_fee?: Uint64 | null;
   owner_id?: string | null;
   [k: string]: unknown;
 }

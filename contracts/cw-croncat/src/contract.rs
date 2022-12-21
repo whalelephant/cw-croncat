@@ -16,12 +16,18 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 /// default for juno
 /// This based on non-wasm operations, wasm ops seem impossible to predict
-pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
-/// Gas cost per single action
-pub const GAS_ACTION_FEE_JUNO: u64 = 130_000;
+pub const GAS_BASE_FEE: u64 = 300_000;
+/// Gas needed for single action
+pub const GAS_ACTION_FEE: u64 = 130_000;
+/// Gas needed for single non-wasm query
+pub const GAS_QUERY_FEE: u64 = 5_000;
+/// Gas needed for single wasm query
+pub const GAS_WASM_QUERY_FEE: u64 = 60_000;
 /// We can't store gas_price as floats inside cosmwasm
-/// so insted of something like 0.1 we use GasFraction{1/10}
-pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
+/// so insted of having 0.04 we use GasFraction{4/100}
+/// and multiply numerator by `gas_adjustment` (1.5)
+pub const GAS_NUMERATOR_DEFAULT: u64 = 6;
+pub const GAS_DENOMINATOR: u64 = 100;
 
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
@@ -44,18 +50,6 @@ impl<'a> CwCroncat<'a> {
             info.sender
         };
 
-        let gas_action_fee = if let Some(action_fee) = msg.gas_action_fee {
-            action_fee.u64()
-        } else {
-            GAS_ACTION_FEE_JUNO
-        };
-
-        let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
-            base_fee.u64()
-        } else {
-            GAS_BASE_FEE_JUNO
-        };
-
         let config = Config {
             paused: false,
             owner_id,
@@ -66,13 +60,18 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_fraction: GasFraction {
-                numerator: 1,
-                denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
-            },
+            gas_fraction: msg.gas_fraction.unwrap_or(GasFraction {
+                numerator: GAS_NUMERATOR_DEFAULT,
+                denominator: GAS_DENOMINATOR,
+            }),
             proxy_callback_gas: 3,
-            gas_base_fee,
-            gas_action_fee,
+            gas_base_fee: msg.gas_base_fee.map(Into::into).unwrap_or(GAS_BASE_FEE),
+            gas_action_fee: msg.gas_action_fee.map(Into::into).unwrap_or(GAS_ACTION_FEE),
+            gas_query_fee: msg.gas_query_fee.map(Into::into).unwrap_or(GAS_QUERY_FEE),
+            gas_wasm_query_fee: msg
+                .gas_wasm_query_fee
+                .map(Into::into)
+                .unwrap_or(GAS_WASM_QUERY_FEE),
             slot_granularity_time: 10_000_000_000, // 10 seconds
             native_denom: msg.denom,
             cw20_whitelist: vec![],

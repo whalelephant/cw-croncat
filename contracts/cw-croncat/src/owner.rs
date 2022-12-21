@@ -82,53 +82,60 @@ impl<'a> CwCroncat<'a> {
                 agent_fee,
                 gas_base_fee,
                 gas_action_fee,
+                gas_query_fee,
+                gas_wasm_query_fee,
                 gas_fraction,
                 proxy_callback_gas,
                 min_tasks_per_agent,
                 agents_eject_threshold,
                 // treasury_id,
             } => {
+                let owner_id = if let Some(addr) = owner_id {
+                    Some(api.addr_validate(&addr)?)
+                } else {
+                    None
+                };
                 self.config
-                    .update(deps.storage, |mut config| -> Result<_, ContractError> {
-                        if info.sender != config.owner_id {
+                    .update(deps.storage, |old_config| -> Result<_, ContractError> {
+                        if info.sender != old_config.owner_id {
                             return Err(ContractError::Unauthorized {});
                         }
 
-                        if let Some(owner_id) = owner_id {
-                            let owner_id = api.addr_validate(&owner_id)?;
-                            config.owner_id = owner_id;
-                        }
-                        // if let Some(treasury_id) = treasury_id {
-                        //     config.treasury_id = Some(treasury_id);
-                        // }
-                        if let Some(slot_granularity_time) = slot_granularity_time {
-                            config.slot_granularity_time = slot_granularity_time;
-                        }
-                        if let Some(paused) = paused {
-                            config.paused = paused;
-                        }
-                        if let Some(gas_base_fee) = gas_base_fee {
-                            config.gas_base_fee = gas_base_fee.u64();
-                        }
-                        if let Some(gas_action_fee) = gas_action_fee {
-                            config.gas_action_fee = gas_action_fee.u64();
-                        }
-                        if let Some(gas_fraction) = gas_fraction {
-                            config.gas_fraction = gas_fraction;
-                        }
-                        if let Some(proxy_callback_gas) = proxy_callback_gas {
-                            config.proxy_callback_gas = proxy_callback_gas;
-                        }
-                        if let Some(agent_fee) = agent_fee {
-                            config.agent_fee = agent_fee;
-                        }
-                        if let Some(min_tasks_per_agent) = min_tasks_per_agent {
-                            config.min_tasks_per_agent = min_tasks_per_agent;
-                        }
-                        if let Some(agents_eject_threshold) = agents_eject_threshold {
-                            config.agents_eject_threshold = agents_eject_threshold;
-                        }
-                        Ok(config)
+                        let new_config = Config {
+                            paused: paused.unwrap_or(old_config.paused),
+                            owner_id: owner_id.unwrap_or(old_config.owner_id),
+                            min_tasks_per_agent: min_tasks_per_agent
+                                .unwrap_or(old_config.min_tasks_per_agent),
+                            agent_active_indices: old_config.agent_active_indices,
+                            agents_eject_threshold: agents_eject_threshold
+                                .unwrap_or(old_config.agents_eject_threshold),
+                            agent_nomination_duration: old_config.agent_nomination_duration,
+                            cw_rules_addr: old_config.cw_rules_addr,
+                            agent_fee: agent_fee.unwrap_or(old_config.agent_fee),
+                            gas_fraction: gas_fraction.unwrap_or(old_config.gas_fraction),
+                            gas_base_fee: gas_base_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_base_fee),
+                            gas_action_fee: gas_action_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_action_fee),
+                            gas_query_fee: gas_query_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_query_fee),
+                            gas_wasm_query_fee: gas_wasm_query_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_wasm_query_fee),
+                            proxy_callback_gas: proxy_callback_gas
+                                .unwrap_or(old_config.proxy_callback_gas),
+                            slot_granularity_time: slot_granularity_time
+                                .unwrap_or(old_config.slot_granularity_time),
+                            cw20_whitelist: old_config.cw20_whitelist,
+                            native_denom: old_config.native_denom,
+                            available_balance: old_config.available_balance,
+                            staked_balance: old_config.staked_balance,
+                            limit: old_config.limit,
+                        };
+                        Ok(new_config)
                     })?;
             }
             _ => unreachable!(),

@@ -19,6 +19,8 @@ fn update_settings() {
         owner_id: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
     };
@@ -44,6 +46,8 @@ fn update_settings() {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
 
     // non-owner fails
@@ -99,6 +103,8 @@ fn move_balances_auth_checks() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
@@ -121,6 +127,8 @@ fn move_balances_auth_checks() {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     let info_setting = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store
@@ -168,6 +176,8 @@ fn move_balances_native() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         gas_fraction: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
@@ -190,6 +200,8 @@ fn move_balances_native() {
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     let info_settings = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store
