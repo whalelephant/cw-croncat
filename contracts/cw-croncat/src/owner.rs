@@ -1,16 +1,13 @@
-use crate::balancer::BalancerMode;
 use crate::error::ContractError;
 use crate::helpers::has_cw_coins;
 use crate::state::{Config, CwCroncat};
 use cosmwasm_std::{
-    has_coins, to_binary, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Order, Response,
-    StdResult, SubMsg, Uint64, WasmMsg,
+    has_coins, to_binary, BankMsg, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    SubMsg, WasmMsg,
 };
 use cw20::{Balance, Cw20ExecuteMsg};
 use cw_croncat_core::msg::{
-    BalancesResponse, CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse,
-    GetWalletBalancesResponse, RoundRobinBalancerModeResponse, SlotResponse,
-    SlotWithQueriesResponse,
+    ExecuteMsg, GetBalancesResponse, GetConfigResponse, GetWalletBalancesResponse,
 };
 use cw_croncat_core::traits::FindAndMutate;
 
@@ -26,7 +23,7 @@ impl<'a> CwCroncat<'a> {
             agents_eject_threshold: c.agents_eject_threshold,
             native_denom: c.native_denom,
             agent_fee: c.agent_fee,
-            gas_fraction: c.gas_fraction,
+            gas_price: c.gas_price,
             proxy_callback_gas: c.proxy_callback_gas,
             slot_granularity_time: c.slot_granularity_time,
             cw_rules_addr: c.cw_rules_addr,
@@ -85,53 +82,60 @@ impl<'a> CwCroncat<'a> {
                 agent_fee,
                 gas_base_fee,
                 gas_action_fee,
-                gas_fraction,
+                gas_query_fee,
+                gas_wasm_query_fee,
+                gas_price,
                 proxy_callback_gas,
                 min_tasks_per_agent,
                 agents_eject_threshold,
                 // treasury_id,
             } => {
+                let owner_id = if let Some(addr) = owner_id {
+                    Some(api.addr_validate(&addr)?)
+                } else {
+                    None
+                };
                 self.config
-                    .update(deps.storage, |mut config| -> Result<_, ContractError> {
-                        if info.sender != config.owner_id {
+                    .update(deps.storage, |old_config| -> Result<_, ContractError> {
+                        if info.sender != old_config.owner_id {
                             return Err(ContractError::Unauthorized {});
                         }
 
-                        if let Some(owner_id) = owner_id {
-                            let owner_id = api.addr_validate(&owner_id)?;
-                            config.owner_id = owner_id;
-                        }
-                        // if let Some(treasury_id) = treasury_id {
-                        //     config.treasury_id = Some(treasury_id);
-                        // }
-                        if let Some(slot_granularity_time) = slot_granularity_time {
-                            config.slot_granularity_time = slot_granularity_time;
-                        }
-                        if let Some(paused) = paused {
-                            config.paused = paused;
-                        }
-                        if let Some(gas_base_fee) = gas_base_fee {
-                            config.gas_base_fee = gas_base_fee.u64();
-                        }
-                        if let Some(gas_action_fee) = gas_action_fee {
-                            config.gas_action_fee = gas_action_fee.u64();
-                        }
-                        if let Some(gas_fraction) = gas_fraction {
-                            config.gas_fraction = gas_fraction;
-                        }
-                        if let Some(proxy_callback_gas) = proxy_callback_gas {
-                            config.proxy_callback_gas = proxy_callback_gas;
-                        }
-                        if let Some(agent_fee) = agent_fee {
-                            config.agent_fee = agent_fee;
-                        }
-                        if let Some(min_tasks_per_agent) = min_tasks_per_agent {
-                            config.min_tasks_per_agent = min_tasks_per_agent;
-                        }
-                        if let Some(agents_eject_threshold) = agents_eject_threshold {
-                            config.agents_eject_threshold = agents_eject_threshold;
-                        }
-                        Ok(config)
+                        let new_config = Config {
+                            paused: paused.unwrap_or(old_config.paused),
+                            owner_id: owner_id.unwrap_or(old_config.owner_id),
+                            min_tasks_per_agent: min_tasks_per_agent
+                                .unwrap_or(old_config.min_tasks_per_agent),
+                            agent_active_indices: old_config.agent_active_indices,
+                            agents_eject_threshold: agents_eject_threshold
+                                .unwrap_or(old_config.agents_eject_threshold),
+                            agent_nomination_duration: old_config.agent_nomination_duration,
+                            cw_rules_addr: old_config.cw_rules_addr,
+                            agent_fee: agent_fee.unwrap_or(old_config.agent_fee),
+                            gas_price: gas_price.unwrap_or(old_config.gas_price),
+                            gas_base_fee: gas_base_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_base_fee),
+                            gas_action_fee: gas_action_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_action_fee),
+                            gas_query_fee: gas_query_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_query_fee),
+                            gas_wasm_query_fee: gas_wasm_query_fee
+                                .map(Into::into)
+                                .unwrap_or(old_config.gas_wasm_query_fee),
+                            proxy_callback_gas: proxy_callback_gas
+                                .unwrap_or(old_config.proxy_callback_gas),
+                            slot_granularity_time: slot_granularity_time
+                                .unwrap_or(old_config.slot_granularity_time),
+                            cw20_whitelist: old_config.cw20_whitelist,
+                            native_denom: old_config.native_denom,
+                            available_balance: old_config.available_balance,
+                            staked_balance: old_config.staked_balance,
+                            limit: old_config.limit,
+                        };
+                        Ok(new_config)
                     })?;
             }
             _ => unreachable!(),
@@ -161,7 +165,6 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", c.native_denom)
             .add_attribute("agent_fee", c.agent_fee.to_string())
-            //.add_attribute("gas_price", c.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", c.proxy_callback_gas.to_string())
             .add_attribute("slot_granularity_time", c.slot_granularity_time.to_string()))
     }
@@ -274,135 +277,5 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("method", "move_balance")
             .add_attribute("account_id", account_id.to_string())
             .add_submessages(messages?))
-    }
-
-    pub(crate) fn get_state(
-        &self,
-        deps: Deps,
-        env: Env,
-        from_index: Option<u64>,
-        limit: Option<u64>,
-    ) -> StdResult<CwCroncatResponse> {
-        let default_limit = self.config.load(deps.storage)?.limit;
-        let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
-        let from_index_unwrap = from_index.unwrap_or_default();
-        let limit_unwrap = limit.unwrap_or(default_limit).min(size) as usize;
-
-        let mut agents = Vec::with_capacity(limit_unwrap);
-        for agent in self
-            .agents
-            .keys(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap)
-        {
-            let agent_info = self.query_get_agent(deps, env.clone(), agent?.to_string())?;
-            agents.push(agent_info.unwrap());
-        }
-
-        let time_slots: Vec<SlotResponse> = self
-            .time_slots
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotResponse {
-                    slot: res.0.into(),
-                    tasks: res.1,
-                }
-            })
-            .collect();
-
-        let block_slots: Vec<SlotResponse> = self
-            .block_slots
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotResponse {
-                    slot: res.0.into(),
-                    tasks: res.1,
-                }
-            })
-            .collect();
-
-        let balances: Vec<BalancesResponse> = self
-            .balances
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                BalancesResponse {
-                    address: res.0,
-                    balances: res.1,
-                }
-            })
-            .collect();
-
-        let balancer_mode = match self.balancer.mode {
-            BalancerMode::ActivationOrder => RoundRobinBalancerModeResponse::ActivationOrder,
-            BalancerMode::Equalizer => RoundRobinBalancerModeResponse::Equalizer,
-        };
-
-        let time_slots_queries: Vec<SlotWithQueriesResponse> = self
-            .time_map_queries
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotWithQueriesResponse {
-                    task_hash: res.0,
-                    slot: res.1.into(),
-                }
-            })
-            .collect();
-
-        let block_slots_queries: Vec<SlotWithQueriesResponse> = self
-            .block_map_queries
-            .range(deps.storage, None, None, Order::Ascending)
-            .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
-            .map(|res| {
-                let res = res.unwrap();
-                SlotWithQueriesResponse {
-                    task_hash: res.0,
-                    slot: res.1.into(),
-                }
-            })
-            .collect();
-
-        Ok(CwCroncatResponse {
-            config: self.query_config(deps)?,
-
-            agent_active_queue: self.agent_active_queue.load(deps.storage)?,
-            agent_pending_queue: self
-                .agent_pending_queue
-                .iter(deps.storage)?
-                .take(50)
-                .collect::<StdResult<Vec<cosmwasm_std::Addr>>>()?,
-            agents,
-
-            tasks: self.query_get_tasks(deps, None, None)?,
-            task_total: Uint64::from(self.task_total.load(deps.storage)?),
-
-            time_slots,
-            block_slots,
-
-            tasks_with_queries: self.query_get_tasks_with_queries(deps, from_index, limit)?,
-            tasks_with_queries_total: Uint64::from(
-                self.tasks_with_queries_total.load(deps.storage)?,
-            ),
-            time_slots_queries,
-            block_slots_queries,
-
-            reply_index: Uint64::from(self.reply_index.load(deps.storage)?),
-            agent_nomination_begin_time: self.agent_nomination_begin_time.load(deps.storage)?,
-
-            balances,
-            balancer_mode,
-        })
     }
 }

@@ -38,7 +38,9 @@ pub fn mock_init(store: &CwCroncat, deps: DepsMut<Empty>) -> Result<Response, Co
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -179,7 +181,9 @@ pub fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
         owner_id: Some(owner_addr.to_string()),
         gas_base_fee: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: None,
     };
     let cw_template_contract_addr = app
