@@ -941,7 +941,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let attributes = vec![
         ("method", "proxy_callback"),
         ("slot_id", "1571797860000000000"),
-        ("slot_kind", "Time"),
+        ("slot_kind", "Cron"),
         ("task_hash", task_id_str.as_str().clone()),
     ];
 

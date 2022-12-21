@@ -1161,7 +1161,7 @@
       "type": "string",
       "enum": [
         "Block",
-        "Time"
+        "Cron"
       ]
     },
     "SlotWithQueriesResponse": {

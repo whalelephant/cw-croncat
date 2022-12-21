@@ -277,7 +277,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000, // current time in nanos is 1_571_797_419_879_305_533
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
@@ -287,7 +287,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_441_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
@@ -297,7 +297,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -307,7 +307,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // with start
         (
@@ -318,7 +318,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -328,7 +328,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -338,7 +338,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_803_215_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // cases when a boundary has end
         // current slot is the end slot
@@ -350,7 +350,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_533,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // the next slot is after the end, return end slot
         (
@@ -361,7 +361,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_535,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // next slot in boundaries
         (
@@ -372,7 +372,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // the task has ended
         (
@@ -383,7 +383,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             0,
-            SlotType::Time,
+            SlotType::Cron,
         ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
@@ -406,7 +406,7 @@ fn interval_get_next_cron_time() {
             // the timestamp is in the current slot, so we take the next slot
             1_571_797_420_000_000_000_u64.saturating_sub(1_571_797_420_000_000_000 % TWO_MINUTES)
                 + TWO_MINUTES, // current time in nanos is 1_571_797_419_879_305_533
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
@@ -416,7 +416,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
@@ -426,7 +426,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -436,7 +436,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // with start
         (
@@ -447,7 +447,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -457,7 +457,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
@@ -467,7 +467,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_803_200_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // cases when a boundary has end
         // boundary end in the current slot
@@ -479,7 +479,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // next slot in boundaries
         (
@@ -490,7 +490,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // next slot after the end, return end slot
         (
@@ -501,7 +501,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
-            SlotType::Time,
+            SlotType::Cron,
         ),
         // the task has ended
         (
@@ -512,7 +512,7 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             0,
-            SlotType::Time,
+            SlotType::Cron,
         ),
     ];
     for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
@@ -611,7 +611,7 @@ fn slot_items_pop() {
         .unwrap();
     assert_eq!(
         Ok(None),
-        store.pop_slot_item(&mut deps.storage, 0, SlotType::Time)
+        store.pop_slot_item(&mut deps.storage, 0, SlotType::Cron)
     );
     assert_eq!(
         Ok(None),
@@ -636,7 +636,7 @@ fn slot_items_pop() {
         assert_eq!(
             *task,
             store
-                .pop_slot_item(&mut deps.storage, 1, SlotType::Time)
+                .pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
                 .unwrap()
                 .unwrap()
         );
@@ -652,7 +652,7 @@ fn slot_items_pop() {
     // Slot removed if no hash left
     assert_eq!(
         Ok(None),
-        store.pop_slot_item(&mut deps.storage, 1, SlotType::Time)
+        store.pop_slot_item(&mut deps.storage, 1, SlotType::Cron)
     );
     assert_eq!(
         Ok(None),

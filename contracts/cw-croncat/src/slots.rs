@@ -64,7 +64,7 @@ impl<'a> CwCroncat<'a> {
     ) -> StdResult<Option<Vec<u8>>> {
         let store = match kind {
             SlotType::Block => &self.block_slots,
-            SlotType::Time => &self.time_slots,
+            SlotType::Cron => &self.time_slots,
         };
 
         let slot_data = store.may_load(storage, slot)?;

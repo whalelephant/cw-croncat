@@ -46,7 +46,7 @@ fn configure() {
     // assert_eq!(None, value.treasury_id);
     assert_eq!(3, value.min_tasks_per_agent);
     assert_eq!(
-        vec![(SlotType::Block, 0, 0), (SlotType::Time, 0, 0)],
+        vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
         value.agent_active_indices
     );
     assert_eq!(600, value.agents_eject_threshold);

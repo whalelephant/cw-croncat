@@ -36,7 +36,7 @@ impl<'a> CwCroncat<'a> {
                 (slot_id, kind)
             }
             (None, Some(slot_id)) => {
-                let kind = SlotType::Time;
+                let kind = SlotType::Cron;
                 (slot_id, kind)
             }
             (None, None) => {
@@ -406,7 +406,7 @@ impl<'a> CwCroncat<'a> {
                     self.block_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
-                SlotType::Time => {
+                SlotType::Cron => {
                     self.time_map_queries
                         .save(storage, task_hash.as_bytes(), &next_id)?;
                 }
@@ -431,7 +431,7 @@ impl<'a> CwCroncat<'a> {
                 SlotType::Block => {
                     self.block_slots.update(storage, next_id, update_vec_data)?;
                 }
-                SlotType::Time => {
+                SlotType::Cron => {
                     self.time_slots.update(storage, next_id, update_vec_data)?;
                 }
             }

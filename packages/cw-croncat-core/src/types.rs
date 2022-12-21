@@ -171,7 +171,7 @@ impl BoundaryValidated {
 )]
 pub enum SlotType {
     Block,
-    Time,
+    Cron,
 }
 
 // #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
@@ -830,12 +830,12 @@ fn get_next_cron_time(
     };
 
     match boundary.end {
-        Some(end) if current_block_ts > end => (0, SlotType::Time),
+        Some(end) if current_block_ts > end => (0, SlotType::Cron),
         Some(end) => {
             let end_slot = end.saturating_sub(end % slot_granularity_time);
-            (u64::min(end_slot, next_slot), SlotType::Time)
+            (u64::min(end_slot, next_slot), SlotType::Cron)
         }
-        _ => (next_slot, SlotType::Time),
+        _ => (next_slot, SlotType::Cron),
     }
 }
 
