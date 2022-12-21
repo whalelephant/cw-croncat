@@ -335,6 +335,31 @@ fn is_valid_msg_send_should_success() {
 }
 
 #[test]
+fn is_valid_empty_actions() {
+    let task = TaskRequest {
+        interval: Interval::Block(10),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![],
+        queries: None,
+        transforms: None,
+        cw20_coins: Default::default(),
+    };
+    assert_eq!(
+        task.is_valid_msg_calculate_usage(
+            &mock_dependencies().api,
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob"),
+            5,
+            5,
+        )
+        .unwrap_err(),
+        CoreError::InvalidAction {}
+    );
+}
+
+#[test]
 fn test_add_tokens() {
     let mut coins: GenericBalance = GenericBalance::default();
 
