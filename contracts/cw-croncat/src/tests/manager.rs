@@ -612,7 +612,6 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("v: {v}, value: {value}");
                     has_required_attributes = false;
                 }
             } else {
@@ -733,7 +732,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "41ca949ec8dfad3d751eb98d417af01a9196fd8813c841b9292851e6e49343b1".to_string();
+        "25753e42d62dc9a1ac3cf6b3fcfd773f6dc802cf0a0fea9f56e4dca7272882e8".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -770,7 +769,6 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            println!("{:?}", a.value);
             if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
@@ -841,6 +839,9 @@ fn proxy_callback_block_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("{:?}", _key);
+                    println!("{:?}", value);
+
                     has_required_attributes = false;
                 }
             } else {
@@ -863,7 +864,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "e79e765e5679c24517feec6c0a67399348b9fbfaad49fc858f4ad13e3b6ead9f".to_string();
+        "3a897a48bda24a2bb264e3b5df410e05d6c735df3c268e887626f84ab42ae2d1".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -887,7 +888,6 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         },
     };
 
-
     // create a task
     let res = app
         .execute_contract(
@@ -897,13 +897,11 @@ fn proxy_callback_time_slots() -> StdResult<()> {
             &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
-    println!("{:?}", res);
 
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            println!("{:?}", a.value);
             if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
@@ -974,7 +972,8 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("\n{:?} {:?} {:?}", _key, v.to_string(), value);
+                    println!("{:?}", _key);
+                    println!("{:?}", value);
 
                     has_required_attributes = false;
                 }
@@ -1867,7 +1866,6 @@ fn test_reschedule_task_with_queries() {
             },
         )
         .unwrap();
-    println!("{:?}", tasks_with_queries);
     assert!(tasks_with_queries.is_empty());
 }
 
@@ -2310,7 +2308,6 @@ fn testing_fee_works() {
         .into_iter()
         .map(|task| (task.total_deposit, task.actions))
         .collect();
-    println!("tasks: {tasks:?}");
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2336,7 +2333,6 @@ fn testing_fee_works() {
         .into_iter()
         .map(|task| (task.total_deposit, task.actions))
         .collect();
-    println!("tasks: {tasks:?}");
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2362,7 +2358,6 @@ fn testing_fee_works() {
         .into_iter()
         .map(|task| (task.total_deposit, task.actions))
         .collect();
-    println!("tasks: {tasks:?}");
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -3041,7 +3036,6 @@ fn test_error_in_reply() {
             &vec![],
         )
         .unwrap();
-    print!("{:#?}", res);
 
     // Check attributes, should have an error since we can't execute proposal yet
     let mut without_failure: bool = false;

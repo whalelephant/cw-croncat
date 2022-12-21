@@ -477,6 +477,12 @@
           "format": "uint64",
           "minimum": 0.0
         },
+        "is_block_boundary": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
         "start": {
           "type": [
             "integer",
@@ -1394,7 +1400,7 @@
       "type": "string",
       "enum": [
         "Block",
-        "Cron"
+        "Time"
       ]
     },
     "SmartQueries": {

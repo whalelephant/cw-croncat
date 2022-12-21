@@ -396,13 +396,15 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(vec![hash]),
                 }
             };
-            // Based on slot kind, put into block or cron slots
-            if boundary.is_block_boundary.unwrap_or_else(|| true) {
-                self.block_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
-            } else {
-                self.time_slots
-                    .update(deps.storage, next_id, update_vec_data)?;
+            match slot_kind {
+                SlotType::Block => {
+                    self.block_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
+                SlotType::Time => {
+                    self.time_slots
+                        .update(deps.storage, next_id, update_vec_data)?;
+                }
             }
         };
 
@@ -412,6 +414,10 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("slot_id", next_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_kind))
             .add_attribute("task_hash", hash)
+            .add_attribute(
+                "is_block_boundary",
+                boundary.is_block_boundary.unwrap_or_default().to_string(),
+            )
             .add_attribute("with_queries", with_queries.to_string()))
     }
 

@@ -579,7 +579,6 @@ fn check_task_create_success() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-   
 
     // create a task
     let res = app
@@ -592,12 +591,12 @@ fn check_task_create_success() -> StdResult<()> {
         .unwrap();
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
-    let mut task_hash=String::new();
+    let mut task_hash = String::new();
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value.len()>0 {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
-                task_hash=a.value;
+                task_hash = a.value;
             }
         }
     }
@@ -617,7 +616,7 @@ fn check_task_create_success() -> StdResult<()> {
     if let Some(t) = new_task {
         assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
         assert_eq!(Interval::Immediate, t.interval);
-        assert_eq!(None, t.boundary);
+        assert!(t.boundary.is_some());
         assert_eq!(false, t.stop_on_fail);
         assert_eq!(coins(315006, NATIVE_DENOM), t.total_deposit);
         assert_eq!(task_hash.clone(), t.task_hash);
@@ -855,24 +854,25 @@ fn check_remove_create() -> StdResult<()> {
     };
 
     // create a task
-    let create_task_resp=app.execute_contract(
-        Addr::unchecked(ANYONE),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(315006, NATIVE_DENOM),
-    )
-    .unwrap();
-    
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(315006, NATIVE_DENOM),
+        )
+        .unwrap();
+
     let mut task_hash: String = String::new();
     for e in create_task_resp.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value.len()>0 {
-                task_hash=a.value;
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
             }
         }
     }
 
-    println!("{:?}",task_hash);
+    println!("{:?}", task_hash);
     // check storage DOES have the task
     let new_task: Option<TaskResponse> = app
         .wrap()
@@ -971,25 +971,25 @@ fn check_refill_create() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    
 
     // create a task
-   let create_task_resp= app.execute_contract(
-        Addr::unchecked(ANYONE),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(315006, NATIVE_DENOM),
-    )
-    .unwrap();
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(315006, NATIVE_DENOM),
+        )
+        .unwrap();
     let mut task_hash: String = String::new();
     for e in create_task_resp.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value.len()>0 {
-                task_hash=a.value;
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
             }
         }
     }
-    
+
     // refill task
     let res = app
         .execute_contract(

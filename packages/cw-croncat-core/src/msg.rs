@@ -493,11 +493,25 @@ impl From<Task> for TaskResponse {
                 },
                 _,
             ) => None,
-            (BoundaryValidated { start, end, is_block_boundary: _ }, Interval::Cron(_)) => Some(Boundary::Time {
+            (
+                BoundaryValidated {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
                 start: start.map(Timestamp::from_nanos),
                 end: end.map(Timestamp::from_nanos),
             }),
-            (BoundaryValidated { start, end, is_block_boundary: _ }, _) => Some(Boundary::Height {
+            (
+                BoundaryValidated {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
                 start: start.map(Into::into),
                 end: end.map(Into::into),
             }),
@@ -525,15 +539,29 @@ impl From<Task> for TaskWithQueriesResponse {
                 BoundaryValidated {
                     start: None,
                     end: None,
-                    is_block_boundary:None,
+                    is_block_boundary: None,
                 },
                 _,
             ) => None,
-            (BoundaryValidated { start, end, is_block_boundary: _ }, Interval::Cron(_)) => Some(Boundary::Time {
+            (
+                BoundaryValidated {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
                 start: start.map(Timestamp::from_nanos),
                 end: end.map(Timestamp::from_nanos),
             }),
-            (BoundaryValidated { start, end, is_block_boundary: _ }, _) => Some(Boundary::Height {
+            (
+                BoundaryValidated {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
                 start: start.map(Into::into),
                 end: end.map(Into::into),
             }),

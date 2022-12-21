@@ -8,7 +8,7 @@ export type Addr = string;
 export type Uint128 = string;
 export type Timestamp = Uint64;
 export type Uint64 = string;
-export type SlotType = "Block" | "Cron";
+export type SlotType = "Block" | "Time";
 export type AgentStatus = "Active" | "Pending" | "Nominated";
 export type CosmosMsgForEmpty = {
   bank: BankMsg;
@@ -390,6 +390,7 @@ export interface Task {
 }
 export interface BoundaryValidated {
   end?: number | null;
+  is_block_boundary?: boolean | null;
   start?: number | null;
   [k: string]: unknown;
 }

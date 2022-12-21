@@ -483,8 +483,7 @@ fn hashing() {
         boundary: BoundaryValidated {
             start: Some(4),
             end: None,
-            is_block_boundary:Some(true),
-
+            is_block_boundary: Some(true),
         },
         stop_on_fail: false,
         total_deposit: Default::default(),

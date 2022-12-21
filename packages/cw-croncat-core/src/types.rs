@@ -106,6 +106,9 @@ pub struct BoundaryValidated {
 }
 
 impl BoundaryValidated {
+    pub fn is_block_boundary(&self) -> bool {
+        self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
+    }
     pub fn validate_boundary(
         boundary: Option<Boundary>,
         interval: &Interval,
@@ -157,7 +160,7 @@ impl BoundaryValidated {
             Ok(Self {
                 start: None,
                 end: None,
-                is_block_boundary: None,
+                is_block_boundary: Some(true), //Boundary isnt provided, so default is block
             })
         }
     }
@@ -847,10 +850,10 @@ impl Intervals for Interval {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
             Interval::Once | Interval::Immediate => {
-                if boundary.is_block_boundary.unwrap_or_else(|| true) {
-                    return get_next_block_limited(env, boundary);
+                if boundary.is_block_boundary() {
+                    get_next_block_limited(env, boundary)
                 } else {
-                    return get_next_cron_time(env, boundary, "0 0 * * * *", slot_granularity_time);
+                    get_next_cron_time(env, boundary, "0 0 * * * *", slot_granularity_time)
                 }
             }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.

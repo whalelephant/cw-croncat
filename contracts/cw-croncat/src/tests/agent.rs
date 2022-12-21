@@ -612,7 +612,7 @@ fn accept_nomination_agent() {
     let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
     let task_hash = res.events[1].attributes[4].clone().value;
     assert_eq!(
-        "964da9e883c055125d9a073a2d022ddf78bbabb3b4929394985a74e1236d4325", task_hash,
+        "5dec2a8582a02f7212ccc2aee98807e83aaa92d399ce1331de474a279bcd1efd", task_hash,
         "Unexpected task hash"
     );
 
