@@ -360,8 +360,13 @@ impl Task {
     /// Get the hash of a task based on parameters
     pub fn to_hash(&self) -> String {
         let message = format!(
-            "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id, self.interval, self.boundary, self.actions, self.queries
+            "{:?}{:?}{:?}{:?}{:?}{:?}",
+            self.owner_id,
+            self.interval,
+            self.boundary,
+            self.actions,
+            self.queries,
+            self.transforms
         );
 
         let hash = Sha256::digest(message.as_bytes());
