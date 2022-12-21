@@ -1,19 +1,12 @@
 use crate::error::ContractError;
 use crate::state::CwCroncat;
-use crate::tests::helpers::{
-    add_little_time, proper_instantiate, ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM,
-};
+use crate::tests::helpers::NATIVE_DENOM;
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, CosmosMsg, MessageInfo, StdResult, Uint64, WasmMsg,
-};
+use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
 use cw20::Balance;
 use cw_croncat_core::msg::{
-    CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg,
-    QueryMsg, RoundRobinBalancerModeResponse, TaskRequest,
+    ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg, QueryMsg,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval};
-use cw_multi_test::Executor;
 
 #[test]
 fn update_settings() {
@@ -285,122 +278,3 @@ fn move_balances_native() {
 //     // assert_eq!(true, value.paused);
 //     // assert_eq!(info.sender, value.owner_id);
 // }
-
-#[test]
-fn test_get_state() {
-    let (mut app, cw_template_contract, _) = proper_instantiate();
-    let contract_addr = cw_template_contract.addr();
-
-    let state: StdResult<CwCroncatResponse> = app.wrap().query_wasm_smart(
-        &contract_addr.clone(),
-        &QueryMsg::GetState {
-            from_index: None,
-            limit: None,
-        },
-    );
-    assert!(state.is_ok());
-    let state = state.unwrap();
-
-    assert_eq!(state.config.paused, false);
-    assert_eq!(state.config.owner_id.as_str(), ADMIN);
-    assert_eq!(state.config.agent_fee, 5);
-    assert_eq!(state.config.gas_base_fee, 300_000);
-    assert_eq!(state.config.gas_action_fee, 130_000);
-    assert_eq!(state.config.proxy_callback_gas, 3);
-    assert!(state.agent_active_queue.is_empty());
-    assert!(state.agent_pending_queue.is_empty());
-    assert!(state.agents.is_empty());
-    assert!(state.tasks.is_empty());
-    assert_eq!(state.task_total, Uint64::zero());
-    assert!(state.time_slots.is_empty());
-    assert!(state.block_slots.is_empty());
-    assert!(state.tasks_with_queries.is_empty());
-    assert_eq!(state.tasks_with_queries_total, Uint64::zero());
-    assert!(state.time_slots_queries.is_empty());
-    assert!(state.block_slots_queries.is_empty());
-    assert_eq!(state.reply_index, Uint64::zero());
-    assert_eq!(state.agent_nomination_begin_time, None);
-    assert_eq!(
-        state.balancer_mode,
-        RoundRobinBalancerModeResponse::ActivationOrder
-    );
-    assert!(state.balances.is_empty());
-
-    // Create a task
-    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: contract_addr.to_string(),
-        msg: to_binary(&ExecuteMsg::WithdrawReward {}).unwrap(),
-        funds: coins(1, NATIVE_DENOM),
-    });
-
-    let create_task_msg = ExecuteMsg::CreateTask {
-        task: TaskRequest {
-            interval: Interval::Immediate,
-            boundary: Some(Boundary::Height {
-                start: None,
-                end: None,
-            }),
-            stop_on_fail: false,
-            actions: vec![Action {
-                msg,
-                gas_limit: Some(250_000),
-            }],
-            queries: None,
-            transforms: None,
-            cw20_coins: vec![],
-        },
-    };
-
-    // create a task
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(525000, NATIVE_DENOM),
-    )
-    .unwrap();
-
-    // quick agent register
-    let msg = ExecuteMsg::RegisterAgent {
-        payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
-    };
-    app.execute_contract(Addr::unchecked(AGENT0), contract_addr.clone(), &msg, &[])
-        .unwrap();
-    // in pending queue
-    app.execute_contract(Addr::unchecked(ANYONE), contract_addr.clone(), &msg, &[])
-        .unwrap();
-
-    // might need block advancement
-    app.update_block(add_little_time);
-
-    let state: StdResult<CwCroncatResponse> = app.wrap().query_wasm_smart(
-        &contract_addr.clone(),
-        &QueryMsg::GetState {
-            from_index: None,
-            limit: None,
-        },
-    );
-    assert!(state.is_ok());
-    let state = state.unwrap();
-
-    let task_id_str =
-        "1032a37c92801f73c75816bddb4f0db8516baeeeacd6a2c225f0a6a54c96732e".to_string();
-
-    assert_eq!(state.agent_active_queue.len(), 1);
-    assert_eq!(state.agent_active_queue[0].as_str(), AGENT0);
-    assert_eq!(state.agent_pending_queue.len(), 1);
-    assert_eq!(state.agent_pending_queue[0].as_str(), ANYONE);
-    assert_eq!(state.agents.len(), 1);
-    assert_eq!(state.tasks.len(), 1);
-    assert_eq!(state.tasks[0].task_hash, task_id_str);
-    assert_eq!(state.task_total, Uint64::from(1u64));
-    assert!(state.time_slots.is_empty());
-    assert_eq!(state.block_slots.len(), 1);
-    assert!(state.tasks_with_queries.is_empty());
-    assert_eq!(state.tasks_with_queries_total, Uint64::zero());
-    assert!(state.time_slots_queries.is_empty());
-    assert!(state.block_slots_queries.is_empty());
-    assert_eq!(state.reply_index, Uint64::zero());
-    assert!(state.agent_nomination_begin_time.is_some());
-    assert!(state.balances.is_empty());
-}

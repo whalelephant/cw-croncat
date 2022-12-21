@@ -209,9 +209,7 @@ impl<'a> CwCroncat<'a> {
             QueryMsg::GetWalletBalances { wallet } => {
                 to_binary(&self.query_wallet_balances(deps, wallet)?)
             }
-            QueryMsg::GetState { from_index, limit } => {
-                to_binary(&self.get_state(deps, env, from_index, limit)?)
-            }
+
             QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
         }
     }
