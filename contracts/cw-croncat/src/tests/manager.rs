@@ -1,7 +1,8 @@
 use crate::contract::{
     GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
-    GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
+    GAS_NUMERATOR_DEFAULT,
 };
+
 use crate::tests::helpers::{
     add_1000_blocks, add_little_time, add_one_duration_of_time, cw4_template, proper_instantiate,
     AGENT1, AGENT2, AGENT3,
@@ -13,10 +14,10 @@ use cosmwasm_std::{
 use cw20::Cw20Coin;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
-    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, GetConfigResponse, QueryMsg,
-    TaskRequest, TaskResponse, TaskWithQueriesResponse,
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, QueryMsg, TaskRequest,
+    TaskResponse, TaskWithQueriesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, GasPrice, Interval, Transform};
+use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use cwd_core::state::ProposalModule;
@@ -3082,8 +3083,8 @@ fn empty_actions_not_allowed() {
         },
     };
 
-    let total_gas = GAS_BASE_FEE_JUNO + GAS_ACTION_FEE_JUNO;
-    let attach_per_action = (total_gas + (total_gas * 5 / 100)) / GAS_DENOMINATOR_DEFAULT_JUNO;
+    let total_gas = GAS_BASE_FEE + GAS_ACTION_FEE;
+    let attach_per_action = (total_gas + (total_gas * 5 / 100)) / GAS_NUMERATOR_DEFAULT;
     let amount_for_three = (attach_per_action) as u128;
 
     let res: ContractError = app
