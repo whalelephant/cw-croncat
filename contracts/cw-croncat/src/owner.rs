@@ -204,7 +204,7 @@ impl<'a> CwCroncat<'a> {
 
         // Querier guarantees to returns up-to-date data, including funds sent in this handle message
         // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
-        let state_balances = deps.querier.query_all_balances(&env.contract.address)?;
+        let state_balances = deps.querier.query_all_balances(env.contract.address)?;
         let mut has_fund_err = false;
 
         let messages: Result<Vec<SubMsg>, ContractError> = balances
@@ -303,7 +303,7 @@ impl<'a> CwCroncat<'a> {
             .time_slots
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
             .map(|res| {
                 let res = res.unwrap();
                 SlotResponse {
@@ -317,7 +317,7 @@ impl<'a> CwCroncat<'a> {
             .block_slots
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
             .map(|res| {
                 let res = res.unwrap();
                 SlotResponse {
@@ -331,7 +331,7 @@ impl<'a> CwCroncat<'a> {
             .balances
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
             .map(|res| {
                 let res = res.unwrap();
                 BalancesResponse {
@@ -350,7 +350,7 @@ impl<'a> CwCroncat<'a> {
             .time_map_queries
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
             .map(|res| {
                 let res = res.unwrap();
                 SlotWithQueriesResponse {
@@ -364,7 +364,7 @@ impl<'a> CwCroncat<'a> {
             .block_map_queries
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index_unwrap as usize)
-            .take(limit_unwrap as usize)
+            .take(limit_unwrap)
             .map(|res| {
                 let res = res.unwrap();
                 SlotWithQueriesResponse {

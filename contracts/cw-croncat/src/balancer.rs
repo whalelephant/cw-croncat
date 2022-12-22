@@ -44,9 +44,6 @@ pub struct RoundRobinBalancer {
 }
 
 impl RoundRobinBalancer {
-    pub fn default() -> RoundRobinBalancer {
-        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
-    }
     pub fn new(mode: BalancerMode) -> RoundRobinBalancer {
         RoundRobinBalancer { mode }
     }
@@ -290,5 +287,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         self.update_or_append(indices, (slot_kind, agent_index, 1));
         config.save(storage, &conf)?;
         Ok(())
+    }
+}
+
+impl Default for RoundRobinBalancer {
+    fn default() -> RoundRobinBalancer {
+        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
     }
 }

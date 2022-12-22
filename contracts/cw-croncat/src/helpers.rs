@@ -177,11 +177,7 @@ impl<'a> CwCroncat<'a> {
             // It's possible there are more "covered tasks" than total tasks,
             // so use saturating subtraction to hit zero and not go below
             let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
-            let remainder = if total_tasks_needing_agents % max_tasks == 0 {
-                0
-            } else {
-                1
-            };
+            let remainder = u64::from(total_tasks_needing_agents % max_tasks != 0);
             total_tasks_needing_agents / max_tasks + remainder
         } else {
             0
