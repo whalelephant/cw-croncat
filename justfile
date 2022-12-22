@@ -1,7 +1,6 @@
 test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
 set export
 lint:
-	#!/bin/bash
 	cargo fmt --all && cargo clippy -- -D warnings
 test:
 	#!/bin/bash
@@ -25,8 +24,9 @@ schema:
 gen:
 	#!/usr/bin/env bash
 	cd typescript
-	yarn --cwd ./typescript install --frozen-lockfile
+	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
+	yarn --cwd ./typescript install --frozen-lockfile
 juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data

@@ -41,10 +41,30 @@
         }
       ]
     },
-    "gas_fraction": {
+    "gas_price": {
       "anyOf": [
         {
-          "$ref": "#/definitions/GasFraction"
+          "$ref": "#/definitions/GasPrice"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gas_query_fee": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint64"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "gas_wasm_query_fee": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Uint64"
         },
         {
           "type": "null"
@@ -59,14 +79,21 @@
     }
   },
   "definitions": {
-    "GasFraction": {
+    "GasPrice": {
       "type": "object",
       "required": [
         "denominator",
+        "gas_adjustment_numerator",
         "numerator"
       ],
       "properties": {
         "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_adjustment_numerator": {
+          "description": "Note",
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0

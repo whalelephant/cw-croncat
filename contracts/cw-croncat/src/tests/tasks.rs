@@ -1,5 +1,8 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
-use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use crate::contract::{
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT,
+};
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
@@ -63,7 +66,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
+        "85a5729f478d96fbb12eec7886992a53635d22bba4d8d8ef2fde16dc7f1f1605",
         task_hash
     );
 }
@@ -356,12 +359,14 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         // treasury_id: None,
         agent_fee: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         min_tasks_per_agent: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -394,12 +399,14 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             // treasury_id: None,
             agent_fee: None,
             agents_eject_threshold: None,
-            gas_fraction: None,
+            gas_price: None,
             proxy_callback_gas: None,
             slot_granularity_time: None,
             min_tasks_per_agent: None,
             gas_base_fee: None,
             gas_action_fee: None,
+            gas_query_fee: None,
+            gas_wasm_query_fee: None,
         },
         &vec![],
     )
@@ -579,7 +586,7 @@ fn check_task_create_success() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     let res = app
@@ -852,7 +859,7 @@ fn check_remove_create() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     app.execute_contract(
@@ -962,7 +969,7 @@ fn check_refill_create() -> StdResult<()> {
         },
     };
     let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
+        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // create a task
     app.execute_contract(
@@ -1034,7 +1041,7 @@ fn check_gas_minimum() {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = 150_000;
-    let base_gas = GAS_BASE_FEE_JUNO;
+    let base_gas = GAS_BASE_FEE;
 
     let create_task_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
@@ -1052,8 +1059,12 @@ fn check_gas_minimum() {
     };
     // create 1 token off task
     let gas_for_two = (base_gas + gas_limit) * 2;
-    let enough_for_two =
-        u128::from((gas_for_two + gas_for_two * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 * 2);
+    let enough_for_two = u128::from(
+        (gas_for_two + gas_for_two * 5 / 100) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3 * 2,
+    );
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1091,8 +1102,8 @@ fn check_gas_default() {
     let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
-    let gas_limit = GAS_ACTION_FEE_JUNO;
-    let base_gas = GAS_BASE_FEE_JUNO;
+    let gas_limit = GAS_ACTION_FEE;
+    let base_gas = GAS_BASE_FEE;
     // let send = BankMsg::Send {
     //     to_address: validator,
     //     amount: vec![amount],
@@ -1117,7 +1128,12 @@ fn check_gas_default() {
 
     let gas_for_one = base_gas + gas_limit;
     let gas_for_one_with_fee = gas_for_one + gas_for_one * 5 / 100;
-    let enough_for_two = 2 * u128::from(gas_for_one_with_fee / GAS_DENOMINATOR_DEFAULT_JUNO + 3);
+    let enough_for_two = 2 * u128::from(
+        gas_for_one_with_fee * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3,
+    );
 
     let res: ContractError = app
         .execute_contract(

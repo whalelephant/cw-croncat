@@ -1,4 +1,6 @@
-use crate::contract::GAS_DENOMINATOR_DEFAULT_JUNO;
+use crate::contract::GAS_ADJUSTMENT_NUMERATOR_DEFAULT;
+use crate::contract::GAS_DENOMINATOR;
+use crate::contract::GAS_NUMERATOR_DEFAULT;
 use crate::state::QueueItem;
 use crate::tests::helpers::mock_init;
 use crate::tests::helpers::AGENT0;
@@ -11,7 +13,7 @@ use cosmwasm_std::testing::{
 };
 use cosmwasm_std::{coins, from_binary, Addr, Binary, Event, Reply, SubMsgResponse, SubMsgResult};
 use cw_croncat_core::msg::{GetConfigResponse, QueryMsg};
-use cw_croncat_core::types::GasFraction;
+use cw_croncat_core::types::GasPrice;
 use cw_croncat_core::types::SlotType;
 
 #[test]
@@ -23,7 +25,9 @@ fn configure() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -53,11 +57,12 @@ fn configure() {
     assert_eq!("atom", value.native_denom);
     assert_eq!(5, value.agent_fee);
     assert_eq!(
-        GasFraction {
-            numerator: 1,
-            denominator: GAS_DENOMINATOR_DEFAULT_JUNO
+        GasPrice {
+            numerator: GAS_NUMERATOR_DEFAULT,
+            denominator: GAS_DENOMINATOR,
+            gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
         },
-        value.gas_fraction
+        value.gas_price
     );
     assert_eq!(3, value.proxy_callback_gas);
     assert_eq!(10_000_000_000, value.slot_granularity_time);
