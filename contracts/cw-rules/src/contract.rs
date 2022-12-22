@@ -1,5 +1,7 @@
 use cw_rules_core::msg::{QueryConstruct, QueryConstructResponse};
-use cw_rules_core::types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte};
+use cw_rules_core::types::{
+    CheckOwnerOfNft, CheckPassedProposals, CheckProposalStatus, CroncatQuery, HasBalanceGte,
+};
 // use schemars::JsonSchema;
 // use serde::{Deserialize, Serialize};
 
@@ -21,7 +23,7 @@ use cw_rules_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, QueryResponse};
 
 //use cosmwasm_std::from_binary;
 //use crate::msg::QueryMultiResponse;
-use crate::types::dao::{ProposalResponse, QueryDao, Status};
+use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
 use generic_query::GenericQuery;
 
 // version info for migration info
@@ -87,6 +89,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             proposal_id,
             status,
         )?),
+        QueryMsg::CheckPassedProposals(CheckPassedProposals { dao_address }) => {
+            to_binary(&query_dao_proposals(deps, dao_address)?)
+        }
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
         QueryMsg::SmartQuery(query) => to_binary(&smart_query(deps, query)?),
         QueryMsg::QueryConstruct(QueryConstruct { queries }) => {
@@ -203,6 +208,36 @@ fn query_dao_proposal_status(
     })
 }
 
+// Check for passed proposals
+// Return the first passed proposal
+fn query_dao_proposals(deps: Deps, dao_address: String) -> StdResult<QueryResponse> {
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    // Query the amount of proposals
+    let proposal_count = deps
+        .querier
+        .query_wasm_smart(dao_addr.clone(), &QueryDao::ProposalCount {})?;
+    let res: ProposalListResponse = deps.querier.query_wasm_smart(
+        dao_addr,
+        &QueryDao::ListProposals {
+            start_after: None,
+            limit: Some(proposal_count),
+        },
+    )?;
+
+    for proposal_response in &res.proposals {
+        if proposal_response.proposal.status == Status::Passed {
+            return Ok(QueryResponse {
+                result: true,
+                data: to_binary(&proposal_response.id)?,
+            });
+        }
+    }
+    Ok(QueryResponse {
+        result: false,
+        data: to_binary(&res.proposals)?,
+    })
+}
+
 // // // GOAL:
 // // // Parse a generic query response, and inject input for the next query
 // // fn query_chain(deps: Deps, env: Env) -> StdResult<QueryMultiResponse> {
@@ -256,6 +291,9 @@ fn query_construct(deps: Deps, queries: Vec<CroncatQuery>) -> StdResult<QueryCon
                 proposal_id,
                 status,
             }) => query_dao_proposal_status(deps, dao_address, proposal_id, status),
+            CroncatQuery::CheckPassedProposals(CheckPassedProposals { dao_address }) => {
+                query_dao_proposals(deps, dao_address)
+            }
             CroncatQuery::GenericQuery(query) => generic_query(deps, query),
             CroncatQuery::SmartQuery(query) => smart_query(deps, query),
         }?;

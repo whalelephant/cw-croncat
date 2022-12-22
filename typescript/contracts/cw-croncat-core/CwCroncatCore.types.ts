@@ -170,6 +170,8 @@ export type CroncatQuery = {
 } | {
   check_proposal_status: CheckProposalStatus;
 } | {
+  check_passed_proposals: CheckPassedProposals;
+} | {
   generic_query: GenericQuery;
 } | {
   smart_query: SmartQueryHead;
@@ -346,6 +348,10 @@ export interface CheckProposalStatus {
   dao_address: string;
   proposal_id: number;
   status: Status;
+  [k: string]: unknown;
+}
+export interface CheckPassedProposals {
+  dao_address: string;
   [k: string]: unknown;
 }
 export interface GenericQuery {

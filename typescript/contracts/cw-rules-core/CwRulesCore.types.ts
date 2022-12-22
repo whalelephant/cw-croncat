@@ -16,6 +16,15 @@ export interface CheckOwnerOfNft {
   token_id: string;
   [k: string]: unknown;
 }
+export interface CheckPassedProposalsResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface CheckPassedProposals {
+  dao_address: string;
+  [k: string]: unknown;
+}
 export interface CheckProposalStatusResponse {
   data: Binary;
   result: boolean;
@@ -40,6 +49,8 @@ export type CroncatQuery = {
   check_owner_of_nft: CheckOwnerOfNft;
 } | {
   check_proposal_status: CheckProposalStatus;
+} | {
+  check_passed_proposals: CheckPassedProposals;
 } | {
   generic_query: GenericQuery;
 } | {
@@ -155,6 +166,8 @@ export type QueryMsg = {
   check_owner_of_nft: CheckOwnerOfNft;
 } | {
   check_proposal_status: CheckProposalStatus;
+} | {
+  check_passed_proposals: CheckPassedProposals;
 } | {
   generic_query: GenericQuery;
 } | {

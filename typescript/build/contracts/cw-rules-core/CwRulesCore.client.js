@@ -59,6 +59,13 @@ class CwRulesCoreQueryClient {
                 }
             });
         });
+        this.checkPassedProposals = ({ daoAddress }) => __awaiter(this, void 0, void 0, function* () {
+            return this.client.queryContractSmart(this.contractAddress, {
+                check_passed_proposals: {
+                    dao_address: daoAddress
+                }
+            });
+        });
         this.genericQuery = ({ contractAddr, msg, ordering, pathToValue, value }) => __awaiter(this, void 0, void 0, function* () {
             return this.client.queryContractSmart(this.contractAddress, {
                 generic_query: {
@@ -96,6 +103,7 @@ class CwRulesCoreQueryClient {
         this.hasBalanceGte = this.hasBalanceGte.bind(this);
         this.checkOwnerOfNft = this.checkOwnerOfNft.bind(this);
         this.checkProposalStatus = this.checkProposalStatus.bind(this);
+        this.checkPassedProposals = this.checkPassedProposals.bind(this);
         this.genericQuery = this.genericQuery.bind(this);
         this.queryConstruct = this.queryConstruct.bind(this);
         this.smartQuery = this.smartQuery.bind(this);

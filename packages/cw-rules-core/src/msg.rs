@@ -1,4 +1,6 @@
-use crate::types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte};
+use crate::types::{
+    CheckOwnerOfNft, CheckPassedProposals, CheckProposalStatus, CroncatQuery, HasBalanceGte,
+};
 use generic_query::GenericQuery;
 //use cw_croncat_core::types::Rule;
 //use cosmwasm_std::Coin;
@@ -30,6 +32,7 @@ pub enum QueryMsg {
     HasBalanceGte(HasBalanceGte),
     CheckOwnerOfNft(CheckOwnerOfNft),
     CheckProposalStatus(CheckProposalStatus),
+    CheckPassedProposals(CheckPassedProposals),
     GenericQuery(GenericQuery),
     // Full evaluations
     QueryConstruct(QueryConstruct),

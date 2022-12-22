@@ -207,7 +207,7 @@ impl<'a> CwCroncat<'a> {
 
         // Querier guarantees to returns up-to-date data, including funds sent in this handle message
         // https://github.com/CosmWasm/wasmd/blob/master/x/wasm/internal/keeper/keeper.go#L185-L192
-        let state_balances = deps.querier.query_all_balances(&env.contract.address)?;
+        let state_balances = deps.querier.query_all_balances(env.contract.address)?;
         let mut has_fund_err = false;
 
         let messages: Result<Vec<SubMsg>, ContractError> = balances
