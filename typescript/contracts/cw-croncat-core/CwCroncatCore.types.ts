@@ -391,6 +391,7 @@ export interface Task {
 }
 export interface BoundaryValidated {
   end?: number | null;
+  is_block_boundary?: boolean | null;
   start?: number | null;
   [k: string]: unknown;
 }

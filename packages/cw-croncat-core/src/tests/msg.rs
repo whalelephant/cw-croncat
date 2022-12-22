@@ -44,6 +44,7 @@ fn everything_can_be_de_serialized() {
         boundary: BoundaryValidated {
             start: Some(54),
             end: Some(44),
+            is_block_boundary: Some(true),
         },
         stop_on_fail: false,
         total_deposit: Default::default(),

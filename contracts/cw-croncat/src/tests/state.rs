@@ -25,6 +25,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         boundary: BoundaryValidated {
             start: None,
             end: None,
+            is_block_boundary: None,
         },
         stop_on_fail: false,
         total_deposit: Default::default(),
@@ -37,7 +38,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         transforms: None,
         version: version.version,
     };
-    let task_id_str = "85a5729f478d96fbb12eec7886992a53635d22bba4d8d8ef2fde16dc7f1f1605";
+    let task_id_str = "74b918b7c8ff739ff30e47e2053b2be194b365de2825eaa21c37b349871db9bb";
     let task_id = task_id_str.to_string().into_bytes();
 
     // create a task

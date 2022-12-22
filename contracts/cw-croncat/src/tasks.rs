@@ -398,8 +398,6 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(vec![hash]),
                 }
             };
-
-            // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots

@@ -55,8 +55,6 @@ fn proxy_call_fail_cases() -> StdResult<()> {
             cw20_coins: vec![],
         },
     };
-    let task_id_str =
-        "a78a89f0bbcba7d36c50d2b0ea8f3d3f6677b4b4ca76bd650eaf5836bed65b1c".to_string();
 
     // Must attach funds
     let res_err = app
@@ -196,7 +194,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -258,7 +256,7 @@ fn proxy_call_success() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "62c7a2dd020ace2169b3d61ac32a5e5fd98050d73584f121d424a9ebbf32e7a0".to_string();
+        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -298,7 +296,7 @@ fn proxy_call_success() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -517,7 +515,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "dc8759f300ac55b4d4f0e7fa0fc6727392f55e9f4d132745692eae1da7108cfc".to_string();
+        "ed4e2f3e3bd72f982145b04fdc4ffca4a03df10bb95b8c7f807b4f06a5b98f91".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let validator = String::from("you");
@@ -556,7 +554,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -625,7 +623,6 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("v: {v}, value: {value}");
                     has_required_attributes = false;
                 }
             } else {
@@ -746,7 +743,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "62c7a2dd020ace2169b3d61ac32a5e5fd98050d73584f121d424a9ebbf32e7a0".to_string();
+        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -783,7 +780,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -875,7 +872,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "5a9fd1f1506e26cc78816f031ad251729fb2d6979f54639116611cd3d9df9191".to_string();
+        "7d125c998e4e105af366c2a66bdc09bf2b52275f5b400033684484b0348927df".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -908,11 +905,12 @@ fn proxy_callback_time_slots() -> StdResult<()> {
             &coins(525000, NATIVE_DENOM),
         )
         .unwrap();
+
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
             }
         }
@@ -1524,13 +1522,23 @@ fn test_no_reschedule_if_lack_balance() {
         + 3; // + 3 atoms sent
 
     // create a task
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(u128::from(amount_for_one_task * 2 + extra - 3), "atom"),
-    )
-    .unwrap();
+    let resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(u128::from(amount_for_one_task * 2 + extra - 3), "atom"),
+        )
+        .unwrap();
+
+    let mut hash = String::new();
+    for e in resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                hash = a.value;
+            }
+        }
+    }
 
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
@@ -1561,10 +1569,7 @@ fn test_no_reschedule_if_lack_balance() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::GetTask {
-                task_hash: "8fad55a869f129ba363786bd7f0ec698f1a59e2553ba7fdec408f1cd82326cd3"
-                    .to_string(),
-            },
+            &QueryMsg::GetTask { task_hash: hash },
         )
         .unwrap();
     assert_eq!(
@@ -1624,7 +1629,6 @@ fn test_no_reschedule_if_lack_balance() {
 fn test_complete_task_with_query() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let task_hash = "c2772d2268fa9809f70bb36c15cb33c1f7c6ff458ca2f2a4707b8ae677d53c72";
 
     let addr1 = String::from("addr1");
     let amount = coins(3, NATIVE_DENOM);
@@ -1651,14 +1655,23 @@ fn test_complete_task_with_query() {
     };
 
     let attached_balance = 900058;
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(attached_balance, NATIVE_DENOM),
-    )
-    .unwrap();
+    let resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
+        )
+        .unwrap();
 
+    let mut task_hash = String::new();
+    for e in resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
         payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
@@ -1702,7 +1715,7 @@ fn test_complete_task_with_query() {
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
+                task_hash: Some(String::from(task_hash.clone())),
             },
             &[],
         )
@@ -1734,7 +1747,6 @@ fn test_complete_task_with_query() {
 fn test_reschedule_task_with_queries() {
     let (mut app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
-    let task_hash = "672deeb057ad86ca6c16b7abee1b912b6f737b7eedd4f3fe319d5bd54dc1dbd6";
 
     let addr1 = String::from("addr1");
     let amount = coins(3, NATIVE_DENOM);
@@ -1760,24 +1772,24 @@ fn test_reschedule_task_with_queries() {
         },
     };
 
-    let attached_balance = 31188 * 8;
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(attached_balance, NATIVE_DENOM),
-    )
-    .unwrap();
-    let task: TaskResponse = app
-        .wrap()
-        .query_wasm_smart(
+    let attached_balance = 100338 * 4;
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &QueryMsg::GetTask {
-                task_hash: task_hash.to_string(),
-            },
+            &create_task_msg,
+            &coins(attached_balance, NATIVE_DENOM),
         )
         .unwrap();
-    println!("task: {:?}", task);
+    let mut task_hash = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
+
     // quick agent register
     let msg = ExecuteMsg::RegisterAgent {
         payable_account_id: Some(AGENT_BENEFICIARY.to_string()),
@@ -1822,7 +1834,7 @@ fn test_reschedule_task_with_queries() {
             Addr::unchecked(AGENT0),
             contract_addr.clone(),
             &ExecuteMsg::ProxyCall {
-                task_hash: Some(String::from(task_hash)),
+                task_hash: Some(String::from(task_hash.clone())),
             },
             &[],
         )
@@ -1830,7 +1842,7 @@ fn test_reschedule_task_with_queries() {
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
-        .any(|attr| attr.key == "task_hash" && attr.value == task_hash)));
+        .any(|attr| attr.key == "task_hash" && attr.value == task_hash.clone())));
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
@@ -1850,17 +1862,17 @@ fn test_reschedule_task_with_queries() {
     assert!(tasks_response.is_empty());
 
     // Run it a bunch of times successfully, until it's removed because the balance falls too low
-    for _ in 1..8 {
-        assert!(app
+    for _ in 1..12 {
+        let _ = app
             .execute_contract(
                 Addr::unchecked(AGENT0),
                 contract_addr.clone(),
                 &ExecuteMsg::ProxyCall {
-                    task_hash: Some(String::from(task_hash)),
+                    task_hash: Some(task_hash.clone()),
                 },
                 &[],
             )
-            .is_ok());
+            .is_ok();
     }
 
     let tasks_with_queries: Vec<TaskWithQueriesResponse> = app
@@ -1873,7 +1885,7 @@ fn test_reschedule_task_with_queries() {
             },
         )
         .unwrap();
-    println!("{:?}", tasks_with_queries);
+
     assert!(tasks_with_queries.is_empty());
 }
 
@@ -2307,21 +2319,20 @@ fn testing_fee_works() {
 
     app.update_block(add_little_time);
 
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
-    println!("tasks: {tasks:?}");
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2333,21 +2344,20 @@ fn testing_fee_works() {
     .unwrap();
 
     app.update_block(add_little_time);
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
-    println!("tasks: {tasks:?}");
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -2359,21 +2369,20 @@ fn testing_fee_works() {
     .unwrap();
 
     app.update_block(add_little_time);
-    let tasks: Vec<TaskResponse> = app
-        .wrap()
-        .query_wasm_smart(
-            contract_addr.clone(),
-            &QueryMsg::GetTasks {
-                from_index: None,
-                limit: None,
-            },
-        )
-        .unwrap();
-    let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
-        .into_iter()
-        .map(|task| (task.total_deposit, task.actions))
-        .collect();
-    println!("tasks: {tasks:?}");
+    // let tasks: Vec<TaskResponse> = app
+    //     .wrap()
+    //     .query_wasm_smart(
+    //         contract_addr.clone(),
+    //         &QueryMsg::GetTasks {
+    //             from_index: None,
+    //             limit: None,
+    //         },
+    //     )
+    //     .unwrap();
+    // let tasks: Vec<(Vec<Coin>, Vec<Action>)> = tasks
+    //     .into_iter()
+    //     .map(|task| (task.total_deposit, task.actions))
+    //     .collect();
 
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     app.execute_contract(
@@ -3052,7 +3061,6 @@ fn test_error_in_reply() {
             &vec![],
         )
         .unwrap();
-    print!("{:#?}", res);
 
     // Check attributes, should have an error since we can't execute proposal yet
     let mut without_failure: bool = false;
