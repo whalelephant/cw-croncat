@@ -27,7 +27,7 @@ pub mod dao {
         pub proposal: AnyChoiceProposal,
     }
 
-    #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct ProposalListResponse {
         pub proposals: Vec<ProposalResponse>,
     }
