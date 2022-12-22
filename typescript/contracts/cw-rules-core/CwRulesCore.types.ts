@@ -16,6 +16,15 @@ export interface CheckOwnerOfNft {
   token_id: string;
   [k: string]: unknown;
 }
+export interface CheckPassedProposalsResponse {
+  data: Binary;
+  result: boolean;
+  [k: string]: unknown;
+}
+export interface CheckPassedProposals {
+  dao_address: string;
+  [k: string]: unknown;
+}
 export interface CheckProposalStatusResponse {
   data: Binary;
   result: boolean;
@@ -76,10 +85,6 @@ export interface Coin {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-  [k: string]: unknown;
-}
-export interface CheckPassedProposals {
-  dao_address: string;
   [k: string]: unknown;
 }
 export interface GenericQuery {
