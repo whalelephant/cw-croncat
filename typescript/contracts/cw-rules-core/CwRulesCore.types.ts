@@ -41,6 +41,8 @@ export type CroncatQuery = {
 } | {
   check_proposal_status: CheckProposalStatus;
 } | {
+  check_passed_proposals: CheckPassedProposals;
+} | {
   generic_query: GenericQuery;
 } | {
   smart_query: SmartQueryHead;
@@ -74,6 +76,10 @@ export interface Coin {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
+  [k: string]: unknown;
+}
+export interface CheckPassedProposals {
+  dao_address: string;
   [k: string]: unknown;
 }
 export interface GenericQuery {
@@ -155,6 +161,8 @@ export type QueryMsg = {
   check_owner_of_nft: CheckOwnerOfNft;
 } | {
   check_proposal_status: CheckProposalStatus;
+} | {
+  check_passed_proposals: CheckPassedProposals;
 } | {
   generic_query: GenericQuery;
 } | {

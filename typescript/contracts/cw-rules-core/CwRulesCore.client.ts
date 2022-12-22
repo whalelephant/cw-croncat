@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, CroncatQuery, Balance, Uint128, NativeBalance, Addr, ValueOrdering, ValueIndex, PathToValue, SmartQueries, HasBalanceGte, Coin, Cw20CoinVerified, GenericQuery, SmartQueryHead, SmartQuery, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, InstantiateMsg, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRulesCore.types";
+import { Binary, CheckOwnerOfNftResponse, CheckOwnerOfNft, CheckProposalStatusResponse, Status, CheckProposalStatus, CroncatQuery, Balance, Uint128, NativeBalance, Addr, ValueOrdering, ValueIndex, PathToValue, SmartQueries, HasBalanceGte, Coin, Cw20CoinVerified, CheckPassedProposals, GenericQuery, SmartQueryHead, SmartQuery, ExecuteMsg, GenericQueryResponse, GetBalanceResponse, GetCw20BalanceResponse, HasBalanceGteResponse, InstantiateMsg, QueryConstructResponse, QueryConstruct, QueryMsg, QueryMultiResponse, RuleResponse, SmartQueryResponse } from "./CwRulesCore.types";
 export interface CwRulesCoreReadOnlyInterface {
   contractAddress: string;
   getBalance: ({
@@ -48,6 +48,11 @@ export interface CwRulesCoreReadOnlyInterface {
     proposalId: number;
     status: Status;
   }) => Promise<CheckProposalStatusResponse>;
+  checkPassedProposals: ({
+    daoAddress
+  }: {
+    daoAddress: string;
+  }) => Promise<CheckPassedProposalsResponse>;
   genericQuery: ({
     contractAddr,
     msg,
@@ -94,6 +99,7 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
     this.hasBalanceGte = this.hasBalanceGte.bind(this);
     this.checkOwnerOfNft = this.checkOwnerOfNft.bind(this);
     this.checkProposalStatus = this.checkProposalStatus.bind(this);
+    this.checkPassedProposals = this.checkPassedProposals.bind(this);
     this.genericQuery = this.genericQuery.bind(this);
     this.queryConstruct = this.queryConstruct.bind(this);
     this.smartQuery = this.smartQuery.bind(this);
@@ -172,6 +178,17 @@ export class CwRulesCoreQueryClient implements CwRulesCoreReadOnlyInterface {
         dao_address: daoAddress,
         proposal_id: proposalId,
         status
+      }
+    });
+  };
+  checkPassedProposals = async ({
+    daoAddress
+  }: {
+    daoAddress: string;
+  }): Promise<CheckPassedProposalsResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      check_passed_proposals: {
+        dao_address: daoAddress
       }
     });
   };
