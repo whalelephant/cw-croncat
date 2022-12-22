@@ -243,6 +243,9 @@ impl TaskRequest {
         let mut gas_amount: u64 = base_gas;
         let mut amount_for_one_task = GenericBalance::default();
 
+        if self.actions.is_empty() {
+            return Err(CoreError::InvalidAction {});
+        }
         for action in self.actions.iter() {
             // checked for cases, where task creator intentionaly tries to overflow
             gas_amount = gas_amount
