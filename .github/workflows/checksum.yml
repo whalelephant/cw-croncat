@@ -47,7 +47,7 @@ jobs:
         run: just optimize
       
       - name: Generate Checksum
-        run: ./scripts/update-checksum.sh
+        run: just checksum
         shell: bash
       
       - name: Show checksum changes
