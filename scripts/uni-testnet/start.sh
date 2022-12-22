@@ -10,7 +10,6 @@ echo "CONTRACT-DIR: $SC_PATH"
 echo "SCRIPT-DIR: $SH_DIR"
 cd $SC_PATH
 
-$SCRIPTS_PATH/build.sh
 echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 

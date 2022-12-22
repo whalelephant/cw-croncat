@@ -1,15 +1,15 @@
 test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
 set export
-check:
+lint:
 	cargo fmt --all && cargo clippy -- -D warnings
 test:
 	#!/bin/bash
-	set -e
-	export RUSTFLAGS='-C link-arg=-s'
 	cargo unit-test
 	cargo wasm
 build:
 	#!/bin/bash
+	set -e
+	export RUSTFLAGS='-C link-arg=-s'
 	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	./scripts/uni-testnet/start.sh -c -w
@@ -24,8 +24,9 @@ schema:
 gen:
 	#!/usr/bin/env bash
 	cd typescript
-	yarn --cwd ./typescript install --frozen-lockfile
+	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
+	yarn --cwd ./typescript install --frozen-lockfile
 juno-local:
 	docker kill cosmwasm || true
 	docker volume rm -f junod_data
@@ -49,12 +50,31 @@ optimize:
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.12.8
 
+optimize-m1:
+	docker run --rm -v "$(pwd)":/code \
+		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+		--platform linux/arm64 \
+		cosmwasm/workspace-optimizer:0.12.8
+
+optimize-rs:
+	docker run --rm -v "$(pwd)":/code \
+		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+		cosmwasm/rust-optimizer-arm64:0.12.8
+
+optimize-rs-m1:
+	docker run --rm -v "$(pwd)":/code \
+		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+		cosmwasm/rust-optimizer-arm64:0.12.8
+	
 download-deps:
 	mkdir -p artifacts target
 	wget https://github.com/CosmWasm/cw-plus/releases/latest/download/cw20_base.wasm -O artifacts/cw20_base.wasm
 # TODO?: test dao-contracts
 
-all: build test check schema gen optimize checksum
+all: lint build test schema gen optimize checksum
 	#!/usr/bin/env bash
 
 gas-benchmark: juno-local download-deps optimize

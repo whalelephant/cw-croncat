@@ -40,6 +40,8 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
@@ -74,6 +76,8 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -104,6 +108,8 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -137,6 +143,8 @@ fn is_valid_msg_wrong_account() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -172,6 +180,8 @@ fn is_valid_msg_vote() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -210,6 +220,8 @@ fn is_valid_msg_transfer() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .unwrap_err()
@@ -243,6 +255,8 @@ fn is_valid_msg_burn() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -278,6 +292,8 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
@@ -311,9 +327,38 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
+}
+
+#[test]
+fn is_valid_empty_actions() {
+    let task = TaskRequest {
+        interval: Interval::Block(10),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![],
+        queries: None,
+        transforms: None,
+        cw20_coins: Default::default(),
+    };
+    assert_eq!(
+        task.is_valid_msg_calculate_usage(
+            &mock_dependencies().api,
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob"),
+            5,
+            5,
+            5,
+            5,
+        )
+        .unwrap_err(),
+        CoreError::InvalidAction {}
+    );
 }
 
 #[test]
@@ -483,6 +528,7 @@ fn hashing() {
         boundary: BoundaryValidated {
             start: Some(4),
             end: None,
+            is_block_boundary: Some(true),
         },
         stop_on_fail: false,
         total_deposit: Default::default(),
@@ -507,8 +553,8 @@ fn hashing() {
     };
 
     let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}",
-        task.owner_id, task.interval, task.boundary, task.actions, task.queries
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        task.owner_id, task.interval, task.boundary, task.actions, task.queries, task.transforms
     );
 
     let hash = Sha256::digest(message.as_bytes());

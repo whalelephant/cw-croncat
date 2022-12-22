@@ -11,7 +11,7 @@ use cw_croncat_core::msg::{
     AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
     TaskRequest, TaskResponse,
 };
-use cw_croncat_core::types::{Action, Agent, AgentStatus, GasFraction, GenericBalance, Interval};
+use cw_croncat_core::types::{Action, Agent, AgentStatus, GasPrice, GenericBalance, Interval};
 use cw_multi_test::{App, AppResponse, BankSudo, Executor, SudoMsg};
 
 use super::helpers::{
@@ -256,7 +256,9 @@ fn test_instantiate_sets_balance() {
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
                 gas_action_fee: None,
-                gas_fraction: None,
+                gas_query_fee: None,
+                gas_wasm_query_fee: None,
+                gas_price: None,
                 agent_nomination_duration: None,
                 gas_base_fee: None,
             },
@@ -309,10 +311,12 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
         slot_granularity_time: None,
     };
     app.execute_contract(
@@ -341,14 +345,17 @@ fn register_agent_fail_cases() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: Some(GasFraction {
+        gas_price: Some(GasPrice {
             numerator: 1,
             denominator: 1,
+            gas_adjustment_numerator: 1,
         }),
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -612,7 +619,7 @@ fn accept_nomination_agent() {
     let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
     let task_hash = res.events[1].attributes[4].clone().value;
     assert_eq!(
-        "7ea9a6d5ef5c78cb168afa96b43b5843b8f880627aa0580f4311403f907cbf93", task_hash,
+        "c2c2867b1833b35632ff663cd6dbaf4860b35cada0433699eaaeda90e6010297", task_hash,
         "Unexpected task hash"
     );
 
@@ -751,7 +758,9 @@ fn test_get_agent_status() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
