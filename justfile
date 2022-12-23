@@ -55,7 +55,7 @@ optimize-m1:
 		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/arm64 \
-		cosmwasm/workspace-optimizer:0.12.8
+		cosmwasm/workspace-optimizer:0.12.10
 
 optimize-rs:
 	docker run --rm -v "$(pwd)":/code \
