@@ -22,7 +22,7 @@ overflow-checks = true
 
 [workspace.package]
 version = "0.0.3"
-authors = ["meow@cron.cat", "@tjtc", "@mikedotexe"]
+authors = ["meow@cron.cat", "@tjtc", "@mikedotexe","@NinoLipartiia","@Buckram123","deveusss"]
 edition = "2021"
 description = "Croncat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
 documentation = "https://docs.cron.cat/"
