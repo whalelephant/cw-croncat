@@ -1,0 +1,77 @@
+[workspace]
+members = ["contracts/*", "packages/*"]
+
+[profile.release]
+codegen-units = 1
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+panic = 'abort'
+incremental = false
+overflow-checks = true
+
+[workspace.package]
+version = "0.0.3"
+authors = [
+  "meow@cron.cat",
+  "@tjtc",
+  "@mikedotexe",
+  "@NinoLipartiia",
+  "@Buckram123",
+  "deveusss",
+]
+edition = "2021"
+description = "Croncat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
+documentation = "https://docs.cron.cat/"
+
+[workspace.dependencies]
+schemars = "0.8"
+serde = { version = "1.0" }
+cosmwasm-std = { version = "1.1.9" }
+serde-cw-value = "0.7.0"
+thiserror = { version = "1.0" }
+cosmwasm-schema = { version = "1.1.9" }
+rusty-hook = "0.11.2"
+#For some reason it tries to deploy cw_core here
+# voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20 = { version = "0.13.4" }
+cw-multi-test = { version = "0.16.0" }
+cw20-base = { version = "0.13.4", features = ["library"] }
+cw-storage-plus = "0.16.0"
+cron_schedule = "0.2.3"
+cw2 = "0.16.0"
+hex = { version = "0.4", default-features = false }
+sha2 = { version = "0.10.6", default-features = false }
+serde-json-wasm = { version = "0.5.0" }
+cw-utils = "0.13.4"
+cw721 = "0.15.0"
+# DAO contracts
+dao-voting = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts.git" }
+dao-proposal-single = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-proposal-multiple = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-voting-cw20-staked = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+cw20-stake = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-core = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-interface = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
+# Testing generic msg
+cw4 = "0.16.0"
+cw4-group = "0.16.0"
+base64 = "0.13.0"
+serde_json = { version = "1.0" }
+anyhow = "1"
+cw721-base = "0.15.0"
+
+croncat-agents = { path = "./contracts/croncat-agents" }
+croncat-manager = { path = "./contracts/croncat-manager" }
+croncat-tasks = { path = "./contracts/croncat-tasks" }
+mod-balances = { path = "./contracts/mod-balances" }
+mod-dao = { path = "./contracts/mod-dao" }
+mod-nft = { path = "./contracts/mod-nft" }
+
+croncat-agents-interface = { path = "./packages/croncat-agents-interface" }
+croncat-config = { path = "./packages/croncat-config" }
+croncat-sdk = { path = "./packages/croncat-sdk" }
+croncat-tasks-interface = { path = "./packages/croncat-tasks-interface" }
+mod-sdk = { path = "./packages/mod-sdk" }
