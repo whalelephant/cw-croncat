@@ -1,5 +1,5 @@
 [package]
-name = "croncat-tasks-interface"
+name = "croncat-sdk-tasks"
 version = "0.1.0"
 authors = []
 edition = "2021"

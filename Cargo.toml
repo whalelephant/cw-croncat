@@ -27,7 +27,6 @@ description = "Croncat provides a general purpose, fully autonomous network that
 documentation = "https://docs.cron.cat/"
 
 [workspace.dependencies]
-schemars = "0.8"
 serde = { version = "1.0" }
 cosmwasm-std = { version = "1.1.9" }
 serde-cw-value = "0.7.0"
@@ -70,8 +69,8 @@ mod-balances = { path = "./contracts/mod-balances" }
 mod-dao = { path = "./contracts/mod-dao" }
 mod-nft = { path = "./contracts/mod-nft" }
 
-croncat-agents-interface = { path = "./packages/croncat-agents-interface" }
-croncat-config = { path = "./packages/croncat-config" }
-croncat-sdk = { path = "./packages/croncat-sdk" }
-croncat-tasks-interface = { path = "./packages/croncat-tasks-interface" }
+croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
+croncat-sdk-config = { path = "./packages/croncat-sdk-config" }
+croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
+croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }
 mod-sdk = { path = "./packages/mod-sdk" }

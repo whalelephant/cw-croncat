@@ -151,10 +151,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "croncat-agents-interface"
-version = "0.1.0"
-
-[[package]]
 name = "croncat-balances"
 version = "0.1.0"
 dependencies = [
@@ -162,10 +158,6 @@ dependencies = [
  "cosmwasm-std",
  "thiserror",
 ]
-
-[[package]]
-name = "croncat-config"
-version = "0.1.0"
 
 [[package]]
 name = "croncat-manager"
@@ -177,7 +169,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "croncat-sdk"
+name = "croncat-sdk-agents"
+version = "0.1.0"
+
+[[package]]
+name = "croncat-sdk-config"
+version = "0.1.0"
+
+[[package]]
+name = "croncat-sdk-core"
+version = "0.1.0"
+
+[[package]]
+name = "croncat-sdk-tasks"
 version = "0.1.0"
 
 [[package]]
@@ -188,10 +192,6 @@ dependencies = [
  "cosmwasm-std",
  "thiserror",
 ]
-
-[[package]]
-name = "croncat-tasks-interface"
-version = "0.1.0"
 
 [[package]]
 name = "crunchy"

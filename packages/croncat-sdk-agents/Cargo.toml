@@ -1,5 +1,5 @@
 [package]
-name = "croncat-config"
+name = "croncat-sdk-agents"
 version = "0.1.0"
 authors = []
 edition = "2021"
