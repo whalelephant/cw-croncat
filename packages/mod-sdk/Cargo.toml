@@ -6,3 +6,5 @@ edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
 
 [dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
