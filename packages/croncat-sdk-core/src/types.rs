@@ -111,7 +111,6 @@ pub struct UpdateConfig {
     pub gas_query_fee: Option<u64>,
     pub gas_wasm_query_fee: Option<u64>,
     pub gas_price: Option<GasPrice>,
-    pub proxy_callback_gas: Option<u32>,
     pub min_tasks_per_agent: Option<u64>,
     pub agents_eject_threshold: Option<u64>,
     pub balancer: Option<RoundRobinBalancer>,
@@ -123,4 +122,45 @@ pub struct BalancesResponse {
     pub native_denom: String,
     pub available_native_balance: Vec<Coin>,
     pub available_cw20_balance: Vec<Cw20CoinVerified>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::GasPrice;
+
+    #[test]
+    fn gas_price_validation() {
+        assert!(!GasPrice {
+            numerator: 0,
+            denominator: 1,
+            gas_adjustment_numerator: 1
+        }
+        .is_valid());
+
+        assert!(!GasPrice {
+            numerator: 1,
+            denominator: 0,
+            gas_adjustment_numerator: 1
+        }
+        .is_valid());
+
+        assert!(!GasPrice {
+            numerator: 1,
+            denominator: 1,
+            gas_adjustment_numerator: 0
+        }
+        .is_valid());
+
+        assert!(GasPrice {
+            numerator: 1,
+            denominator: 1,
+            gas_adjustment_numerator: 1
+        }
+        .is_valid());
+    }
+
+    #[test]
+    fn gas_price_calculate_test() {
+        todo!()
+    }
 }
