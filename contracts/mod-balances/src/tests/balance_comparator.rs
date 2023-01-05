@@ -12,7 +12,7 @@ use crate::{
 use super::helpers::{ANYONE, NATIVE_DENOM};
 
 #[test]
-fn test_has_balance_native() -> StdResult<()> {
+fn test_has_balance_comparator_native() -> StdResult<()> {
     let (app, contract_addr, _) = proper_instantiate();
 
     // Return true if address has more coins
@@ -102,11 +102,91 @@ fn test_has_balance_native() -> StdResult<()> {
     assert!(res.result);
     assert_eq!(res.data, to_binary(&Uint128::zero()).unwrap());
 
+    // Return false if real and required balances are equal for BalanceComparator::Lt case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Native(NativeBalance(coins(
+            1_000_000u128,
+            NATIVE_DENOM.to_string(),
+        ))),
+        comparator: BalanceComparator::Lt,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::new(1_000_000)).unwrap());
+
+    // Return true if real and required balances are equal for BalanceComparator::Eq case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Native(NativeBalance(coins(
+            1_000_000u128,
+            NATIVE_DENOM.to_string(),
+        ))),
+        comparator: BalanceComparator::Eq,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(res.result);
+    assert_eq!(res.data, to_binary(&Uint128::new(1_000_000)).unwrap());
+
+    // Return false if real and required balances are equal for BalanceComparator::Ne case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Native(NativeBalance(coins(
+            1_000_000u128,
+            NATIVE_DENOM.to_string(),
+        ))),
+        comparator: BalanceComparator::Ne,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::new(1_000_000)).unwrap());
+
+    // Return false if real and required balances aren't equal for BalanceComparator::Eq case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Native(NativeBalance(coins(
+            1_000_001u128,
+            NATIVE_DENOM.to_string(),
+        ))),
+        comparator: BalanceComparator::Eq,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::new(1_000_000)).unwrap());
+
+    // Return true if real and required balances aren't equal for BalanceComparator::Ne case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Native(NativeBalance(coins(
+            1_000_001u128,
+            NATIVE_DENOM.to_string(),
+        ))),
+        comparator: BalanceComparator::Ne,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(res.result);
+    assert_eq!(res.data, to_binary(&Uint128::new(1_000_000)).unwrap());
+
     Ok(())
 }
 
 #[test]
-fn test_has_balance_cw20() -> StdResult<()> {
+fn test_has_balance_comparator_cw20() -> StdResult<()> {
     let (app, contract_addr, cw20_contract) = proper_instantiate();
 
     // Return true if address has more coins
@@ -188,6 +268,86 @@ fn test_has_balance_cw20() -> StdResult<()> {
         .unwrap();
     assert!(res.result);
     assert_eq!(res.data, to_binary(&Uint128::zero()).unwrap());
+
+    // Return false if the balance and required balance are equal for BalanceComparator::Lt case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }),
+        comparator: BalanceComparator::Lt,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::from(15u128)).unwrap());
+
+    // Return true if the balance and required balance are equal for BalanceComparator::Eq case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }),
+        comparator: BalanceComparator::Eq,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(res.result);
+    assert_eq!(res.data, to_binary(&Uint128::from(15u128)).unwrap());
+
+    // Return false if the balance and required balance are equal for BalanceComparator::Ne case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(15u128),
+        }),
+        comparator: BalanceComparator::Ne,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::from(15u128)).unwrap());
+
+    // Return false if the balance and required balance aren't equal for BalanceComparator::Eq case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(14u128),
+        }),
+        comparator: BalanceComparator::Eq,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(!res.result);
+    assert_eq!(res.data, to_binary(&Uint128::from(15u128)).unwrap());
+
+    // Return true if the balance and required balance are equal for BalanceComparator::Ne case
+    let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
+        address: ANYONE.to_string(),
+        required_balance: Balance::Cw20(Cw20CoinVerified {
+            address: Addr::unchecked(&cw20_contract),
+            amount: Uint128::from(16u128),
+        }),
+        comparator: BalanceComparator::Ne,
+    });
+    let res: QueryResponse = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &msg)
+        .unwrap();
+    assert!(res.result);
+    assert_eq!(res.data, to_binary(&Uint128::from(15u128)).unwrap());
 
     Ok(())
 }
