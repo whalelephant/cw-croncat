@@ -5,4 +5,19 @@ use thiserror::Error;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("No coin balance found")]
+    EmptyBalance {},
+
+    #[error("Invalid gas_price")]
+    InvalidGasPrice {},
+
+    #[error("Unauthorized")]
+    Unauthorized {},
+
+    #[error("Contract paused")]
+    Paused {},
+
+    #[error("Must not attach funds")]
+    RedundantFunds {},
 }
