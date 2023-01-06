@@ -8,6 +8,7 @@ pub struct InstantiateMsg {
     /// The native denominator of current chain
     pub denom: String,
     /// Address of the `cw_rules_addr` contract
+    // TODO: this will be actually multiple mod-contracts
     pub cw_rules_addr: String,
     /// Address of the Tasks contract
     pub croncat_tasks_addr: String,

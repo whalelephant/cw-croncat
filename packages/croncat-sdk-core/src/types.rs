@@ -126,6 +126,8 @@ pub struct BalancesResponse {
 
 #[cfg(test)]
 mod test {
+    use crate::CoreError;
+
     use super::GasPrice;
 
     #[test]
@@ -161,6 +163,50 @@ mod test {
 
     #[test]
     fn gas_price_calculate_test() {
-        todo!()
+        // Test with default values
+        let gas_price_wrapper = GasPrice::default();
+        let gas_price = 0.04;
+        let gas_adjustments = 1.5;
+
+        let gas = 200_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+
+        let gas = 160_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+
+        let gas = 1_234_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+
+        // Check custom works
+        let gas_price_wrapper = GasPrice {
+            numerator: 25,
+            denominator: 100,
+            gas_adjustment_numerator: 120,
+        };
+        let gas_price = 0.25;
+        let gas_adjustments = 1.2;
+
+        let gas = 200_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+
+        let gas = 160_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+
+        let gas = 1_234_000;
+        let expected = gas as f64 * gas_adjustments * gas_price;
+        assert_eq!(expected as u128, gas_price_wrapper.calculate(gas).unwrap());
+    }
+
+    #[test]
+    fn failed_gas_calculations() {
+        let gas_price_wrapper = GasPrice::default();
+
+        let err = gas_price_wrapper.calculate(u64::MAX).unwrap_err();
+        assert!(matches!(err, CoreError::InvalidGas {}));
     }
 }
