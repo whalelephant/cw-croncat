@@ -1,18 +1,28 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, to_binary};
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+#[cfg(not(feature = "library"))]
+use cw2::set_contract_version;
+use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
+use crate::types::CheckProposalStatus;
+
+// version info for migration info
+const CONTRACT_NAME: &str = "croncat:mod-dao";
+const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    mut _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    todo!();
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new().add_attribute("method", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -22,10 +32,71 @@ pub fn execute(
     _info: MessageInfo,
     _msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    todo!();
+    Err(ContractError::Noop)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    todo!();
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            dao_address,
+            proposal_id,
+            status,
+        }) => to_binary(&query_dao_proposal_status(
+            deps,
+            dao_address,
+            proposal_id,
+            status,
+        )?),
+        QueryMsg::CheckPassedProposals { dao_address } => {
+            to_binary(&query_dao_proposals(deps, dao_address)?)
+        }
+    }
+}
+
+fn query_dao_proposal_status(
+    deps: Deps,
+    dao_address: String,
+    proposal_id: u64,
+    status: Status,
+) -> StdResult<QueryResponse> {
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    let resp: ProposalResponse = deps
+        .querier
+        .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
+
+    Ok(QueryResponse {
+        result: resp.proposal.status == status,
+        data: to_binary(&resp)?,
+    })
+}
+
+// Check for passed proposals
+// Return the first passed proposal
+fn query_dao_proposals(deps: Deps, dao_address: String) -> StdResult<QueryResponse> {
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    // Query the amount of proposals
+    let proposal_count = deps
+        .querier
+        .query_wasm_smart(dao_addr.clone(), &QueryDao::ProposalCount {})?;
+    let res: ProposalListResponse = deps.querier.query_wasm_smart(
+        dao_addr,
+        &QueryDao::ListProposals {
+            start_after: None,
+            limit: Some(proposal_count),
+        },
+    )?;
+
+    for proposal_response in &res.proposals {
+        if proposal_response.proposal.status == Status::Passed {
+            return Ok(QueryResponse {
+                result: true,
+                data: to_binary(&proposal_response.id)?,
+            });
+        }
+    }
+    Ok(QueryResponse {
+        result: false,
+        data: to_binary(&res.proposals)?,
+    })
 }
