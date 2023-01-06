@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Coin, Deps, DepsMut, MessageInfo, Order, Response, StdError,
-    StdResult, Storage, Uint128, WasmMsg,
+    from_binary, to_binary, Addr, BankMsg, Coin, Deps, DepsMut, MessageInfo, Order, Response,
+    StdError, StdResult, Storage, Uint128, WasmMsg,
 };
 use croncat_sdk_core::types::{BalancesResponse, Config};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -23,14 +23,26 @@ pub(crate) fn add_available_native(storage: &mut dyn Storage, coin: &Coin) -> St
     Ok(new_bal)
 }
 
-// pub(crate) fn sub_available_native(storage: &mut dyn Storage, coin: &Coin) -> StdResult<Uint128> {
-//     let new_bal = AVAILABLE_NATIVE_BALANCE.update(storage, &coin.denom, |bal| {
-//         bal.unwrap_or_default()
-//             .checked_sub(coin.amount)
-//             .map_err(StdError::overflow)
-//     })?;
-//     Ok(new_bal)
-// }
+pub(crate) fn sub_available_native(
+    storage: &mut dyn Storage,
+    coin: &Coin,
+) -> Result<Uint128, ContractError> {
+    let current_balance = AVAILABLE_NATIVE_BALANCE.may_load(storage, &coin.denom)?;
+    let new_bal = if let Some(balance) = current_balance {
+        balance
+            .checked_sub(coin.amount)
+            .map_err(StdError::overflow)?
+    } else {
+        return Err(ContractError::EmptyBalance {});
+    };
+
+    if new_bal.is_zero() {
+        AVAILABLE_NATIVE_BALANCE.remove(storage, &coin.denom);
+    } else {
+        AVAILABLE_NATIVE_BALANCE.save(storage, &coin.denom, &new_bal)?;
+    }
+    Ok(new_bal)
+}
 
 pub(crate) fn add_available_cw20(
     storage: &mut dyn Storage,
@@ -219,6 +231,59 @@ pub fn execute_withdraw_wallet_balances(
             format!("{updated_available_cw20:?}"),
         )
         .add_messages(msgs))
+}
+
+/// Execute: MoveBalances
+/// Used by owner of the contract to move balances from the manager to another address
+pub fn execute_move_balances(
+    deps: DepsMut,
+    info: MessageInfo,
+    native_balances: Vec<Coin>,
+    cw20_balances: Vec<Cw20Coin>,
+    address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_id {
+        return Err(ContractError::Unauthorized {});
+    }
+    let address = deps.api.addr_validate(&address)?;
+
+    let cw20_balances: Vec<Cw20CoinVerified> = cw20_balances
+        .into_iter()
+        .map(|balance| {
+            let coin = Cw20CoinVerified {
+                address: deps.api.addr_validate(&balance.address)?,
+                amount: balance.amount,
+            };
+            Ok(coin)
+        })
+        .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+
+    for coin in native_balances.iter() {
+        sub_available_native(deps.storage, coin)?;
+    }
+    let bank_msg = BankMsg::Send {
+        to_address: address.to_string(),
+        amount: native_balances,
+    };
+
+    let mut cw20_messages = Vec::with_capacity(cw20_balances.len());
+    for cw20 in cw20_balances {
+        sub_available_cw20(deps.storage, &cw20)?;
+        cw20_messages.push(WasmMsg::Execute {
+            contract_addr: cw20.address.to_string(),
+            msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
+                recipient: address.to_string(),
+                amount: cw20.amount,
+            })?,
+            funds: vec![],
+        });
+    }
+
+    Ok(Response::new()
+        .add_attribute("action", "move_balances")
+        .add_message(bank_msg)
+        .add_messages(cw20_messages))
 }
 
 /// Query: AvailableBalances

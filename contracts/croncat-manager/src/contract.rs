@@ -7,8 +7,8 @@ use croncat_sdk_core::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
-    add_available_native, execute_receive_cw20, execute_withdraw_wallet_balances,
-    query_available_balances, query_cw20_wallet_balances,
+    add_available_native, execute_move_balances, execute_receive_cw20,
+    execute_withdraw_wallet_balances, query_available_balances, query_cw20_wallet_balances,
 };
 use crate::error::ContractError;
 use crate::helpers::check_ready_for_execution;
@@ -146,6 +146,11 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, msg),
+        ExecuteMsg::MoveBalances {
+            native_balances,
+            cw20_balances,
+            address,
+        } => execute_move_balances(deps, info, native_balances, cw20_balances, address),
         ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
         ExecuteMsg::ProxyCall {
             task_hash: Some(task_hash),
