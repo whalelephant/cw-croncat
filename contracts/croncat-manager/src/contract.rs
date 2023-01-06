@@ -7,8 +7,8 @@ use croncat_sdk_core::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
-    add_available_native, execute_receive_cw20, execute_withdraw_wallet_balances, query_available_balances,
-    query_cw20_wallet_balances,
+    add_available_native, execute_receive_cw20, execute_withdraw_wallet_balances,
+    query_available_balances, query_cw20_wallet_balances,
 };
 use crate::error::ContractError;
 use crate::helpers::check_ready_for_execution;
@@ -32,7 +32,7 @@ pub(crate) const GAS_WASM_QUERY_FEE: u64 = 60_000;
 /// First contract method before it runs on the chains
 /// See [`InstantiateMsg`] for more details
 /// `gas_price` and `owner_id` getting validated
-/// 
+///
 /// Response: every [`Config`] field as attributes
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -189,7 +189,7 @@ fn execute_proxy_call_with_queries(
 
 /// Execute: UpdateConfig
 /// Used by contract owner to update config or pause contract
-/// 
+///
 /// Returns updated [`Config`]
 pub fn execute_update_config(
     deps: DepsMut,
@@ -259,7 +259,7 @@ pub fn execute_update_config(
 /// Execute: UpdateConfig
 /// Helps manage and cleanup agents
 /// Deletes agents which missed more than agents_eject_threshold slot
-/// 
+///
 /// Returns removed agents
 // TODO: It might be not possible to deserialize all of the active agents, need to find better solution
 // See issue #247

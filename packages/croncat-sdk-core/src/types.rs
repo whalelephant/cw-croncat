@@ -14,7 +14,6 @@ pub mod gas_price_defaults {
     pub const GAS_DENOMINATOR: u64 = 100;
 }
 
-
 /// We can't store gas_price as floats inside cosmwasm
 /// so instead of having 0.04 we use GasPrice {4/100}
 /// and after that multiply Gas by `gas_adjustment` {150/100} (1.5)

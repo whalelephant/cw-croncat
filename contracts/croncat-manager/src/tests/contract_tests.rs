@@ -475,7 +475,7 @@ fn cw20_bad_messages() {
     assert_eq!(
         err,
         ContractError::Std(StdError::parse_err(
-            "croncat_manager::msg::ReceiveMsg",
+            "croncat_sdk_core::msg::ManagerReceiveMsg",
             "EOF while parsing a JSON value."
         ))
     );
@@ -498,7 +498,7 @@ fn cw20_bad_messages() {
     assert_eq!(
         err,
         ContractError::Std(StdError::parse_err(
-            "croncat_manager::msg::ReceiveMsg",
+            "croncat_sdk_core::msg::ManagerReceiveMsg",
             "Expected to parse either a `true`, `false`, or a `null`."
         ))
     );
