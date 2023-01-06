@@ -256,8 +256,11 @@ pub fn execute_update_config(
         .add_attribute("config", format!("{new_config:?}")))
 }
 
+/// Execute: UpdateConfig
 /// Helps manage and cleanup agents
 /// Deletes agents which missed more than agents_eject_threshold slot
+/// 
+/// Returns removed agents
 // TODO: It might be not possible to deserialize all of the active agents, need to find better solution
 // See issue #247
 pub fn execute_tick(

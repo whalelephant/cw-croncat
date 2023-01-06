@@ -119,6 +119,11 @@ pub(crate) fn sub_user_cw20(
 
 // Contract methods
 
+/// Execute: Receive
+/// Message validated, to be sure about intention of transferred tokens
+/// Used by users before creating a task with cw20 send or transfer messages
+/// 
+/// Returns updated balances
 pub fn execute_receive_cw20(
     deps: DepsMut,
     info: MessageInfo,
@@ -148,6 +153,10 @@ pub fn execute_receive_cw20(
     }
 }
 
+/// Execute: WithdrawCw20WalletBalances
+/// Used by users to withdraw back their cw20 tokens
+/// 
+/// Returns updated balances
 pub fn execute_withdraw_wallet_balances(
     deps: DepsMut,
     info: MessageInfo,
