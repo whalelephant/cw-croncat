@@ -47,12 +47,21 @@ pub(crate) fn add_available_cw20(
 pub(crate) fn sub_available_cw20(
     storage: &mut dyn Storage,
     cw20: &Cw20CoinVerified,
-) -> StdResult<Uint128> {
-    let new_bal = AVAILABLE_CW20_BALANCE.update(storage, &cw20.address, |bal| {
-        bal.unwrap_or_default()
+) -> Result<Uint128, ContractError> {
+    let current_balance = AVAILABLE_CW20_BALANCE.may_load(storage, &cw20.address)?;
+    let new_bal = if let Some(balance) = current_balance {
+        balance
             .checked_sub(cw20.amount)
-            .map_err(StdError::overflow)
-    })?;
+            .map_err(StdError::overflow)?
+    } else {
+        return Err(ContractError::EmptyBalance {});
+    };
+
+    if new_bal.is_zero() {
+        AVAILABLE_CW20_BALANCE.remove(storage, &cw20.address);
+    } else {
+        AVAILABLE_CW20_BALANCE.save(storage, &cw20.address, &new_bal)?;
+    }
     Ok(new_bal)
 }
 
@@ -94,14 +103,12 @@ pub(crate) fn sub_user_cw20(
     cw20: &Cw20CoinVerified,
 ) -> Result<Uint128, ContractError> {
     let current_balance = USERS_BALANCES_CW20.may_load(storage, (user_addr, &cw20.address))?;
-    let mut new_bal = if let Some(bal) = current_balance {
-        bal
+    let new_bal = if let Some(bal) = current_balance {
+        bal.checked_sub(cw20.amount).map_err(StdError::overflow)?
     } else {
         return Err(ContractError::EmptyBalance {});
     };
-    new_bal = new_bal
-        .checked_sub(cw20.amount)
-        .map_err(StdError::overflow)?;
+
     if new_bal.is_zero() {
         USERS_BALANCES_CW20.remove(storage, (user_addr, &cw20.address));
     } else {

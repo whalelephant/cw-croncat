@@ -1,5 +1,6 @@
-use cosmwasm_std::{coins, Addr, Coin};
+use cosmwasm_std::{coins, Addr, Coin, Uint128};
 use croncat_sdk_core::types::{BalancesResponse, Config};
+use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 
 use anyhow::Result as AnyResult;
@@ -41,7 +42,7 @@ pub(crate) fn default_app() -> App {
     })
 }
 
-pub(crate) fn init(app: &mut App, msg: InstantiateMsg, funds: &[Coin]) -> AnyResult<Addr> {
+pub(crate) fn init_manager(app: &mut App, msg: InstantiateMsg, funds: &[Coin]) -> AnyResult<Addr> {
     let code_id = app.store_code(contracts::croncat_manager_contract());
     let addr = app.instantiate_contract(
         code_id,
@@ -52,6 +53,29 @@ pub(crate) fn init(app: &mut App, msg: InstantiateMsg, funds: &[Coin]) -> AnyRes
         None,
     )?;
     Ok(addr)
+}
+
+pub(crate) fn init_cw20(app: &mut App) -> Addr {
+    let code_id = app.store_code(contracts::cw20_contract());
+    app.instantiate_contract(
+        code_id,
+        Addr::unchecked(ADMIN),
+        &cw20_base::msg::InstantiateMsg {
+            name: "coin_name".to_owned(),
+            symbol: "con".to_owned(),
+            decimals: 6,
+            initial_balances: vec![Cw20Coin {
+                address: ADMIN.to_owned(),
+                amount: Uint128::new(100_000_000),
+            }],
+            mint: None,
+            marketing: None,
+        },
+        &[],
+        "cw20",
+        None,
+    )
+    .unwrap()
 }
 
 pub(crate) fn default_instantiate_message() -> InstantiateMsg {
@@ -81,6 +105,23 @@ pub(crate) fn query_manager_balances(app: &App, manager: &Addr) -> BalancesRespo
         .query_wasm_smart(
             manager,
             &QueryMsg::AvailableBalances {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap()
+}
+
+pub(crate) fn query_cw20_wallet_manager(
+    app: &App,
+    manager: &Addr,
+    wallet: impl Into<String>,
+) -> Vec<Cw20CoinVerified> {
+    app.wrap()
+        .query_wasm_smart(
+            manager,
+            &QueryMsg::Cw20WalletBalances {
+                wallet: wallet.into(),
                 from_index: None,
                 limit: None,
             },

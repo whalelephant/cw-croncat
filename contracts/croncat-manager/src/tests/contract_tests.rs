@@ -1,18 +1,19 @@
-use cosmwasm_std::Addr;
+use cosmwasm_std::{coins, to_binary, Addr, Uint128};
 use croncat_sdk_core::{
     balancer::{BalancerMode, RoundRobinBalancer},
-    types::{Config, UpdateConfig},
+    types::{BalancesResponse, Config, UpdateConfig},
 };
+use cw20::{Cw20Coin, Cw20CoinVerified};
 
 use crate::{
     contract::{
         DEFAULT_NOMINATION_DURATION, GAS_ACTION_FEE, GAS_BASE_FEE, GAS_QUERY_FEE,
         GAS_WASM_QUERY_FEE,
     },
-    msg::{ExecuteMsg, InstantiateMsg},
+    msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg},
     tests::{
         helpers::query_manager_balances,
-        helpers::{default_app, default_instantiate_message, init, query_manager_config},
+        helpers::{default_app, default_instantiate_message, init_manager, query_manager_config},
         ADMIN, AGENT0, AGENT1, AGENT2, ANYONE, DENOM,
     },
     ContractError,
@@ -20,6 +21,8 @@ use crate::{
 use cosmwasm_std::{coin, StdError, Uint64};
 use croncat_sdk_core::types::GasPrice;
 use cw_multi_test::{BankSudo, Executor};
+
+use super::helpers::{init_cw20, query_cw20_wallet_manager};
 
 mod instantiate_tests {
     use super::*;
@@ -29,7 +32,7 @@ mod instantiate_tests {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-        let manager_addr = init(&mut app, instantiate_msg, &[]).unwrap();
+        let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
         let config = query_manager_config(&app, &manager_addr);
 
         let expected_config = Config {
@@ -85,7 +88,7 @@ mod instantiate_tests {
             .into(),
         )
         .unwrap();
-        let manager_addr = init(&mut app, instantiate_msg, &attach_funds).unwrap();
+        let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
 
         let config = query_manager_config(&app, &manager_addr);
 
@@ -138,7 +141,7 @@ mod instantiate_tests {
             ..default_instantiate_message()
         };
 
-        let error: ContractError = init(&mut app, instantiate_msg, &[])
+        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
             .unwrap_err()
             .downcast()
             .unwrap();
@@ -150,7 +153,7 @@ mod instantiate_tests {
             ..default_instantiate_message()
         };
 
-        let error: ContractError = init(&mut app, instantiate_msg, &[])
+        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
             .unwrap_err()
             .downcast()
             .unwrap();
@@ -167,7 +170,7 @@ mod instantiate_tests {
             ..default_instantiate_message()
         };
 
-        let error: ContractError = init(&mut app, instantiate_msg, &[])
+        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
             .unwrap_err()
             .downcast()
             .unwrap();
@@ -184,7 +187,7 @@ mod instantiate_tests {
             ..default_instantiate_message()
         };
 
-        let error: ContractError = init(&mut app, instantiate_msg, &[])
+        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
             .unwrap_err()
             .downcast()
             .unwrap();
@@ -201,7 +204,7 @@ mod instantiate_tests {
             ..default_instantiate_message()
         };
 
-        let error: ContractError = init(&mut app, instantiate_msg, &[])
+        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
             .unwrap_err()
             .downcast()
             .unwrap();
@@ -229,7 +232,7 @@ fn update_config() {
     )
     .unwrap();
 
-    let manager_addr = init(&mut app, instantiate_msg, &attach_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
 
     let update_cfg_msg = UpdateConfig {
         owner_id: Some("new_owner".to_string()),
@@ -303,7 +306,7 @@ fn invalid_updates_config() {
     )
     .unwrap();
 
-    let manager_addr = init(&mut app, instantiate_msg, &attach_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
 
     // Unauthorized
     let update_cfg_msg = UpdateConfig {
@@ -366,7 +369,7 @@ fn invalid_updates_config() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::InvalidGasPrice {  });
+    assert_eq!(err, ContractError::InvalidGasPrice {});
 
     // Invalid owner
     let update_cfg_msg = UpdateConfig {
@@ -390,7 +393,7 @@ fn invalid_updates_config() {
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            manager_addr.clone(),
+            manager_addr,
             &ExecuteMsg::UpdateConfig(update_cfg_msg),
             &[],
         )
@@ -403,4 +406,219 @@ fn invalid_updates_config() {
             "Invalid input: address not normalized"
         ))
     );
+}
+
+#[test]
+fn cw20_receive() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &coins(100, DENOM)).unwrap();
+
+    let cw20_addr = init_cw20(&mut app);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(555),
+            msg: to_binary(&ReceiveMsg::RefillCw20Balance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let wallet_balances = query_cw20_wallet_manager(&app, &manager_addr, ADMIN);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.clone(),
+            amount: Uint128::new(555),
+        }]
+    );
+
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(
+        available_balances,
+        BalancesResponse {
+            native_denom: DENOM.to_owned(),
+            available_native_balance: coins(100, DENOM),
+            available_cw20_balance: vec![Cw20CoinVerified {
+                address: cw20_addr,
+                amount: Uint128::new(555),
+            }],
+        }
+    )
+}
+
+#[test]
+fn cw20_bad_messages() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+
+    let cw20_addr = init_cw20(&mut app);
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            cw20_addr.clone(),
+            &cw20::Cw20ExecuteMsg::Send {
+                contract: manager_addr.to_string(),
+                amount: Uint128::new(555),
+                msg: Default::default(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::parse_err(
+            "croncat_manager::msg::ReceiveMsg",
+            "EOF while parsing a JSON value."
+        ))
+    );
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            cw20_addr,
+            &cw20::Cw20ExecuteMsg::Send {
+                contract: manager_addr.to_string(),
+                amount: Uint128::new(555),
+                msg: to_binary(&true).unwrap(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::parse_err(
+            "croncat_manager::msg::ReceiveMsg",
+            "Expected to parse either a `true`, `false`, or a `null`."
+        ))
+    );
+}
+
+#[test]
+fn cw20_withdraws() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+
+    // refill balance
+    let cw20_addr = init_cw20(&mut app);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(1000),
+            msg: to_binary(&ReceiveMsg::RefillCw20Balance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Withdraw half
+    let user_balance: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20::Cw20QueryMsg::Balance {
+                address: ADMIN.to_owned(),
+            },
+        )
+        .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawCw20WalletBalances {
+            cw20_amounts: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: Uint128::new(500),
+            }],
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Check it updated on cw20 state
+    let new_user_balance: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20::Cw20QueryMsg::Balance {
+                address: ADMIN.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        new_user_balance.balance,
+        user_balance.balance + Uint128::new(500)
+    );
+
+    // Check it updated on manager
+    let manager_wallet_balance = query_cw20_wallet_manager(&app, &manager_addr, ADMIN);
+    assert_eq!(
+        manager_wallet_balance,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.clone(),
+            amount: Uint128::new(500),
+        }]
+    );
+
+    // Check available got updated too
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(
+        available_balances.available_cw20_balance,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.clone(),
+            amount: Uint128::new(500),
+        }]
+    );
+
+    // Withdraw rest
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawCw20WalletBalances {
+            cw20_amounts: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: Uint128::new(500),
+            }],
+        },
+        &[],
+    )
+    .unwrap();
+
+    let fully_withdrawn_user_balance: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr,
+            &cw20::Cw20QueryMsg::Balance {
+                address: ADMIN.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        fully_withdrawn_user_balance.balance,
+        user_balance.balance + Uint128::new(1000)
+    );
+
+    // Check it updated on manager
+    let manager_wallet_balance = query_cw20_wallet_manager(&app, &manager_addr, ADMIN);
+    assert_eq!(manager_wallet_balance, vec![]);
+
+    // Check available got updated too
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(available_balances.available_cw20_balance, vec![]);
 }

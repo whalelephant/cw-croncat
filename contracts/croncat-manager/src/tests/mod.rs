@@ -1,6 +1,6 @@
-mod helpers;
-mod contracts;
 mod contract_tests;
+mod contracts;
+mod helpers;
 
 pub const DENOM: &str = "atom";
 
