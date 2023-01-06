@@ -120,7 +120,6 @@ pub struct UpdateConfig {
 
 #[cw_serde]
 pub struct BalancesResponse {
-    pub native_denom: String,
     pub available_native_balance: Vec<Coin>,
     pub available_cw20_balance: Vec<Cw20CoinVerified>,
 }

@@ -7,7 +7,7 @@ use croncat_sdk_core::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
-    add_available_native, execute_receive_cw20, execute_withdraw_wallet_balances, query_balances,
+    add_available_native, execute_receive_cw20, execute_withdraw_wallet_balances, query_available_balances,
     query_cw20_wallet_balances,
 };
 use crate::error::ContractError;
@@ -28,6 +28,12 @@ pub(crate) const GAS_QUERY_FEE: u64 = 5_000;
 /// Gas needed for single wasm query
 pub(crate) const GAS_WASM_QUERY_FEE: u64 = 60_000;
 
+/// Instantiate
+/// First contract method before it runs on the chains
+/// See [`InstantiateMsg`] for more details
+/// `gas_price` and `owner_id` getting validated
+/// 
+/// Response: every [`Config`] field as attributes
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
@@ -181,6 +187,10 @@ fn execute_proxy_call_with_queries(
     Ok(Response::new().add_attribute("action", "proxy_call_with_queries"))
 }
 
+/// Execute: UpdateConfig
+/// Used by contract owner to update config or pause contract
+/// 
+/// Returns updated [`Config`]
 pub fn execute_update_config(
     deps: DepsMut,
     info: MessageInfo,
@@ -289,7 +299,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::AvailableBalances { from_index, limit } => {
-            to_binary(&query_balances(deps, from_index, limit)?)
+            to_binary(&query_available_balances(deps, from_index, limit)?)
         }
         QueryMsg::Cw20WalletBalances {
             wallet,

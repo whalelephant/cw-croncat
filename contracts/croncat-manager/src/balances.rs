@@ -212,7 +212,12 @@ pub fn execute_withdraw_wallet_balances(
         .add_messages(msgs))
 }
 
-pub fn query_balances(
+/// Query: AvailableBalances
+/// Used to get contract's available native and cw20 coins balances
+/// Can be paginated
+/// 
+/// Returns list of native and cw20 balances
+pub fn query_available_balances(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
@@ -238,12 +243,16 @@ pub fn query_balances(
         .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
 
     Ok(BalancesResponse {
-        native_denom: config.native_denom,
         available_native_balance,
         available_cw20_balance,
     })
 }
 
+/// Query: Cw20WalletBalances
+/// Used to get user's available cw20 coins balance that he can use to attach to the task balance
+/// Can be paginated
+/// 
+/// Returns list of cw20 balances
 pub fn query_cw20_wallet_balances(
     deps: Deps,
     wallet: String,

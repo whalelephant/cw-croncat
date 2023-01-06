@@ -120,7 +120,6 @@ mod instantiate_tests {
         assert_eq!(config, expected_config);
 
         let manager_balances = query_manager_balances(&app, &manager_addr);
-        assert_eq!(manager_balances.native_denom, "cron");
         for coin in attach_funds {
             assert!(manager_balances.available_native_balance.contains(&coin))
         }
@@ -441,7 +440,6 @@ fn cw20_receive() {
     assert_eq!(
         available_balances,
         BalancesResponse {
-            native_denom: DENOM.to_owned(),
             available_native_balance: coins(100, DENOM),
             available_cw20_balance: vec![Cw20CoinVerified {
                 address: cw20_addr,
