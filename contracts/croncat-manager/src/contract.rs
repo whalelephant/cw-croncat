@@ -94,7 +94,7 @@ pub fn instantiate(
 
     Ok(Response::new()
         // TODO?:.add_attribute("config", format!("{:?}, &config"))
-        .add_attribute("method", "instantiate")
+        .add_attribute("action", "instantiate")
         .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner_id", config.owner_id.to_string())
         .add_attribute(

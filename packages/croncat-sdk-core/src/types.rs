@@ -8,20 +8,21 @@ use self::gas_price_defaults::{
     GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT,
 };
 
-/// We can't store gas_price as floats inside cosmwasm
-/// so instead of having 0.04 we use GasPrice {4/100}
-/// and after that multiply Gas by `gas_adjustment` {150/100} (1.5)
 pub mod gas_price_defaults {
     pub const GAS_NUMERATOR_DEFAULT: u64 = 4;
     pub const GAS_ADJUSTMENT_NUMERATOR_DEFAULT: u64 = 150;
     pub const GAS_DENOMINATOR: u64 = 100;
 }
 
+
+/// We can't store gas_price as floats inside cosmwasm
+/// so instead of having 0.04 we use GasPrice {4/100}
+/// and after that multiply Gas by `gas_adjustment` {150/100} (1.5)
 #[cw_serde]
 pub struct GasPrice {
     pub numerator: u64,
+    /// Denominator is shared
     pub denominator: u64,
-    /// Note denominator is shared
     pub gas_adjustment_numerator: u64,
 }
 
