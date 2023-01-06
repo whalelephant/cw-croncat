@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, to_binary, Addr, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, OverflowError, Uint128};
 use croncat_sdk_core::{
     balancer::{BalancerMode, RoundRobinBalancer},
     types::{BalancesResponse, Config, UpdateConfig},
@@ -619,4 +619,295 @@ fn cw20_withdraws() {
     // Check available got updated too
     let available_balances = query_manager_balances(&app, &manager_addr);
     assert_eq!(available_balances.available_cw20_balance, vec![]);
+}
+
+#[test]
+fn failed_cw20_withdraws() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+
+    let cw20_addr = init_cw20(&mut app);
+
+    // try to withdraw empty balance
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawCw20WalletBalances {
+                cw20_amounts: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(500),
+                }],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::EmptyBalance {});
+
+    // refill balance
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(1000),
+            msg: to_binary(&ReceiveMsg::RefillCw20Balance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // try to withdraw too much balance
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawCw20WalletBalances {
+                cw20_amounts: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(1001),
+                }],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::overflow(OverflowError::new(
+            cosmwasm_std::OverflowOperation::Sub,
+            "1000",
+            "1001"
+        )))
+    );
+
+    // Another user tries to withdraw
+    // try to withdraw too much balance
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            manager_addr,
+            &ExecuteMsg::WithdrawCw20WalletBalances {
+                cw20_amounts: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(500),
+                }],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::EmptyBalance {});
+}
+
+#[test]
+fn move_balances() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+
+    let attach_funds = vec![coin(2400, DENOM), coin(5000, "denom")];
+    app.sudo(
+        BankSudo::Mint {
+            to_address: ADMIN.to_owned(),
+            amount: attach_funds.clone(),
+        }
+        .into(),
+    )
+    .unwrap();
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
+
+    // refill balance
+    let cw20_addr = init_cw20(&mut app);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(1000),
+            msg: to_binary(&ReceiveMsg::RefillCw20Balance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(
+        available_balances,
+        BalancesResponse {
+            available_native_balance: attach_funds.clone(),
+            available_cw20_balance: vec![Cw20CoinVerified {
+                address: cw20_addr.clone(),
+                amount: Uint128::new(1000),
+            }]
+        }
+    );
+
+    // Withdraw half
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::MoveBalances {
+            native_balances: vec![coin(2400, DENOM), coin(2500, "denom")],
+            cw20_balances: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: Uint128::new(500),
+            }],
+            address: ANYONE.to_owned(),
+        },
+        &[],
+    )
+    .unwrap();
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(
+        available_balances,
+        BalancesResponse {
+            available_native_balance: coins(2500, "denom"),
+            available_cw20_balance: vec![Cw20CoinVerified {
+                address: cw20_addr.clone(),
+                amount: Uint128::new(500),
+            }]
+        }
+    );
+
+    // Withdraw rest of balances
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::MoveBalances {
+            native_balances: vec![coin(2500, "denom")],
+            cw20_balances: vec![Cw20Coin {
+                address: cw20_addr.to_string(),
+                amount: Uint128::new(500),
+            }],
+            address: ANYONE.to_owned(),
+        },
+        &[],
+    )
+    .unwrap();
+    let available_balances = query_manager_balances(&app, &manager_addr);
+    assert_eq!(
+        available_balances,
+        BalancesResponse {
+            available_native_balance: vec![],
+            available_cw20_balance: vec![]
+        }
+    );
+}
+
+#[test]
+fn failed_move_balances() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+
+    let attach_funds = vec![coin(2400, DENOM), coin(5000, "denom")];
+    app.sudo(
+        BankSudo::Mint {
+            to_address: ADMIN.to_owned(),
+            amount: attach_funds.clone(),
+        }
+        .into(),
+    )
+    .unwrap();
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
+
+    // refill balance
+    let cw20_addr = init_cw20(&mut app);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(1000),
+            msg: to_binary(&ReceiveMsg::RefillCw20Balance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Withdraw not by owner
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            manager_addr.clone(),
+            &ExecuteMsg::MoveBalances {
+                native_balances: vec![coin(2500, "denom")],
+                cw20_balances: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(500),
+                }],
+                address: ADMIN.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Withdraw too much native
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr.clone(),
+            &ExecuteMsg::MoveBalances {
+                native_balances: vec![coin(5001, "denom")],
+                cw20_balances: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(500),
+                }],
+                address: ANYONE.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::overflow(OverflowError::new(
+            cosmwasm_std::OverflowOperation::Sub,
+            "5000",
+            "5001"
+        )))
+    );
+
+    // Withdraw too much cw20
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr,
+            &ExecuteMsg::MoveBalances {
+                native_balances: vec![coin(10, "denom")],
+                cw20_balances: vec![Cw20Coin {
+                    address: cw20_addr.to_string(),
+                    amount: Uint128::new(1002),
+                }],
+                address: ANYONE.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::overflow(OverflowError::new(
+            cosmwasm_std::OverflowOperation::Sub,
+            "1000",
+            "1002"
+        )))
+    );
 }
