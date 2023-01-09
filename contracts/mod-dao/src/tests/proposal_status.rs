@@ -1,7 +1,6 @@
-use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
+use cosmwasm_std::{to_binary, Addr, Uint128};
 use cw_multi_test::{next_block, App, Executor};
 use cw_utils::{Duration, Expiration};
-//use cw_rules_core::types::{CheckPassedProposals, CheckProposalStatus, Status};
 use dao_core::state::ProposalModule;
 use dao_proposal_multiple::proposal::MultipleChoiceProposal;
 use dao_proposal_single::proposal::SingleChoiceProposal;
@@ -14,10 +13,7 @@ use dao_voting::{
     threshold::{PercentageThreshold, Threshold},
     voting::{Vote, Votes},
 };
-use dao_voting_cw20_staked::msg::ActiveThreshold;
 use mod_sdk::types::QueryResponse;
-
-//use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 
 use crate::{
     msg::{InstantiateMsg, QueryMsg},
@@ -183,6 +179,7 @@ fn test_dao_single_proposal_ready() {
         &dao_proposal_single::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: Vote::Yes,
+            rationale: None,
         },
         &[],
     )
@@ -509,22 +506,25 @@ fn test_dao_multiple_proposal_ready() {
                         CheckedMultipleChoiceOption {
                             index: 0,
                             option_type: MultipleChoiceOptionType::Standard,
+                            title: "A".to_owned(),
                             description: "a".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
                             index: 1,
                             option_type: MultipleChoiceOptionType::Standard,
+                            title: "B".to_owned(),
                             description: "b".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
+                            title: "C".to_owned(),
                             description: "None of the above".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         }
                     ],
@@ -579,22 +579,25 @@ fn test_dao_multiple_proposal_ready() {
                         CheckedMultipleChoiceOption {
                             index: 0,
                             option_type: MultipleChoiceOptionType::Standard,
+                            title: "A".to_owned(),
                             description: "a".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
                             index: 1,
                             option_type: MultipleChoiceOptionType::Standard,
+                            title: "B".to_owned(),
                             description: "b".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
+                            title: "C".to_owned(),
                             description: "None of the above".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         }
                     ],

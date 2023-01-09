@@ -28,7 +28,7 @@ pub mod dao {
         /// The proposal has failed or expired and has been closed. A
         /// proposal deposit refund has been issued if applicable.
         Closed,
-        // The proposal has failed during execution
+        /// The proposal has failed during execution
         ExecutionFailed,
     }
 

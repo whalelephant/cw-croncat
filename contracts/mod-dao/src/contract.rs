@@ -1,10 +1,13 @@
-use cosmwasm_std::{entry_point, to_binary};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+use cosmwasm_std::to_binary;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
+use crate::helpers::query_wasm_smart_raw;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
 use crate::types::CheckProposalStatus;
@@ -61,10 +64,13 @@ fn query_dao_proposal_status(
     status: Status,
 ) -> StdResult<QueryResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
-    let resp: ProposalResponse = deps
-        .querier
-        .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
+    let bin = query_wasm_smart_raw(
+        deps,
+        dao_addr,
+        to_binary(&QueryDao::Proposal { proposal_id })?,
+    )?;
 
+    let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
     Ok(QueryResponse {
         result: resp.proposal.status == status,
         data: to_binary(&resp)?,
