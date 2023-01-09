@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, StdResult};
+use cosmwasm_std::{to_binary, Addr, StdResult};
 use cw721_base::MintMsg;
 use cw_multi_test::Executor;
 use mod_sdk::types::QueryResponse;
@@ -39,6 +39,7 @@ fn test_owner_of_nft() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
+    assert_eq!(res.data, to_binary(&ANYONE.to_string())?);
 
     // Return false if it's not the owner
     let msg = QueryMsg::OwnerOfNft(OwnerOfNft {
@@ -51,6 +52,7 @@ fn test_owner_of_nft() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(!res.result);
+    assert_eq!(res.data, to_binary(&ANYONE.to_string())?);
 
     // Wrong token_id
     let msg = QueryMsg::OwnerOfNft(OwnerOfNft {

@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, StdResult};
+use cosmwasm_std::{to_binary, Addr, StdResult};
 use cw721_base::MintMsg;
 use cw_multi_test::Executor;
 use mod_sdk::types::QueryResponse;
@@ -53,6 +53,10 @@ fn test_has_nft() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(res.result);
+    assert_eq!(
+        res.data,
+        to_binary(&vec!["croncat".to_string(), "croncat2".to_string()])?
+    );
 
     // Return false if the address doesn't own any tokens on this contract
     let msg = QueryMsg::AddrHasNft {
@@ -64,6 +68,7 @@ fn test_has_nft() -> StdResult<()> {
         .query_wasm_smart(contract_addr.clone(), &msg)
         .unwrap();
     assert!(!res.result);
+    assert_eq!(res.data, to_binary::<std::vec::Vec<String>>(&vec![])?);
 
     // Wrong nft_address
     let msg = QueryMsg::AddrHasNft {

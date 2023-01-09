@@ -4,6 +4,7 @@ use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult}
 use cw2::set_contract_version;
 use cw721::Cw721QueryMsg::{OwnerOf, Tokens};
 use cw721::{OwnerOfResponse, TokensResponse};
+use mod_sdk::error::ModError;
 use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
@@ -32,8 +33,8 @@ pub fn execute(
     _env: Env,
     _info: MessageInfo,
     _msg: ExecuteMsg,
-) -> Result<Response, ContractError> {
-    Err(ContractError::Noop)
+) -> Result<Response, ModError> {
+    Err(ModError::Noop)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -75,7 +76,7 @@ fn query_nft_owner(
     )?;
     Ok(QueryResponse {
         result: address == res.owner,
-        data: to_binary(&res)?,
+        data: to_binary(&res.owner)?,
     })
 }
 
@@ -102,6 +103,6 @@ fn query_addr_has_nft(
     )?;
     Ok(QueryResponse {
         result: !res.tokens.is_empty(),
-        data: Default::default(),
+        data: to_binary(&res.tokens)?,
     })
 }

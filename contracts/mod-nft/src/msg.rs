@@ -12,9 +12,11 @@ pub enum ExecuteMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
+    /// Check if `address` is the owner of the token
     #[returns(QueryResponse)]
     OwnerOfNft(OwnerOfNft),
 
+    /// Check if `address` owns any tokens on `nft_address` contract
     #[returns(QueryResponse)]
     AddrHasNft {
         address: String,
