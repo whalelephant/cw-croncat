@@ -3,14 +3,13 @@ name = "smart-query"
 description = "Robust approach to queries for CronCat"
 license = "MIT OR Apache-2.0"
 version = "0.1.0"
-edition = "2021"
+edition = { workspace = true }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
-serde-cw-value = "0.7.0"
-generic-query = { version = "0.1.1", path = "../generic-query"}
-thiserror = { version = "1.0" }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+cosmwasm-std = { workspace = true, features = ["staking", "stargate"] }
+serde-cw-value = { workspace = true }
+generic-query = { workspace = true }
+thiserror = { workspace = true }
