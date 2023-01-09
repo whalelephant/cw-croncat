@@ -1,14 +1,17 @@
-use cosmwasm_std::{entry_point, to_binary, StdError};
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use cw721::Cw721QueryMsg::{OwnerOf, Tokens};
 use cw721::{OwnerOfResponse, TokensResponse};
-use mod_sdk::error::ModError;
 use mod_sdk::types::QueryResponse;
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::OwnerOfNft;
+use crate::ContractError;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "croncat:mod-nft";
@@ -32,8 +35,8 @@ pub fn execute(
     _env: Env,
     _info: MessageInfo,
     _msg: ExecuteMsg,
-) -> Result<Response, ModError> {
-    Err(ModError::Noop)
+) -> Result<Response, ContractError> {
+    Err(ContractError::Noop)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
