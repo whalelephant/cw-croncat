@@ -4,10 +4,10 @@ use cosmwasm_std::to_binary;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
+use mod_sdk::helpers::query_wasm_smart_raw;
 use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
-use crate::helpers::query_wasm_smart_raw;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
 use crate::types::CheckProposalStatus;

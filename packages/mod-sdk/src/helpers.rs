@@ -1,6 +1,6 @@
 use cosmwasm_std::{to_vec, Binary, Deps, Empty, QueryRequest, StdError, StdResult, WasmQuery};
 
-pub(crate) fn query_wasm_smart_raw(
+pub fn query_wasm_smart_raw(
     deps: Deps,
     contract_addr: impl Into<String>,
     msg: Binary,
