@@ -57,6 +57,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
+/// Query: CheckProposalStatus
+/// Used as a helper method to check the proposals status
+///
+/// Response: QueryResponse
+/// Returns true if the proposal status matches with the given `status`
+/// Data is the information about the proposal
 fn query_dao_proposal_status(
     deps: Deps,
     dao_address: String,
@@ -73,12 +79,16 @@ fn query_dao_proposal_status(
     let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
     Ok(QueryResponse {
         result: resp.proposal.status == status,
-        data: to_binary(&resp)?,
+        data: bin,
     })
 }
 
-// Check for passed proposals
-// Return the first passed proposal
+/// Query: CheckPassedProposals
+/// Used as a helper method to check if there're any passed proposals
+///
+/// Response: QueryResponse
+/// Returns true if there's at least one passed proposal
+/// Data contains a vector of passed proposals
 fn query_dao_proposals(deps: Deps, dao_address: String) -> StdResult<QueryResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
     // Query the amount of proposals

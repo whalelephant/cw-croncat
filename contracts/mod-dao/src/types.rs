@@ -1,8 +1,9 @@
-use cosmwasm_schema::cw_serde;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use self::dao::Status;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct CheckProposalStatus {
     pub dao_address: String,
     pub proposal_id: u64,
@@ -12,10 +13,9 @@ pub struct CheckProposalStatus {
 pub mod dao {
     use super::*;
 
-    // #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug, Copy)]
-    // #[serde(rename_all = "snake_case")]
-    // #[repr(u8)]
-    #[cw_serde]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    #[serde(rename_all = "snake_case")]
+    #[repr(u8)]
     pub enum Status {
         /// The proposal is open for voting.
         Open,
@@ -32,7 +32,8 @@ pub mod dao {
         ExecutionFailed,
     }
 
-    #[cw_serde]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    #[serde(rename_all = "snake_case")]
     pub enum QueryDao {
         Proposal {
             proposal_id: u64,
@@ -44,19 +45,19 @@ pub mod dao {
         ProposalCount {},
     }
 
-    #[cw_serde]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct ProposalResponse {
         /// The ID of the proposal being returned.
         pub id: u64,
         pub proposal: AnyChoiceProposal,
     }
 
-    #[cw_serde]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct ProposalListResponse {
         pub proposals: Vec<ProposalResponse>,
     }
 
-    #[cw_serde]
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct AnyChoiceProposal {
         pub status: Status,
         //Ignore rest

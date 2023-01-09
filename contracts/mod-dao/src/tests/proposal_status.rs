@@ -446,7 +446,7 @@ fn test_dao_multiple_proposal_ready() {
                         CheckedMultipleChoiceOption {
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
-                            title: "C".to_string(),
+                            title: "None of the above".to_string(),
                             description: "None of the above".to_owned(),
                             msgs: vec![],
                             vote_count: Uint128::zero()
@@ -522,7 +522,7 @@ fn test_dao_multiple_proposal_ready() {
                         CheckedMultipleChoiceOption {
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
-                            title: "C".to_owned(),
+                            title: "None of the above".to_owned(),
                             description: "None of the above".to_owned(),
                             msgs: vec![],
                             vote_count: Uint128::zero()
@@ -595,7 +595,7 @@ fn test_dao_multiple_proposal_ready() {
                         CheckedMultipleChoiceOption {
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
-                            title: "C".to_owned(),
+                            title: "None of the above".to_owned(),
                             description: "None of the above".to_owned(),
                             msgs: vec![],
                             vote_count: Uint128::zero()

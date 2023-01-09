@@ -1121,6 +1121,8 @@ dependencies = [
  "dao-voting",
  "dao-voting-cw20-staked",
  "mod-sdk",
+ "schemars",
+ "serde",
  "thiserror",
 ]
 

@@ -20,6 +20,8 @@ cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
 mod-sdk = { workspace = true }
 thiserror = { workspace = true }
+schemars = "0.8"
+serde = { workspace = true }
 
 [dev-dependencies]
 cw20 = { workspace = true }
