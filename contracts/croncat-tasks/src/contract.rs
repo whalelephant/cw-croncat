@@ -4,15 +4,20 @@ use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult}
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::state::MANAGER_ADDR;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    mut _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    todo!();
+    let validated = deps.api.addr_validate(&msg.manager_addr)?;
+    MANAGER_ADDR.save(deps.storage, &validated)?;
+    Ok(Response::new()
+        .add_attribute("action", "instantiate")
+        .add_attribute("manager_addr", validated))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -20,7 +25,7 @@ pub fn execute(
     _deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: ExecuteMsg,
+    msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     todo!();
 }

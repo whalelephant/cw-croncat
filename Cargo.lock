@@ -186,6 +186,11 @@ version = "0.1.0"
 [[package]]
 name = "croncat-sdk-tasks"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw20",
+]
 
 [[package]]
 name = "croncat-tasks"
@@ -193,6 +198,8 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-sdk-tasks",
+ "cw-storage-plus",
  "thiserror",
 ]
 
