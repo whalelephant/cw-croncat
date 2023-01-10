@@ -85,7 +85,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "GenericBalance": {
       "type": "object",

@@ -227,7 +227,6 @@ export interface GenericBalance {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-  [k: string]: unknown;
 }
 export interface Coin {
   amount: Uint128;
@@ -421,7 +420,6 @@ export interface TaskRequest {
 export interface Cw20Coin {
   address: string;
   amount: Uint128;
-  [k: string]: unknown;
 }
 export type ExecuteMsg = {
   update_settings: {
@@ -510,7 +508,6 @@ export interface Cw20ReceiveMsg {
   amount: Uint128;
   msg: Binary;
   sender: string;
-  [k: string]: unknown;
 }
 export type GetAgentResponse = AgentResponse | null;
 export type GetAgentTasksResponse = TaskResponse | null;
