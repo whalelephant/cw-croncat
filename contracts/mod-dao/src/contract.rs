@@ -1,6 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::to_binary;
+use cosmwasm_std::{to_binary, CosmosMsg, WasmMsg};
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
@@ -9,7 +9,9 @@ use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
+use crate::types::dao::{
+    ProposalListResponse, ProposalResponse, QueryDao, SingleProposalListResponse, Status,
+};
 use crate::types::CheckProposalStatus;
 
 // version info for migration info
@@ -53,6 +55,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         )?),
         QueryMsg::CheckPassedProposals { dao_address } => {
             to_binary(&query_dao_proposals(deps, dao_address)?)
+        }
+        QueryMsg::CheckWithMigration { dao_address } => {
+            to_binary(&query_proposals_with_migration(deps, dao_address)?)
         }
     }
 }
@@ -114,5 +119,43 @@ fn query_dao_proposals(deps: Deps, dao_address: String) -> StdResult<QueryRespon
     Ok(QueryResponse {
         result: false,
         data: to_binary(&res.proposals)?,
+    })
+}
+
+/// Query: CheckWithMigration
+/// Used as a helper method to check if there're any passed proposals with Migration message
+/// Works for single choice proposals
+///
+/// Response: QueryResponse
+/// Returns true if there's at least one passed proposal with Migration message
+/// Data contains a vector of ids of passed proposals with Migration message
+fn query_proposals_with_migration(deps: Deps, dao_address: String) -> StdResult<QueryResponse> {
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    // Query the amount of proposals
+    let proposal_count = deps
+        .querier
+        .query_wasm_smart(dao_addr.clone(), &QueryDao::ProposalCount {})?;
+    let res: SingleProposalListResponse = deps.querier.query_wasm_smart(
+        dao_addr,
+        &QueryDao::ListProposals {
+            start_after: None,
+            limit: Some(proposal_count),
+        },
+    )?;
+
+    let mut with_migration = vec![];
+    for proposal_response in &res.proposals {
+        if proposal_response.proposal.status == Status::Passed {
+            for msg in &proposal_response.proposal.msgs {
+                if let CosmosMsg::Wasm(WasmMsg::Migrate { .. }) = &msg {
+                    with_migration.push(proposal_response.id);
+                    break;
+                }
+            }
+        }
+    }
+    Ok(QueryResponse {
+        result: !with_migration.is_empty(),
+        data: to_binary(&with_migration)?,
     })
 }

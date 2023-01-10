@@ -12,9 +12,15 @@ pub enum ExecuteMsg {}
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
+    // Query proposal status and compare it to pre-defined status
     #[returns(QueryResponse)]
     CheckProposalStatus(CheckProposalStatus),
 
+    // Query proposals and check if there're any passed proposals
     #[returns(QueryResponse)]
     CheckPassedProposals { dao_address: String },
+
+    // Query proposals and check if there're any passed proposals with Wasm::Migration message
+    #[returns(QueryResponse)]
+    CheckWithMigration { dao_address: String },
 }

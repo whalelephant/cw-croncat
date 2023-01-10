@@ -11,6 +11,8 @@ pub struct CheckProposalStatus {
 }
 
 pub mod dao {
+    use cosmwasm_std::{CosmosMsg, Empty};
+
     use super::*;
 
     #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
@@ -60,6 +62,25 @@ pub mod dao {
     #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
     pub struct AnyChoiceProposal {
         pub status: Status,
+        //Ignore rest
+    }
+
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    pub struct SingleProposalResponse {
+        /// The ID of the proposal being returned.
+        pub id: u64,
+        pub proposal: SingleChoiceProposal,
+    }
+
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    pub struct SingleProposalListResponse {
+        pub proposals: Vec<SingleProposalResponse>,
+    }
+
+    #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
+    pub struct SingleChoiceProposal {
+        pub status: Status,
+        pub msgs: Vec<CosmosMsg<Empty>>,
         //Ignore rest
     }
 }
