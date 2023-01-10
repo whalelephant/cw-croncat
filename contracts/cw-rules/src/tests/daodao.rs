@@ -2,18 +2,19 @@ use cosmwasm_std::{to_binary, Addr, Binary, Uint128};
 use cw20::Cw20Coin;
 use cw_multi_test::{next_block, App, Executor};
 use cw_rules_core::types::{CheckPassedProposals, CheckProposalStatus, Status};
-use cwd_core::state::ProposalModule;
-use cwd_proposal_multiple::proposal::MultipleChoiceProposal;
-use cwd_proposal_single::proposal::SingleChoiceProposal;
-use cwd_voting::{
+use dao_core::state::ProposalModule;
+use dao_proposal_multiple::proposal::MultipleChoiceProposal;
+use dao_proposal_single::proposal::SingleChoiceProposal;
+use dao_voting::{
     multiple_choice::{
         CheckedMultipleChoiceOption, MultipleChoiceOption, MultipleChoiceOptionType,
         MultipleChoiceOptions, MultipleChoiceVote, MultipleChoiceVotes, VotingStrategy,
     },
+    proposal::SingleChoiceProposeMsg,
     threshold::{PercentageThreshold, Threshold},
     voting::{Vote, Votes},
 };
-use cwd_voting_cw20_staked::msg::ActiveThreshold;
+use dao_voting_cw20_staked::msg::ActiveThreshold;
 
 use cw_rules_core::msg::{InstantiateMsg, QueryMsg, QueryResponse};
 
@@ -44,17 +45,17 @@ fn instantiate_with_staking_active_threshold(
         }]
     });
 
-    let governance_instantiate = cwd_core::msg::InstantiateMsg {
+    let governance_instantiate = dao_core::msg::InstantiateMsg {
         admin: None,
         name: "DAO DAO".to_string(),
         description: "A DAO that builds DAOs".to_string(),
         image_url: None,
         automatically_add_cw20s: true,
         automatically_add_cw721s: true,
-        voting_module_instantiate_info: cwd_interface::ModuleInstantiateInfo {
+        voting_module_instantiate_info: dao_interface::ModuleInstantiateInfo {
             code_id: votemod_id,
-            msg: to_binary(&cwd_voting_cw20_staked::msg::InstantiateMsg {
-                token_info: cwd_voting_cw20_staked::msg::TokenInfo::New {
+            msg: to_binary(&dao_voting_cw20_staked::msg::InstantiateMsg {
+                token_info: dao_voting_cw20_staked::msg::TokenInfo::New {
                     code_id: cw20_id,
                     label: "DAO DAO governance token".to_string(),
                     name: "DAO".to_string(),
@@ -69,13 +70,13 @@ fn instantiate_with_staking_active_threshold(
                 active_threshold,
             })
             .unwrap(),
-            admin: Some(cwd_interface::Admin::CoreModule {}),
+            admin: Some(dao_interface::Admin::CoreModule {}),
             label: "DAO DAO voting module".to_string(),
         },
-        proposal_modules_instantiate_info: vec![cwd_interface::ModuleInstantiateInfo {
+        proposal_modules_instantiate_info: vec![dao_interface::ModuleInstantiateInfo {
             code_id: proposal_module_code_id,
             msg: proposal_module_instantiate,
-            admin: Some(cwd_interface::Admin::CoreModule {}),
+            admin: Some(dao_interface::Admin::CoreModule {}),
             label: "DAO DAO governance module".to_string(),
         }],
         initial_items: None,
@@ -115,14 +116,14 @@ fn test_dao_single_proposal_ready() {
         percentage: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
+    let instantiate_govmod = dao_proposal_single::msg::InstantiateMsg {
         threshold: threshold.clone(),
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
         close_proposal_on_execution_failure: true,
-        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        pre_propose_info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -135,7 +136,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cwd_core::msg::QueryMsg::ProposalModules {
+            &dao_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -145,30 +146,30 @@ fn test_dao_single_proposal_ready() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cwd_proposal_single::state::Config = app
+    let govmod_config: dao_proposal_single::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cwd_proposal_single::msg::QueryMsg::Config {},
+            &dao_proposal_single::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &dao_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+            &dao_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cwd_interface::voting::Query::TokenContract {},
+            &dao_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -190,12 +191,12 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_single::msg::ExecuteMsg::Propose {
+        &dao_proposal_single::msg::ExecuteMsg::Propose(SingleChoiceProposeMsg {
             title: "Cron".to_string(),
             description: "Cat".to_string(),
             msgs: vec![],
             proposer: None,
-        },
+        }),
         &[],
     )
     .unwrap();
@@ -216,7 +217,7 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: false,
-            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+            data: to_binary(&dao_proposal_single::query::ProposalResponse {
                 id: 1,
                 proposal: SingleChoiceProposal {
                     title: "Cron".to_string(),
@@ -228,7 +229,7 @@ fn test_dao_single_proposal_ready() {
                     threshold: threshold.clone(),
                     total_power: Uint128::new(2000),
                     msgs: vec![],
-                    status: cwd_voting::status::Status::Open,
+                    status: dao_voting::status::Status::Open,
                     votes: Votes {
                         yes: Uint128::zero(),
                         no: Uint128::zero(),
@@ -245,9 +246,10 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_single::msg::ExecuteMsg::Vote {
+        &dao_proposal_single::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: Vote::Yes,
+            rationale: None,
         },
         &[],
     )
@@ -269,7 +271,7 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+            data: to_binary(&dao_proposal_single::query::ProposalResponse {
                 id: 1,
                 proposal: SingleChoiceProposal {
                     title: "Cron".to_string(),
@@ -281,7 +283,7 @@ fn test_dao_single_proposal_ready() {
                     threshold: threshold.clone(),
                     total_power: Uint128::new(2000),
                     msgs: vec![],
-                    status: cwd_voting::status::Status::Passed,
+                    status: dao_voting::status::Status::Passed,
                     votes: Votes {
                         yes: Uint128::new(2000),
                         no: Uint128::zero(),
@@ -296,7 +298,7 @@ fn test_dao_single_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &dao_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 },
         &[],
     )
     .unwrap();
@@ -318,7 +320,7 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&cwd_proposal_single::query::ProposalResponse {
+            data: to_binary(&dao_proposal_single::query::ProposalResponse {
                 id: 1,
                 proposal: SingleChoiceProposal {
                     title: "Cron".to_string(),
@@ -330,7 +332,7 @@ fn test_dao_single_proposal_ready() {
                     threshold: threshold.clone(),
                     total_power: Uint128::new(2000),
                     msgs: vec![],
-                    status: cwd_voting::status::Status::Executed,
+                    status: dao_voting::status::Status::Executed,
                     votes: Votes {
                         yes: Uint128::new(2000),
                         no: Uint128::zero(),
@@ -365,14 +367,14 @@ fn test_dao_multiple_proposal_ready() {
         quorum: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cwd_proposal_multiple::msg::InstantiateMsg {
+    let instantiate_govmod = dao_proposal_multiple::msg::InstantiateMsg {
         voting_strategy: voting_strategy.clone(),
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
         close_proposal_on_execution_failure: true,
-        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        pre_propose_info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -385,7 +387,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cwd_core::msg::QueryMsg::ProposalModules {
+            &dao_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -395,30 +397,30 @@ fn test_dao_multiple_proposal_ready() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cwd_proposal_multiple::state::Config = app
+    let govmod_config: dao_proposal_multiple::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cwd_proposal_multiple::msg::QueryMsg::Config {},
+            &dao_proposal_multiple::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &dao_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+            &dao_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cwd_interface::voting::Query::TokenContract {},
+            &dao_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -440,18 +442,20 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_multiple::msg::ExecuteMsg::Propose {
+        &dao_proposal_multiple::msg::ExecuteMsg::Propose {
             title: "Cron".to_string(),
             description: "Cat".to_string(),
             choices: MultipleChoiceOptions {
                 options: vec![
                     MultipleChoiceOption {
+                        title: "b".to_string(),
                         description: "a".to_string(),
-                        msgs: None,
+                        msgs: vec![],
                     },
                     MultipleChoiceOption {
+                        title: "a".to_string(),
                         description: "b".to_string(),
-                        msgs: None,
+                        msgs: vec![],
                     },
                 ],
             },
@@ -477,7 +481,7 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: false,
-            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
                 id: 1,
                 proposal: MultipleChoiceProposal {
                     title: "Cron".to_string(),
@@ -487,31 +491,34 @@ fn test_dao_multiple_proposal_ready() {
                     min_voting_period: None,
                     expiration: cw_utils::Expiration::AtHeight(12352),
                     total_power: Uint128::new(2000),
-                    status: cwd_voting::status::Status::Open,
+                    status: dao_voting::status::Status::Open,
                     votes: MultipleChoiceVotes {
                         vote_weights: vec![Uint128::zero(), Uint128::zero(), Uint128::zero()]
                     },
                     allow_revoting: false,
                     choices: vec![
                         CheckedMultipleChoiceOption {
+                            title: "b".to_string(),
                             index: 0,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "a".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "a".to_string(),
                             index: 1,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "b".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "None of the above".to_string(),
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
                             description: "None of the above".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         }
                     ],
@@ -526,7 +533,7 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_multiple::msg::ExecuteMsg::Vote {
+        &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: MultipleChoiceVote { option_id: 0 },
         },
@@ -550,7 +557,7 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
                 id: 1,
                 proposal: MultipleChoiceProposal {
                     title: "Cron".to_string(),
@@ -560,31 +567,34 @@ fn test_dao_multiple_proposal_ready() {
                     min_voting_period: None,
                     expiration: cw_utils::Expiration::AtHeight(12352),
                     total_power: Uint128::new(2000),
-                    status: cwd_voting::status::Status::Passed,
+                    status: dao_voting::status::Status::Passed,
                     votes: MultipleChoiceVotes {
                         vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
                     },
                     allow_revoting: false,
                     choices: vec![
                         CheckedMultipleChoiceOption {
+                            title: "b".to_string(),
                             index: 0,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "a".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "a".to_string(),
                             index: 1,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "b".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "None of the above".to_string(),
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
                             description: "None of the above".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         }
                     ],
@@ -598,7 +608,7 @@ fn test_dao_multiple_proposal_ready() {
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
         govmod_single.clone(),
-        &cwd_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: 1 },
+        &dao_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: 1 },
         &[],
     )
     .unwrap();
@@ -620,7 +630,7 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&cwd_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
                 id: 1,
                 proposal: MultipleChoiceProposal {
                     title: "Cron".to_string(),
@@ -630,31 +640,34 @@ fn test_dao_multiple_proposal_ready() {
                     min_voting_period: None,
                     expiration: cw_utils::Expiration::AtHeight(12352),
                     total_power: Uint128::new(2000),
-                    status: cwd_voting::status::Status::Executed,
+                    status: dao_voting::status::Status::Executed,
                     votes: MultipleChoiceVotes {
                         vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
                     },
                     allow_revoting: false,
                     choices: vec![
                         CheckedMultipleChoiceOption {
+                            title: "b".to_string(),
                             index: 0,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "a".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "a".to_string(),
                             index: 1,
                             option_type: MultipleChoiceOptionType::Standard,
                             description: "b".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         },
                         CheckedMultipleChoiceOption {
+                            title: "None of the above".to_string(),
                             index: 2,
                             option_type: MultipleChoiceOptionType::None,
                             description: "None of the above".to_owned(),
-                            msgs: None,
+                            msgs: vec![],
                             vote_count: Uint128::zero()
                         }
                     ],
@@ -688,14 +701,14 @@ fn test_single_check_passed_proposals() {
         percentage: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
+    let instantiate_govmod = dao_proposal_single::msg::InstantiateMsg {
         threshold,
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
         close_proposal_on_execution_failure: true,
-        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        pre_propose_info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -708,7 +721,7 @@ fn test_single_check_passed_proposals() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cwd_core::msg::QueryMsg::ProposalModules {
+            &dao_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -718,30 +731,30 @@ fn test_single_check_passed_proposals() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cwd_proposal_single::state::Config = app
+    let govmod_config: dao_proposal_single::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cwd_proposal_single::msg::QueryMsg::Config {},
+            &dao_proposal_single::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &dao_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+            &dao_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cwd_interface::voting::Query::TokenContract {},
+            &dao_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -769,12 +782,12 @@ fn test_single_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_single::msg::ExecuteMsg::Propose {
+            &dao_proposal_single::msg::ExecuteMsg::Propose(SingleChoiceProposeMsg {
                 title,
                 description,
                 msgs: vec![],
                 proposer: None,
-            },
+            }),
             &[],
         )
         .unwrap();
@@ -797,9 +810,10 @@ fn test_single_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_single::msg::ExecuteMsg::Vote {
+            &dao_proposal_single::msg::ExecuteMsg::Vote {
                 proposal_id: 2 * num as u64,
                 vote: Vote::Yes,
+                rationale: None,
             },
             &[],
         )
@@ -832,7 +846,7 @@ fn test_single_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_single::msg::ExecuteMsg::Execute { proposal_id: index },
+            &dao_proposal_single::msg::ExecuteMsg::Execute { proposal_id: index },
             &[],
         )
         .unwrap();
@@ -873,14 +887,14 @@ fn test_multiple_check_passed_proposals() {
         quorum: PercentageThreshold::Majority {},
     };
     let max_voting_period = cw_utils::Duration::Height(6);
-    let instantiate_govmod = cwd_proposal_multiple::msg::InstantiateMsg {
+    let instantiate_govmod = dao_proposal_multiple::msg::InstantiateMsg {
         voting_strategy,
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
         allow_revoting: false,
         close_proposal_on_execution_failure: true,
-        pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+        pre_propose_info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
     };
     let governance_addr = instantiate_with_staking_active_threshold(
         &mut app,
@@ -893,7 +907,7 @@ fn test_multiple_check_passed_proposals() {
         .wrap()
         .query_wasm_smart(
             governance_addr,
-            &cwd_core::msg::QueryMsg::ProposalModules {
+            &dao_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -903,30 +917,30 @@ fn test_multiple_check_passed_proposals() {
     assert_eq!(governance_modules.len(), 1);
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cwd_proposal_multiple::state::Config = app
+    let govmod_config: dao_proposal_multiple::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cwd_proposal_multiple::msg::QueryMsg::Config {},
+            &dao_proposal_multiple::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &dao_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+            &dao_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cwd_interface::voting::Query::TokenContract {},
+            &dao_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -954,18 +968,20 @@ fn test_multiple_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_multiple::msg::ExecuteMsg::Propose {
+            &dao_proposal_multiple::msg::ExecuteMsg::Propose {
                 title,
                 description,
                 choices: MultipleChoiceOptions {
                     options: vec![
                         MultipleChoiceOption {
+                            title: "b".to_string(),
                             description: "a".to_string(),
-                            msgs: None,
+                            msgs: vec![],
                         },
                         MultipleChoiceOption {
+                            title: "a".to_string(),
                             description: "b".to_string(),
-                            msgs: None,
+                            msgs: vec![],
                         },
                     ],
                 },
@@ -993,7 +1009,7 @@ fn test_multiple_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_multiple::msg::ExecuteMsg::Vote {
+            &dao_proposal_multiple::msg::ExecuteMsg::Vote {
                 proposal_id: 2 * num as u64,
                 vote: MultipleChoiceVote { option_id: 0 },
             },
@@ -1029,7 +1045,7 @@ fn test_multiple_check_passed_proposals() {
         app.execute_contract(
             Addr::unchecked(CREATOR_ADDR),
             govmod_single.clone(),
-            &cwd_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: index },
+            &dao_proposal_multiple::msg::ExecuteMsg::Execute { proposal_id: index },
             &[],
         )
         .unwrap();
