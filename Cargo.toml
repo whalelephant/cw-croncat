@@ -22,7 +22,14 @@ overflow-checks = true
 
 [workspace.package]
 version = "0.0.3"
-authors = ["meow@cron.cat", "@tjtc", "@mikedotexe","@NinoLipartiia","@Buckram123","deveusss"]
+authors = [
+  "meow@cron.cat",
+  "@tjtc",
+  "@mikedotexe",
+  "@NinoLipartiia",
+  "@Buckram123",
+  "deveusss",
+]
 edition = "2021"
 description = "Croncat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
 documentation = "https://docs.cron.cat/"
@@ -39,9 +46,9 @@ rusty-hook = "0.11.2"
 #For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
 smart-query = { version = "0.1.0", path = "./packages/smart-query" }
-cw20 = { version = "0.13.4" }
+cw20 = { version = "0.16.0" }
 cw-multi-test = { version = "0.16.0" }
-cw20-base = { version = "0.13.4", features = ["library"] }
+cw20-base = { version = "0.16.0", features = ["library"] }
 cw-rules-core = { version = "0.1.2", path = "./packages/cw-rules-core" }
 cw-storage-plus = "0.16.0"
 cron_schedule = "0.2.3"
@@ -49,16 +56,16 @@ cw2 = "0.16.0"
 hex = { version = "0.4", default-features = false }
 sha2 = { version = "0.10.6", default-features = false }
 serde-json-wasm = { version = "0.5.0" }
-cw-utils = "0.13.4"
+cw-utils = "0.16.0"
 cw721 = "0.15.0"
 # DAO contracts
-cwd-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
-cwd-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-proposal-multiple = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-voting-cw20-staked = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-voting = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts.git", tag = "v2.0.0" }
+dao-proposal-single = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
+dao-proposal-multiple = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
+dao-voting-cw20-staked = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
+cw20-stake = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
+dao-core = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
+dao-interface = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts", tag = "v2.0.0" }
 # Testing generic msg
 cw4 = "0.16.0"
 cw4-group = "0.16.0"

@@ -75,7 +75,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "NativeBalance": {
       "type": "array",

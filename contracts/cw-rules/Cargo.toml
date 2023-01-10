@@ -50,13 +50,13 @@ cw-multi-test = { workspace = true }
 cw-utils = { workspace = true }
 cw20-base = { workspace = true }
 # DAO contracts
-cwd-voting = { workspace = true }
-cwd-proposal-single = { workspace = true }
-cwd-proposal-multiple = { workspace = true }
-cwd-voting-cw20-staked = { workspace = true }
+dao-voting = { workspace = true }
+dao-proposal-single = { workspace = true }
+dao-proposal-multiple = { workspace = true }
+dao-voting-cw20-staked = { workspace = true }
 cw20-stake = { workspace = true }
-cwd-core = { workspace = true }
-cwd-interface = { workspace = true }
+dao-core = { workspace = true }
+dao-interface = { workspace = true }
 # Testing generic msg
 cw4 = { workspace = true }
 cw4-group = { workspace = true }

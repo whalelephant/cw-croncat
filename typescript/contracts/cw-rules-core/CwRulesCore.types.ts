@@ -85,7 +85,6 @@ export interface Coin {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-  [k: string]: unknown;
 }
 export interface GenericQuery {
   contract_addr: string;

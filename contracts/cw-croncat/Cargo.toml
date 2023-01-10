@@ -50,10 +50,10 @@ cw4 = { workspace = true }
 cw4-group = { workspace = true, features = ["library"] }
 smart-query = { workspace = true }
 generic-query = { workspace = true }
-cwd-voting-cw20-staked = { workspace = true }
+dao-voting-cw20-staked = { workspace = true }
 cw20-stake = { workspace = true }
-cwd-core = { workspace = true }
-cwd-interface = { workspace = true }
-cwd-proposal-single = { workspace = true }
-cwd-voting = { workspace = true }
+dao-core = { workspace = true }
+dao-interface = { workspace = true }
+dao-proposal-single = { workspace = true }
+dao-voting = { workspace = true }
 rusty-hook = { workspace = true }

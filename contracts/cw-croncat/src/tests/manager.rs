@@ -20,7 +20,8 @@ use cw_croncat_core::msg::{
 use cw_croncat_core::types::{Action, Boundary, Interval, Transform};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
-use cwd_core::state::ProposalModule;
+use dao_core::state::ProposalModule;
+use dao_voting::proposal::SingleChoiceProposeMsg;
 use generic_query::{GenericQuery, PathToValue, ValueIndex, ValueOrdering};
 use smart_query::{SmartQueries, SmartQuery, SmartQueryHead};
 
@@ -2959,7 +2960,7 @@ fn test_error_in_reply() {
         .wrap()
         .query_wasm_smart(
             governance_addr.clone(),
-            &cwd_core::msg::QueryMsg::ProposalModules {
+            &dao_core::msg::QueryMsg::ProposalModules {
                 start_after: None,
                 limit: None,
             },
@@ -2968,30 +2969,30 @@ fn test_error_in_reply() {
 
     let govmod_single = governance_modules.into_iter().next().unwrap().address;
 
-    let govmod_config: cwd_proposal_single::state::Config = app
+    let govmod_config: dao_proposal_single::state::Config = app
         .wrap()
         .query_wasm_smart(
             govmod_single.clone(),
-            &cwd_proposal_single::msg::QueryMsg::Config {},
+            &dao_proposal_single::msg::QueryMsg::Config {},
         )
         .unwrap();
     let dao = govmod_config.dao;
     let voting_module: Addr = app
         .wrap()
-        .query_wasm_smart(dao, &cwd_core::msg::QueryMsg::VotingModule {})
+        .query_wasm_smart(dao, &dao_core::msg::QueryMsg::VotingModule {})
         .unwrap();
     let staking_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module.clone(),
-            &cwd_voting_cw20_staked::msg::QueryMsg::StakingContract {},
+            &dao_voting_cw20_staked::msg::QueryMsg::StakingContract {},
         )
         .unwrap();
     let token_contract: Addr = app
         .wrap()
         .query_wasm_smart(
             voting_module,
-            &cwd_interface::voting::Query::TokenContract {},
+            &dao_interface::voting::Query::TokenContract {},
         )
         .unwrap();
 
@@ -3008,17 +3009,17 @@ fn test_error_in_reply() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         govmod_single.clone(),
-        &cwd_proposal_single::msg::ExecuteMsg::Propose {
+        &dao_proposal_single::msg::ExecuteMsg::Propose(SingleChoiceProposeMsg {
             title: "Cron".to_string(),
             description: "Cat".to_string(),
             msgs: vec![],
             proposer: None,
-        },
+        }),
         &[],
     )
     .unwrap();
 
-    let execute_msg = cwd_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 };
+    let execute_msg = dao_proposal_single::msg::ExecuteMsg::Execute { proposal_id: 1 };
 
     // create a task for executing proposal
     let wasm = WasmMsg::Execute {
