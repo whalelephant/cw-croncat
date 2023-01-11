@@ -20,7 +20,6 @@ cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
 cw721 = { workspace = true }
 mod-sdk = { workspace = true }
-thiserror = { workspace = true }
 
 [dev-dependencies]
 cw721-base = { workspace = true }

@@ -625,7 +625,6 @@ dependencies = [
  "cw721",
  "cw721-base",
  "mod-sdk",
- "thiserror",
 ]
 
 [[package]]
