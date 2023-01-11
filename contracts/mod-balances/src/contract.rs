@@ -1,5 +1,5 @@
-use cosmwasm_std::{entry_point, StdError};
 use cosmwasm_std::{coin, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{entry_point, StdError};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
