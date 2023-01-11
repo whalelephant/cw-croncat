@@ -5,7 +5,7 @@ use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult}
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use dao_voting::multiple_choice::CheckedMultipleChoiceOption;
-use mod_sdk::helpers::query_wasm_smart_raw;
+// use mod_sdk::helpers::query_wasm_smart_raw;
 use mod_sdk::types::QueryResponse;
 
 use crate::error::ContractError;
@@ -74,16 +74,20 @@ fn query_dao_proposal_status(
     status: Status,
 ) -> StdResult<QueryResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
-    let bin = query_wasm_smart_raw(
-        deps,
-        dao_addr,
-        to_binary(&QueryDao::Proposal { proposal_id })?,
-    )?;
+    // let bin = query_wasm_smart_raw(
+    //     deps,
+    //     dao_addr,
+    //     to_binary(&QueryDao::Proposal { proposal_id })?,
+    // )?;
 
-    let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
+    // let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
+
+    let resp: ProposalResponse = deps
+        .querier
+        .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
     Ok(QueryResponse {
         result: resp.proposal.status == status,
-        data: bin,
+        data: to_binary(&resp)?,
     })
 }
 

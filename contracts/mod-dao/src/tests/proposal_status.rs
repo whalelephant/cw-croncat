@@ -1,17 +1,14 @@
 use cosmwasm_std::{to_binary, Addr, Uint128};
 use cw_multi_test::{next_block, App, Executor};
-use cw_utils::{Duration, Expiration};
+use cw_utils::Duration;
 use dao_core::state::ProposalModule;
-use dao_proposal_multiple::proposal::MultipleChoiceProposal;
-use dao_proposal_single::proposal::SingleChoiceProposal;
 use dao_voting::{
     multiple_choice::{
-        CheckedMultipleChoiceOption, MultipleChoiceOption, MultipleChoiceOptionType,
-        MultipleChoiceOptions, MultipleChoiceVote, MultipleChoiceVotes, VotingStrategy,
+        MultipleChoiceOption, MultipleChoiceOptions, MultipleChoiceVote, VotingStrategy,
     },
     proposal::SingleChoiceProposeMsg,
     threshold::{PercentageThreshold, Threshold},
-    voting::{Vote, Votes},
+    voting::Vote,
 };
 use mod_sdk::types::QueryResponse;
 
@@ -21,7 +18,10 @@ use crate::{
         contract_template, instantiate_with_staking_active_threshold, multiple_proposal_contract,
         single_proposal_contract, CREATOR_ADDR,
     },
-    types::{dao::Status, CheckProposalStatus},
+    types::{
+        dao::{AnyChoiceProposal, ProposalResponse, Status},
+        CheckProposalStatus,
+    },
 };
 
 #[test]
@@ -147,26 +147,11 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: false,
-            data: to_binary(&dao_proposal_single::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: SingleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: Expiration::AtHeight(12352),
-                    threshold: threshold.clone(),
-                    total_power: Uint128::new(2000),
-                    msgs: vec![],
-                    status: dao_voting::status::Status::Open,
-                    votes: Votes {
-                        yes: Uint128::zero(),
-                        no: Uint128::zero(),
-                        abstain: Uint128::zero(),
-                    },
-                    allow_revoting: false
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Open
+                }
             })
             .unwrap()
         }
@@ -201,26 +186,11 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&dao_proposal_single::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: SingleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: Expiration::AtHeight(12352),
-                    threshold: threshold.clone(),
-                    total_power: Uint128::new(2000),
-                    msgs: vec![],
-                    status: dao_voting::status::Status::Passed,
-                    votes: Votes {
-                        yes: Uint128::new(2000),
-                        no: Uint128::zero(),
-                        abstain: Uint128::zero(),
-                    },
-                    allow_revoting: false
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Passed
+                }
             })
             .unwrap()
         }
@@ -250,26 +220,11 @@ fn test_dao_single_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&dao_proposal_single::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: SingleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: Expiration::AtHeight(12352),
-                    threshold: threshold.clone(),
-                    total_power: Uint128::new(2000),
-                    msgs: vec![],
-                    status: dao_voting::status::Status::Executed,
-                    votes: Votes {
-                        yes: Uint128::new(2000),
-                        no: Uint128::zero(),
-                        abstain: Uint128::zero(),
-                    },
-                    allow_revoting: false
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Executed
+                }
             })
             .unwrap()
         }
@@ -411,49 +366,11 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: false,
-            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: MultipleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: Expiration::AtHeight(12352),
-                    total_power: Uint128::new(2000),
-                    status: dao_voting::status::Status::Open,
-                    votes: MultipleChoiceVotes {
-                        vote_weights: vec![Uint128::zero(), Uint128::zero(), Uint128::zero()]
-                    },
-                    allow_revoting: false,
-                    choices: vec![
-                        CheckedMultipleChoiceOption {
-                            index: 0,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "A".to_string(),
-                            description: "a".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 1,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "B".to_string(),
-                            description: "b".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 2,
-                            option_type: MultipleChoiceOptionType::None,
-                            title: "None of the above".to_string(),
-                            description: "None of the above".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        }
-                    ],
-                    voting_strategy: voting_strategy.clone()
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Open
+                }
             })
             .unwrap()
         }
@@ -487,49 +404,11 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: MultipleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: cw_utils::Expiration::AtHeight(12352),
-                    total_power: Uint128::new(2000),
-                    status: dao_voting::status::Status::Passed,
-                    votes: MultipleChoiceVotes {
-                        vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
-                    },
-                    allow_revoting: false,
-                    choices: vec![
-                        CheckedMultipleChoiceOption {
-                            index: 0,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "A".to_owned(),
-                            description: "a".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 1,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "B".to_owned(),
-                            description: "b".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 2,
-                            option_type: MultipleChoiceOptionType::None,
-                            title: "None of the above".to_owned(),
-                            description: "None of the above".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        }
-                    ],
-                    voting_strategy: voting_strategy.clone()
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Passed
+                }
             })
             .unwrap()
         }
@@ -560,49 +439,11 @@ fn test_dao_multiple_proposal_ready() {
         res,
         QueryResponse {
             result: true,
-            data: to_binary(&dao_proposal_multiple::query::ProposalResponse {
+            data: to_binary(&ProposalResponse {
                 id: 1,
-                proposal: MultipleChoiceProposal {
-                    title: "Cron".to_string(),
-                    description: "Cat".to_string(),
-                    proposer: Addr::unchecked(CREATOR_ADDR),
-                    start_height: 12346,
-                    min_voting_period: None,
-                    expiration: cw_utils::Expiration::AtHeight(12352),
-                    total_power: Uint128::new(2000),
-                    status: dao_voting::status::Status::Executed,
-                    votes: MultipleChoiceVotes {
-                        vote_weights: vec![Uint128::new(2000), Uint128::zero(), Uint128::zero()]
-                    },
-                    allow_revoting: false,
-                    choices: vec![
-                        CheckedMultipleChoiceOption {
-                            index: 0,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "A".to_owned(),
-                            description: "a".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 1,
-                            option_type: MultipleChoiceOptionType::Standard,
-                            title: "B".to_owned(),
-                            description: "b".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        },
-                        CheckedMultipleChoiceOption {
-                            index: 2,
-                            option_type: MultipleChoiceOptionType::None,
-                            title: "None of the above".to_owned(),
-                            description: "None of the above".to_owned(),
-                            msgs: vec![],
-                            vote_count: Uint128::zero()
-                        }
-                    ],
-                    voting_strategy: voting_strategy.clone()
-                },
+                proposal: AnyChoiceProposal {
+                    status: Status::Executed
+                }
             })
             .unwrap()
         }
