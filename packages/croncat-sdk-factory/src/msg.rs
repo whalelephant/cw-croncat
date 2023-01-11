@@ -11,7 +11,9 @@ pub struct FactoryInstantiateMsg {
 }
 
 #[cw_serde]
-pub struct FactoryExecuteMsg {}
+pub struct FactoryExecuteMsg {
+
+}
 
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -75,9 +77,6 @@ pub struct ModuleInstantiateInfo {
 
     /// Instantiate message to be used to create the contract.
     pub msg: Binary,
-    /// CosmWasm level admin of the instantiated contract. See:
-    /// <https://docs.cosmwasm.com/docs/1.0/smart-contracts/migration>
-    pub admin: Option<Admin>,
     /// Label for the instantiated contract.
     pub label: String,
 }

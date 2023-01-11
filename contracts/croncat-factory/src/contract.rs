@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult,
     Storage, SubMsg, WasmMsg,
 };
-use croncat_sdk_factory::msg::{Admin, ContractMetadata, ModuleInstantiateInfo};
+use croncat_sdk_factory::msg::{ContractMetadata, ModuleInstantiateInfo};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
 
@@ -36,10 +36,7 @@ fn init_save_metadata_generate_wasm_msg(
     CONTRACT_METADATAS.save(storage, &init_info.label, &metadata)?;
 
     let msg = WasmMsg::Instantiate {
-        admin: init_info.admin.map(|admin| match admin {
-            Admin::Address { addr } => addr,
-            Admin::CoreModule {} => factory.to_owned(),
-        }),
+        admin: Some(factory.to_owned()),
         code_id: init_info.code_id,
         msg: init_info.msg,
         funds: vec![],
@@ -109,6 +106,7 @@ pub fn instantiate(
         })
         .collect::<StdResult<Vec<_>>>()?;
 
+        
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("sender", info.sender)
