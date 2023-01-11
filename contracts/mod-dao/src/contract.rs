@@ -5,13 +5,12 @@ use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult}
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use dao_voting::multiple_choice::CheckedMultipleChoiceOption;
-// use mod_sdk::helpers::query_wasm_smart_raw;
 use mod_sdk::types::QueryResponse;
 
-use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
 use crate::types::CheckProposalStatus;
+use crate::ContractError;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "croncat:mod-dao";
@@ -23,7 +22,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response, StdError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
@@ -74,14 +73,6 @@ fn query_dao_proposal_status(
     status: Status,
 ) -> StdResult<QueryResponse> {
     let dao_addr = deps.api.addr_validate(&dao_address)?;
-    // let bin = query_wasm_smart_raw(
-    //     deps,
-    //     dao_addr,
-    //     to_binary(&QueryDao::Proposal { proposal_id })?,
-    // )?;
-
-    // let resp: ProposalResponse = cosmwasm_std::from_binary(&bin)?;
-
     let resp: ProposalResponse = deps
         .querier
         .query_wasm_smart(dao_addr, &QueryDao::Proposal { proposal_id })?;
