@@ -23,4 +23,8 @@ pub enum QueryMsg {
     // Query proposals and check if there're any passed proposals with Wasm::Migration message
     #[returns(QueryResponse)]
     CheckWithMigration { dao_address: String },
+
+    // Check if the last proposal id is greater than specified value
+    #[returns(QueryResponse)]
+    HasNewProposals { dao_address: String, value: u64 },
 }

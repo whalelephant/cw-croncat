@@ -57,6 +57,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CheckWithMigration { dao_address } => {
             to_binary(&query_proposals_with_migration(deps, dao_address)?)
         }
+        QueryMsg::HasNewProposals { dao_address, value } => {
+            to_binary(&query_has_new(deps, dao_address, value)?)
+        }
     }
 }
 
@@ -189,5 +192,24 @@ fn query_proposals_with_migration(deps: Deps, dao_address: String) -> StdResult<
     Ok(QueryResponse {
         result: !with_migration.is_empty(),
         data: to_binary(&with_migration)?,
+    })
+}
+
+/// Query: HasNewProposals
+/// Used as a helper method to check if the last proposal id is greater than specified value
+///
+/// Response: QueryResponse
+/// Returns true if the last proposal id is greater than sprcified value
+/// Data contains the amount of proposals (and the last proposal id)
+fn query_has_new(deps: Deps, dao_address: String, value: u64) -> StdResult<QueryResponse> {
+    let dao_addr = deps.api.addr_validate(&dao_address)?;
+    // Query the amount of proposals
+    let proposal_count: u64 = deps
+        .querier
+        .query_wasm_smart(dao_addr, &QueryDao::ProposalCount {})?;
+
+    Ok(QueryResponse {
+        result: proposal_count > value,
+        data: to_binary(&proposal_count)?,
     })
 }
