@@ -68,9 +68,11 @@ croncat-tasks = { path = "./contracts/croncat-tasks" }
 mod-balances = { path = "./contracts/mod-balances" }
 mod-dao = { path = "./contracts/mod-dao" }
 mod-nft = { path = "./contracts/mod-nft" }
+croncat-factory = { path = "./contracts/croncat-factory" }
 
 croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
 croncat-sdk-config = { path = "./packages/croncat-sdk-config" }
 croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
 croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }
 mod-sdk = { path = "./packages/mod-sdk" }
+croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }
