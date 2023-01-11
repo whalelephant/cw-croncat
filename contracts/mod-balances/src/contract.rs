@@ -1,13 +1,13 @@
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, StdError};
 use cosmwasm_std::{coin, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
 use mod_sdk::types::QueryResponse;
 
-use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::{BalanceComparator, HasBalanceComparator};
+use crate::ContractError;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "croncat:mod-balances";
@@ -19,7 +19,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response, StdError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
