@@ -1123,7 +1123,6 @@ dependencies = [
  "mod-sdk",
  "schemars",
  "serde",
- "thiserror",
 ]
 
 [[package]]
