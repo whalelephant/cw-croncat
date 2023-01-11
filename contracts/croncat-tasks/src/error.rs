@@ -7,5 +7,11 @@ pub enum ContractError {
     Std(#[from] StdError),
 
     #[error("Boundary is not in valid format")]
-    InvalidBoundary {}
+    InvalidBoundary {},
+
+    #[error("Invalid interval")]
+    InvalidInterval {},
+
+    #[error("Empty balance, must attach funds")]
+    MustAttach {},
 }
