@@ -9,4 +9,3 @@ repository = "https://github.com/CronCats/cw-croncat"
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 thiserror = { workspace = true }
-serde-cw-value = { workspace = true }

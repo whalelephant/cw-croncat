@@ -5,9 +5,9 @@ use cosmwasm_std::{
 };
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
-use mod_sdk::helpers::{bin_to_value, query_wasm_smart_raw};
 use mod_sdk::types::QueryResponse;
 
+use crate::helpers::{bin_to_value, query_wasm_smart_raw};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::GenericQuery;
 use crate::ContractError;
