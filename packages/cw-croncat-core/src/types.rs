@@ -109,10 +109,50 @@ impl BoundaryValidated {
     pub fn is_block_boundary(&self) -> bool {
         self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
     }
+    // pub fn checked_boundary(
+    //     boundary: Option<Boundary>,
+    //     interval: &Interval,
+    // ) -> Result<Self, CoreError> {
+    //     match interval{
+    //         Interval::Once | Interval::Cron(_) =>{
+    //             match boundary {
+    //                 Some(Boundary::Time { start, end })=>{
+    //                     match (start, end) {
+    //                         (Some(s), Some(e)) => {
+    //                             if s.nanos() >= e.nanos() {
+    //                                 return Err(CoreError::InvalidBoundary {});
+    //                             }
+    //                             Ok(Self {
+    //                                 start: Some(s.nanos()),
+    //                                 end: Some(e.nanos()),
+    //                                 is_block_boundary: Some(false),
+    //                             })
+    //                         }
+    //                         _ => Ok(Self {
+    //                             start: start.map(|start| start.nanos()),
+    //                             end: end.map(|end| end.nanos()),
+    //                             is_block_boundary: Some(false),
+    //                         }),
+    //                     }
+    //                 }
+    //                 _ => Ok(Self {
+    //                     start: None,
+    //                     end: None,
+    //                     is_block_boundary: Some(false),
+    //                 })
+    //             }
+    //         }
+    //         Interval::Immediate | Interval::Block(_) =>{
+
+    //         }
+    //         _ => return Err(CoreError::InvalidInterval  {})
+    //     }
+    // }
     pub fn validate_boundary(
         boundary: Option<Boundary>,
         interval: &Interval,
     ) -> Result<Self, CoreError> {
+        
         if let Some(boundary) = boundary {
             match (interval, boundary) {
                 (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {
