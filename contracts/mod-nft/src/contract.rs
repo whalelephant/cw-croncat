@@ -60,7 +60,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 ///
 /// Response: QueryResponse
 /// Returns true if address owns the token
-/// Data contains information about the owner and approvals found for this token
+/// Data contains information about the owner of this token
 /// Return error if token_id or nft_address are wrong
 fn query_nft_owner(
     deps: Deps,
@@ -87,7 +87,7 @@ fn query_nft_owner(
 ///
 /// Response: QueryResponse
 /// Returns true if address owns at least one token for this contracts
-/// Data is empty
+/// Data contains the list of tokens which address owns
 /// Return error if nft_address is wrong
 fn query_addr_has_nft(
     deps: Deps,
