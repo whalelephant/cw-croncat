@@ -466,33 +466,6 @@
         }
       ]
     },
-    "BoundaryValidated": {
-      "type": "object",
-      "properties": {
-        "end": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "is_block_boundary": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "start": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
     "CheckOwnerOfNft": {
       "type": "object",
       "required": [
@@ -541,6 +514,33 @@
         },
         "status": {
           "$ref": "#/definitions/Status"
+        }
+      }
+    },
+    "CheckedBoundary": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "is_block_boundary": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         }
       }
     },
@@ -1668,7 +1668,7 @@
           "$ref": "#/definitions/GenericBalance"
         },
         "boundary": {
-          "$ref": "#/definitions/BoundaryValidated"
+          "$ref": "#/definitions/CheckedBoundary"
         },
         "interval": {
           "description": "Scheduling definitions",
