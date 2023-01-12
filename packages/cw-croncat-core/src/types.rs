@@ -152,7 +152,6 @@ impl BoundaryValidated {
         boundary: Option<Boundary>,
         interval: &Interval,
     ) -> Result<Self, CoreError> {
-        
         if let Some(boundary) = boundary {
             match (interval, boundary) {
                 (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {
