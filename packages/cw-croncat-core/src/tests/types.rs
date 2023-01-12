@@ -1,3 +1,4 @@
+use crate::types::get_next_block_by_offset;
 use crate::{
     error::CoreError,
     msg::TaskRequest,
@@ -11,7 +12,6 @@ use cw20::Cw20CoinVerified;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
-
 #[test]
 fn is_valid_msg_once_block_based() {
     let task = TaskRequest {
@@ -565,4 +565,29 @@ fn hashing() {
     // Tests
     assert_eq!(encoded, task.to_hash());
     assert_eq!(bytes, task.to_hash_vec());
+}
+
+#[test]
+fn test_get_next_block_by_offset() {
+    let boundary = BoundaryValidated {
+        start: Some(1666000),
+        end: Some(1666010),
+        is_block_boundary: Some(true),
+    };
+    let interval = 2;
+    let mut list = Vec::new();
+    let mut block_height=1665998;
+    for _ in 1..20 {
+        let result = get_next_block_by_offset(block_height, boundary, interval);
+        if result.0 > 0 {
+            list.push(result.0);
+        }
+        println!("{} {:?}",block_height,result.0);
+        block_height=block_height + 1
+        
+    }
+    assert_eq!(
+        list,
+        vec![1666000, 1666000, 1666002, 1666002, 1666004, 1666004, 1666006, 1666006, 1666008, 1666008, 1666010, 1666010, 1666010]
+    )
 }
