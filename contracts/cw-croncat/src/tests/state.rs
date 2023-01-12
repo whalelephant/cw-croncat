@@ -4,7 +4,7 @@ use crate::CwCroncat;
 use cosmwasm_std::testing::MockStorage;
 use cosmwasm_std::{coins, Addr, BankMsg, CosmosMsg, Order, StdResult};
 use cw2::ContractVersion;
-use cw_croncat_core::types::{Action, BoundaryValidated, Interval};
+use cw_croncat_core::types::{Action, CheckedBoundary, Interval};
 use cw_storage_plus::Bound;
 
 #[test]
@@ -22,7 +22,7 @@ fn check_task_storage_structure() -> StdResult<()> {
     let task = Task {
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: None,
             end: None,
             is_block_boundary: None,
@@ -38,7 +38,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         transforms: None,
         version: version.version,
     };
-    let task_id_str = "74b918b7c8ff739ff30e47e2053b2be194b365de2825eaa21c37b349871db9bb";
+    let task_id_str = "27a2405dbd09a8948de64d52e9da638b8709eb4f7cadf85a7c203c4b2889c8ae";
     let task_id = task_id_str.to_string().into_bytes();
 
     // create a task

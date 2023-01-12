@@ -13,7 +13,7 @@ use cw_croncat_core::msg::{
 };
 use cw_croncat_core::traits::{BalancesOperations, FindAndMutate, Intervals};
 use cw_croncat_core::types::{
-    gas_amount_with_agent_fee, BoundaryValidated, GenericBalance, SlotType, Task,
+    gas_amount_with_agent_fee, CheckedBoundary, GenericBalance, SlotType, Task,
 };
 
 impl<'a> CwCroncat<'a> {
@@ -247,7 +247,7 @@ impl<'a> CwCroncat<'a> {
         } else {
             vec![]
         };
-        let boundary = BoundaryValidated::validate_boundary(task.boundary, &task.interval)?;
+        let boundary = CheckedBoundary::new(task.boundary, &task.interval)?;
 
         if !task.interval.is_valid() {
             return Err(ContractError::CustomError {

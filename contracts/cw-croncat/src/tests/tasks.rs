@@ -14,7 +14,7 @@ use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
     TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
+use cw_croncat_core::types::{Action, Boundary, CheckedBoundary, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use std::convert::TryInto;
@@ -36,7 +36,7 @@ fn query_task_hash_success() {
     let task = Task {
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: None,
             end: None,
             is_block_boundary: None,
@@ -67,7 +67,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "74b918b7c8ff739ff30e47e2053b2be194b365de2825eaa21c37b349871db9bb",
+        "27a2405dbd09a8948de64d52e9da638b8709eb4f7cadf85a7c203c4b2889c8ae",
         task_hash
     );
 }

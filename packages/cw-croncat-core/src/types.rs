@@ -99,56 +99,18 @@ pub enum Boundary {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct BoundaryValidated {
+pub struct CheckedBoundary {
     pub start: Option<u64>,
     pub end: Option<u64>,
     pub is_block_boundary: Option<bool>,
 }
 
-impl BoundaryValidated {
+impl CheckedBoundary {
     pub fn is_block_boundary(&self) -> bool {
         self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
     }
-    // pub fn checked_boundary(
-    //     boundary: Option<Boundary>,
-    //     interval: &Interval,
-    // ) -> Result<Self, CoreError> {
-    //     match interval{
-    //         Interval::Once | Interval::Cron(_) =>{
-    //             match boundary {
-    //                 Some(Boundary::Time { start, end })=>{
-    //                     match (start, end) {
-    //                         (Some(s), Some(e)) => {
-    //                             if s.nanos() >= e.nanos() {
-    //                                 return Err(CoreError::InvalidBoundary {});
-    //                             }
-    //                             Ok(Self {
-    //                                 start: Some(s.nanos()),
-    //                                 end: Some(e.nanos()),
-    //                                 is_block_boundary: Some(false),
-    //                             })
-    //                         }
-    //                         _ => Ok(Self {
-    //                             start: start.map(|start| start.nanos()),
-    //                             end: end.map(|end| end.nanos()),
-    //                             is_block_boundary: Some(false),
-    //                         }),
-    //                     }
-    //                 }
-    //                 _ => Ok(Self {
-    //                     start: None,
-    //                     end: None,
-    //                     is_block_boundary: Some(false),
-    //                 })
-    //             }
-    //         }
-    //         Interval::Immediate | Interval::Block(_) =>{
 
-    //         }
-    //         _ => return Err(CoreError::InvalidInterval  {})
-    //     }
-    // }
-    pub fn validate_boundary(
+    pub fn new(
         boundary: Option<Boundary>,
         interval: &Interval,
     ) -> Result<Self, CoreError> {
@@ -199,7 +161,7 @@ impl BoundaryValidated {
             Ok(Self {
                 start: None,
                 end: None,
-                is_block_boundary: Some(true), //Boundary isnt provided, so default is block
+                is_block_boundary: Some(!matches!(interval, Interval::Cron(_))), //Boundary isnt provided, so default is block
             })
         }
     }
@@ -413,7 +375,7 @@ pub struct Task {
 
     /// Scheduling definitions
     pub interval: Interval,
-    pub boundary: BoundaryValidated,
+    pub boundary: CheckedBoundary,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -835,7 +797,7 @@ impl ResultFailed for SubMsgResult {
 }
 
 // Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary: CheckedBoundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary.start {
@@ -849,7 +811,7 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
         Some(end) if current_block_height > end => (0, SlotType::Block),
 
         // we ONLY want to catch if we're passed the end block height
-        Some(end) => (std::cmp::min(next_block_height, end), SlotType::Block),
+        Some(end) if next_block_height > end => (end, SlotType::Block),
 
         // immediate needs to return this block + 1
         _ => (next_block_height + 1, SlotType::Block),
@@ -861,7 +823,7 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 // - Block offset will truncate to specific modulo offsets
 pub(crate) fn get_next_block_by_offset(
     block_height: u64,
-    boundary: BoundaryValidated,
+    boundary: CheckedBoundary,
     interval: u64,
 ) -> (u64, SlotType) {
     let current_block_height = block_height;
@@ -906,7 +868,7 @@ pub(crate) fn get_next_block_by_offset(
 // Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
-    boundary: BoundaryValidated,
+    boundary: CheckedBoundary,
     crontab: &str,
     slot_granularity_time: u64,
 ) -> (u64, SlotType) {
@@ -946,7 +908,7 @@ impl Intervals for Interval {
     fn next(
         &self,
         env: &Env,
-        boundary: BoundaryValidated,
+        boundary: CheckedBoundary,
         slot_granularity_time: u64,
     ) -> (u64, SlotType) {
         match self {

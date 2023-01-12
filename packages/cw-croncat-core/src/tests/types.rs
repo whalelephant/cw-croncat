@@ -2,7 +2,7 @@ use crate::types::get_next_block_by_offset;
 use crate::{
     error::CoreError,
     msg::TaskRequest,
-    types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task, Transform},
+    types::{Action, Boundary, CheckedBoundary, GenericBalance, Interval, Task, Transform},
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
@@ -525,7 +525,7 @@ fn hashing() {
     let task = Task {
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: Some(4),
             end: None,
             is_block_boundary: Some(true),
@@ -569,7 +569,7 @@ fn hashing() {
 
 #[test]
 fn test_get_next_block_by_offset() {
-    let boundary = BoundaryValidated {
+    let boundary = CheckedBoundary {
         start: Some(1666000),
         end: Some(1666010),
         is_block_boundary: Some(true),
@@ -582,7 +582,6 @@ fn test_get_next_block_by_offset() {
         if result.0 > 0 {
             list.push(result.0);
         }
-        println!("{} {:?}", block_height, result.0);
         block_height = block_height + 1
     }
     assert_eq!(
@@ -591,5 +590,34 @@ fn test_get_next_block_by_offset() {
             1666000, 1666000, 1666002, 1666002, 1666004, 1666004, 1666006, 1666006, 1666008,
             1666008, 1666010, 1666010, 1666010
         ]
-    )
+    );
+
+    let block_height = 1665998;
+
+    //pass empty boundary check if getting block_height+interval value
+    let empty_boundary = CheckedBoundary {
+        start: None,
+        end: None,
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, empty_boundary, interval);
+    assert_eq!(block_height+interval, result.0);
+
+     let boundary_with_start=CheckedBoundary {
+        start: Some(1666000),
+        end: None,
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, empty_boundary, interval);
+    assert_eq!(boundary_with_start.start.unwrap(), result.0);
+
+    let block_height = 1666008;
+
+    let boundary_with_end=CheckedBoundary {
+        start: None,
+        end:  Some(1666010),
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, boundary_with_end, interval);
+    assert_eq!(boundary_with_end.end.unwrap(), result.0);
 }
