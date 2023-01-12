@@ -138,7 +138,7 @@ fn test_single_check_passed_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckPassedProposals {
+            &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -169,7 +169,7 @@ fn test_single_check_passed_proposals() {
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
-                &QueryMsg::CheckPassedProposals {
+                &QueryMsg::HasPassedProposals {
                     dao_address: govmod_single.to_string(),
                 },
             )
@@ -192,18 +192,17 @@ fn test_single_check_passed_proposals() {
         .unwrap();
     }
 
-    // All passed proposals are executed
-    // There shouldn't be any passed proposals
+    // There're no passed proposals
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckPassedProposals {
+            &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
         )
         .unwrap();
-    assert!(!res.result,);
+    assert!(!res.result);
 }
 
 #[test]
@@ -337,7 +336,7 @@ fn test_multiple_check_passed_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckPassedProposals {
+            &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -367,7 +366,7 @@ fn test_multiple_check_passed_proposals() {
             .wrap()
             .query_wasm_smart(
                 contract_addr.clone(),
-                &QueryMsg::CheckPassedProposals {
+                &QueryMsg::HasPassedProposals {
                     dao_address: govmod_single.to_string(),
                 },
             )
@@ -391,13 +390,12 @@ fn test_multiple_check_passed_proposals() {
         .unwrap();
     }
 
-    // All passed proposals are executed
-    // There shouldn't be any passed proposals
+    // There're no passed proposals
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckPassedProposals {
+            &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
         )

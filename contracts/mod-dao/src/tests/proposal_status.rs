@@ -20,7 +20,7 @@ use crate::{
     },
     types::{
         dao::{AnyChoiceProposal, ProposalResponse, Status},
-        CheckProposalStatus,
+        ProposalStatusMatches,
     },
 };
 
@@ -136,7 +136,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
@@ -175,7 +175,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
@@ -209,7 +209,7 @@ fn test_dao_single_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr,
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Executed,
@@ -355,7 +355,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
@@ -393,7 +393,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Passed,
@@ -428,7 +428,7 @@ fn test_dao_multiple_proposal_ready() {
         .wrap()
         .query_wasm_smart(
             contract_addr,
-            &QueryMsg::CheckProposalStatus(CheckProposalStatus {
+            &QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
                 dao_address: govmod_single.to_string(),
                 proposal_id: 1,
                 status: Status::Executed,

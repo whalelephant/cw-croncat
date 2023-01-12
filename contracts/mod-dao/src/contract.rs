@@ -9,7 +9,7 @@ use mod_sdk::types::QueryResponse;
 
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::types::dao::{ProposalListResponse, ProposalResponse, QueryDao, Status};
-use crate::types::CheckProposalStatus;
+use crate::types::ProposalStatusMatches;
 use crate::ContractError;
 
 // version info for migration info
@@ -41,7 +41,7 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::CheckProposalStatus(CheckProposalStatus {
+        QueryMsg::ProposalStatusMatches(ProposalStatusMatches {
             dao_address,
             proposal_id,
             status,
@@ -51,19 +51,19 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             proposal_id,
             status,
         )?),
-        QueryMsg::CheckPassedProposals { dao_address } => {
+        QueryMsg::HasPassedProposals { dao_address } => {
             to_binary(&query_dao_proposals(deps, dao_address)?)
         }
-        QueryMsg::CheckWithMigration { dao_address } => {
+        QueryMsg::HasPassedProposalWithMigration { dao_address } => {
             to_binary(&query_proposals_with_migration(deps, dao_address)?)
         }
-        QueryMsg::HasNewProposals { dao_address, value } => {
+        QueryMsg::HasProposalsGtId { dao_address, value } => {
             to_binary(&query_has_new(deps, dao_address, value)?)
         }
     }
 }
 
-/// Query: CheckProposalStatus
+/// Query: ProposalStatusMatches
 /// Used as a helper method to check the proposals status
 ///
 /// Response: QueryResponse
@@ -85,7 +85,7 @@ fn query_dao_proposal_status(
     })
 }
 
-/// Query: CheckPassedProposals
+/// Query: HasPassedProposals
 /// Used as a helper method to check if there're any passed proposals
 ///
 /// Response: QueryResponse
@@ -119,7 +119,7 @@ fn query_dao_proposals(deps: Deps, dao_address: String) -> StdResult<QueryRespon
     })
 }
 
-/// Query: CheckWithMigration
+/// Query: HasPassedProposalWithMigration
 /// Used as a helper method to check if there're any passed proposals with Migration message
 ///
 /// Response: QueryResponse
@@ -195,7 +195,7 @@ fn query_proposals_with_migration(deps: Deps, dao_address: String) -> StdResult<
     })
 }
 
-/// Query: HasNewProposals
+/// Query: HasProposalsGtId
 /// Used as a helper method to check if the last proposal id is greater than specified value
 ///
 /// Response: QueryResponse

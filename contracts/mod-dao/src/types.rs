@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use self::dao::Status;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct CheckProposalStatus {
+pub struct ProposalStatusMatches {
     pub dao_address: String,
     pub proposal_id: u64,
     pub status: Status,

@@ -191,7 +191,7 @@ fn test_dao_single_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -223,7 +223,7 @@ fn test_dao_single_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -266,7 +266,7 @@ fn test_dao_single_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -298,7 +298,7 @@ fn test_dao_single_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -563,7 +563,7 @@ fn test_dao_multiple_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -594,7 +594,7 @@ fn test_dao_multiple_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -636,7 +636,7 @@ fn test_dao_multiple_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )
@@ -678,7 +678,7 @@ fn test_dao_multiple_proposals_with_migration() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::CheckWithMigration {
+            &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
         )

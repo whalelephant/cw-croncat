@@ -116,7 +116,7 @@ fn test_dao_single_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 0,
             },
@@ -134,7 +134,7 @@ fn test_dao_single_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 1,
             },
@@ -193,7 +193,7 @@ fn test_dao_single_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 4,
             },
@@ -211,7 +211,7 @@ fn test_dao_single_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 3,
             },
@@ -229,7 +229,7 @@ fn test_dao_single_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 2,
             },
@@ -342,7 +342,7 @@ fn test_dao_multiple_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 0,
             },
@@ -360,7 +360,7 @@ fn test_dao_multiple_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 1,
             },
@@ -457,7 +457,7 @@ fn test_dao_multiple_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 4,
             },
@@ -475,7 +475,7 @@ fn test_dao_multiple_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 3,
             },
@@ -493,7 +493,7 @@ fn test_dao_multiple_has_proposals() {
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
-            &QueryMsg::HasNewProposals {
+            &QueryMsg::HasProposalsGtId {
                 dao_address: govmod_single.to_string(),
                 value: 2,
             },
