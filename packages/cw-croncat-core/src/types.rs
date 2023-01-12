@@ -868,7 +868,6 @@ pub(crate) fn get_next_block_by_offset(
     let modulo_block =
         current_block_height.saturating_sub(current_block_height % interval) + interval;
 
-
     let next_block_height = match boundary.start {
         Some(start) if current_block_height < start => {
             let rem = start % interval;
@@ -880,7 +879,7 @@ pub(crate) fn get_next_block_by_offset(
         }
         _ => modulo_block,
     };
-   
+
     match boundary.end {
         // stop if passed end height
         Some(end) if current_block_height > end => (0, SlotType::Block),
