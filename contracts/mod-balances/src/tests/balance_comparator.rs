@@ -22,7 +22,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
             900_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -38,7 +38,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
             1_000_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -54,7 +54,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
             1_100_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -67,7 +67,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
     let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
         address: ANYONE.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1_000_000u128, "juno".to_string()))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -80,7 +80,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
     let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(1u128, NATIVE_DENOM.to_string()))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -93,7 +93,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
     let msg = QueryMsg::HasBalanceComparator(HasBalanceComparator {
         address: ANOTHER.to_string(),
         required_balance: Balance::Native(NativeBalance(coins(0u128, NATIVE_DENOM.to_string()))),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -109,7 +109,7 @@ fn test_has_balance_comparator_native() -> StdResult<()> {
             1_000_000u128,
             NATIVE_DENOM.to_string(),
         ))),
-        comparator: BalanceComparator::Lt,
+        comparator: BalanceComparator::Gt,
     });
     let res: QueryResponse = app
         .wrap()
@@ -196,7 +196,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(14u128),
         }),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -212,7 +212,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(15u128),
         }),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -228,7 +228,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(16u128),
         }),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -244,7 +244,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(2u128),
         }),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -260,7 +260,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::zero(),
         }),
-        comparator: BalanceComparator::Lte,
+        comparator: BalanceComparator::Gte,
     });
     let res: QueryResponse = app
         .wrap()
@@ -276,7 +276,7 @@ fn test_has_balance_comparator_cw20() -> StdResult<()> {
             address: Addr::unchecked(&cw20_contract),
             amount: Uint128::from(15u128),
         }),
-        comparator: BalanceComparator::Lt,
+        comparator: BalanceComparator::Gt,
     });
     let res: QueryResponse = app
         .wrap()

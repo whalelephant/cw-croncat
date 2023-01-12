@@ -146,10 +146,10 @@ fn query_has_balance_comparator(
     let result = match comparator {
         BalanceComparator::Eq => required_amount == balance_amount,
         BalanceComparator::Ne => required_amount != balance_amount,
-        BalanceComparator::Gt => required_amount > balance_amount,
-        BalanceComparator::Gte => required_amount >= balance_amount,
-        BalanceComparator::Lt => required_amount < balance_amount,
-        BalanceComparator::Lte => required_amount <= balance_amount,
+        BalanceComparator::Gt => required_amount < balance_amount,
+        BalanceComparator::Gte => required_amount <= balance_amount,
+        BalanceComparator::Lt => required_amount > balance_amount,
+        BalanceComparator::Lte => required_amount >= balance_amount,
     };
 
     Ok(QueryResponse {
