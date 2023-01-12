@@ -106,6 +106,7 @@ fn query_get_cw20_balance(
 /// Comparator allows the flexibility of a single method implementation
 /// for all types of comparators: Equal, Not Equal, Greater Than,
 /// Greater Than Equal To, Less Than, Less Than Equal To
+/// If address doesn't exist, the query works as if the balance is zero
 ///
 /// Response: QueryResponse
 /// Will never error, but default to returning false for logical use.
