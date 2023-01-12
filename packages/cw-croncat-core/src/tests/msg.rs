@@ -9,8 +9,8 @@ use crate::{
         TaskRequest, TaskRequestBuilder, TaskResponse,
     },
     types::{
-        Action, Agent, AgentStatus, Boundary, CheckedBoundary, GasPrice, GenericBalance,
-        Interval, SlotType, Task,
+        Action, Agent, AgentStatus, Boundary, CheckedBoundary, GasPrice, GenericBalance, Interval,
+        SlotType, Task,
     },
 };
 

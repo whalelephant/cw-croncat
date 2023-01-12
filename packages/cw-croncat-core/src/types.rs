@@ -110,10 +110,7 @@ impl CheckedBoundary {
         self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
     }
 
-    pub fn new(
-        boundary: Option<Boundary>,
-        interval: &Interval,
-    ) -> Result<Self, CoreError> {
+    pub fn new(boundary: Option<Boundary>, interval: &Interval) -> Result<Self, CoreError> {
         if let Some(boundary) = boundary {
             match (interval, boundary) {
                 (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {

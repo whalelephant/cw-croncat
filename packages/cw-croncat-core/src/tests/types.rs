@@ -601,9 +601,9 @@ fn test_get_next_block_by_offset() {
         is_block_boundary: Some(true),
     };
     let result = get_next_block_by_offset(block_height, empty_boundary, interval);
-    assert_eq!(block_height+interval, result.0);
+    assert_eq!(block_height + interval, result.0);
 
-     let boundary_with_start=CheckedBoundary {
+    let boundary_with_start = CheckedBoundary {
         start: Some(1666000),
         end: None,
         is_block_boundary: Some(true),
@@ -613,9 +613,9 @@ fn test_get_next_block_by_offset() {
 
     let block_height = 1666008;
 
-    let boundary_with_end=CheckedBoundary {
+    let boundary_with_end = CheckedBoundary {
         start: None,
-        end:  Some(1666010),
+        end: Some(1666010),
         is_block_boundary: Some(true),
     };
     let result = get_next_block_by_offset(block_height, boundary_with_end, interval);

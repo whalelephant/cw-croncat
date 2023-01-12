@@ -394,7 +394,7 @@ fn proxy_call_success() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("{} - {}",v.to_string(),value);
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -625,7 +625,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("{} - {}",v.to_string(),value);
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -853,7 +853,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("{} - {}",v.to_string(),value);
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -984,7 +984,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
-                    println!("{} - {}",v.to_string(),value);
+                    println!("{} - {}", v.to_string(), value);
 
                     has_required_attributes = false;
                 }
