@@ -82,7 +82,7 @@ fn query_nft_owner(
     })
 }
 
-/// Query: OwnerOfNft
+/// Query: AddrHasNft
 /// Used as a helper method to check if address owns any nft tokens
 ///
 /// Response: QueryResponse
