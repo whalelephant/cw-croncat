@@ -14,7 +14,7 @@ echo "Initializing vars"
 . $SH_DIR/base/init-vars.sh
 
 usage() {
-  printf "Usage: $SH_DIR/simple-payroll.sh -w -c"
+  printf "Usage: $SH_DIR/start.sh -w -c"
 }
 flags() {
   while test $# -gt 0; do
@@ -78,8 +78,7 @@ if [ $RECREATE_ARTIFACTS == 1 ]; then
     docker run --rm -v "$(pwd)":/code \
       --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-      --platform linux/arm64 \
-      cosmwasm/rust-optimizer$PLATFORM:0.12.8
+      cosmwasm/rust-optimizer$PLATFORM:0.12.11
   fi
   #Download basic implementation of a cw20
   curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm"
