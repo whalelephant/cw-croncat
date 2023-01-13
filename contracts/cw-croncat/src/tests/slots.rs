@@ -254,13 +254,37 @@ fn interval_get_next_block_by_offset() {
             0,
             SlotType::Block,
         ),
+        (
+            Interval::Block(100),
+            CheckedBoundary {
+                start: Some(12345),
+                end: Some(12545),
+                is_block_boundary: Some(true),
+            },
+            12400,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            CheckedBoundary {
+                start: Some(11345),
+                end: Some(11545),
+                is_block_boundary: Some(true),
+            },
+            0,
+            SlotType::Block,
+        )
     ];
+
+    let env = mock_env();
     for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
-        let env = mock_env();
+        
+        println!("Block height={:?}",env.block.height);
         // CHECK IT!
         let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1);
         assert_eq!(outcome_block, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
+       // env.block.height+=1;
     }
 }
 
@@ -383,6 +407,26 @@ fn interval_get_next_cron_time() {
                 is_block_boundary: Some(false),
             },
             0,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            CheckedBoundary {
+                start: Some(1_471_799_600_000_000_000),
+                end: Some(1_471_799_600_000_000_000),
+                is_block_boundary: Some(false),
+            },
+            0,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            CheckedBoundary {
+                start: Some(1_471_797_441_000_000_000),
+                end: Some(1_671_797_441_000_000_000),
+                is_block_boundary: Some(false),
+            },
+            1_571_797_441_000_000_000,
             SlotType::Cron,
         ),
     ];
