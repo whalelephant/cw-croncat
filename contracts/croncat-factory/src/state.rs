@@ -24,4 +24,4 @@ pub const LATEST_ADDRS: Map<&str, Addr> = Map::new("latest_addrs");
 pub const LATEST_VERSIONS: Map<&str, [u8; 2]> = Map::new("latest_versions");
 
 /// Temporary Map reply id to label
-pub const CONTRACT_NAMES: Map<u64, String> = Map::new("contract_labels");
+pub const CONTRACT_NAMES: Map<u64, String> = Map::new("contract_names");
