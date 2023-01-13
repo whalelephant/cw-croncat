@@ -1,9 +1,9 @@
 use cosmwasm_std::{coin, coins, Addr, Empty};
 use cw20::Cw20Coin;
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cw_rules_core::msg::InstantiateMsg;
 
-pub const CREATOR_ADDR: &str = "creator";
+use crate::msg::InstantiateMsg;
+
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN_CW20: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
@@ -19,24 +19,6 @@ pub fn contract_template() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
-pub fn cw_rules_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        crate::contract::execute,
-        crate::contract::instantiate,
-        crate::contract::query,
-    );
-    Box::new(contract)
-}
-
-pub fn cw4_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cw4_group::contract::execute,
-        cw4_group::contract::instantiate,
-        cw4_group::contract::query,
-    );
-    Box::new(contract)
-}
-
 pub fn cw20_template() -> Box<dyn Contract<Empty>> {
     let cw20 = ContractWrapper::new(
         cw20_base::contract::execute,
@@ -44,57 +26,6 @@ pub fn cw20_template() -> Box<dyn Contract<Empty>> {
         cw20_base::contract::query,
     );
     Box::new(cw20)
-}
-
-pub fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cw20_stake::contract::execute,
-        cw20_stake::contract::instantiate,
-        cw20_stake::contract::query,
-    );
-    Box::new(contract)
-}
-
-pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cwd_proposal_single::contract::execute,
-        cwd_proposal_single::contract::instantiate,
-        cwd_proposal_single::contract::query,
-    )
-    .with_reply(cwd_proposal_single::contract::reply)
-    .with_migrate(cwd_proposal_single::contract::migrate);
-    Box::new(contract)
-}
-
-pub fn multiple_proposal_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cwd_proposal_multiple::contract::execute,
-        cwd_proposal_multiple::contract::instantiate,
-        cwd_proposal_multiple::contract::query,
-    )
-    .with_reply(cwd_proposal_multiple::contract::reply)
-    .with_migrate(cwd_proposal_multiple::contract::migrate);
-    Box::new(contract)
-}
-
-pub fn cw_gov_contract() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cwd_core::contract::execute,
-        cwd_core::contract::instantiate,
-        cwd_core::contract::query,
-    )
-    .with_reply(cwd_core::contract::reply);
-    Box::new(contract)
-}
-
-pub fn cw20_staked_balances_voting() -> Box<dyn Contract<Empty>> {
-    let contract = ContractWrapper::new(
-        cwd_voting_cw20_staked::contract::execute,
-        cwd_voting_cw20_staked::contract::instantiate,
-        cwd_voting_cw20_staked::contract::query,
-    )
-    .with_reply(cwd_voting_cw20_staked::contract::reply);
-    Box::new(contract)
 }
 
 fn mock_app() -> App {

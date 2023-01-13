@@ -1,8 +1,5 @@
-mod balance;
 #[cfg(test)]
-mod daodao;
-mod generic;
+mod balance_comparator;
+#[cfg(test)]
+mod get_balances;
 mod helpers;
-#[cfg(test)]
-mod nft;
-mod smart;
