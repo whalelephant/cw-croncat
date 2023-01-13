@@ -41,9 +41,9 @@ mod instantiate_tests {
             min_tasks_per_agent: 3,
             agents_eject_threshold: 600,
             agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
-            cw_rules_addr: Addr::unchecked("cw_rules_addr"),
-            croncat_tasks_addr: Addr::unchecked("croncat_tasks_addr"),
-            croncat_agents_addr: Addr::unchecked("croncat_agents_addr"),
+            croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
+            croncat_tasks_name: "croncat_tasks_name".to_owned(),
+            croncat_agents_name: "croncat_agents_name".to_owned(),
             agent_fee: 5,
             gas_price: Default::default(),
             gas_base_fee: GAS_BASE_FEE,
@@ -64,9 +64,9 @@ mod instantiate_tests {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
-            cw_rules_addr: AGENT0.to_owned(),
-            croncat_tasks_addr: AGENT1.to_owned(),
-            croncat_agents_addr: AGENT2.to_owned(),
+            croncat_factory_addr: AGENT0.to_owned(),
+            croncat_tasks_name: AGENT1.to_owned(),
+            croncat_agents_name: AGENT2.to_owned(),
             owner_id: Some(ANYONE.to_owned()),
             gas_base_fee: Some(Uint64::new(1001)),
             gas_action_fee: Some(Uint64::new(2002)),
@@ -98,9 +98,9 @@ mod instantiate_tests {
             min_tasks_per_agent: 3,
             agents_eject_threshold: 600,
             agent_nomination_duration: 20,
-            cw_rules_addr: Addr::unchecked(AGENT0),
-            croncat_tasks_addr: Addr::unchecked(AGENT1),
-            croncat_agents_addr: Addr::unchecked(AGENT2),
+            croncat_factory_addr: Addr::unchecked(AGENT0),
+            croncat_tasks_name: AGENT1.to_owned(),
+            croncat_agents_name: AGENT2.to_owned(),
             agent_fee: 5,
             gas_price: GasPrice {
                 numerator: 10,
@@ -165,41 +165,7 @@ mod instantiate_tests {
 
         // Bad cw_rules_addr
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            cw_rules_addr: "BAD_INPUT".to_owned(),
-            ..default_instantiate_message()
-        };
-
-        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
-            .unwrap_err()
-            .downcast()
-            .unwrap();
-        assert_eq!(
-            error,
-            ContractError::Std(StdError::generic_err(
-                "Invalid input: address not normalized"
-            ))
-        );
-
-        // Bad croncat_tasks_addr
-        let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            croncat_tasks_addr: "BAD_INPUT".to_owned(),
-            ..default_instantiate_message()
-        };
-
-        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
-            .unwrap_err()
-            .downcast()
-            .unwrap();
-        assert_eq!(
-            error,
-            ContractError::Std(StdError::generic_err(
-                "Invalid input: address not normalized"
-            ))
-        );
-
-        // Bad croncat_agents_addr
-        let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            croncat_agents_addr: "BAD_INPUT".to_owned(),
+            croncat_factory_addr: "BAD_INPUT".to_owned(),
             ..default_instantiate_message()
         };
 
@@ -266,9 +232,9 @@ fn update_config() {
         min_tasks_per_agent: 1,
         agents_eject_threshold: 3,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
-        cw_rules_addr: Addr::unchecked("cw_rules_addr"),
-        croncat_tasks_addr: Addr::unchecked("croncat_tasks_addr"),
-        croncat_agents_addr: Addr::unchecked("croncat_agents_addr"),
+        croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
+        croncat_tasks_name: "croncat_tasks_name".to_owned(),
+        croncat_agents_name: "croncat_agents_name".to_owned(),
         agent_fee: 0,
         gas_price: GasPrice {
             numerator: 555,

@@ -44,9 +44,9 @@ pub fn instantiate(
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
         denom,
-        cw_rules_addr,
-        croncat_tasks_addr,
-        croncat_agents_addr,
+        croncat_factory_addr,
+        croncat_tasks_name,
+        croncat_agents_name,
         owner_id,
         gas_base_fee,
         gas_action_fee,
@@ -73,9 +73,9 @@ pub fn instantiate(
         min_tasks_per_agent: 3,
         agents_eject_threshold: 600,
         agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
-        cw_rules_addr: deps.api.addr_validate(&cw_rules_addr)?,
-        croncat_tasks_addr: deps.api.addr_validate(&croncat_tasks_addr)?,
-        croncat_agents_addr: deps.api.addr_validate(&croncat_agents_addr)?,
+        croncat_factory_addr: deps.api.addr_validate(&croncat_factory_addr)?,
+        croncat_tasks_name,
+        croncat_agents_name,
         agent_fee: 5,
         gas_price,
         gas_base_fee: gas_base_fee.map(Into::into).unwrap_or(GAS_BASE_FEE),
@@ -99,7 +99,6 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
-        // TODO?:.add_attribute("config", format!("{:?}, &config"))
         .add_attribute("action", "instantiate")
         .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner_id", config.owner_id.to_string())
@@ -115,12 +114,12 @@ pub fn instantiate(
             "agent_nomination_duration",
             config.agent_nomination_duration.to_string(),
         )
-        .add_attribute("cw_rules_addr", config.cw_rules_addr.to_string())
-        .add_attribute("croncat_tasks_addr", config.croncat_tasks_addr.to_string())
         .add_attribute(
-            "croncat_agents_addr",
-            config.croncat_agents_addr.to_string(),
+            "croncat_factory_addr",
+            config.croncat_factory_addr.to_string(),
         )
+        .add_attribute("croncat_tasks_name", config.croncat_tasks_name)
+        .add_attribute("croncat_agents_name", config.croncat_agents_name)
         .add_attribute("agent_fee", config.agent_fee.to_string())
         .add_attribute("gas_price", format!("{:?}", config.gas_price))
         .add_attribute("gas_base_fee", config.gas_base_fee.to_string())
@@ -238,9 +237,9 @@ pub fn execute_update_config(
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agents_eject_threshold: agents_eject_threshold.unwrap_or(config.agents_eject_threshold),
             agent_nomination_duration: config.agent_nomination_duration,
-            cw_rules_addr: config.cw_rules_addr,
-            croncat_tasks_addr: config.croncat_tasks_addr,
-            croncat_agents_addr: config.croncat_agents_addr,
+            croncat_factory_addr: config.croncat_factory_addr,
+            croncat_tasks_name: config.croncat_tasks_name,
+            croncat_agents_name: config.croncat_agents_name,
             agent_fee: agent_fee.unwrap_or(config.agent_fee),
             gas_price,
             gas_base_fee: gas_base_fee.unwrap_or(config.gas_base_fee),
@@ -258,7 +257,44 @@ pub fn execute_update_config(
 
     Ok(Response::new()
         .add_attribute("action", "update_config")
-        .add_attribute("config", format!("{new_config:?}")))
+        .add_attribute("action", "instantiate")
+        .add_attribute("paused", new_config.paused.to_string())
+        .add_attribute("owner_id", new_config.owner_id.to_string())
+        .add_attribute(
+            "min_tasks_per_agent",
+            new_config.min_tasks_per_agent.to_string(),
+        )
+        .add_attribute(
+            "agents_eject_threshold",
+            new_config.agents_eject_threshold.to_string(),
+        )
+        .add_attribute(
+            "agent_nomination_duration",
+            new_config.agent_nomination_duration.to_string(),
+        )
+        .add_attribute(
+            "croncat_factory_addr",
+            new_config.croncat_factory_addr.to_string(),
+        )
+        .add_attribute("croncat_tasks_name", new_config.croncat_tasks_name)
+        .add_attribute("croncat_agents_name", new_config.croncat_agents_name)
+        .add_attribute("agent_fee", new_config.agent_fee.to_string())
+        .add_attribute("gas_price", format!("{:?}", new_config.gas_price))
+        .add_attribute("gas_base_fee", new_config.gas_base_fee.to_string())
+        .add_attribute("gas_action_fee", new_config.gas_action_fee.to_string())
+        .add_attribute("gas_query_fee", new_config.gas_query_fee.to_string())
+        .add_attribute(
+            "gas_wasm_query_fee",
+            new_config.gas_wasm_query_fee.to_string(),
+        )
+        .add_attribute(
+            "slot_granularity_time",
+            new_config.slot_granularity_time.to_string(),
+        )
+        .add_attribute("cw20_whitelist", format!("{:?}", new_config.cw20_whitelist))
+        .add_attribute("native_denom", new_config.native_denom.to_string())
+        .add_attribute("balancer", format!("{:?}", new_config.balancer))
+        .add_attribute("limit", new_config.limit.to_string()))
 }
 
 /// Execute: UpdateConfig

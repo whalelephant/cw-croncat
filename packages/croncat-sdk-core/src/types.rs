@@ -76,9 +76,9 @@ pub struct Config {
     // The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     // Value is in seconds
     pub agent_nomination_duration: u16,
-    pub cw_rules_addr: Addr,
-    pub croncat_tasks_addr: Addr,
-    pub croncat_agents_addr: Addr,
+    pub croncat_factory_addr: Addr,
+    pub croncat_tasks_name: String,
+    pub croncat_agents_name: String,
 
     // Economics
     pub agent_fee: u64,

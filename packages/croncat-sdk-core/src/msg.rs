@@ -7,13 +7,12 @@ use cw20::{Cw20Coin, Cw20CoinVerified};
 pub struct ManagerInstantiateMsg {
     /// The native denominator of current chain
     pub denom: String,
-    /// Address of the `cw_rules_addr` contract
-    // TODO: this will be actually multiple mod-contracts
-    pub cw_rules_addr: String,
-    /// Address of the Tasks contract
-    pub croncat_tasks_addr: String,
-    /// Address of the Agents contract
-    pub croncat_agents_addr: String,
+    /// Address of the factory contract
+    pub croncat_factory_addr: String,
+    /// Name of the key for raw querying Tasks address from the factory
+    pub croncat_tasks_name: String,
+    /// Name of the key for raw querying Agents address from the factory
+    pub croncat_agents_name: String,
     /// Address of the contract owner, defaults to the sender
     pub owner_id: Option<String>,
     /// Gas needed to cover [ExecuteMsg::ProxyCall] without any action
