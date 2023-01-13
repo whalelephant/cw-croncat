@@ -20,14 +20,14 @@ pub enum FactoryExecuteMsg {
 
     Remove {
         contract_name: String,
-        version: [u8;2]
+        version: [u8; 2],
     },
 
     UpdateMetadataChangelog {
         contract_name: String,
-        version: [u8;2],
+        version: [u8; 2],
         new_changelog: Option<String>,
-    }
+    },
 }
 // TODO: migrate
 

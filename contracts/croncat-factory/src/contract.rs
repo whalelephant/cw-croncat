@@ -65,7 +65,7 @@ pub fn instantiate(
         .owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or(info.sender.clone());
+        .unwrap_or_else(|| info.sender.clone());
     CONFIG.save(deps.storage, &Config { owner_addr })?;
 
     CONTRACT_NAMES.save(
