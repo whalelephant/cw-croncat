@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::InstantiateMsg,
-    types::{BoundaryValidated, Interval, Task},
+    types::{CheckedBoundary, Interval, Task},
 };
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 use dao_voting::threshold::{PercentageThreshold, Threshold};
@@ -331,7 +331,7 @@ pub fn default_task() -> Task {
     Task {
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Once,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: None,
             end: None,
             is_block_boundary: Some(true),

@@ -9,8 +9,8 @@ use crate::{
         TaskRequest, TaskRequestBuilder, TaskResponse,
     },
     types::{
-        Action, Agent, AgentStatus, Boundary, BoundaryValidated, GasPrice, GenericBalance,
-        Interval, SlotType, Task,
+        Action, Agent, AgentStatus, Boundary, CheckedBoundary, GasPrice, GenericBalance, Interval,
+        SlotType, Task,
     },
 };
 
@@ -41,7 +41,7 @@ fn everything_can_be_de_serialized() {
     let task = Task {
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: Some(54),
             end: Some(44),
             is_block_boundary: Some(true),

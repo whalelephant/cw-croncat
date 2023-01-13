@@ -69,7 +69,7 @@ impl<'a> CwCroncat<'a> {
                 slot,
             )?
             .ok_or(ContractError::NoTaskFound {})?;
-        //Balanacer gives not task to this agent, return error
+        //Balanacer gives no task to this agent, return error
         let has_tasks = balancer_result.has_any_slot_tasks(slot_type);
         if !has_tasks {
             return Err(ContractError::NoTaskFound {});

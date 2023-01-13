@@ -99,20 +99,18 @@ pub enum Boundary {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct BoundaryValidated {
+pub struct CheckedBoundary {
     pub start: Option<u64>,
     pub end: Option<u64>,
     pub is_block_boundary: Option<bool>,
 }
 
-impl BoundaryValidated {
+impl CheckedBoundary {
     pub fn is_block_boundary(&self) -> bool {
         self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
     }
-    pub fn validate_boundary(
-        boundary: Option<Boundary>,
-        interval: &Interval,
-    ) -> Result<Self, CoreError> {
+
+    pub fn new(boundary: Option<Boundary>, interval: &Interval) -> Result<Self, CoreError> {
         if let Some(boundary) = boundary {
             match (interval, boundary) {
                 (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {
@@ -160,7 +158,7 @@ impl BoundaryValidated {
             Ok(Self {
                 start: None,
                 end: None,
-                is_block_boundary: Some(true), //Boundary isnt provided, so default is block
+                is_block_boundary: Some(!matches!(interval, Interval::Cron(_))), //Boundary isnt provided, so default is block
             })
         }
     }
@@ -374,7 +372,7 @@ pub struct Task {
 
     /// Scheduling definitions
     pub interval: Interval,
-    pub boundary: BoundaryValidated,
+    pub boundary: CheckedBoundary,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -796,7 +794,7 @@ impl ResultFailed for SubMsgResult {
 }
 
 // Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary: CheckedBoundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary.start {
@@ -811,6 +809,7 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) if next_block_height > end => (end, SlotType::Block),
+
         // immediate needs to return this block + 1
         _ => (next_block_height + 1, SlotType::Block),
     }
@@ -819,15 +818,20 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 // So either:
 // - Boundary specifies a start/end that block offsets can be computed from
 // - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
-    let current_block_height = env.block.height;
-    let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
+pub(crate) fn get_next_block_by_offset(
+    block_height: u64,
+    boundary: CheckedBoundary,
+    interval: u64,
+) -> (u64, SlotType) {
+    let current_block_height = block_height;
+    let modulo_block =
+        current_block_height.saturating_sub(current_block_height % interval) + interval;
 
     let next_block_height = match boundary.start {
         Some(start) if current_block_height < start => {
-            let rem = start % block;
+            let rem = start % interval;
             if rem > 0 {
-                start.saturating_sub(rem) + block
+                start.saturating_sub(rem) + interval
             } else {
                 start
             }
@@ -841,12 +845,16 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) => {
-            let end_height = if let Some(rem) = end.checked_rem(block) {
+            let end_height = if let Some(rem) = end.checked_rem(interval) {
                 end.saturating_sub(rem)
             } else {
                 end
             };
-            (end_height, SlotType::Block)
+            // we ONLY want to catch if we're passed the end block height
+            (
+                std::cmp::min(next_block_height, end_height),
+                SlotType::Block,
+            )
         }
 
         None => (next_block_height, SlotType::Block),
@@ -857,7 +865,7 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 // Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
-    boundary: BoundaryValidated,
+    boundary: CheckedBoundary,
     crontab: &str,
     slot_granularity_time: u64,
 ) -> (u64, SlotType) {
@@ -897,7 +905,7 @@ impl Intervals for Interval {
     fn next(
         &self,
         env: &Env,
-        boundary: BoundaryValidated,
+        boundary: CheckedBoundary,
         slot_granularity_time: u64,
     ) -> (u64, SlotType) {
         match self {
@@ -920,7 +928,7 @@ impl Intervals for Interval {
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
+            Interval::Block(block) => get_next_block_by_offset(env.block.height, boundary, *block),
         }
     }
 

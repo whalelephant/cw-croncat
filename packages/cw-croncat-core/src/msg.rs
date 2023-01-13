@@ -1,7 +1,7 @@
 use crate::error::CoreError;
 use crate::traits::Intervals;
 use crate::types::{
-    Action, AgentStatus, Boundary, BoundaryValidated, GasPrice, GenericBalance, Interval, Task,
+    Action, AgentStatus, Boundary, CheckedBoundary, GasPrice, GenericBalance, Interval, Task,
     Transform,
 };
 use crate::types::{Agent, SlotType};
@@ -312,7 +312,7 @@ impl TaskRequestBuilder {
         if !self.interval.is_valid() {
             return Err(CoreError::InvalidInterval {});
         }
-        BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
+        CheckedBoundary::new(self.boundary, &self.interval)?;
 
         Ok(TaskRequest {
             interval: self.interval.clone(),
@@ -390,7 +390,7 @@ impl From<Task> for TaskResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start: None,
                     end: None,
                     is_block_boundary: None,
@@ -398,7 +398,7 @@ impl From<Task> for TaskResponse {
                 _,
             ) => None,
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start,
                     end,
                     is_block_boundary: _,
@@ -409,7 +409,7 @@ impl From<Task> for TaskResponse {
                 end: end.map(Timestamp::from_nanos),
             }),
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start,
                     end,
                     is_block_boundary: _,
@@ -440,7 +440,7 @@ impl From<Task> for TaskWithQueriesResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start: None,
                     end: None,
                     is_block_boundary: None,
@@ -448,7 +448,7 @@ impl From<Task> for TaskWithQueriesResponse {
                 _,
             ) => None,
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start,
                     end,
                     is_block_boundary: _,
@@ -459,7 +459,7 @@ impl From<Task> for TaskWithQueriesResponse {
                 end: end.map(Timestamp::from_nanos),
             }),
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start,
                     end,
                     is_block_boundary: _,

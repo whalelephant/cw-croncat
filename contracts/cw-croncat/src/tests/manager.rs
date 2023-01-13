@@ -257,7 +257,7 @@ fn proxy_call_success() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
+        "c67daffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -394,6 +394,7 @@ fn proxy_call_success() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -516,7 +517,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "ed4e2f3e3bd72f982145b04fdc4ffca4a03df10bb95b8c7f807b4f06a5b98f91".to_string();
+        "0efd342012e0e2791902f167d9b87547fd73064690a8dc81d612704c89d6c77c".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let validator = String::from("you");
@@ -624,6 +625,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -744,7 +746,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "53b21f5454aa8fd2df46ffb4a07fc45477e4ff1a1b8fe0771376d67eaaea4dcb".to_string();
+        "c67daffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -851,6 +853,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("{} - {}", v.to_string(), value);
                     has_required_attributes = false;
                 }
             } else {
@@ -873,7 +876,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "7d125c998e4e105af366c2a66bdc09bf2b52275f5b400033684484b0348927df".to_string();
+        "48a8dec99cd112818db4a74ef3e84fb10d524203aaecbaccd28565627062f65f".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -981,6 +984,8 @@ fn proxy_callback_time_slots() -> StdResult<()> {
         if let Some(_key) = attr_key {
             if let Some(value) = attr_value {
                 if v.to_string() != value {
+                    println!("{} - {}", v.to_string(), value);
+
                     has_required_attributes = false;
                 }
             } else {

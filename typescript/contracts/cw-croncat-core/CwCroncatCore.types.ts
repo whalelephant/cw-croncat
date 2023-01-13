@@ -384,7 +384,7 @@ export interface GetWalletBalancesResponse {
 export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
-  boundary: BoundaryValidated;
+  boundary: CheckedBoundary;
   interval: Interval;
   owner_id: Addr;
   queries?: CroncatQuery[] | null;
@@ -394,7 +394,7 @@ export interface Task {
   version: string;
   [k: string]: unknown;
 }
-export interface BoundaryValidated {
+export interface CheckedBoundary {
   end?: number | null;
   is_block_boundary?: boolean | null;
   start?: number | null;
