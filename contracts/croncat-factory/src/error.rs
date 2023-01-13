@@ -9,4 +9,13 @@ pub enum ContractError {
 
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
+
+    #[error("Unauthorized")]
+    Unauthorized {},
+
+    #[error("Unknown contract name")]
+    UnknownContract {},
+
+    #[error("Can't remove latest version")]
+    LatestVersionRemove {},
 }

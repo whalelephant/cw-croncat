@@ -3,33 +3,74 @@ use cosmwasm_std::{Addr, Binary};
 
 #[cw_serde]
 pub struct FactoryInstantiateMsg {
+    pub owner_addr: Option<String>,
     pub manager_module_instantiate_info: ModuleInstantiateInfo,
     pub tasks_module_instantiate_info: ModuleInstantiateInfo,
     pub agents_module_instantiate_info: ModuleInstantiateInfo,
 
-    pub query_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
+    pub library_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
 }
 
 #[cw_serde]
-pub struct FactoryExecuteMsg {
+pub enum FactoryExecuteMsg {
+    Deploy {
+        kind: VersionKind,
+        module_instantiate_info: ModuleInstantiateInfo,
+    },
 
+    Remove {
+        contract_name: String,
+        version: [u8;2]
+    },
+
+    UpdateMetadataChangelog {
+        contract_name: String,
+        version: [u8;2],
+        new_changelog: Option<String>,
+    }
 }
+// TODO: migrate
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum FactoryQueryMsg {
-    #[returns(Addr)]
-    ContractAddr { label: String },
-    #[returns(ContractMetadata)]
-    ContractMetadata { label: String },
-    #[returns(Vec<(String,Addr)>)]
-    ContractAddrs {},
-    #[returns[Vec<(String,ContractMetadata)>]]
-    ContractMetadatas {},
+    #[returns[Vec<EntryResponse>]]
+    LatestContracts {},
+
+    #[returns[Option<ContractMetadataResponse>]]
+    LatestContract { contract_name: String },
+
+    #[returns[Vec<ContractMetadataResponse>]]
+    VersionsByContractName { contract_name: String },
+
+    #[returns[Vec<String>]]
+    ContractNames {},
+
+    #[returns[Vec<EntryResponse>]]
+    AllEntries {},
+}
+
+#[cw_serde]
+pub struct ContractMetadataResponse {
+    pub kind: VersionKind,
+    pub code_id: u64,
+    pub contract_addr: Addr,
+    pub version: [u8; 2],
+    pub commit_id: String,
+    pub checksum: String,
+    pub changelog_url: Option<String>,
+    pub schema: String,
+}
+
+#[cw_serde]
+pub struct EntryResponse {
+    pub contract_name: String,
+    pub metadata: ContractMetadataResponse,
 }
 
 #[cw_serde]
 pub struct ContractMetadata {
+    pub kind: VersionKind,
     /// Code ID of the contract to be instantiated.
     pub code_id: u64,
 
@@ -39,11 +80,23 @@ pub struct ContractMetadata {
     /// git commit hash
     pub commit_id: String,
 
+    /// proof of deployed code
+    pub checksum: String,
+
     /// public link to a README about this version
     pub changelog_url: Option<String>,
 
     /// types/schema - helps keep UI/clients backward compatible
     pub schema: String,
+}
+
+#[cw_serde]
+pub enum VersionKind {
+    Library {},
+    Manager {},
+    Tasks {},
+    Agents {},
+    // Recipes?
 }
 
 // Reference: https://github.com/DA0-DA0/dao-contracts/blob/fa567797e2f42e70296a2d6f889f341ff80f0695/packages/dao-interface/src/lib.rs#L17
@@ -69,6 +122,9 @@ pub struct ModuleInstantiateInfo {
     /// git commit hash
     pub commit_id: String,
 
+    /// proof of deployed code
+    pub checksum: String,
+
     /// public link to a README about this version
     pub changelog_url: Option<String>,
 
@@ -77,6 +133,7 @@ pub struct ModuleInstantiateInfo {
 
     /// Instantiate message to be used to create the contract.
     pub msg: Binary,
+
     /// Label for the instantiated contract.
     pub label: String,
 }
