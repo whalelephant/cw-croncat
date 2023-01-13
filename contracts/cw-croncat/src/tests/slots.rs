@@ -273,18 +273,17 @@ fn interval_get_next_block_by_offset() {
             },
             0,
             SlotType::Block,
-        )
+        ),
     ];
 
     let env = mock_env();
     for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
-        
-        println!("Block height={:?}",env.block.height);
+        println!("Block height={:?}", env.block.height);
         // CHECK IT!
         let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1);
         assert_eq!(outcome_block, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
-       // env.block.height+=1;
+        // env.block.height+=1;
     }
 }
 
