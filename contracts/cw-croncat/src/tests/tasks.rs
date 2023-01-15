@@ -67,7 +67,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "27a2405dbd09a8948de64d52e9da638b8709eb4f7cadf85a7c203c4b2889c8ae",
+        "atom:05dbd09a8948de64d52e9da638b8709eb4f7cadf85a7c203c4b2889c8ae",
         task_hash
     );
 }
@@ -608,6 +608,7 @@ fn check_task_create_success() -> StdResult<()> {
         )
         .unwrap();
     assert!(new_task.is_some());
+    println!("new_task {:?} {:?}", new_task, task_hash.clone());
     if let Some(t) = new_task {
         assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
         assert_eq!(Interval::Immediate, t.interval);

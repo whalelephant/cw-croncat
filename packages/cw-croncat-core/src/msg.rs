@@ -421,7 +421,7 @@ impl From<Task> for TaskResponse {
             }),
         };
         TaskResponse {
-            task_hash: task.to_hash(),
+            task_hash: task.to_hash(None),
             owner_id: task.owner_id,
             interval: task.interval,
             boundary,
@@ -471,7 +471,7 @@ impl From<Task> for TaskWithQueriesResponse {
             }),
         };
         TaskWithQueriesResponse {
-            task_hash: task.to_hash(),
+            task_hash: task.to_hash(None),
             interval: task.interval,
             boundary,
             queries: task.queries,

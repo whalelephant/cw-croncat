@@ -7,7 +7,7 @@ use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_rules_core::types::CroncatQuery;
 use generic_query::PathToValue;
-use hex::encode;
+use hex::ToHex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -395,7 +395,7 @@ pub struct Task {
 
 impl Task {
     /// Get the hash of a task based on parameters
-    pub fn to_hash(&self) -> String {
+    pub fn to_hash(&self, prefix: Option<String>) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}{:?}",
             self.owner_id,
@@ -407,11 +407,23 @@ impl Task {
         );
 
         let hash = Sha256::digest(message.as_bytes());
-        encode(hash)
+        let encoded: String = hash.encode_hex();
+
+        // Return prefixed hash, since multi-chain tasks require simpler identification
+        // Using the specified native_denom, if none, no prefix
+        // Example:
+        // No prefix:   fca49b82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        // with prefix: stars:82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        if let Some(prefix) = prefix {
+            let (_, l) = encoded.split_at(prefix.len() + 1);
+            format!("{}:{}", prefix, l)
+        } else {
+            encoded
+        }
     }
     /// Get the hash of a task based on parameters
-    pub fn to_hash_vec(&self) -> Vec<u8> {
-        self.to_hash().into_bytes()
+    pub fn to_hash_vec(&self, prefix: Option<String>) -> Vec<u8> {
+        self.to_hash(prefix).into_bytes()
     }
 
     pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {

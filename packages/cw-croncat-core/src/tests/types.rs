@@ -560,11 +560,18 @@ fn hashing() {
     let hash = Sha256::digest(message.as_bytes());
 
     let encoded: String = hash.encode_hex();
-    let bytes = encoded.as_bytes();
+    let bytes = encoded.clone().into_bytes();
+
+    let prefix = "atom".to_string();
+    let (_, l) = encoded.split_at(prefix.len() + 1);
+    let encoded_prefix = format!("{}:{}", prefix, l);
+    let bytes_prefix = encoded_prefix.clone().into_bytes();
 
     // Tests
-    assert_eq!(encoded, task.to_hash());
-    assert_eq!(bytes, task.to_hash_vec());
+    assert_eq!(encoded, task.to_hash(None));
+    assert_eq!(bytes, task.to_hash_vec(None));
+    assert_eq!(encoded_prefix, task.to_hash(Some(prefix.clone())));
+    assert_eq!(bytes_prefix, task.to_hash_vec(Some(prefix)));
 }
 
 #[test]

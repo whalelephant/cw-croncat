@@ -25,6 +25,7 @@ impl<'a> CwCroncat<'a> {
         let agent = self.check_agent(deps.as_ref().storage, &info)?;
 
         let cfg: Config = self.config.load(deps.storage)?;
+        let hash_prefix = Some(cfg.native_denom.clone());
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
@@ -75,82 +76,6 @@ impl<'a> CwCroncat<'a> {
             return Err(ContractError::NoTaskFound {});
         }
 
-        // ----------------------------------------------------
-        // TODO: FINISH!!!!!!
-        // AGENT Task Allowance Logic: see line 339
-        // ----------------------------------------------------
-
-        // self.check_bank_msg(deps.as_ref(), &info, &env, &task)?;
-
-        // TODO: Bring this back!
-        // // Fee breakdown:
-        // // - Used Gas: Task Txn Fee Cost
-        // // - Agent Fee: Incentivize Execution SLA
-        // //
-        // // Task Fee Examples:
-        // // Total Fee = Gas Fee + Agent Fee
-        // // Total Balance = Task Deposit + Total Fee
-        // //
-        // // NOTE: Gas cost includes the cross-contract call & internal logic of this contract.
-        // // Direct contract gas fee will be lower than task execution costs, however
-        // // we require the task owner to appropriately estimate gas for overpayment.
-        // // The gas overpayment will also accrue to the agent since there is no way to read
-        // // how much gas was actually used on callback.
-        // let call_fee_used = u128::from(task.gas).saturating_mul(self.gas_price);
-        // let call_total_fee = call_fee_used.saturating_add(self.agent_fee);
-        // let call_total_balance = task.deposit.0.saturating_add(call_total_fee);
-
-        // // safety check and not burn too much gas.
-        // if call_total_balance > task.total_deposit.0 {
-        //     log!("Not enough task balance to execute task, exiting");
-        //     // Process task exit, if no future task can execute
-        //     return self.exit_task(hash);
-        // }
-
-        // TODO: Bring this back!
-        // // Update agent storage
-        // // Increment agent reward & task count
-        // // Reward for agent MUST include the amount of gas used as a reimbursement
-        // agent.balance = U128::from(agent.balance.0.saturating_add(call_total_fee));
-        // agent.total_tasks_executed = U128::from(agent.total_tasks_executed.0.saturating_add(1));
-        // self.available_balance = self.available_balance.saturating_sub(call_total_fee);
-
-        // TODO: Bring this back!
-        // // Reset missed slot, if any
-        // if agent.last_missed_slot != 0 {
-        //     agent.last_missed_slot = 0;
-        // }
-        // self.agents.insert(&env::signer_account_id(), &agent);
-
-        // TODO: Bring this back!
-        // // Decrease task balance, Update task storage
-        // task.total_deposit = U128::from(task.total_deposit.0.saturating_sub(call_total_balance));
-        // self.tasks.insert(&hash, &task);
-
-        // TODO: Move to external rule query handler
-        // Proceed to query loops if rules are found in the task
-        // Each rule is chained into the next, then evaluated if response is true before proceeding
-        // let mut rule_responses: Vec<Attribute> = vec![];
-        // if task.rules.is_some() {
-        //     let mut rule_success: bool = false;
-        //     // let mut previous_msg: Option<Binary>;
-        //     for (idx, rule) in task.clone().rules.unwrap().iter().enumerate() {
-        //         let rule_res: RuleResponse = deps
-        //             .querier
-        //             .query_wasm_smart(&rule.contract_addr, &rule.msg)?;
-        //         println!("{:?}", rule_res);
-        //         rule_success = rule_res.0;
-
-        //         // TODO: needs better approach
-        //         d.push(Attribute::new(idx.to_string(), format!("{:?}", rule_res.1)));
-        //     }
-        //     if !rule_success {
-        //         return Err(ContractError::CustomError {
-        //             val: "Rule evaluated to false".to_string(),
-        //         });
-        //     }
-        // }
-
         // Decrease cw20 balances for this call
         // TODO: maybe save task_cw20_balance_uses in the `Task` itself
         // let task_cw20_balance_uses = task.task_cw20_balance_uses(deps.api)?;
@@ -190,7 +115,7 @@ impl<'a> CwCroncat<'a> {
             .add_attribute("agent", info.sender)
             .add_attribute("slot_id", slot_id.to_string())
             .add_attribute("slot_kind", format!("{:?}", slot_type))
-            .add_attribute("task_hash", task.to_hash())
+            .add_attribute("task_hash", task.to_hash(hash_prefix))
             .add_submessages(sub_msgs);
         Ok(final_res)
     }
@@ -331,14 +256,14 @@ impl<'a> CwCroncat<'a> {
         task: Task,
         queue_item: QueueItem,
     ) -> Result<Response, ContractError> {
-        let task_hash = task.to_hash();
         // TODO: How can we compute gas & fees paid on this txn?
         // let out_of_funds = call_total_balance > task.total_deposit;
-
         let agent_id = queue_item.agent_id.ok_or(ContractError::Unauthorized {})?;
 
         // Parse interval into a future timestamp, then convert to a slot
         let cfg: Config = self.config.load(deps.storage)?;
+        let hash_prefix = Some(cfg.native_denom);
+        let task_hash = task.to_hash(hash_prefix);
         let (next_id, slot_kind) =
             task.interval
                 .next(&env, task.boundary, cfg.slot_granularity_time);
@@ -510,7 +435,7 @@ impl<'a> CwCroncat<'a> {
     // pub(crate) fn delete_non_recurring(&self, storage: &mut dyn Storage, task: &Task, response: Response, reply_submsg_failed: bool) -> Result<Response, ContractError> {
     //     if task.interval == Interval::Once || (task.stop_on_fail && reply_submsg_failed) {
     //         // Process task exit, if no future task can execute
-    //         let rt = self.remove_task(storage, task.to_hash());
+    //         let rt = self.remove_task(storage, task.to_hash()Some(cfg.native_denom));
     //         if let Ok(..) = rt {
     //             let resp = rt.unwrap();
     //             response = response

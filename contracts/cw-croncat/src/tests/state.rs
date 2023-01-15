@@ -44,7 +44,7 @@ fn check_task_storage_structure() -> StdResult<()> {
     // create a task
     let res = store
         .tasks
-        .update(&mut storage, &task.to_hash_vec(), |old| match old {
+        .update(&mut storage, &task.to_hash_vec(None), |old| match old {
             Some(_) => Err(ContractError::CustomError {
                 val: "Already exists".to_string(),
             }),
@@ -69,7 +69,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         .tasks
         .range(&mut storage, None, None, Order::Ascending)
         .take(10)
-        .map(|x| x.map(|(_, task)| task.to_hash()))
+        .map(|x| x.map(|(_, task)| task.to_hash(None)))
         .collect();
     assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 
