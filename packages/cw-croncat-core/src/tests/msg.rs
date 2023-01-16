@@ -62,6 +62,7 @@ fn everything_can_be_de_serialized() {
     let config_response = GetConfigResponse {
         paused: true,
         owner_id: Addr::unchecked("bob"),
+        chain_name: "atom".to_string(),
         min_tasks_per_agent: 5,
         agent_active_indices: vec![(SlotType::Block, 10, 5)],
         agents_eject_threshold: 5,

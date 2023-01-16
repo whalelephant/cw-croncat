@@ -37,6 +37,7 @@ pub fn mock_init(store: &CwCroncat, deps: DepsMut<Empty>) -> Result<Response, Co
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
+        chain_name: "atom".to_string(),
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
@@ -177,6 +178,7 @@ pub fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
         .unwrap();
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
+        chain_name: "atom".to_string(),
         cw_rules_addr: cw_rules_addr.to_string(),
         owner_id: Some(owner_addr.to_string()),
         gas_base_fee: None,

@@ -131,11 +131,12 @@ exports.CwCroncatCoreQueryClient = CwCroncatCoreQueryClient;
 class CwCroncatCoreClient extends CwCroncatCoreQueryClient {
     constructor(client, sender, contractAddress) {
         super(client, contractAddress);
-        this.updateSettings = ({ agentFee, agentsEjectThreshold, gasActionFee, gasBaseFee, gasPrice, gasQueryFee, gasWasmQueryFee, minTasksPerAgent, ownerId, paused, proxyCallbackGas, slotGranularityTime }, fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
+        this.updateSettings = ({ agentFee, agentsEjectThreshold, chainName, gasActionFee, gasBaseFee, gasPrice, gasQueryFee, gasWasmQueryFee, minTasksPerAgent, ownerId, paused, proxyCallbackGas, slotGranularityTime }, fee = "auto", memo, funds) => __awaiter(this, void 0, void 0, function* () {
             return yield this.client.execute(this.sender, this.contractAddress, {
                 update_settings: {
                     agent_fee: agentFee,
                     agents_eject_threshold: agentsEjectThreshold,
+                    chain_name: chainName,
                     gas_action_fee: gasActionFee,
                     gas_base_fee: gasBaseFee,
                     gas_price: gasPrice,

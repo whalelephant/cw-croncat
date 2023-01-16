@@ -15,6 +15,7 @@ fn update_settings() {
 
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
+        chain_name: "atom".to_string(),
         cw_rules_addr: "todo".to_string(),
         owner_id: None,
         gas_base_fee: None,
@@ -37,6 +38,7 @@ fn update_settings() {
     let payload = ExecuteMsg::UpdateSettings {
         paused: Some(true),
         owner_id: None,
+        chain_name: None,
         // treasury_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
@@ -102,6 +104,7 @@ fn move_balances_auth_checks() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
+        chain_name: "atom".to_string(),
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
@@ -118,6 +121,7 @@ fn move_balances_auth_checks() {
     let payload = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         // treasury_id: Some(Addr::unchecked("money_bags")),
         agent_fee: None,
         min_tasks_per_agent: None,
@@ -175,6 +179,7 @@ fn move_balances_native() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
+        chain_name: "atom".to_string(),
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
@@ -191,6 +196,7 @@ fn move_balances_native() {
     let payload = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         // treasury_id: Some(money_bags.clone()),
         agent_fee: None,
         min_tasks_per_agent: None,

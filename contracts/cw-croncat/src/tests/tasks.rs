@@ -345,6 +345,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: Some(true),
         owner_id: None,
+        chain_name: None,
         // treasury_id: None,
         agent_fee: None,
         agents_eject_threshold: None,
@@ -385,6 +386,7 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         &ExecuteMsg::UpdateSettings {
             paused: Some(false),
             owner_id: None,
+            chain_name: None,
             // treasury_id: None,
             agent_fee: None,
             agents_eject_threshold: None,

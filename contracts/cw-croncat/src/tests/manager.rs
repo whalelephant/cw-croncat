@@ -98,6 +98,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: Some(true),
         owner_id: None,
+        chain_name: None,
         // treasury_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
@@ -166,6 +167,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         &ExecuteMsg::UpdateSettings {
             paused: Some(false),
             owner_id: None,
+            chain_name: None,
             // treasury_id: None,
             agent_fee: None,
             min_tasks_per_agent: None,
@@ -1904,6 +1906,7 @@ fn tick() {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: Some(1000), // allow to miss 1000 slots
@@ -2098,6 +2101,7 @@ fn tick_task() -> StdResult<()> {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(1000), // allow to miss 100 slots

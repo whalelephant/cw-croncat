@@ -60,6 +60,7 @@ pub struct Croncat {
 pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
+    pub chain_name: String,
     pub cw_rules_addr: String,
     pub owner_id: Option<String>,
     pub gas_base_fee: Option<Uint64>,
@@ -75,6 +76,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateSettings {
         owner_id: Option<String>,
+        chain_name: Option<String>,
         slot_granularity_time: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<u64>,
@@ -411,6 +413,7 @@ pub struct QueryConstruct {
 pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
+    pub chain_name: String,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
     pub agents_eject_threshold: u64,

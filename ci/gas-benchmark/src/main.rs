@@ -196,6 +196,7 @@ fn main() -> Result<()> {
             "update_config",
             &cw_croncat::ExecuteMsg::UpdateSettings {
                 owner_id: Some(new_owner_id.address.clone()),
+                chain_name: Some("atom".to_string()),
                 slot_granularity_time: None,
                 paused: None,
                 agent_fee: None,
