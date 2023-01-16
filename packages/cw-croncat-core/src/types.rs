@@ -419,7 +419,7 @@ impl Task {
         format!("{}:{}", prefix, l)
     }
     /// Get the hash of a task based on parameters
-    pub fn to_hash_vec(&self, prefix: String) -> Vec<u8> {
+    pub fn to_hash_vec(&self, prefix: &str) -> Vec<u8> {
         self.to_hash(prefix).into_bytes()
     }
 
