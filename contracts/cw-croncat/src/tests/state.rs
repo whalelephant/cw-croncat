@@ -42,17 +42,14 @@ fn check_task_storage_structure() -> StdResult<()> {
     let task_id = task_id_str.to_string().into_bytes();
 
     // create a task
-    let res =
-        store.tasks.update(
-            &mut storage,
-            &task.to_hash_vec("atom".to_string()),
-            |old| match old {
-                Some(_) => Err(ContractError::CustomError {
-                    val: "Already exists".to_string(),
-                }),
-                None => Ok(task.clone()),
-            },
-        );
+    let res = store
+        .tasks
+        .update(&mut storage, &task.to_hash_vec("atom"), |old| match old {
+            Some(_) => Err(ContractError::CustomError {
+                val: "Already exists".to_string(),
+            }),
+            None => Ok(task.clone()),
+        });
     assert_eq!(res.unwrap(), task.clone());
 
     // get task ids by owner
@@ -72,7 +69,7 @@ fn check_task_storage_structure() -> StdResult<()> {
         .tasks
         .range(&mut storage, None, None, Order::Ascending)
         .take(10)
-        .map(|x| x.map(|(_, task)| task.to_hash("atom".to_string())))
+        .map(|x| x.map(|(_, task)| task.to_hash("atom")))
         .collect();
     assert_eq!(all_task_ids.unwrap(), vec![task_id_str.clone()]);
 

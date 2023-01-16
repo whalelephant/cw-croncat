@@ -25,7 +25,7 @@ impl<'a> CwCroncat<'a> {
         let agent = self.check_agent(deps.as_ref().storage, &info)?;
 
         let cfg: Config = self.config.load(deps.storage)?;
-        let hash_prefix = cfg.native_denom.clone();
+        let hash_prefix = cfg.chain_name.as_str();
 
         // get slot items, find the next task hash available
         // if empty slot found, let agent get paid for helping keep house clean
@@ -89,7 +89,7 @@ impl<'a> CwCroncat<'a> {
         let mut task = self.tasks.load(deps.storage, &hash)?;
         let mut agent = agent;
         agent.update(env.block.height);
-        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg, next_idx)?;
+        let (sub_msgs, fee_price) = proxy_call_submsgs_price(&task, cfg.clone(), next_idx)?;
         task.total_deposit.native.find_checked_sub(&fee_price)?;
         agent.balance.native.find_checked_add(&fee_price)?;
         self.tasks.save(deps.storage, &hash, &task)?;
@@ -262,7 +262,7 @@ impl<'a> CwCroncat<'a> {
 
         // Parse interval into a future timestamp, then convert to a slot
         let cfg: Config = self.config.load(deps.storage)?;
-        let hash_prefix = cfg.native_denom;
+        let hash_prefix = cfg.chain_name.as_str();
         let task_hash = task.to_hash(hash_prefix);
         let (next_id, slot_kind) =
             task.interval

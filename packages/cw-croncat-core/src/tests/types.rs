@@ -560,7 +560,7 @@ fn hashing() {
     let hash = Sha256::digest(message.as_bytes());
 
     let encode: String = hash.encode_hex();
-    let prefix = "atom".to_string();
+    let prefix = "atom";
     let (_, l) = encode.split_at(prefix.len() + 1);
     let encoded = format!("{}:{}", prefix, l);
     let bytes = encoded.clone().into_bytes();

@@ -700,11 +700,11 @@ impl Task {
             amount_for_one_task_cw20: self.amount_for_one_task.cw20.clone(),
             actions: self.actions.clone(),
             queries: self.queries.clone(),
-            transforms: self.transforms.clone(),
+            transforms: self.transforms,
         }
     }
 
-    pub fn into_response_with_queries(&self, prefix: String) -> TaskWithQueriesResponse {
+    pub fn into_response_with_queries(&self, prefix: &str) -> TaskWithQueriesResponse {
         let boundary = match (self.boundary, &self.interval) {
             (
                 CheckedBoundary {
