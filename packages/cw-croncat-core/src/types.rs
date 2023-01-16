@@ -395,7 +395,7 @@ pub struct Task {
 
 impl Task {
     /// Get the hash of a task based on parameters
-    pub fn to_hash(&self, prefix: String) -> String {
+    pub fn to_hash(&self, prefix: &str) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}{:?}",
             self.owner_id,
