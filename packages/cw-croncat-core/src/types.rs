@@ -7,7 +7,7 @@ use cron_schedule::Schedule;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use cw_rules_core::types::CroncatQuery;
 use generic_query::PathToValue;
-use hex::encode;
+use hex::ToHex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -15,7 +15,7 @@ use std::str::FromStr;
 
 use crate::{
     error::CoreError,
-    msg::TaskRequest,
+    msg::{TaskRequest, TaskResponse, TaskWithQueriesResponse},
     traits::{BalancesOperations, FindAndMutate, Intervals, ResultFailed},
 };
 
@@ -395,7 +395,7 @@ pub struct Task {
 
 impl Task {
     /// Get the hash of a task based on parameters
-    pub fn to_hash(&self) -> String {
+    pub fn to_hash(&self, prefix: &str) -> String {
         let message = format!(
             "{:?}{:?}{:?}{:?}{:?}{:?}",
             self.owner_id,
@@ -407,11 +407,20 @@ impl Task {
         );
 
         let hash = Sha256::digest(message.as_bytes());
-        encode(hash)
+        let encoded: String = hash.encode_hex();
+
+        // Return prefixed hash, since multi-chain tasks require simpler identification
+        // Using the specified native_denom, if none, no prefix
+        // Example:
+        // No prefix:   fca49b82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca (No longer used/stored)
+        // with prefix: stars:82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        // with prefix: longnetwork:818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        let (_, l) = encoded.split_at(prefix.len() + 1);
+        format!("{}:{}", prefix, l)
     }
     /// Get the hash of a task based on parameters
-    pub fn to_hash_vec(&self) -> Vec<u8> {
-        self.to_hash().into_bytes()
+    pub fn to_hash_vec(&self, prefix: &str) -> Vec<u8> {
+        self.to_hash(prefix).into_bytes()
     }
 
     pub fn verify_enough_balances(&self, recurring: bool) -> Result<(), CoreError> {
@@ -644,6 +653,96 @@ impl Task {
             }
         }
         Ok(cw20_coins)
+    }
+
+    pub fn into_response(self, prefix: &str) -> TaskResponse {
+        let boundary = match (self.boundary, self.interval.clone()) {
+            (
+                CheckedBoundary {
+                    start: None,
+                    end: None,
+                    is_block_boundary: None,
+                },
+                _,
+            ) => None,
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
+                start: start.map(Timestamp::from_nanos),
+                end: end.map(Timestamp::from_nanos),
+            }),
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
+                start: start.map(Into::into),
+                end: end.map(Into::into),
+            }),
+        };
+        TaskResponse {
+            task_hash: self.to_hash(prefix),
+            owner_id: self.owner_id.clone(),
+            interval: self.interval.clone(),
+            boundary,
+            stop_on_fail: self.stop_on_fail,
+            total_deposit: self.total_deposit.native.clone(),
+            total_cw20_deposit: self.total_deposit.cw20.clone(),
+            amount_for_one_task_native: self.amount_for_one_task.native.clone(),
+            amount_for_one_task_cw20: self.amount_for_one_task.cw20.clone(),
+            actions: self.actions.clone(),
+            queries: self.queries.clone(),
+            transforms: self.transforms,
+        }
+    }
+
+    pub fn into_response_with_queries(&self, prefix: &str) -> TaskWithQueriesResponse {
+        let boundary = match (self.boundary, &self.interval) {
+            (
+                CheckedBoundary {
+                    start: None,
+                    end: None,
+                    is_block_boundary: None,
+                },
+                _,
+            ) => None,
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
+                start: start.map(Timestamp::from_nanos),
+                end: end.map(Timestamp::from_nanos),
+            }),
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
+                start: start.map(Into::into),
+                end: end.map(Into::into),
+            }),
+        };
+        TaskWithQueriesResponse {
+            task_hash: self.to_hash(prefix),
+            interval: self.interval.clone(),
+            boundary,
+            queries: self.queries.clone(),
+        }
     }
 }
 

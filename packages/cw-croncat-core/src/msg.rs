@@ -60,6 +60,7 @@ pub struct Croncat {
 pub struct InstantiateMsg {
     // TODO: Submit issue for AppBuilder tests not working for -- deps.querier.query_bonded_denom()?;
     pub denom: String,
+    pub chain_name: String,
     pub cw_rules_addr: String,
     pub owner_id: Option<String>,
     pub gas_base_fee: Option<Uint64>,
@@ -75,6 +76,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateSettings {
         owner_id: Option<String>,
+        chain_name: Option<String>,
         slot_granularity_time: Option<u64>,
         paused: Option<bool>,
         agent_fee: Option<u64>,
@@ -347,6 +349,7 @@ pub struct TaskResponse {
 
     pub actions: Vec<Action>,
     pub queries: Option<Vec<CroncatQuery>>,
+    pub transforms: Option<Vec<Transform>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -386,99 +389,6 @@ pub struct AgentResponse {
     pub register_start: Timestamp,
 }
 
-impl From<Task> for TaskResponse {
-    fn from(task: Task) -> Self {
-        let boundary = match (task.boundary, &task.interval) {
-            (
-                CheckedBoundary {
-                    start: None,
-                    end: None,
-                    is_block_boundary: None,
-                },
-                _,
-            ) => None,
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                Interval::Cron(_),
-            ) => Some(Boundary::Time {
-                start: start.map(Timestamp::from_nanos),
-                end: end.map(Timestamp::from_nanos),
-            }),
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                _,
-            ) => Some(Boundary::Height {
-                start: start.map(Into::into),
-                end: end.map(Into::into),
-            }),
-        };
-        TaskResponse {
-            task_hash: task.to_hash(),
-            owner_id: task.owner_id,
-            interval: task.interval,
-            boundary,
-            stop_on_fail: task.stop_on_fail,
-            total_deposit: task.total_deposit.native,
-            total_cw20_deposit: task.total_deposit.cw20,
-            amount_for_one_task_native: task.amount_for_one_task.native,
-            amount_for_one_task_cw20: task.amount_for_one_task.cw20,
-            actions: task.actions,
-            queries: task.queries,
-        }
-    }
-}
-
-impl From<Task> for TaskWithQueriesResponse {
-    fn from(task: Task) -> Self {
-        let boundary = match (task.boundary, &task.interval) {
-            (
-                CheckedBoundary {
-                    start: None,
-                    end: None,
-                    is_block_boundary: None,
-                },
-                _,
-            ) => None,
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                Interval::Cron(_),
-            ) => Some(Boundary::Time {
-                start: start.map(Timestamp::from_nanos),
-                end: end.map(Timestamp::from_nanos),
-            }),
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                _,
-            ) => Some(Boundary::Height {
-                start: start.map(Into::into),
-                end: end.map(Into::into),
-            }),
-        };
-        TaskWithQueriesResponse {
-            task_hash: task.to_hash(),
-            interval: task.interval,
-            boundary,
-            queries: task.queries,
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct GetSlotHashesResponse {
     pub block_id: u64,
@@ -503,6 +413,7 @@ pub struct QueryConstruct {
 pub struct GetConfigResponse {
     pub paused: bool,
     pub owner_id: Addr,
+    pub chain_name: String,
     // pub treasury_id: Option<Addr>,
     pub min_tasks_per_agent: u64,
     pub agents_eject_threshold: u64,

@@ -84,6 +84,7 @@ pub(crate) fn init_contracts(
 
     let croncat_msg = cw_croncat_core::msg::InstantiateMsg {
         denom: denom.into(),
+        chain_name: "atom".to_string(),
         cw_rules_addr: rules_res.address,
         owner_id: Some(admin_addr.to_owned()),
         gas_action_fee: None,

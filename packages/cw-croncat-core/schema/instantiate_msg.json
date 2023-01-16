@@ -3,6 +3,7 @@
   "title": "InstantiateMsg",
   "type": "object",
   "required": [
+    "chain_name",
     "cw_rules_addr",
     "denom"
   ],
@@ -14,6 +15,9 @@
       ],
       "format": "uint16",
       "minimum": 0.0
+    },
+    "chain_name": {
+      "type": "string"
     },
     "cw_rules_addr": {
       "type": "string"

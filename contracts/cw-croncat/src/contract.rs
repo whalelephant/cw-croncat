@@ -56,6 +56,7 @@ impl<'a> CwCroncat<'a> {
         let config = Config {
             paused: false,
             owner_id,
+            chain_name: msg.chain_name,
             // treasury_id: None,
             min_tasks_per_agent: 3,
             agent_active_indices: vec![(SlotType::Block, 0, 0), (SlotType::Cron, 0, 0)],
@@ -212,7 +213,7 @@ impl<'a> CwCroncat<'a> {
                 to_binary(&self.query_wallet_balances(deps, wallet)?)
             }
 
-            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(*task)?),
+            QueryMsg::GetTaskHash { task } => to_binary(&self.query_get_task_hash(deps, *task)?),
         }
     }
 

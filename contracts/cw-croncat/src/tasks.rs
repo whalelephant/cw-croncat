@@ -25,6 +25,8 @@ impl<'a> CwCroncat<'a> {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskResponse>> {
+        let cfg: Config = self.config.load(deps.storage)?;
+        let prefix = cfg.chain_name.as_str();
         let default_limit = self.config.load(deps.storage)?.limit;
         let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
         let from_index = from_index.unwrap_or_default();
@@ -33,7 +35,7 @@ impl<'a> CwCroncat<'a> {
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
-            .map(|res| res.map(|(_k, task)| task.into()))
+            .map(|res| res.map(|(_k, task)| task.into_response(prefix)))
             .collect()
     }
 
@@ -47,6 +49,8 @@ impl<'a> CwCroncat<'a> {
         from_index: Option<u64>,
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskWithQueriesResponse>> {
+        let cfg: Config = self.config.load(deps.storage)?;
+        let prefix = cfg.chain_name.as_str();
         let size: u64 = self.tasks_with_queries_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
         let limit = limit
@@ -56,7 +60,7 @@ impl<'a> CwCroncat<'a> {
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
-            .map(|res| res.map(|(_k, task)| task.into()))
+            .map(|res| res.map(|(_k, task)| task.into_response_with_queries(prefix)))
             .collect()
     }
 
@@ -66,13 +70,15 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         owner_id: String,
     ) -> StdResult<Vec<TaskResponse>> {
+        let cfg: Config = self.config.load(deps.storage)?;
+        let prefix = cfg.chain_name.as_str();
         let owner_id = deps.api.addr_validate(&owner_id)?;
         self.tasks
             .idx
             .owner
             .prefix(owner_id)
             .range(deps.storage, None, None, Order::Ascending)
-            .map(|x| x.map(|(_, task)| task.into()))
+            .map(|x| x.map(|(_, task)| task.into_response(prefix)))
             .collect::<StdResult<Vec<_>>>()
     }
 
@@ -82,6 +88,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
+        let cfg: Config = self.config.load(deps.storage)?;
         let res: Option<Task> = {
             let task = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
             if let Some(task) = task {
@@ -91,12 +98,13 @@ impl<'a> CwCroncat<'a> {
                     .may_load(deps.storage, task_hash.as_bytes())?
             }
         };
-        Ok(res.map(Into::into))
+        Ok(res.map(|task| task.into_response(cfg.chain_name.as_str())))
     }
 
     /// Returns a hash computed by the input task data
-    pub(crate) fn query_get_task_hash(&self, task: Task) -> StdResult<String> {
-        Ok(task.to_hash())
+    pub(crate) fn query_get_task_hash(&self, deps: Deps, task: Task) -> StdResult<String> {
+        let cfg: Config = self.config.load(deps.storage)?;
+        Ok(task.to_hash(cfg.chain_name.as_str()))
     }
 
     /// Check if interval params are valid by attempting to parse
@@ -304,8 +312,8 @@ impl<'a> CwCroncat<'a> {
                 c.available_balance.checked_add_native(&info.funds)?;
                 Ok(c)
             })?;
-
-        let hash = item.to_hash();
+        let hash_prefix = cfg.chain_name.as_str();
+        let hash = item.to_hash(hash_prefix);
 
         // Parse interval into a future timestamp, then convert to a slot
         let (next_id, slot_kind) =
@@ -352,7 +360,7 @@ impl<'a> CwCroncat<'a> {
             }
         } else {
             // Add task without queries
-            let hash = item.to_hash_vec();
+            let hash = item.to_hash_vec(hash_prefix);
             self.tasks.update(deps.storage, &hash, |old| match old {
                 Some(_) => Err(ContractError::CustomError {
                     val: "Task already exists".to_string(),
