@@ -1853,6 +1853,15 @@
           "items": {
             "$ref": "#/definitions/Coin"
           }
+        },
+        "transforms": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/Transform"
+          }
         }
       }
     },

@@ -26,7 +26,7 @@ impl<'a> CwCroncat<'a> {
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskResponse>> {
         let cfg: Config = self.config.load(deps.storage)?;
-        let prefix = Some(cfg.native_denom);
+        let prefix = cfg.native_denom;
         let default_limit = self.config.load(deps.storage)?.limit;
         let size: u64 = self.task_total.load(deps.storage)?.min(default_limit);
         let from_index = from_index.unwrap_or_default();
@@ -35,15 +35,7 @@ impl<'a> CwCroncat<'a> {
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
-            .map(|res| {
-                res.map(|(_k, task)| {
-                    let mut t: TaskResponse = task.clone().into();
-                    // Since into
-                    let h = task.to_hash(prefix.clone());
-                    t.task_hash = h;
-                    t
-                })
-            })
+            .map(|res| res.map(|(_k, task)| task.into_response(prefix.clone())))
             .collect()
     }
 
@@ -58,7 +50,7 @@ impl<'a> CwCroncat<'a> {
         limit: Option<u64>,
     ) -> StdResult<Vec<TaskWithQueriesResponse>> {
         let cfg: Config = self.config.load(deps.storage)?;
-        let prefix = Some(cfg.native_denom);
+        let prefix = cfg.native_denom;
         let size: u64 = self.tasks_with_queries_total.load(deps.storage)?.min(1000);
         let from_index = from_index.unwrap_or_default();
         let limit = limit
@@ -68,15 +60,7 @@ impl<'a> CwCroncat<'a> {
             .range(deps.storage, None, None, Order::Ascending)
             .skip(from_index as usize)
             .take(limit as usize)
-            .map(|res| {
-                res.map(|(_k, task)| {
-                    let mut t: TaskWithQueriesResponse = task.clone().into();
-                    // Since into
-                    let h = task.to_hash(prefix.clone());
-                    t.task_hash = h;
-                    t
-                })
-            })
+            .map(|res| res.map(|(_k, task)| task.into_response_with_queries(prefix.clone())))
             .collect()
     }
 
@@ -87,22 +71,14 @@ impl<'a> CwCroncat<'a> {
         owner_id: String,
     ) -> StdResult<Vec<TaskResponse>> {
         let cfg: Config = self.config.load(deps.storage)?;
-        let prefix = Some(cfg.native_denom);
+        let prefix = cfg.native_denom;
         let owner_id = deps.api.addr_validate(&owner_id)?;
         self.tasks
             .idx
             .owner
             .prefix(owner_id)
             .range(deps.storage, None, None, Order::Ascending)
-            .map(|x| {
-                x.map(|(_, task)| {
-                    let mut t: TaskResponse = task.clone().into();
-                    // Since into
-                    let h = task.to_hash(prefix.clone());
-                    t.task_hash = h;
-                    t
-                })
-            })
+            .map(|x| x.map(|(_, task)| task.into_response(prefix.clone())))
             .collect::<StdResult<Vec<_>>>()
     }
 
@@ -112,6 +88,7 @@ impl<'a> CwCroncat<'a> {
         deps: Deps,
         task_hash: String,
     ) -> StdResult<Option<TaskResponse>> {
+        let cfg: Config = self.config.load(deps.storage)?;
         let res: Option<Task> = {
             let task = self.tasks.may_load(deps.storage, task_hash.as_bytes())?;
             if let Some(task) = task {
@@ -121,17 +98,13 @@ impl<'a> CwCroncat<'a> {
                     .may_load(deps.storage, task_hash.as_bytes())?
             }
         };
-        Ok(res.map(|task| {
-            let mut t: TaskResponse = task.into();
-            t.task_hash = task_hash;
-            t
-        }))
+        Ok(res.map(|task| task.into_response(cfg.native_denom)))
     }
 
     /// Returns a hash computed by the input task data
     pub(crate) fn query_get_task_hash(&self, deps: Deps, task: Task) -> StdResult<String> {
         let cfg: Config = self.config.load(deps.storage)?;
-        Ok(task.to_hash(Some(cfg.native_denom)))
+        Ok(task.to_hash(cfg.native_denom))
     }
 
     /// Check if interval params are valid by attempting to parse
@@ -339,7 +312,7 @@ impl<'a> CwCroncat<'a> {
                 c.available_balance.checked_add_native(&info.funds)?;
                 Ok(c)
             })?;
-        let hash_prefix = Some(cfg.native_denom);
+        let hash_prefix = cfg.native_denom;
         let hash = item.to_hash(hash_prefix.clone());
 
         // Parse interval into a future timestamp, then convert to a slot

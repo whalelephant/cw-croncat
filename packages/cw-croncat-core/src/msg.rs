@@ -347,6 +347,7 @@ pub struct TaskResponse {
 
     pub actions: Vec<Action>,
     pub queries: Option<Vec<CroncatQuery>>,
+    pub transforms: Option<Vec<Transform>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -384,99 +385,6 @@ pub struct AgentResponse {
     pub total_tasks_executed: u64,
     pub last_executed_slot: u64,
     pub register_start: Timestamp,
-}
-
-impl From<Task> for TaskResponse {
-    fn from(task: Task) -> Self {
-        let boundary = match (task.boundary, &task.interval) {
-            (
-                CheckedBoundary {
-                    start: None,
-                    end: None,
-                    is_block_boundary: None,
-                },
-                _,
-            ) => None,
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                Interval::Cron(_),
-            ) => Some(Boundary::Time {
-                start: start.map(Timestamp::from_nanos),
-                end: end.map(Timestamp::from_nanos),
-            }),
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                _,
-            ) => Some(Boundary::Height {
-                start: start.map(Into::into),
-                end: end.map(Into::into),
-            }),
-        };
-        TaskResponse {
-            task_hash: task.to_hash(None),
-            owner_id: task.owner_id,
-            interval: task.interval,
-            boundary,
-            stop_on_fail: task.stop_on_fail,
-            total_deposit: task.total_deposit.native,
-            total_cw20_deposit: task.total_deposit.cw20,
-            amount_for_one_task_native: task.amount_for_one_task.native,
-            amount_for_one_task_cw20: task.amount_for_one_task.cw20,
-            actions: task.actions,
-            queries: task.queries,
-        }
-    }
-}
-
-impl From<Task> for TaskWithQueriesResponse {
-    fn from(task: Task) -> Self {
-        let boundary = match (task.boundary, &task.interval) {
-            (
-                CheckedBoundary {
-                    start: None,
-                    end: None,
-                    is_block_boundary: None,
-                },
-                _,
-            ) => None,
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                Interval::Cron(_),
-            ) => Some(Boundary::Time {
-                start: start.map(Timestamp::from_nanos),
-                end: end.map(Timestamp::from_nanos),
-            }),
-            (
-                CheckedBoundary {
-                    start,
-                    end,
-                    is_block_boundary: _,
-                },
-                _,
-            ) => Some(Boundary::Height {
-                start: start.map(Into::into),
-                end: end.map(Into::into),
-            }),
-        };
-        TaskWithQueriesResponse {
-            task_hash: task.to_hash(None),
-            interval: task.interval,
-            boundary,
-            queries: task.queries,
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
