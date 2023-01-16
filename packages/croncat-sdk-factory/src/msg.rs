@@ -1,3 +1,5 @@
+use std::fmt;
+
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
 
@@ -23,7 +25,7 @@ pub enum FactoryExecuteMsg {
         version: [u8; 2],
     },
 
-    UpdateMetadataChangelog {
+    UpdateMetadata {
         contract_name: String,
         version: [u8; 2],
         new_changelog: Option<String>,
@@ -41,13 +43,23 @@ pub enum FactoryQueryMsg {
     LatestContract { contract_name: String },
 
     #[returns[Vec<ContractMetadataResponse>]]
-    VersionsByContractName { contract_name: String },
+    VersionsByContractName {
+        contract_name: String,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
 
     #[returns[Vec<String>]]
-    ContractNames {},
+    ContractNames {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
 
     #[returns[Vec<EntryResponse>]]
-    AllEntries {},
+    AllEntries {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
 }
 
 #[cw_serde]
@@ -59,7 +71,7 @@ pub struct ContractMetadataResponse {
     pub commit_id: String,
     pub checksum: String,
     pub changelog_url: Option<String>,
-    pub schema: String,
+    pub schema: Option<String>,
 }
 
 #[cw_serde]
@@ -87,16 +99,28 @@ pub struct ContractMetadata {
     pub changelog_url: Option<String>,
 
     /// types/schema - helps keep UI/clients backward compatible
-    pub schema: String,
+    pub schema: Option<String>,
 }
 
 #[cw_serde]
+#[derive(Copy)]
 pub enum VersionKind {
-    Library {},
-    Manager {},
-    Tasks {},
-    Agents {},
+    Library,
+    Manager,
+    Tasks,
+    Agents,
     // Recipes?
+}
+
+impl fmt::Display for VersionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VersionKind::Library => write!(f, "library"),
+            VersionKind::Manager => write!(f, "manager"),
+            VersionKind::Tasks => write!(f, "tasks"),
+            VersionKind::Agents => write!(f, "agents"),
+        }
+    }
 }
 
 // Reference: https://github.com/DA0-DA0/dao-contracts/blob/fa567797e2f42e70296a2d6f889f341ff80f0695/packages/dao-interface/src/lib.rs#L17
@@ -129,7 +153,7 @@ pub struct ModuleInstantiateInfo {
     pub changelog_url: Option<String>,
 
     /// types/schema - helps keep UI/clients backward compatible
-    pub schema: String,
+    pub schema: Option<String>,
 
     /// Instantiate message to be used to create the contract.
     pub msg: Binary,

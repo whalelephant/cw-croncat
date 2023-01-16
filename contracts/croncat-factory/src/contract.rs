@@ -113,7 +113,7 @@ pub fn instantiate(
         .enumerate()
         .map(|(id, init_info)| {
             let reply_id = id as u64 + 3;
-            CONTRACT_NAMES.save(deps.storage, CRONCAT_AGENTS_REPLY_ID, &init_info.label)?;
+            CONTRACT_NAMES.save(deps.storage, reply_id, &init_info.label)?;
             let query_wasm = init_save_metadata_generate_wasm_msg(
                 deps.storage,
                 init_info,
@@ -155,7 +155,7 @@ pub fn execute(
             contract_name,
             version,
         } => execute_remove(deps, contract_name, version),
-        ExecuteMsg::UpdateMetadataChangelog {
+        ExecuteMsg::UpdateMetadata {
             contract_name,
             version,
             new_changelog,
@@ -191,6 +191,13 @@ fn execute_remove(
         .may_load(deps.storage, &contract_name)?
         .ok_or(ContractError::UnknownContract {})?;
 
+    let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &version))?;
+    // Can't remove unpaused contract if not a library
+    if metadata.kind != VersionKind::Library {
+        // Check if paused
+        todo!();
+    }
+
     if latest_version == version {
         return Err(ContractError::LatestVersionRemove {});
     }
@@ -206,6 +213,7 @@ fn execute_deploy(
     kind: VersionKind,
     module_instantiate_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
+    let contract_name = module_instantiate_info.label.clone();
     let wasm = init_save_metadata_generate_wasm_msg(
         deps.storage,
         module_instantiate_info,
@@ -216,6 +224,8 @@ fn execute_deploy(
 
     Ok(Response::new()
         .add_attribute("action", "deploy")
+        .add_attribute("version_kind", kind.to_string())
+        .add_attribute("contract_name", contract_name)
         .add_submessage(msg))
 }
 
@@ -226,17 +236,36 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::LatestContract { contract_name } => {
             to_binary(&query_latest_contract(deps, contract_name)?)
         }
-        QueryMsg::VersionsByContractName { contract_name } => {
-            to_binary(&query_versions_by_contract_name(deps, contract_name)?)
+        QueryMsg::VersionsByContractName {
+            contract_name,
+            from_index,
+            limit,
+        } => to_binary(&query_versions_by_contract_name(
+            deps,
+            contract_name,
+            from_index,
+            limit,
+        )?),
+        QueryMsg::ContractNames { from_index, limit } => {
+            to_binary(&query_contract_names(deps, from_index, limit)?)
         }
-        QueryMsg::ContractNames {} => to_binary(&query_contract_names(deps)?),
-        QueryMsg::AllEntries {} => to_binary(&query_all_entries(deps)?),
+        QueryMsg::AllEntries { from_index, limit } => {
+            to_binary(&query_all_entries(deps, from_index, limit)?)
+        }
     }
 }
 
-fn query_all_entries(deps: Deps) -> StdResult<Vec<EntryResponse>> {
+fn query_all_entries(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<EntryResponse>> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
     let metadatas: Vec<((String, Vec<u8>), ContractMetadata)> = CONTRACT_METADATAS
         .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
         .collect::<StdResult<_>>()?;
 
     let mut entries = Vec::with_capacity(metadatas.len());
@@ -261,9 +290,17 @@ fn query_all_entries(deps: Deps) -> StdResult<Vec<EntryResponse>> {
     Ok(entries)
 }
 
-fn query_contract_names(deps: Deps) -> StdResult<Vec<String>> {
+fn query_contract_names(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<String>> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
     CONTRACT_ADDRS
         .keys(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
         .map(|res| res.map(|(contract_name, _)| contract_name))
         .collect()
 }
@@ -271,10 +308,16 @@ fn query_contract_names(deps: Deps) -> StdResult<Vec<String>> {
 fn query_versions_by_contract_name(
     deps: Deps,
     contract_name: String,
+    from_index: Option<u64>,
+    limit: Option<u64>,
 ) -> StdResult<Vec<ContractMetadataResponse>> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
     let metadatas: Vec<(Vec<u8>, ContractMetadata)> = CONTRACT_METADATAS
         .prefix(&contract_name)
         .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
         .collect::<StdResult<_>>()?;
 
     let mut versions = Vec::with_capacity(metadatas.len());
