@@ -6,7 +6,7 @@ use cosmwasm_std::{
 };
 use cw_croncat_core::{
     traits::Intervals,
-    types::{BoundaryValidated, Interval, SlotType},
+    types::{CheckedBoundary, Interval, SlotType},
 };
 
 use super::helpers::TWO_MINUTES;
@@ -14,40 +14,44 @@ use super::helpers::TWO_MINUTES;
 #[test]
 fn interval_get_next_block_limited() {
     // (input, input, outcome, outcome)
-    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+    let cases: Vec<(Interval, CheckedBoundary, u64, SlotType)> = vec![
         // Once cases
         (
             Interval::Once,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
         ),
         (
             Interval::Once,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
         ),
         (
             Interval::Once,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12346),
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
         ),
         (
             Interval::Once,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12340),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
@@ -55,36 +59,40 @@ fn interval_get_next_block_limited() {
         // Immediate cases
         (
             Interval::Immediate,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
         ),
         (
             Interval::Immediate,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
         ),
         (
             Interval::Immediate,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12346),
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
         ),
         (
             Interval::Immediate,
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12340),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
@@ -102,58 +110,64 @@ fn interval_get_next_block_limited() {
 #[test]
 fn interval_get_next_block_by_offset() {
     // (input, input, outcome, outcome)
-    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+    let cases: Vec<(Interval, CheckedBoundary, u64, SlotType)> = vec![
         // strictly modulo cases
         (
             Interval::Block(1),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12346,
             SlotType::Block,
         ),
         (
             Interval::Block(10),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12350,
             SlotType::Block,
         ),
         (
             Interval::Block(100),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             12400,
             SlotType::Block,
         ),
         (
             Interval::Block(1000),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             13000,
             SlotType::Block,
         ),
         (
             Interval::Block(10000),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             20000,
             SlotType::Block,
         ),
         (
             Interval::Block(100000),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(true),
             },
             100000,
             SlotType::Block,
@@ -161,36 +175,40 @@ fn interval_get_next_block_by_offset() {
         // with start
         (
             Interval::Block(1),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12348),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12348,
             SlotType::Block,
         ),
         (
             Interval::Block(10),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12360),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12360,
             SlotType::Block,
         ),
         (
             Interval::Block(10),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12364),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12370,
             SlotType::Block,
         ),
         (
             Interval::Block(100),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(12364),
                 end: None,
+                is_block_boundary: Some(true),
             },
             12400,
             SlotType::Block,
@@ -198,47 +216,74 @@ fn interval_get_next_block_by_offset() {
         // modulo + boundary end
         (
             Interval::Block(1),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12345),
+                is_block_boundary: Some(true),
             },
             12345,
             SlotType::Block,
         ),
         (
             Interval::Block(10),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12355),
+                is_block_boundary: Some(true),
             },
             12350,
             SlotType::Block,
         ),
         (
             Interval::Block(100),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12355),
+                is_block_boundary: Some(true),
             },
             12300,
             SlotType::Block,
         ),
         (
             Interval::Block(100),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(12300),
+                is_block_boundary: Some(true),
+            },
+            0,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            CheckedBoundary {
+                start: Some(12345),
+                end: Some(12545),
+                is_block_boundary: Some(true),
+            },
+            12400,
+            SlotType::Block,
+        ),
+        (
+            Interval::Block(100),
+            CheckedBoundary {
+                start: Some(11345),
+                end: Some(11545),
+                is_block_boundary: Some(true),
             },
             0,
             SlotType::Block,
         ),
     ];
+
+    let env = mock_env();
     for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
-        let env = mock_env();
+        println!("Block height={:?}", env.block.height);
         // CHECK IT!
         let (next_id, slot_kind) = interval.next(&env, boundary.clone(), 1);
         assert_eq!(outcome_block, &next_id);
         assert_eq!(outcome_slot_kind, &slot_kind);
+        // env.block.height+=1;
     }
 }
 
@@ -246,39 +291,43 @@ fn interval_get_next_block_by_offset() {
 fn interval_get_next_cron_time() {
     // (input, input, outcome, outcome)
     // test the case when slot_granularity_time == 1
-    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+    let cases: Vec<(Interval, CheckedBoundary, u64, SlotType)> = vec![
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000, // current time in nanos is 1_571_797_419_879_305_533
             SlotType::Cron,
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_441_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
             SlotType::Cron,
@@ -286,27 +335,30 @@ fn interval_get_next_cron_time() {
         // with start
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_471_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_571_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_615_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_571_799_700_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_803_215_000_000_000,
             SlotType::Cron,
@@ -315,9 +367,10 @@ fn interval_get_next_cron_time() {
         // current slot is the end slot
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_419_879_305_533),
+                is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_533,
             SlotType::Cron,
@@ -325,9 +378,10 @@ fn interval_get_next_cron_time() {
         // the next slot is after the end, return end slot
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_419_879_305_535),
+                is_block_boundary: Some(false),
             },
             1_571_797_419_879_305_535,
             SlotType::Cron,
@@ -335,9 +389,10 @@ fn interval_get_next_cron_time() {
         // next slot in boundaries
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_420_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_420_000_000_000,
             SlotType::Cron,
@@ -345,11 +400,32 @@ fn interval_get_next_cron_time() {
         // the task has ended
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_419_879_305_532),
+                is_block_boundary: Some(false),
             },
             0,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("15 0 * * * *".to_string()),
+            CheckedBoundary {
+                start: Some(1_471_799_600_000_000_000),
+                end: Some(1_471_799_600_000_000_000),
+                is_block_boundary: Some(false),
+            },
+            0,
+            SlotType::Cron,
+        ),
+        (
+            Interval::Cron("1 * * * * *".to_string()),
+            CheckedBoundary {
+                start: Some(1_471_797_441_000_000_000),
+                end: Some(1_671_797_441_000_000_000),
+                is_block_boundary: Some(false),
+            },
+            1_571_797_441_000_000_000,
             SlotType::Cron,
         ),
     ];
@@ -362,12 +438,13 @@ fn interval_get_next_cron_time() {
     }
 
     // slot_granularity_time == 120_000_000_000 ~ 2 minutes
-    let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+    let cases: Vec<(Interval, CheckedBoundary, u64, SlotType)> = vec![
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             // the timestamp is in the current slot, so we take the next slot
             1_571_797_420_000_000_000_u64.saturating_sub(1_571_797_420_000_000_000 % TWO_MINUTES)
@@ -376,27 +453,30 @@ fn interval_get_next_cron_time() {
         ),
         (
             Interval::Cron("1 * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("* 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
             SlotType::Cron,
@@ -404,27 +484,30 @@ fn interval_get_next_cron_time() {
         // with start
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_471_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_571_799_600_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_799_600_000_000_000,
             SlotType::Cron,
         ),
         (
             Interval::Cron("15 0 * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: Some(1_571_799_700_000_000_000),
                 end: None,
+                is_block_boundary: Some(false),
             },
             1_571_803_200_000_000_000,
             SlotType::Cron,
@@ -433,9 +516,10 @@ fn interval_get_next_cron_time() {
         // boundary end in the current slot
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_419_879_305_535),
+                is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
             SlotType::Cron,
@@ -443,9 +527,10 @@ fn interval_get_next_cron_time() {
         // next slot in boundaries
         (
             Interval::Cron("1 * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_560_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_440_000_000_000,
             SlotType::Cron,
@@ -453,9 +538,10 @@ fn interval_get_next_cron_time() {
         // next slot after the end, return end slot
         (
             Interval::Cron("1 * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_420_000_000_000),
+                is_block_boundary: Some(false),
             },
             1_571_797_320_000_000_000,
             SlotType::Cron,
@@ -463,9 +549,10 @@ fn interval_get_next_cron_time() {
         // the task has ended
         (
             Interval::Cron("* * * * * *".to_string()),
-            BoundaryValidated {
+            CheckedBoundary {
                 start: None,
                 end: Some(1_571_797_419_879_305_532),
+                is_block_boundary: Some(false),
             },
             0,
             SlotType::Cron,

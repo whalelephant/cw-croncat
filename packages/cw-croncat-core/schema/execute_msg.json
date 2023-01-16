@@ -47,10 +47,30 @@
                 }
               ]
             },
-            "gas_fraction": {
+            "gas_price": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/GasFraction"
+                  "$ref": "#/definitions/GasPrice"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_query_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "gas_wasm_query_fee": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
                 },
                 {
                   "type": "null"
@@ -575,6 +595,17 @@
         }
       }
     },
+    "CheckPassedProposals": {
+      "type": "object",
+      "required": [
+        "dao_address"
+      ],
+      "properties": {
+        "dao_address": {
+          "type": "string"
+        }
+      }
+    },
     "CheckProposalStatus": {
       "type": "object",
       "required": [
@@ -789,6 +820,18 @@
         {
           "type": "object",
           "required": [
+            "check_passed_proposals"
+          ],
+          "properties": {
+            "check_passed_proposals": {
+              "$ref": "#/definitions/CheckPassedProposals"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "generic_query"
           ],
           "properties": {
@@ -825,7 +868,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "Cw20CoinVerified": {
       "type": "object",
@@ -840,7 +884,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "Cw20ReceiveMsg": {
       "description": "Cw20ReceiveMsg should be de/serialized under `Receive()` variant in a ExecuteMsg",
@@ -860,7 +905,8 @@
         "sender": {
           "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "DistributionMsg": {
       "description": "The message types of the distribution module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto",
@@ -915,14 +961,21 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GasFraction": {
+    "GasPrice": {
       "type": "object",
       "required": [
         "denominator",
+        "gas_adjustment_numerator",
         "numerator"
       ],
       "properties": {
         "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_adjustment_numerator": {
+          "description": "Note",
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0

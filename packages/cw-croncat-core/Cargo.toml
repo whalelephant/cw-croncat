@@ -13,23 +13,23 @@ optimize = """docker run --rm -v "$(pwd)":/code \
 """
 
 [dependencies]
-cosmwasm-std = { version = "1.0.0", features = ["staking", "stargate"] }
-cw-rules-core = { version = "0.1.2", path = "../cw-rules-core" }
-generic-query = { version = "0.1.1", path = "../generic-query" }
-cw-storage-plus = "0.16.0"
-cron_schedule = "0.2.3"
-cw2 = "0.16.0"
-cw20 = { version = "0.13.4" }
-schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0" }
-hex = "0.4"
-sha2 = "0.10.6"
-serde-cw-value = "0.7.0"
-# TODO: update when this feature is merged
-serde-json-wasm = { version = "0.4.1", git = "https://github.com/CyberHoward/serde-json-wasm", rev = "cdc78130b25d65981b74a5e4a10a9f8667292d36" }
+cosmwasm-std = { workspace = true, features = ["staking", "stargate"] }
+cw-rules-core = { workspace = true, path = "../cw-rules-core" }
+generic-query = { workspace = true, path = "../generic-query" }
+cw-storage-plus = { workspace = true }
+cron_schedule = { workspace = true }
+cw2 = { workspace = true }
+cw20 = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror = { workspace = true }
+hex = { workspace = true, default-features = false }
+sha2 = { workspace = true, default-features = false }
+serde-cw-value = { workspace = true }
+serde-json-wasm = { workspace = true }
 
 [dev-dependencies]
-cosmwasm-schema = { version = "1.0.0" }
-cw-multi-test = { version = "0.16.0", features = ["staking"] }
-cw20-base = { version = "0.13.4", features = ["library"] }
+cosmwasm-schema = { workspace = true }
+cw-multi-test = { workspace = true, features = ["staking"] }
+cw20-base = { workspace = true, features = ["library"] }
+rusty-hook = { workspace = true }

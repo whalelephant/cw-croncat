@@ -1,19 +1,12 @@
 use crate::error::ContractError;
 use crate::state::CwCroncat;
-use crate::tests::helpers::{
-    add_little_time, proper_instantiate, ADMIN, AGENT0, AGENT_BENEFICIARY, ANYONE, NATIVE_DENOM,
-};
+use crate::tests::helpers::NATIVE_DENOM;
 use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env, mock_info};
-use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, CosmosMsg, MessageInfo, StdResult, Uint64, WasmMsg,
-};
+use cosmwasm_std::{coin, coins, from_binary, Addr, MessageInfo};
 use cw20::Balance;
 use cw_croncat_core::msg::{
-    CwCroncatResponse, ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg,
-    QueryMsg, RoundRobinBalancerModeResponse, TaskRequest,
+    ExecuteMsg, GetBalancesResponse, GetConfigResponse, InstantiateMsg, QueryMsg,
 };
-use cw_croncat_core::types::{Action, Boundary, Interval};
-use cw_multi_test::Executor;
 
 #[test]
 fn update_settings() {
@@ -26,7 +19,9 @@ fn update_settings() {
         owner_id: None,
         gas_base_fee: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
     };
     let info = MessageInfo {
@@ -46,11 +41,13 @@ fn update_settings() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
 
     // non-owner fails
@@ -106,7 +103,9 @@ fn move_balances_auth_checks() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -123,11 +122,13 @@ fn move_balances_auth_checks() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     let info_setting = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store
@@ -175,7 +176,9 @@ fn move_balances_native() {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -192,11 +195,13 @@ fn move_balances_native() {
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     let info_settings = mock_info("owner_id", &coins(0, "meow"));
     let res_exec = store

@@ -133,6 +133,17 @@
         }
       }
     },
+    "CheckPassedProposals": {
+      "type": "object",
+      "required": [
+        "dao_address"
+      ],
+      "properties": {
+        "dao_address": {
+          "type": "string"
+        }
+      }
+    },
     "CheckProposalStatus": {
       "type": "object",
       "required": [
@@ -234,6 +245,18 @@
         {
           "type": "object",
           "required": [
+            "check_passed_proposals"
+          ],
+          "properties": {
+            "check_passed_proposals": {
+              "$ref": "#/definitions/CheckPassedProposals"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "generic_query"
           ],
           "properties": {
@@ -270,7 +293,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "GenericQuery": {
       "type": "object",

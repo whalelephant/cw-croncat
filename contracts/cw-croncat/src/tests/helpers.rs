@@ -6,11 +6,11 @@ use cosmwasm_std::{
 use cw20::Cw20Coin;
 use cw_croncat_core::{
     msg::InstantiateMsg,
-    types::{BoundaryValidated, Interval, Task},
+    types::{CheckedBoundary, Interval, Task},
 };
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
-use cwd_voting::threshold::{PercentageThreshold, Threshold};
-use cwd_voting_cw20_staked::msg::ActiveThreshold;
+use dao_voting::threshold::{PercentageThreshold, Threshold};
+use dao_voting_cw20_staked::msg::ActiveThreshold;
 
 use crate::{helpers::CwTemplateContract, ContractError, CwCroncat};
 
@@ -38,7 +38,9 @@ pub fn mock_init(store: &CwCroncat, deps: DepsMut<Empty>) -> Result<Response, Co
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: Some(360),
         cw_rules_addr: "todo".to_string(),
         gas_base_fee: None,
@@ -86,32 +88,32 @@ pub fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
 
 pub fn cw20_staked_balances_voting() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_voting_cw20_staked::contract::execute,
-        cwd_voting_cw20_staked::contract::instantiate,
-        cwd_voting_cw20_staked::contract::query,
+        dao_voting_cw20_staked::contract::execute,
+        dao_voting_cw20_staked::contract::instantiate,
+        dao_voting_cw20_staked::contract::query,
     )
-    .with_reply(cwd_voting_cw20_staked::contract::reply);
+    .with_reply(dao_voting_cw20_staked::contract::reply);
     Box::new(contract)
 }
 
 pub fn cw_gov_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_core::contract::execute,
-        cwd_core::contract::instantiate,
-        cwd_core::contract::query,
+        dao_core::contract::execute,
+        dao_core::contract::instantiate,
+        dao_core::contract::query,
     )
-    .with_reply(cwd_core::contract::reply);
+    .with_reply(dao_core::contract::reply);
     Box::new(contract)
 }
 
 pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_proposal_single::contract::execute,
-        cwd_proposal_single::contract::instantiate,
-        cwd_proposal_single::contract::query,
+        dao_proposal_single::contract::execute,
+        dao_proposal_single::contract::instantiate,
+        dao_proposal_single::contract::query,
     )
-    .with_reply(cwd_proposal_single::contract::reply)
-    .with_migrate(cwd_proposal_single::contract::migrate);
+    .with_reply(dao_proposal_single::contract::reply)
+    .with_migrate(dao_proposal_single::contract::migrate);
     Box::new(contract)
 }
 
@@ -179,7 +181,9 @@ pub fn proper_instantiate() -> (App, CwTemplateContract, Addr) {
         owner_id: Some(owner_addr.to_string()),
         gas_base_fee: None,
         gas_action_fee: None,
-        gas_fraction: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
         agent_nomination_duration: None,
     };
     let cw_template_contract_addr = app
@@ -241,29 +245,29 @@ pub fn proper_instantiate_with_dao(
             percentage: PercentageThreshold::Majority {},
         };
         let max_voting_period = cw_utils::Duration::Height(6);
-        let instantiate_govmod = cwd_proposal_single::msg::InstantiateMsg {
+        let instantiate_govmod = dao_proposal_single::msg::InstantiateMsg {
             threshold,
             max_voting_period,
             min_voting_period: None,
             only_members_execute: false,
             allow_revoting: false,
             close_proposal_on_execution_failure: true,
-            pre_propose_info: cwd_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
+            pre_propose_info: dao_voting::pre_propose::PreProposeInfo::AnyoneMayPropose {},
         };
         to_binary(&instantiate_govmod).unwrap()
     });
 
-    let governance_instantiate = cwd_core::msg::InstantiateMsg {
+    let governance_instantiate = dao_core::msg::InstantiateMsg {
         admin: None,
         name: "DAO DAO".to_string(),
         description: "A DAO that builds DAOs".to_string(),
         image_url: None,
         automatically_add_cw20s: true,
         automatically_add_cw721s: true,
-        voting_module_instantiate_info: cwd_interface::ModuleInstantiateInfo {
+        voting_module_instantiate_info: dao_interface::ModuleInstantiateInfo {
             code_id: votemod_id,
-            msg: to_binary(&cwd_voting_cw20_staked::msg::InstantiateMsg {
-                token_info: cwd_voting_cw20_staked::msg::TokenInfo::New {
+            msg: to_binary(&dao_voting_cw20_staked::msg::InstantiateMsg {
+                token_info: dao_voting_cw20_staked::msg::TokenInfo::New {
                     code_id: cw20_id,
                     label: "DAO DAO governance token".to_string(),
                     name: "DAO".to_string(),
@@ -278,13 +282,13 @@ pub fn proper_instantiate_with_dao(
                 active_threshold,
             })
             .unwrap(),
-            admin: Some(cwd_interface::Admin::CoreModule {}),
+            admin: Some(dao_interface::Admin::CoreModule {}),
             label: "DAO DAO voting module".to_string(),
         },
-        proposal_modules_instantiate_info: vec![cwd_interface::ModuleInstantiateInfo {
+        proposal_modules_instantiate_info: vec![dao_interface::ModuleInstantiateInfo {
             code_id: proposal_module_code_id,
             msg: proposal_module_instantiate,
-            admin: Some(cwd_interface::Admin::CoreModule {}),
+            admin: Some(dao_interface::Admin::CoreModule {}),
             label: "DAO DAO governance module".to_string(),
         }],
         initial_items: None,
@@ -327,9 +331,10 @@ pub fn default_task() -> Task {
     Task {
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Once,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: None,
             end: None,
+            is_block_boundary: Some(true),
         },
         stop_on_fail: Default::default(),
         total_deposit: Default::default(),

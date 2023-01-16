@@ -466,27 +466,6 @@
         }
       ]
     },
-    "BoundaryValidated": {
-      "type": "object",
-      "properties": {
-        "end": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "start": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        }
-      }
-    },
     "CheckOwnerOfNft": {
       "type": "object",
       "required": [
@@ -502,6 +481,17 @@
           "type": "string"
         },
         "token_id": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckPassedProposals": {
+      "type": "object",
+      "required": [
+        "dao_address"
+      ],
+      "properties": {
+        "dao_address": {
           "type": "string"
         }
       }
@@ -524,6 +514,33 @@
         },
         "status": {
           "$ref": "#/definitions/Status"
+        }
+      }
+    },
+    "CheckedBoundary": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "is_block_boundary": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         }
       }
     },
@@ -720,6 +737,18 @@
         {
           "type": "object",
           "required": [
+            "check_passed_proposals"
+          ],
+          "properties": {
+            "check_passed_proposals": {
+              "$ref": "#/definitions/CheckPassedProposals"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "generic_query"
           ],
           "properties": {
@@ -756,7 +785,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "Cw20CoinVerified": {
       "type": "object",
@@ -771,7 +801,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "DistributionMsg": {
       "description": "The message types of the distribution module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto",
@@ -826,14 +857,21 @@
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
     },
-    "GasFraction": {
+    "GasPrice": {
       "type": "object",
       "required": [
         "denominator",
+        "gas_adjustment_numerator",
         "numerator"
       ],
       "properties": {
         "denominator": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "gas_adjustment_numerator": {
+          "description": "Note",
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0
@@ -952,7 +990,7 @@
         "cw_rules_addr",
         "gas_action_fee",
         "gas_base_fee",
-        "gas_fraction",
+        "gas_price",
         "limit",
         "min_tasks_per_agent",
         "native_denom",
@@ -1023,8 +1061,8 @@
           "format": "uint64",
           "minimum": 0.0
         },
-        "gas_fraction": {
-          "$ref": "#/definitions/GasFraction"
+        "gas_price": {
+          "$ref": "#/definitions/GasPrice"
         },
         "limit": {
           "type": "integer",
@@ -1630,7 +1668,7 @@
           "$ref": "#/definitions/GenericBalance"
         },
         "boundary": {
-          "$ref": "#/definitions/BoundaryValidated"
+          "$ref": "#/definitions/CheckedBoundary"
         },
         "interval": {
           "description": "Scheduling definitions",

@@ -57,43 +57,43 @@ pub fn cw20_stake_contract() -> Box<dyn Contract<Empty>> {
 
 pub fn single_proposal_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_proposal_single::contract::execute,
-        cwd_proposal_single::contract::instantiate,
-        cwd_proposal_single::contract::query,
+        dao_proposal_single::contract::execute,
+        dao_proposal_single::contract::instantiate,
+        dao_proposal_single::contract::query,
     )
-    .with_reply(cwd_proposal_single::contract::reply)
-    .with_migrate(cwd_proposal_single::contract::migrate);
+    .with_reply(dao_proposal_single::contract::reply)
+    .with_migrate(dao_proposal_single::contract::migrate);
     Box::new(contract)
 }
 
 pub fn multiple_proposal_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_proposal_multiple::contract::execute,
-        cwd_proposal_multiple::contract::instantiate,
-        cwd_proposal_multiple::contract::query,
+        dao_proposal_multiple::contract::execute,
+        dao_proposal_multiple::contract::instantiate,
+        dao_proposal_multiple::contract::query,
     )
-    .with_reply(cwd_proposal_multiple::contract::reply)
-    .with_migrate(cwd_proposal_multiple::contract::migrate);
+    .with_reply(dao_proposal_multiple::contract::reply)
+    .with_migrate(dao_proposal_multiple::contract::migrate);
     Box::new(contract)
 }
 
 pub fn cw_gov_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_core::contract::execute,
-        cwd_core::contract::instantiate,
-        cwd_core::contract::query,
+        dao_core::contract::execute,
+        dao_core::contract::instantiate,
+        dao_core::contract::query,
     )
-    .with_reply(cwd_core::contract::reply);
+    .with_reply(dao_core::contract::reply);
     Box::new(contract)
 }
 
 pub fn cw20_staked_balances_voting() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
-        cwd_voting_cw20_staked::contract::execute,
-        cwd_voting_cw20_staked::contract::instantiate,
-        cwd_voting_cw20_staked::contract::query,
+        dao_voting_cw20_staked::contract::execute,
+        dao_voting_cw20_staked::contract::instantiate,
+        dao_voting_cw20_staked::contract::query,
     )
-    .with_reply(cwd_voting_cw20_staked::contract::reply);
+    .with_reply(dao_voting_cw20_staked::contract::reply);
     Box::new(contract)
 }
 

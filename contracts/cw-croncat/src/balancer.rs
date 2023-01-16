@@ -4,14 +4,9 @@ use cosmwasm_std::Uint64;
 use cosmwasm_std::{Addr, Env};
 use cosmwasm_std::{Deps, Storage};
 use cw_croncat_core::msg::AgentTaskResponse;
-use cw_croncat_core::types::SlotType;
+use cw_croncat_core::types::{BalancerMode, SlotType};
 use cw_storage_plus::Item;
 
-#[derive(PartialEq, Eq)]
-pub enum BalancerMode {
-    ActivationOrder,
-    Equalizer,
-}
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
@@ -44,9 +39,6 @@ pub struct RoundRobinBalancer {
 }
 
 impl RoundRobinBalancer {
-    pub fn default() -> RoundRobinBalancer {
-        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
-    }
     pub fn new(mode: BalancerMode) -> RoundRobinBalancer {
         RoundRobinBalancer { mode }
     }
@@ -290,5 +282,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         self.update_or_append(indices, (slot_kind, agent_index, 1));
         config.save(storage, &conf)?;
         Ok(())
+    }
+}
+
+impl Default for RoundRobinBalancer {
+    fn default() -> RoundRobinBalancer {
+        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
     }
 }

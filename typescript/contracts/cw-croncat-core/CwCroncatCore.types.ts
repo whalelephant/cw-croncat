@@ -170,6 +170,8 @@ export type CroncatQuery = {
 } | {
   check_proposal_status: CheckProposalStatus;
 } | {
+  check_passed_proposals: CheckPassedProposals;
+} | {
   generic_query: GenericQuery;
 } | {
   smart_query: SmartQueryHead;
@@ -225,7 +227,6 @@ export interface GenericBalance {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-  [k: string]: unknown;
 }
 export interface Coin {
   amount: Uint128;
@@ -249,7 +250,7 @@ export interface GetConfigResponse {
   cw_rules_addr: Addr;
   gas_action_fee: number;
   gas_base_fee: number;
-  gas_fraction: GasFraction;
+  gas_price: GasPrice;
   limit: number;
   min_tasks_per_agent: number;
   native_denom: string;
@@ -260,8 +261,9 @@ export interface GetConfigResponse {
   staked_balance: GenericBalance;
   [k: string]: unknown;
 }
-export interface GasFraction {
+export interface GasPrice {
   denominator: number;
+  gas_adjustment_numerator: number;
   numerator: number;
   [k: string]: unknown;
 }
@@ -347,6 +349,10 @@ export interface CheckProposalStatus {
   status: Status;
   [k: string]: unknown;
 }
+export interface CheckPassedProposals {
+  dao_address: string;
+  [k: string]: unknown;
+}
 export interface GenericQuery {
   contract_addr: string;
   msg: Binary;
@@ -378,7 +384,7 @@ export interface GetWalletBalancesResponse {
 export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: GenericBalance;
-  boundary: BoundaryValidated;
+  boundary: CheckedBoundary;
   interval: Interval;
   owner_id: Addr;
   queries?: CroncatQuery[] | null;
@@ -388,8 +394,9 @@ export interface Task {
   version: string;
   [k: string]: unknown;
 }
-export interface BoundaryValidated {
+export interface CheckedBoundary {
   end?: number | null;
+  is_block_boundary?: boolean | null;
   start?: number | null;
   [k: string]: unknown;
 }
@@ -414,7 +421,6 @@ export interface TaskRequest {
 export interface Cw20Coin {
   address: string;
   amount: Uint128;
-  [k: string]: unknown;
 }
 export type ExecuteMsg = {
   update_settings: {
@@ -422,7 +428,9 @@ export type ExecuteMsg = {
     agents_eject_threshold?: number | null;
     gas_action_fee?: Uint64 | null;
     gas_base_fee?: Uint64 | null;
-    gas_fraction?: GasFraction | null;
+    gas_price?: GasPrice | null;
+    gas_query_fee?: Uint64 | null;
+    gas_wasm_query_fee?: Uint64 | null;
     min_tasks_per_agent?: number | null;
     owner_id?: string | null;
     paused?: boolean | null;
@@ -501,21 +509,9 @@ export interface Cw20ReceiveMsg {
   amount: Uint128;
   msg: Binary;
   sender: string;
-  [k: string]: unknown;
 }
 export type GetAgentResponse = AgentResponse | null;
 export type GetAgentTasksResponse = TaskResponse | null;
-export type RoundRobinBalancerModeResponse = "ActivationOrder" | "Equalizer";
-export interface GetStateResponse {
-  agent_active_queue: Addr[];
-  agent_nomination_begin_time?: Timestamp | null;
-  agent_pending_queue: Addr[];
-  balancer_mode: RoundRobinBalancerModeResponse;
-  reply_index: Uint64;
-  task_total: Uint64;
-  tasks: TaskResponse[];
-  [k: string]: unknown;
-}
 export type GetTaskHashResponse = string;
 export type GetTaskResponse = TaskResponse | null;
 export type GetTasksByOwnerResponse = TaskResponse[];
@@ -534,7 +530,9 @@ export interface InstantiateMsg {
   denom: string;
   gas_action_fee?: Uint64 | null;
   gas_base_fee?: Uint64 | null;
-  gas_fraction?: GasFraction | null;
+  gas_price?: GasPrice | null;
+  gas_query_fee?: Uint64 | null;
+  gas_wasm_query_fee?: Uint64 | null;
   owner_id?: string | null;
   [k: string]: unknown;
 }

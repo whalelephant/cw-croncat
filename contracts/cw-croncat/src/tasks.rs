@@ -220,7 +220,7 @@ impl<'a> CwCroncat<'a> {
                 gas_action_fee: cfg.gas_action_fee,
                 agent_fee: cfg.agent_fee,
                 native_denom: &cfg.native_denom,
-                gas_fraction: &cfg.gas_fraction,
+                gas_price: &cfg.gas_price,
             },
             &ContractInfo {
                 addr: &env.contract.address,
@@ -308,7 +308,7 @@ impl<'a> CwCroncat<'a> {
                 gas_action_fee: cfg.gas_action_fee,
                 agent_fee: cfg.agent_fee,
                 native_denom: &cfg.native_denom,
-                gas_fraction: &cfg.gas_fraction,
+                gas_price: &cfg.gas_price,
             },
         )?;
 
@@ -416,8 +416,6 @@ impl<'a> CwCroncat<'a> {
                     None => Ok(vec![hash]),
                 }
             };
-
-            // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
                     self.block_slots

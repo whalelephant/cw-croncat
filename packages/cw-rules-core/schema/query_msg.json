@@ -89,6 +89,18 @@
     {
       "type": "object",
       "required": [
+        "check_passed_proposals"
+      ],
+      "properties": {
+        "check_passed_proposals": {
+          "$ref": "#/definitions/CheckPassedProposals"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
         "generic_query"
       ],
       "properties": {
@@ -175,6 +187,17 @@
           "type": "string"
         },
         "token_id": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckPassedProposals": {
+      "type": "object",
+      "required": [
+        "dao_address"
+      ],
+      "properties": {
+        "dao_address": {
           "type": "string"
         }
       }
@@ -280,6 +303,18 @@
         {
           "type": "object",
           "required": [
+            "check_passed_proposals"
+          ],
+          "properties": {
+            "check_passed_proposals": {
+              "$ref": "#/definitions/CheckPassedProposals"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "generic_query"
           ],
           "properties": {
@@ -316,7 +351,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "GenericQuery": {
       "type": "object",

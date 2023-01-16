@@ -1,8 +1,8 @@
 use crate::error::CoreError;
 use crate::traits::Intervals;
 use crate::types::{
-    Action, AgentStatus, Boundary, BoundaryValidated, GasFraction, GenericBalance, Interval, Task,
-    Transform,
+    Action, AgentStatus, BalancerMode, Boundary, CheckedBoundary, GasPrice, GenericBalance,
+    Interval, Task, Transform,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
@@ -64,7 +64,9 @@ pub struct InstantiateMsg {
     pub owner_id: Option<String>,
     pub gas_base_fee: Option<Uint64>,
     pub gas_action_fee: Option<Uint64>,
-    pub gas_fraction: Option<GasFraction>,
+    pub gas_query_fee: Option<Uint64>,
+    pub gas_wasm_query_fee: Option<Uint64>,
+    pub gas_price: Option<GasPrice>,
     pub agent_nomination_duration: Option<u16>,
 }
 
@@ -78,7 +80,9 @@ pub enum ExecuteMsg {
         agent_fee: Option<u64>,
         gas_base_fee: Option<Uint64>,
         gas_action_fee: Option<Uint64>,
-        gas_fraction: Option<GasFraction>,
+        gas_query_fee: Option<Uint64>,
+        gas_wasm_query_fee: Option<Uint64>,
+        gas_price: Option<GasPrice>,
         proxy_callback_gas: Option<u32>,
         min_tasks_per_agent: Option<u64>,
         agents_eject_threshold: Option<u64>,
@@ -183,7 +187,7 @@ pub struct GetConfigResponse {
     pub cw_rules_addr: Addr,
 
     pub agent_fee: u64,
-    pub gas_fraction: GasFraction,
+    pub gas_price: GasPrice,
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
     pub proxy_callback_gas: u32,
@@ -377,7 +381,7 @@ impl TaskRequestBuilder {
         if !self.interval.is_valid() {
             return Err(CoreError::InvalidInterval {});
         }
-        BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
+        CheckedBoundary::new(self.boundary, &self.interval)?;
 
         Ok(TaskRequest {
             interval: self.interval.clone(),
@@ -433,30 +437,39 @@ pub struct CwCroncatResponse {
 
     pub agent_nomination_begin_time: Option<Timestamp>,
 
-    pub balancer_mode: RoundRobinBalancerModeResponse,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub enum RoundRobinBalancerModeResponse {
-    ActivationOrder,
-    Equalizer,
+    pub balancer_mode: BalancerMode,
 }
 
 impl From<Task> for TaskResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start: None,
                     end: None,
+                    is_block_boundary: None,
                 },
                 _,
             ) => None,
-            (BoundaryValidated { start, end }, Interval::Cron(_)) => Some(Boundary::Time {
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
                 start: start.map(Timestamp::from_nanos),
                 end: end.map(Timestamp::from_nanos),
             }),
-            (BoundaryValidated { start, end }, _) => Some(Boundary::Height {
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
                 start: start.map(Into::into),
                 end: end.map(Into::into),
             }),
@@ -481,17 +494,32 @@ impl From<Task> for TaskWithQueriesResponse {
     fn from(task: Task) -> Self {
         let boundary = match (task.boundary, &task.interval) {
             (
-                BoundaryValidated {
+                CheckedBoundary {
                     start: None,
                     end: None,
+                    is_block_boundary: None,
                 },
                 _,
             ) => None,
-            (BoundaryValidated { start, end }, Interval::Cron(_)) => Some(Boundary::Time {
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                Interval::Cron(_),
+            ) => Some(Boundary::Time {
                 start: start.map(Timestamp::from_nanos),
                 end: end.map(Timestamp::from_nanos),
             }),
-            (BoundaryValidated { start, end }, _) => Some(Boundary::Height {
+            (
+                CheckedBoundary {
+                    start,
+                    end,
+                    is_block_boundary: _,
+                },
+                _,
+            ) => Some(Boundary::Height {
                 start: start.map(Into::into),
                 end: end.map(Into::into),
             }),

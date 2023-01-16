@@ -6,7 +6,9 @@ use cw_rules_core::{
     msg::{
         ExecuteMsg, InstantiateMsg, QueryConstruct, QueryMsg, QueryMultiResponse, QueryResponse,
     },
-    types::{CheckOwnerOfNft, CheckProposalStatus, CroncatQuery, HasBalanceGte},
+    types::{
+        CheckOwnerOfNft, CheckPassedProposals, CheckProposalStatus, CroncatQuery, HasBalanceGte,
+    },
 };
 
 fn main() {
@@ -26,6 +28,7 @@ fn main() {
     export_schema(&schema_for!(HasBalanceGte), &out_dir);
     export_schema(&schema_for!(CheckOwnerOfNft), &out_dir);
     export_schema(&schema_for!(CheckProposalStatus), &out_dir);
+    export_schema(&schema_for!(CheckPassedProposals), &out_dir);
 
     export_schema_with_title(&schema_for!(QueryResponse), &out_dir, "RuleResponse");
     export_schema_with_title(
@@ -54,6 +57,11 @@ fn main() {
         &schema_for!(QueryResponse),
         &out_dir,
         "CheckProposalStatusResponse",
+    );
+    export_schema_with_title(
+        &schema_for!(QueryResponse),
+        &out_dir,
+        "CheckPassedProposalsResponse",
     );
     export_schema_with_title(
         &schema_for!(QueryResponse),

@@ -100,33 +100,39 @@ pub enum Boundary {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct BoundaryValidated {
+pub struct CheckedBoundary {
     pub start: Option<u64>,
     pub end: Option<u64>,
+    pub is_block_boundary: Option<bool>,
 }
 
-impl BoundaryValidated {
-    pub fn validate_boundary(
-        boundary: Option<Boundary>,
-        interval: &Interval,
-    ) -> Result<Self, CoreError> {
+impl CheckedBoundary {
+    pub fn is_block_boundary(&self) -> bool {
+        self.is_block_boundary.is_some() && self.is_block_boundary.unwrap()
+    }
+
+    pub fn new(boundary: Option<Boundary>, interval: &Interval) -> Result<Self, CoreError> {
         if let Some(boundary) = boundary {
             match (interval, boundary) {
-                (Interval::Cron(_), Boundary::Time { start, end }) => match (start, end) {
-                    (Some(s), Some(e)) => {
-                        if s.nanos() >= e.nanos() {
-                            return Err(CoreError::InvalidBoundary {});
+                (Interval::Once | Interval::Cron(_), Boundary::Time { start, end }) => {
+                    match (start, end) {
+                        (Some(s), Some(e)) => {
+                            if s.nanos() >= e.nanos() {
+                                return Err(CoreError::InvalidBoundary {});
+                            }
+                            Ok(Self {
+                                start: Some(s.nanos()),
+                                end: Some(e.nanos()),
+                                is_block_boundary: Some(false),
+                            })
                         }
-                        Ok(Self {
-                            start: Some(s.nanos()),
-                            end: Some(e.nanos()),
-                        })
+                        _ => Ok(Self {
+                            start: start.map(|start| start.nanos()),
+                            end: end.map(|end| end.nanos()),
+                            is_block_boundary: Some(false),
+                        }),
                     }
-                    _ => Ok(Self {
-                        start: start.map(|start| start.nanos()),
-                        end: end.map(|end| end.nanos()),
-                    }),
-                },
+                }
                 (
                     Interval::Once | Interval::Immediate | Interval::Block(_),
                     Boundary::Height { start, end },
@@ -138,11 +144,13 @@ impl BoundaryValidated {
                         Ok(Self {
                             start: Some(s.u64()),
                             end: Some(e.u64()),
+                            is_block_boundary: Some(true),
                         })
                     }
                     _ => Ok(Self {
                         start: start.map(Into::into),
                         end: end.map(Into::into),
+                        is_block_boundary: Some(true),
                     }),
                 },
                 _ => Err(CoreError::InvalidBoundary {}),
@@ -151,6 +159,7 @@ impl BoundaryValidated {
             Ok(Self {
                 start: None,
                 end: None,
+                is_block_boundary: Some(!matches!(interval, Interval::Cron(_))), //Boundary isnt provided, so default is block
             })
         }
     }
@@ -228,6 +237,8 @@ impl TaskRequest {
     /// Validate the task actions only use the supported messages
     /// We're iterating over all actions
     /// so it's a great place for calculaing balance usages
+    // Consider moving Config to teh cw-croncat-core so this method can take reference of that
+    #[allow(clippy::too_many_arguments)]
     pub fn is_valid_msg_calculate_usage(
         &self,
         api: &dyn Api,
@@ -236,10 +247,15 @@ impl TaskRequest {
         owner_id: &Addr,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
     ) -> Result<(GenericBalance, u64), CoreError> {
         let mut gas_amount: u64 = base_gas;
         let mut amount_for_one_task = GenericBalance::default();
 
+        if self.actions.is_empty() {
+            return Err(CoreError::InvalidAction {});
+        }
         for action in self.actions.iter() {
             // checked for cases, where task creator intentionaly tries to overflow
             gas_amount = gas_amount
@@ -325,6 +341,27 @@ impl TaskRequest {
                 _ => (),
             }
         }
+
+        if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas_amount = gas_amount
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidWasmMsg {})?;
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas_amount = gas_amount
+                            .checked_add(query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                    _ => {
+                        gas_amount = gas_amount
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidWasmMsg {})?;
+                    }
+                }
+            }
+        }
         Ok((amount_for_one_task, gas_amount))
     }
 
@@ -350,7 +387,7 @@ impl TaskRequest {
         } else {
             vec![]
         };
-        let boundary = BoundaryValidated::validate_boundary(self.boundary, &self.interval)?;
+        let boundary = CheckedBoundary::new(self.boundary, &self.interval)?;
 
         let (mut amount_for_one_task, gas_amount) = self.is_valid_msg_calculate_usage(
             deps.api,
@@ -359,9 +396,11 @@ impl TaskRequest {
             contract_info.owner_addr,
             economics.gas_base_fee,
             economics.gas_action_fee,
+            todo!(),
+            todo!(),
         )?;
-        let gas_price = calculate_required_amount(gas_amount, economics.agent_fee)?;
-        let price = economics.gas_fraction.calculate(gas_price, 1)?;
+        let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_amount, economics.agent_fee)?;
+        let price = economics.gas_price.calculate(gas_amount_with_agent_fee)?;
         amount_for_one_task
             .native
             .find_checked_add(&coin(price, economics.native_denom))?;
@@ -391,7 +430,7 @@ pub struct Task {
 
     /// Scheduling definitions
     pub interval: Interval,
-    pub boundary: BoundaryValidated,
+    pub boundary: CheckedBoundary,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
@@ -416,8 +455,13 @@ impl Task {
     /// Get the hash of a task based on parameters
     pub fn to_hash(&self) -> String {
         let message = format!(
-            "{:?}{:?}{:?}{:?}{:?}",
-            self.owner_id, self.interval, self.boundary, self.actions, self.queries
+            "{:?}{:?}{:?}{:?}{:?}{:?}",
+            self.owner_id,
+            self.interval,
+            self.boundary,
+            self.actions,
+            self.queries,
+            self.transforms
         );
 
         let hash = Sha256::digest(message.as_bytes());
@@ -490,6 +534,8 @@ impl Task {
         &self,
         base_gas: u64,
         action_gas: u64,
+        query_gas: u64,
+        wasm_query_gas: u64,
         next_idx: u64,
     ) -> Result<(Vec<SubMsg<Empty>>, u64), CoreError> {
         let mut gas: u64 = base_gas;
@@ -503,6 +549,25 @@ impl Task {
                 sub_msgs.push(sub_msg.with_gas_limit(gas_limit));
             } else {
                 sub_msgs.push(sub_msg);
+            }
+        }
+
+        if let Some(queries) = self.queries.as_ref() {
+            // If task has queries - Rules contract is queried which is wasm query
+            gas = gas
+                .checked_add(wasm_query_gas)
+                .ok_or(CoreError::InvalidGas {})?;
+            for query in queries.iter() {
+                match query {
+                    CroncatQuery::HasBalanceGte(_) => {
+                        gas = gas.checked_add(query_gas).ok_or(CoreError::InvalidGas {})?;
+                    }
+                    _ => {
+                        gas = gas
+                            .checked_add(wasm_query_gas)
+                            .ok_or(CoreError::InvalidGas {})?;
+                    }
+                }
             }
         }
         Ok((sub_msgs, gas))
@@ -664,7 +729,7 @@ pub fn simulate_task(
             .checked_add(action.gas_limit.unwrap_or(gac_action_fee))
             .ok_or(CoreError::NoGasLimit {})?;
     }
-    let boundary = BoundaryValidated::validate_boundary(task.boundary, &interval)?;
+    let boundary = CheckedBoundary::new(task.boundary, &interval)?;
 
     match interval {
         Interval::Once | Interval::Immediate => {
@@ -750,11 +815,11 @@ pub fn simulate_task(
 }
 
 /// Calculate the amount including agent_fee
-pub fn calculate_required_amount(amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
-    amount
+pub fn gas_amount_with_agent_fee(gas_amount: u64, agent_fee: u64) -> Result<u64, CoreError> {
+    gas_amount
         .checked_mul(agent_fee)
         .and_then(|n| n.checked_div(100))
-        .and_then(|n| n.checked_add(amount))
+        .and_then(|n| n.checked_add(gas_amount))
         .ok_or(CoreError::InvalidGas {})
 }
 
@@ -896,7 +961,7 @@ impl ResultFailed for SubMsgResult {
 }
 
 // Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary: CheckedBoundary) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary.start {
@@ -911,6 +976,7 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) if next_block_height > end => (end, SlotType::Block),
+
         // immediate needs to return this block + 1
         _ => (next_block_height + 1, SlotType::Block),
     }
@@ -919,15 +985,20 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 // So either:
 // - Boundary specifies a start/end that block offsets can be computed from
 // - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
-    let current_block_height = env.block.height;
-    let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
+pub(crate) fn get_next_block_by_offset(
+    block_height: u64,
+    boundary: CheckedBoundary,
+    interval: u64,
+) -> (u64, SlotType) {
+    let current_block_height = block_height;
+    let modulo_block =
+        current_block_height.saturating_sub(current_block_height % interval) + interval;
 
     let next_block_height = match boundary.start {
         Some(start) if current_block_height < start => {
-            let rem = start % block;
+            let rem = start % interval;
             if rem > 0 {
-                start.saturating_sub(rem) + block
+                start.saturating_sub(rem) + interval
             } else {
                 start
             }
@@ -941,12 +1012,16 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) => {
-            let end_height = if let Some(rem) = end.checked_rem(block) {
+            let end_height = if let Some(rem) = end.checked_rem(interval) {
                 end.saturating_sub(rem)
             } else {
                 end
             };
-            (end_height, SlotType::Block)
+            // we ONLY want to catch if we're passed the end block height
+            (
+                std::cmp::min(next_block_height, end_height),
+                SlotType::Block,
+            )
         }
 
         None => (next_block_height, SlotType::Block),
@@ -957,7 +1032,7 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 // Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
-    boundary: BoundaryValidated,
+    boundary: CheckedBoundary,
     crontab: &str,
     slot_granularity_time: u64,
 ) -> (u64, SlotType) {
@@ -997,13 +1072,19 @@ impl Intervals for Interval {
     fn next(
         &self,
         env: &Env,
-        boundary: BoundaryValidated,
+        boundary: CheckedBoundary,
         slot_granularity_time: u64,
     ) -> (u64, SlotType) {
         match self {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
-            Interval::Once | Interval::Immediate => get_next_block_limited(env, boundary),
+            Interval::Once | Interval::Immediate => {
+                if boundary.is_block_boundary() {
+                    get_next_block_limited(env, boundary)
+                } else {
+                    get_next_cron_time(env, boundary, "0 0 * * * *", slot_granularity_time)
+                }
+            }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
             Interval::Cron(crontab) => {
@@ -1014,7 +1095,7 @@ impl Intervals for Interval {
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
+            Interval::Block(block) => get_next_block_by_offset(env.block.height, boundary, *block),
         }
     }
 
@@ -1032,26 +1113,30 @@ impl Intervals for Interval {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct GasFraction {
+pub struct GasPrice {
     pub numerator: u64,
     pub denominator: u64,
+    /// Note
+    pub gas_adjustment_numerator: u64,
 }
 
-impl GasFraction {
+impl GasPrice {
     pub fn is_valid(&self) -> bool {
-        self.denominator != 0 && self.numerator != 0
+        self.denominator != 0 && self.numerator != 0 && self.gas_adjustment_numerator != 0
     }
 
-    pub fn calculate(&self, extra_num: u64, extra_denom: u64) -> Result<u128, CoreError> {
-        let numerator = self
-            .numerator
-            .checked_mul(extra_num)
+    pub fn calculate(&self, gas_amount: u64) -> Result<u128, CoreError> {
+        let gas_adjusted = gas_amount
+            .checked_mul(self.gas_adjustment_numerator)
+            .and_then(|g| g.checked_div(self.denominator))
             .ok_or(CoreError::InvalidGas {})?;
-        let denominator = self
-            .denominator
-            .checked_mul(extra_denom)
+
+        let price = gas_adjusted
+            .checked_mul(self.numerator)
+            .and_then(|g| g.checked_div(self.denominator))
             .ok_or(CoreError::InvalidGas {})?;
-        Ok((numerator / denominator) as u128)
+
+        Ok(price as u128)
     }
 }
 
@@ -1067,10 +1152,16 @@ pub struct EconomicsContext<'a> {
     pub gas_action_fee: u64,
     pub agent_fee: u64,
     pub native_denom: &'a str,
-    pub gas_fraction: &'a GasFraction,
+    pub gas_price: &'a GasPrice,
 }
 pub struct ContractInfo<'a> {
     pub addr: &'a Addr,
     pub version: &'a ContractVersion,
     pub owner_addr: &'a Addr,
+}
+
+#[derive(PartialEq, Eq, Serialize, Deserialize, JsonSchema, Clone, Debug)]
+pub enum BalancerMode {
+    ActivationOrder,
+    Equalizer,
 }

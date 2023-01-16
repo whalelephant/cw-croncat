@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_croncat_core::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cw_croncat_core::types::{GasFraction, SlotType};
+use cw_croncat_core::types::{GasPrice, SlotType};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:cw-croncat";
@@ -16,13 +16,22 @@ const DEFAULT_NOMINATION_DURATION: u16 = 360;
 
 /// default for juno
 /// This based on non-wasm operations, wasm ops seem impossible to predict
-pub const GAS_BASE_FEE_JUNO: u64 = 300_000;
-/// Gas cost per single action
-pub const GAS_ACTION_FEE_JUNO: u64 = 130_000;
+pub const GAS_BASE_FEE: u64 = 300_000;
+/// Gas needed for single action
+pub const GAS_ACTION_FEE: u64 = 130_000;
+/// Gas needed for single non-wasm query
+pub const GAS_QUERY_FEE: u64 = 5_000;
+/// Gas needed for single wasm query
+pub const GAS_WASM_QUERY_FEE: u64 = 60_000;
 /// We can't store gas_price as floats inside cosmwasm
-/// so insted of something like 0.1 we use GasFraction{1/10}
-pub const GAS_DENOMINATOR_DEFAULT_JUNO: u64 = 9;
-
+/// so insted of having 0.04 we use GasFraction{4/100}
+/// and after that multiply Gas by `gas_adjustment` {150/100} (1.5)
+pub mod gas_price_defaults {
+    pub const GAS_NUMERATOR_DEFAULT: u64 = 4;
+    pub const GAS_ADJUSTMENT_NUMERATOR_DEFAULT: u64 = 150;
+    pub const GAS_DENOMINATOR: u64 = 100;
+}
+pub use gas_price_defaults::*;
 // #[cfg(not(feature = "library"))]
 impl<'a> CwCroncat<'a> {
     pub fn instantiate(
@@ -44,18 +53,6 @@ impl<'a> CwCroncat<'a> {
             info.sender
         };
 
-        let gas_action_fee = if let Some(action_fee) = msg.gas_action_fee {
-            action_fee.u64()
-        } else {
-            GAS_ACTION_FEE_JUNO
-        };
-
-        let gas_base_fee = if let Some(base_fee) = msg.gas_base_fee {
-            base_fee.u64()
-        } else {
-            GAS_BASE_FEE_JUNO
-        };
-
         let config = Config {
             paused: false,
             owner_id,
@@ -66,13 +63,19 @@ impl<'a> CwCroncat<'a> {
             available_balance,
             staked_balance: GenericBalance::default(),
             agent_fee: 5,
-            gas_fraction: GasFraction {
-                numerator: 1,
-                denominator: GAS_DENOMINATOR_DEFAULT_JUNO,
-            },
+            gas_price: msg.gas_price.unwrap_or(GasPrice {
+                numerator: GAS_NUMERATOR_DEFAULT,
+                denominator: GAS_DENOMINATOR,
+                gas_adjustment_numerator: GAS_ADJUSTMENT_NUMERATOR_DEFAULT,
+            }),
             proxy_callback_gas: 3,
-            gas_base_fee,
-            gas_action_fee,
+            gas_base_fee: msg.gas_base_fee.map(Into::into).unwrap_or(GAS_BASE_FEE),
+            gas_action_fee: msg.gas_action_fee.map(Into::into).unwrap_or(GAS_ACTION_FEE),
+            gas_query_fee: msg.gas_query_fee.map(Into::into).unwrap_or(GAS_QUERY_FEE),
+            gas_wasm_query_fee: msg
+                .gas_wasm_query_fee
+                .map(Into::into)
+                .unwrap_or(GAS_WASM_QUERY_FEE),
             slot_granularity_time: 10_000_000_000, // 10 seconds
             native_denom: msg.denom,
             cw20_whitelist: vec![],
@@ -123,7 +126,6 @@ impl<'a> CwCroncat<'a> {
             )
             .add_attribute("native_denom", config.native_denom)
             .add_attribute("agent_fee", config.agent_fee.to_string())
-            //.add_attribute("gas_fraction", config.gas_fraction.to_string())
             .add_attribute("proxy_callback_gas", config.proxy_callback_gas.to_string())
             .add_attribute(
                 "slot_granularity_time",

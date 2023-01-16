@@ -1,5 +1,8 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
-use crate::contract::{GAS_ACTION_FEE_JUNO, GAS_BASE_FEE_JUNO, GAS_DENOMINATOR_DEFAULT_JUNO};
+use crate::contract::{
+    GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
+    GAS_NUMERATOR_DEFAULT,
+};
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
@@ -11,7 +14,7 @@ use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
     TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
-use cw_croncat_core::types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task};
+use cw_croncat_core::types::{Action, Boundary, CheckedBoundary, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use std::convert::TryInto;
@@ -33,9 +36,10 @@ fn query_task_hash_success() {
     let task = Task {
         owner_id: Addr::unchecked("nobody".to_string()),
         interval: Interval::Immediate,
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: None,
             end: None,
+            is_block_boundary: None,
         },
         stop_on_fail: false,
         total_deposit: GenericBalance {
@@ -63,7 +67,7 @@ fn query_task_hash_success() {
         )
         .unwrap();
     assert_eq!(
-        "69217dd2b6334abe2544a12fcb89588f9cc5c62a298b8720706d9befa3d736d3",
+        "27a2405dbd09a8948de64d52e9da638b8709eb4f7cadf85a7c203c4b2889c8ae",
         task_hash
     );
 }
@@ -218,18 +222,6 @@ fn query_get_tasks_pagination() {
     let expected_amnt: usize = (tasks_amnt - from_index).try_into().unwrap();
     assert_eq!(part_of_tasks.len(), expected_amnt);
 
-    println!(
-        "half_tasks: {:?}\n hash_vec:{:?}",
-        part_of_tasks
-            .iter()
-            .map(|t| t.task_hash.clone())
-            .collect::<Vec<String>>(),
-        all_tasks
-            .iter()
-            .map(|t| t.task_hash.clone())
-            .collect::<Vec<String>>(),
-    );
-
     // Check it's in right order
     for i in 0..expected_amnt {
         assert_eq!(
@@ -359,12 +351,14 @@ fn check_task_create_fail_cases() -> StdResult<()> {
         // treasury_id: None,
         agent_fee: None,
         agents_eject_threshold: None,
-        gas_fraction: None,
+        gas_price: None,
         proxy_callback_gas: None,
         slot_granularity_time: None,
         min_tasks_per_agent: None,
         gas_base_fee: None,
         gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -397,12 +391,14 @@ fn check_task_create_fail_cases() -> StdResult<()> {
             // treasury_id: None,
             agent_fee: None,
             agents_eject_threshold: None,
-            gas_fraction: None,
+            gas_price: None,
             proxy_callback_gas: None,
             slot_granularity_time: None,
             min_tasks_per_agent: None,
             gas_base_fee: None,
             gas_action_fee: None,
+            gas_query_fee: None,
+            gas_wasm_query_fee: None,
         },
         &vec![],
     )
@@ -586,8 +582,6 @@ fn check_task_create_success() -> StdResult<()> {
             sender: None,
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
     // create a task
     let res = app
@@ -600,10 +594,12 @@ fn check_task_create_success() -> StdResult<()> {
         .unwrap();
     // Assert task hash is returned as part of event attributes
     let mut has_created_hash: bool = false;
+    let mut task_hash = String::new();
     for e in res.events {
         for a in e.attributes {
-            if a.key == "task_hash" && a.value == task_id_str.clone() {
+            if a.key == "task_hash" && a.value.len() > 0 {
                 has_created_hash = true;
+                task_hash = a.value;
             }
         }
     }
@@ -615,7 +611,7 @@ fn check_task_create_success() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -623,10 +619,10 @@ fn check_task_create_success() -> StdResult<()> {
     if let Some(t) = new_task {
         assert_eq!(Addr::unchecked(ANYONE), t.owner_id);
         assert_eq!(Interval::Immediate, t.interval);
-        assert_eq!(None, t.boundary);
+        assert!(t.boundary.is_some());
         assert_eq!(false, t.stop_on_fail);
         assert_eq!(coins(315006, NATIVE_DENOM), t.total_deposit);
-        assert_eq!(task_id_str.clone(), t.task_hash);
+        assert_eq!(task_hash.clone(), t.task_hash);
     }
 
     // get slot ids
@@ -648,7 +644,7 @@ fn check_task_create_success() -> StdResult<()> {
         .unwrap();
     let s_3: Vec<String> = Vec::new();
     assert_eq!(12346, slot_info.block_id);
-    assert_eq!(vec![task_id_str.clone()], slot_info.block_task_hash);
+    assert_eq!(vec![task_hash], slot_info.block_task_hash);
     assert_eq!(0, slot_info.time_id);
     assert_eq!(s_3, slot_info.time_task_hash);
 
@@ -863,25 +859,34 @@ fn check_remove_create() -> StdResult<()> {
             sender: None,
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
     // create a task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(315006, NATIVE_DENOM),
-    )
-    .unwrap();
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(315006, NATIVE_DENOM),
+        )
+        .unwrap();
 
+    let mut task_hash: String = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
+
+    println!("{:?}", task_hash);
     // check storage DOES have the task
     let new_task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -901,7 +906,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
         &ExecuteMsg::RemoveTask {
-            task_hash: task_id_str.clone(),
+            task_hash: task_hash.clone(),
         },
         &vec![],
     )
@@ -912,7 +917,7 @@ fn check_remove_create() -> StdResult<()> {
         Addr::unchecked(ANYONE),
         contract_addr.clone(),
         &ExecuteMsg::RemoveTask {
-            task_hash: task_id_str.clone(),
+            task_hash: task_hash.clone(),
         },
         &vec![],
     )
@@ -924,7 +929,7 @@ fn check_remove_create() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -974,24 +979,32 @@ fn check_refill_create() -> StdResult<()> {
             sender: None,
         },
     };
-    let task_id_str =
-        "95c916a53fa9d26deef094f7e1ee31c00a2d47b8bf474b2e06d39aebfb1fecc7".to_string();
 
     // create a task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        contract_addr.clone(),
-        &create_task_msg,
-        &coins(315006, NATIVE_DENOM),
-    )
-    .unwrap();
+    let create_task_resp = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &create_task_msg,
+            &coins(315006, NATIVE_DENOM),
+        )
+        .unwrap();
+    let mut task_hash: String = String::new();
+    for e in create_task_resp.events {
+        for a in e.attributes {
+            if a.key == "task_hash" && a.value.len() > 0 {
+                task_hash = a.value;
+            }
+        }
+    }
+
     // refill task
     let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
             &ExecuteMsg::RefillTaskBalance {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
             &coins(3, NATIVE_DENOM),
         )
@@ -1013,7 +1026,7 @@ fn check_refill_create() -> StdResult<()> {
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::GetTask {
-                task_hash: task_id_str.clone(),
+                task_hash: task_hash.clone(),
             },
         )
         .unwrap();
@@ -1047,7 +1060,7 @@ fn check_gas_minimum() {
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
     let gas_limit = 150_000;
-    let base_gas = GAS_BASE_FEE_JUNO;
+    let base_gas = GAS_BASE_FEE;
 
     let create_task_msg = ExecuteMsg::CreateTask {
         task: TaskRequest {
@@ -1066,8 +1079,12 @@ fn check_gas_minimum() {
     };
     // create 1 token off task
     let gas_for_two = (base_gas + gas_limit) * 2;
-    let enough_for_two =
-        u128::from((gas_for_two + gas_for_two * 5 / 100) / GAS_DENOMINATOR_DEFAULT_JUNO + 3 * 2);
+    let enough_for_two = u128::from(
+        (gas_for_two + gas_for_two * 5 / 100) * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3 * 2,
+    );
     let res: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1105,8 +1122,8 @@ fn check_gas_default() {
     let amount = coin(3, NATIVE_DENOM);
     let stake = StakingMsg::Delegate { validator, amount };
     let msg: CosmosMsg = stake.clone().into();
-    let gas_limit = GAS_ACTION_FEE_JUNO;
-    let base_gas = GAS_BASE_FEE_JUNO;
+    let gas_limit = GAS_ACTION_FEE;
+    let base_gas = GAS_BASE_FEE;
     // let send = BankMsg::Send {
     //     to_address: validator,
     //     amount: vec![amount],
@@ -1132,7 +1149,12 @@ fn check_gas_default() {
 
     let gas_for_one = base_gas + gas_limit;
     let gas_for_one_with_fee = gas_for_one + gas_for_one * 5 / 100;
-    let enough_for_two = 2 * u128::from(gas_for_one_with_fee / GAS_DENOMINATOR_DEFAULT_JUNO + 3);
+    let enough_for_two = 2 * u128::from(
+        gas_for_one_with_fee * GAS_ADJUSTMENT_NUMERATOR_DEFAULT / GAS_DENOMINATOR
+            * GAS_NUMERATOR_DEFAULT
+            / GAS_DENOMINATOR
+            + 3,
+    );
 
     let res: ContractError = app
         .execute_contract(

@@ -1,9 +1,10 @@
 [package]
 name = "cw-rules"
-version = "0.0.2"
-authors = ["meow@cron.cat", "@tjtc", "@mikedotexe"]
-edition = "2018"
-
+authors = { workspace = true }
+version = { workspace = true }
+description = "CronCat rules core logic for tasks that require conditions"
+edition = { workspace = true }
+documentation = { workspace = true }
 exclude = [
   # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
   "contract.wasm",
@@ -11,7 +12,6 @@ exclude = [
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
 crate-type = ["cdylib", "rlib"]
 
@@ -24,48 +24,42 @@ staking = ["cw-multi-test/staking"]
 stargate = ["cw-multi-test/stargate"]
 
 [package.metadata.scripts]
-optimize = """docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.12.5
-"""
+optimize = { workspace = true }
 
 [dependencies]
-generic-query = { version = "0.1.1", path = "../../packages/generic-query" }
-smart-query = { version = "0.1.0", path = "../../packages/smart-query" }
-cw-rules-core = { version = "0.1.2", path = "../../packages/cw-rules-core" }
-cosmwasm-std = "1.0.0"
-cw-storage-plus = "0.16.0"
-cw-utils = "0.13.4"
-cw2 = "0.16.0"
-cw721 = "0.15.0"
-cw20 = "0.13.4"
-schemars = "0.8.8"
-serde = { version = "1.0.137", default-features = false, features = ["derive"] }
-thiserror = { version = "1.0.31" }
-
+generic-query = { workspace = true }
+smart-query = { workspace = true }
+cw-rules-core = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw-utils = { workspace = true }
+cw2 = { workspace = true }
+cw721 = { workspace = true }
+cw20 = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror = { workspace = true }
 # This thing saved our lives thanks @hashedone for implementing it
-serde-cw-value = "0.7.0"
-
-# TODO: update when this feature is merged
-serde-json-wasm = { version = "0.4.1", git = "https://github.com/CyberHoward/serde-json-wasm", rev = "cdc78130b25d65981b74a5e4a10a9f8667292d36" }
+serde-cw-value = { workspace = true }
+serde-json-wasm = { workspace = true }
 
 [dev-dependencies]
-cw721-base = "0.15.0"
-cosmwasm-schema = "1.0.0"
-cw-multi-test = "0.16.0"
-cw-utils = "0.13.4"
-cw20-base = "0.13.4"
+cw721-base = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cw-multi-test = { workspace = true }
+cw-utils = { workspace = true }
+cw20-base = { workspace = true }
 # DAO contracts
-cwd-voting = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts.git" }
-cwd-proposal-single = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-proposal-multiple = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-voting-cw20-staked = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cw20-stake = { version = "0.2.6", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-core = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
-cwd-interface = { version = "0.2.0", git = "https://github.com/DA0-DA0/dao-contracts" }
+dao-voting = { workspace = true }
+dao-proposal-single = { workspace = true }
+dao-proposal-multiple = { workspace = true }
+dao-voting-cw20-staked = { workspace = true }
+cw20-stake = { workspace = true }
+dao-core = { workspace = true }
+dao-interface = { workspace = true }
 # Testing generic msg
-cw4 = "0.16.0"
-cw4-group = "0.16.0"
-base64 = "0.13.0"
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+cw4 = { workspace = true }
+cw4-group = { workspace = true }
+base64 = { workspace = true }
+serde_json = { workspace = true }
+rusty-hook = { workspace = true }

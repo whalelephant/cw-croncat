@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, CroncatQuery, Balance, NativeBalance, Status, ValueOrdering, ValueIndex, PathToValue, SmartQueries, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GasFraction, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNft, CheckProposalStatus, GenericQuery, SmartQueryHead, SmartQuery, GetWalletBalancesResponse, Task, BoundaryValidated, Transform, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, RoundRobinBalancerModeResponse, GetStateResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithQueriesResponse, TaskWithQueriesResponse, InstantiateMsg, QueryMsg, SimulateTaskResponse, ValidateIntervalResponse } from "./CwCroncatCore.types";
+import { Addr, Uint128, Timestamp, Uint64, SlotType, AgentStatus, CosmosMsgForEmpty, BankMsg, StakingMsg, DistributionMsg, Binary, IbcMsg, WasmMsg, GovMsg, VoteOption, Boundary, Interval, CroncatQuery, Balance, NativeBalance, Status, ValueOrdering, ValueIndex, PathToValue, SmartQueries, Croncat, Agent, GenericBalance, Cw20CoinVerified, Coin, GetBalancesResponse, GetConfigResponse, GasPrice, GetAgentIdsResponse, AgentResponse, AgentTaskResponse, GetSlotHashesResponse, GetSlotIdsResponse, TaskResponse, ActionForEmpty, Empty, IbcTimeout, IbcTimeoutBlock, HasBalanceGte, CheckOwnerOfNft, CheckProposalStatus, CheckPassedProposals, GenericQuery, SmartQueryHead, SmartQuery, GetWalletBalancesResponse, Task, CheckedBoundary, Transform, TaskRequest, Cw20Coin, ExecuteMsg, Cw20ReceiveMsg, GetAgentResponse, GetAgentTasksResponse, GetTaskHashResponse, GetTaskResponse, GetTasksByOwnerResponse, GetTasksResponse, GetTasksWithQueriesResponse, TaskWithQueriesResponse, InstantiateMsg, QueryMsg, ValidateIntervalResponse } from "./CwCroncatCore.types";
 export interface CwCroncatCoreReadOnlyInterface {
   contractAddress: string;
   getConfig: () => Promise<GetConfigResponse>;
@@ -258,7 +258,9 @@ export interface CwCroncatCoreInterface extends CwCroncatCoreReadOnlyInterface {
     agentsEjectThreshold,
     gasActionFee,
     gasBaseFee,
-    gasFraction,
+    gasPrice,
+    gasQueryFee,
+    gasWasmQueryFee,
     minTasksPerAgent,
     ownerId,
     paused,
@@ -269,7 +271,9 @@ export interface CwCroncatCoreInterface extends CwCroncatCoreReadOnlyInterface {
     agentsEjectThreshold?: number;
     gasActionFee?: Uint64;
     gasBaseFee?: Uint64;
-    gasFraction?: GasFraction;
+    gasPrice?: GasPrice;
+    gasQueryFee?: Uint64;
+    gasWasmQueryFee?: Uint64;
     minTasksPerAgent?: number;
     ownerId?: string;
     paused?: boolean;
@@ -375,7 +379,9 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
     agentsEjectThreshold,
     gasActionFee,
     gasBaseFee,
-    gasFraction,
+    gasPrice,
+    gasQueryFee,
+    gasWasmQueryFee,
     minTasksPerAgent,
     ownerId,
     paused,
@@ -386,7 +392,9 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
     agentsEjectThreshold?: number;
     gasActionFee?: Uint64;
     gasBaseFee?: Uint64;
-    gasFraction?: GasFraction;
+    gasPrice?: GasPrice;
+    gasQueryFee?: Uint64;
+    gasWasmQueryFee?: Uint64;
     minTasksPerAgent?: number;
     ownerId?: string;
     paused?: boolean;
@@ -399,7 +407,9 @@ export class CwCroncatCoreClient extends CwCroncatCoreQueryClient implements CwC
         agents_eject_threshold: agentsEjectThreshold,
         gas_action_fee: gasActionFee,
         gas_base_fee: gasBaseFee,
-        gas_fraction: gasFraction,
+        gas_price: gasPrice,
+        gas_query_fee: gasQueryFee,
+        gas_wasm_query_fee: gasWasmQueryFee,
         min_tasks_per_agent: minTasksPerAgent,
         owner_id: ownerId,
         paused,

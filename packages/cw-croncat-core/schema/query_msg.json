@@ -419,6 +419,7 @@
       "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
       "type": "string"
     },
+<<<<<<< HEAD
     "Boundary": {
       "oneOf": [
         {
@@ -512,6 +513,8 @@
         }
       }
     },
+=======
+>>>>>>> main
     "CheckOwnerOfNft": {
       "type": "object",
       "required": [
@@ -527,6 +530,17 @@
           "type": "string"
         },
         "token_id": {
+          "type": "string"
+        }
+      }
+    },
+    "CheckPassedProposals": {
+      "type": "object",
+      "required": [
+        "dao_address"
+      ],
+      "properties": {
+        "dao_address": {
           "type": "string"
         }
       }
@@ -549,6 +563,33 @@
         },
         "status": {
           "$ref": "#/definitions/Status"
+        }
+      }
+    },
+    "CheckedBoundary": {
+      "type": "object",
+      "properties": {
+        "end": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "is_block_boundary": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "start": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint64",
+          "minimum": 0.0
         }
       }
     },
@@ -745,6 +786,18 @@
         {
           "type": "object",
           "required": [
+            "check_passed_proposals"
+          ],
+          "properties": {
+            "check_passed_proposals": {
+              "$ref": "#/definitions/CheckPassedProposals"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
             "generic_query"
           ],
           "properties": {
@@ -796,7 +849,8 @@
         "amount": {
           "$ref": "#/definitions/Uint128"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "DistributionMsg": {
       "description": "The message types of the distribution module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.42.4/proto/cosmos/distribution/v1beta1/tx.proto",
@@ -1390,7 +1444,7 @@
           "$ref": "#/definitions/GenericBalance"
         },
         "boundary": {
-          "$ref": "#/definitions/BoundaryValidated"
+          "$ref": "#/definitions/CheckedBoundary"
         },
         "interval": {
           "description": "Scheduling definitions",

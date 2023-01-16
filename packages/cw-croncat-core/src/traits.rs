@@ -1,6 +1,6 @@
 use crate::{
     error::CoreError,
-    types::{BoundaryValidated, SlotType},
+    types::{CheckedBoundary, SlotType},
 };
 use cosmwasm_std::{Addr, Env};
 use cw20::Balance;
@@ -33,7 +33,7 @@ pub trait Intervals {
     fn next(
         &self,
         env: &Env,
-        boundary: BoundaryValidated,
+        boundary: CheckedBoundary,
         slot_granularity_time: u64,
     ) -> (u64, SlotType);
     fn is_valid(&self) -> bool;

@@ -1,7 +1,8 @@
+use crate::types::get_next_block_by_offset;
 use crate::{
     error::CoreError,
     msg::TaskRequest,
-    types::{Action, Boundary, BoundaryValidated, GenericBalance, Interval, Task, Transform},
+    types::{Action, Boundary, CheckedBoundary, GenericBalance, Interval, Task, Transform},
 };
 use cosmwasm_std::{
     coins, testing::mock_dependencies, Addr, BankMsg, Binary, Coin, CosmosMsg, GovMsg, IbcMsg,
@@ -11,7 +12,6 @@ use cw20::Cw20CoinVerified;
 use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
-
 #[test]
 fn is_valid_msg_once_block_based() {
     let task = TaskRequest {
@@ -40,6 +40,8 @@ fn is_valid_msg_once_block_based() {
             &Addr::unchecked("alice2"),
             &Addr::unchecked("bob"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -76,6 +78,8 @@ fn is_valid_msg_once_time_based() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -107,6 +111,8 @@ fn is_valid_msg_recurring() {
             &Addr::unchecked("bob"),
             5,
             5,
+            5,
+            5
         )
         .is_ok());
 }
@@ -141,6 +147,8 @@ fn is_valid_msg_wrong_account() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -177,6 +185,8 @@ fn is_valid_msg_vote() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -216,6 +226,8 @@ fn is_valid_msg_transfer() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .unwrap_err()
@@ -250,6 +262,8 @@ fn is_valid_msg_burn() {
             &Addr::unchecked("alice"),
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
+            5,
+            5,
             5,
             5
         )
@@ -286,6 +300,8 @@ fn is_valid_msg_send_doesnt_fail() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
@@ -320,9 +336,38 @@ fn is_valid_msg_send_should_success() {
             &Addr::unchecked("sender"),
             &Addr::unchecked("bob"),
             5,
+            5,
+            5,
             5
         )
         .is_ok());
+}
+
+#[test]
+fn is_valid_empty_actions() {
+    let task = TaskRequest {
+        interval: Interval::Block(10),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![],
+        queries: None,
+        transforms: None,
+        cw20_coins: Default::default(),
+    };
+    assert_eq!(
+        task.is_valid_msg_calculate_usage(
+            &mock_dependencies().api,
+            &Addr::unchecked("alice2"),
+            &Addr::unchecked("bob"),
+            &Addr::unchecked("bob"),
+            5,
+            5,
+            5,
+            5,
+        )
+        .unwrap_err(),
+        CoreError::InvalidAction {}
+    );
 }
 
 #[test]
@@ -489,9 +534,10 @@ fn hashing() {
     let task = Task {
         owner_id: Addr::unchecked("bob"),
         interval: Interval::Block(5),
-        boundary: BoundaryValidated {
+        boundary: CheckedBoundary {
             start: Some(4),
             end: None,
+            is_block_boundary: Some(true),
         },
         stop_on_fail: false,
         total_deposit: Default::default(),
@@ -516,8 +562,8 @@ fn hashing() {
     };
 
     let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}",
-        task.owner_id, task.interval, task.boundary, task.actions, task.queries
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        task.owner_id, task.interval, task.boundary, task.actions, task.queries, task.transforms
     );
 
     let hash = Sha256::digest(message.as_bytes());
@@ -528,4 +574,59 @@ fn hashing() {
     // Tests
     assert_eq!(encoded, task.to_hash());
     assert_eq!(bytes, task.to_hash_vec());
+}
+
+#[test]
+fn test_get_next_block_by_offset() {
+    let boundary = CheckedBoundary {
+        start: Some(1666000),
+        end: Some(1666010),
+        is_block_boundary: Some(true),
+    };
+    let interval = 2;
+    let mut list = Vec::new();
+    let mut block_height = 1665998;
+    for _ in 1..20 {
+        let result = get_next_block_by_offset(block_height, boundary, interval);
+        if result.0 > 0 {
+            list.push(result.0);
+        }
+        block_height = block_height + 1
+    }
+    assert_eq!(
+        list,
+        vec![
+            1666000, 1666000, 1666002, 1666002, 1666004, 1666004, 1666006, 1666006, 1666008,
+            1666008, 1666010, 1666010, 1666010
+        ]
+    );
+
+    let block_height = 1665998;
+
+    //pass empty boundary check if getting block_height+interval value
+    let empty_boundary = CheckedBoundary {
+        start: None,
+        end: None,
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, empty_boundary, interval);
+    assert_eq!(block_height + interval, result.0);
+
+    let boundary_with_start = CheckedBoundary {
+        start: Some(1666000),
+        end: None,
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, empty_boundary, interval);
+    assert_eq!(boundary_with_start.start.unwrap(), result.0);
+
+    let block_height = 1666008;
+
+    let boundary_with_end = CheckedBoundary {
+        start: None,
+        end: Some(1666010),
+        is_block_boundary: Some(true),
+    };
+    let result = get_next_block_by_offset(block_height, boundary_with_end, interval);
+    assert_eq!(boundary_with_end.end.unwrap(), result.0);
 }
