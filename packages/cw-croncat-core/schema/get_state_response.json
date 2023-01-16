@@ -1,305 +1,54 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "QueryMsg",
-  "oneOf": [
-    {
-      "type": "object",
-      "required": [
-        "get_config"
-      ],
-      "properties": {
-        "get_config": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_balances"
-      ],
-      "properties": {
-        "get_balances": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent"
-      ],
-      "properties": {
-        "get_agent": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_ids"
-      ],
-      "properties": {
-        "get_agent_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_agent_tasks"
-      ],
-      "properties": {
-        "get_agent_tasks": {
-          "type": "object",
-          "required": [
-            "account_id"
-          ],
-          "properties": {
-            "account_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks"
-      ],
-      "properties": {
-        "get_tasks": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks_with_queries"
-      ],
-      "properties": {
-        "get_tasks_with_queries": {
-          "type": "object",
-          "properties": {
-            "from_index": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            },
-            "limit": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_tasks_by_owner"
-      ],
-      "properties": {
-        "get_tasks_by_owner": {
-          "type": "object",
-          "required": [
-            "owner_id"
-          ],
-          "properties": {
-            "owner_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task"
-      ],
-      "properties": {
-        "get_task": {
-          "type": "object",
-          "required": [
-            "task_hash"
-          ],
-          "properties": {
-            "task_hash": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_task_hash"
-      ],
-      "properties": {
-        "get_task_hash": {
-          "type": "object",
-          "required": [
-            "task"
-          ],
-          "properties": {
-            "task": {
-              "$ref": "#/definitions/Task"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "validate_interval"
-      ],
-      "properties": {
-        "validate_interval": {
-          "type": "object",
-          "required": [
-            "interval"
-          ],
-          "properties": {
-            "interval": {
-              "$ref": "#/definitions/Interval"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_hashes"
-      ],
-      "properties": {
-        "get_slot_hashes": {
-          "type": "object",
-          "properties": {
-            "slot": {
-              "type": [
-                "integer",
-                "null"
-              ],
-              "format": "uint64",
-              "minimum": 0.0
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_slot_ids"
-      ],
-      "properties": {
-        "get_slot_ids": {
-          "type": "object"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "get_wallet_balances"
-      ],
-      "properties": {
-        "get_wallet_balances": {
-          "type": "object",
-          "required": [
-            "wallet"
-          ],
-          "properties": {
-            "wallet": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "required": [
-        "simulate_task"
-      ],
-      "properties": {
-        "simulate_task": {
-          "type": "object",
-          "required": [
-            "funds",
-            "task"
-          ],
-          "properties": {
-            "funds": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
-            },
-            "task": {
-              "$ref": "#/definitions/TaskRequest"
-            }
-          }
-        }
-      },
-      "additionalProperties": false
-    }
+  "title": "GetStateResponse",
+  "type": "object",
+  "required": [
+    "agent_active_queue",
+    "agent_pending_queue",
+    "balancer_mode",
+    "reply_index",
+    "task_total",
+    "tasks"
   ],
+  "properties": {
+    "agent_active_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Addr"
+      }
+    },
+    "agent_nomination_begin_time": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "agent_pending_queue": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Addr"
+      }
+    },
+    "balancer_mode": {
+      "$ref": "#/definitions/BalancerMode"
+    },
+    "reply_index": {
+      "$ref": "#/definitions/Uint64"
+    },
+    "task_total": {
+      "$ref": "#/definitions/Uint64"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TaskResponse"
+      }
+    }
+  },
   "definitions": {
     "Action_for_Empty": {
       "type": "object",
@@ -356,6 +105,13 @@
           },
           "additionalProperties": false
         }
+      ]
+    },
+    "BalancerMode": {
+      "type": "string",
+      "enum": [
+        "ActivationOrder",
+        "Equalizer"
       ]
     },
     "BankMsg": {
@@ -539,33 +295,6 @@
         },
         "status": {
           "$ref": "#/definitions/Status"
-        }
-      }
-    },
-    "CheckedBoundary": {
-      "type": "object",
-      "properties": {
-        "end": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "is_block_boundary": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "start": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "format": "uint64",
-          "minimum": 0.0
         }
       }
     },
@@ -797,22 +526,6 @@
         }
       ]
     },
-    "Cw20Coin": {
-      "type": "object",
-      "required": [
-        "address",
-        "amount"
-      ],
-      "properties": {
-        "address": {
-          "type": "string"
-        },
-        "amount": {
-          "$ref": "#/definitions/Uint128"
-        }
-      },
-      "additionalProperties": false
-    },
     "Cw20CoinVerified": {
       "type": "object",
       "required": [
@@ -881,27 +594,6 @@
     "Empty": {
       "description": "An empty struct that serves as a placeholder in different places, such as contracts that don't set a custom message.\n\nIt is designed to be expressable in correct JSON and JSON Schema but contains no meaningful data. Previously we used enums without cases, but those cannot represented as valid JSON Schema (https://github.com/CosmWasm/cosmwasm/issues/451)",
       "type": "object"
-    },
-    "GenericBalance": {
-      "type": "object",
-      "required": [
-        "cw20",
-        "native"
-      ],
-      "properties": {
-        "cw20": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Cw20CoinVerified"
-          }
-        },
-        "native": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Coin"
-          }
-        }
-      }
     },
     "GenericQuery": {
       "type": "object",
@@ -1397,97 +1089,36 @@
         }
       ]
     },
-    "Task": {
+    "TaskResponse": {
       "type": "object",
       "required": [
         "actions",
-        "amount_for_one_task",
-        "boundary",
+        "amount_for_one_task_cw20",
+        "amount_for_one_task_native",
         "interval",
         "owner_id",
         "stop_on_fail",
-        "total_deposit",
-        "version"
-      ],
-      "properties": {
-        "actions": {
-          "description": "The cosmos message to call, if time or rules are met",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Action_for_Empty"
-          }
-        },
-        "amount_for_one_task": {
-          "$ref": "#/definitions/GenericBalance"
-        },
-        "boundary": {
-          "$ref": "#/definitions/CheckedBoundary"
-        },
-        "interval": {
-          "description": "Scheduling definitions",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Interval"
-            }
-          ]
-        },
-        "owner_id": {
-          "description": "Entity responsible for this task, can change task details",
-          "allOf": [
-            {
-              "$ref": "#/definitions/Addr"
-            }
-          ]
-        },
-        "queries": {
-          "description": "A prioritized list of messages that can be chained decision matrix required to complete before task action Rules MUST return the ResolverResponse type",
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "$ref": "#/definitions/CroncatQuery"
-          }
-        },
-        "stop_on_fail": {
-          "description": "Defines if this task can continue until balance runs out",
-          "type": "boolean"
-        },
-        "total_deposit": {
-          "description": "NOTE: Only tally native balance here, manager can maintain token/balances outside of tasks",
-          "allOf": [
-            {
-              "$ref": "#/definitions/GenericBalance"
-            }
-          ]
-        },
-        "transforms": {
-          "type": [
-            "array",
-            "null"
-          ],
-          "items": {
-            "$ref": "#/definitions/Transform"
-          }
-        },
-        "version": {
-          "type": "string"
-        }
-      }
-    },
-    "TaskRequest": {
-      "type": "object",
-      "required": [
-        "actions",
-        "cw20_coins",
-        "interval",
-        "stop_on_fail"
+        "task_hash",
+        "total_cw20_deposit",
+        "total_deposit"
       ],
       "properties": {
         "actions": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/Action_for_Empty"
+          }
+        },
+        "amount_for_one_task_cw20": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "amount_for_one_task_native": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
           }
         },
         "boundary": {
@@ -1500,14 +1131,11 @@
             }
           ]
         },
-        "cw20_coins": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/Cw20Coin"
-          }
-        },
         "interval": {
           "$ref": "#/definitions/Interval"
+        },
+        "owner_id": {
+          "$ref": "#/definitions/Addr"
         },
         "queries": {
           "type": [
@@ -1518,22 +1146,22 @@
             "$ref": "#/definitions/CroncatQuery"
           }
         },
-        "sender": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "stop_on_fail": {
           "type": "boolean"
         },
-        "transforms": {
-          "type": [
-            "array",
-            "null"
-          ],
+        "task_hash": {
+          "type": "string"
+        },
+        "total_cw20_deposit": {
+          "type": "array",
           "items": {
-            "$ref": "#/definitions/Transform"
+            "$ref": "#/definitions/Cw20CoinVerified"
+          }
+        },
+        "total_deposit": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
           }
         }
       }
@@ -1545,33 +1173,6 @@
           "$ref": "#/definitions/Uint64"
         }
       ]
-    },
-    "Transform": {
-      "type": "object",
-      "required": [
-        "action_idx",
-        "action_path",
-        "query_idx",
-        "query_response_path"
-      ],
-      "properties": {
-        "action_idx": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "action_path": {
-          "$ref": "#/definitions/PathToValue"
-        },
-        "query_idx": {
-          "type": "integer",
-          "format": "uint64",
-          "minimum": 0.0
-        },
-        "query_response_path": {
-          "$ref": "#/definitions/PathToValue"
-        }
-      }
     },
     "Uint128": {
       "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",

@@ -221,6 +221,8 @@ impl<'a> CwCroncat<'a> {
                 agent_fee: cfg.agent_fee,
                 native_denom: &cfg.native_denom,
                 gas_price: &cfg.gas_price,
+                query_gas: cfg.gas_query_fee,
+                wasm_query_gas: cfg.gas_wasm_query_fee,
             },
             &ContractInfo {
                 addr: &env.contract.address,
@@ -309,6 +311,8 @@ impl<'a> CwCroncat<'a> {
                 agent_fee: cfg.agent_fee,
                 native_denom: &cfg.native_denom,
                 gas_price: &cfg.gas_price,
+                query_gas: cfg.gas_query_fee,
+                wasm_query_gas: cfg.gas_wasm_query_fee,
             },
         )?;
 

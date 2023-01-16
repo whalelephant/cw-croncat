@@ -353,6 +353,7 @@ fn is_valid_empty_actions() {
         queries: None,
         transforms: None,
         cw20_coins: Default::default(),
+        sender: None,
     };
     assert_eq!(
         task.is_valid_msg_calculate_usage(

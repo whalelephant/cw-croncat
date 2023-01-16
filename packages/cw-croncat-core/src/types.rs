@@ -396,8 +396,8 @@ impl TaskRequest {
             contract_info.owner_addr,
             economics.gas_base_fee,
             economics.gas_action_fee,
-            todo!(),
-            todo!(),
+            economics.query_gas,
+            economics.wasm_query_gas,
         )?;
         let gas_amount_with_agent_fee = gas_amount_with_agent_fee(gas_amount, economics.agent_fee)?;
         let price = economics.gas_price.calculate(gas_amount_with_agent_fee)?;
@@ -1153,6 +1153,8 @@ pub struct EconomicsContext<'a> {
     pub agent_fee: u64,
     pub native_denom: &'a str,
     pub gas_price: &'a GasPrice,
+    pub query_gas: u64,
+    pub wasm_query_gas: u64,
 }
 pub struct ContractInfo<'a> {
     pub addr: &'a Addr,
