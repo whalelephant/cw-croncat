@@ -655,7 +655,7 @@ impl Task {
         Ok(cw20_coins)
     }
 
-    pub fn into_response(&self, prefix: String) -> TaskResponse {
+    pub fn into_response(self, prefix: &str) -> TaskResponse {
         let boundary = match (self.boundary, self.interval.clone()) {
             (
                 CheckedBoundary {
