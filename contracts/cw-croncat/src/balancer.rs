@@ -97,8 +97,11 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             return Err(ContractError::AgentNotRegistered {});
         }
         let agent_count = active.len() as u64;
+        //println!("{:?}", (agent_index,agent_diff_index, agent_tasks_total));
+
         let agent_active_indices_config = conf.agent_active_indices;
         let agent_active_indices: Vec<usize> = (0..active.len()).collect();
+
         let agent_index = active
             .iter()
             .position(|x| x == &agent_id)
@@ -189,13 +192,13 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
                         .collect();
 
                     rich_agents.sort_by(|a, b| a.2.cmp(&b.2));
-                    let rich_indices: Vec<usize> =
+                    let mut rich_indices: Vec<usize> =
                         rich_agents.iter().map(|v| v.1 as usize).collect();
-
+                    rich_indices.dedup();
                     let mut diff = vect_difference(&agent_active_indices, &rich_indices);
-                    diff.extend(rich_indices);
-
-                    let agent_index = diff
+                    diff.extend(rich_indices.clone());
+                    diff.dedup();
+                    let agent_diff_index = diff
                         .iter()
                         .position(|x| x == &(agent_index as usize))
                         .ok_or(ContractError::AgentNotRegistered {})?
@@ -203,8 +206,9 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 
                     if total_tasks <= diff.len() as u64 {
                         let agent_tasks_total = 1u64.saturating_sub(
-                            agent_index.saturating_sub(total_tasks.saturating_sub(1)),
+                            agent_diff_index.saturating_sub(total_tasks.saturating_sub(1)),
                         );
+
                         Ok((agent_tasks_total.into(), agent_tasks_total.into()))
                     } else {
                         let leftover = total_tasks % agent_count;
@@ -286,12 +290,13 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 
         self.update_or_append(indices, (slot_kind, agent_index, 1));
         config.save(storage, &conf)?;
+
         Ok(())
     }
 }
 
 impl Default for RoundRobinBalancer {
     fn default() -> RoundRobinBalancer {
-        RoundRobinBalancer::new(BalancerMode::ActivationOrder)
+        RoundRobinBalancer::new(BalancerMode::Equalizer)
     }
 }

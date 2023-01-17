@@ -19,6 +19,8 @@ pub const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
 pub const AGENT2: &str = "cosmos1qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
 pub const AGENT3: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const AGENT4: &str = "cosmos1ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
+pub const AGENT5: &str = "cosmos1k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
+
 pub const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
@@ -136,6 +138,7 @@ fn mock_app() -> App {
             (2_000_000, AGENT2.to_string()),
             (2_000_000, AGENT3.to_string()),
             (2_000_000, AGENT4.to_string()),
+            (2_000_000, AGENT5.to_string()),
             (500_0000, PARTICIPANT0.to_string()),
             (500_0000, PARTICIPANT1.to_string()),
             (500_0000, PARTICIPANT2.to_string()),

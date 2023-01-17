@@ -1,5 +1,5 @@
 mod agent;
-mod balance;
+mod balancer;
 mod contract;
 mod helpers;
 mod manager;
