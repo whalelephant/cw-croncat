@@ -48,7 +48,7 @@ cw-utils = "0.16.0"
 cw721 = "0.16.0"
 
 # DAO contracts
-dao-voting = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts.git"}
+dao-voting = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 dao-proposal-single = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
 dao-proposal-multiple = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
 dao-voting-cw20-staked = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
