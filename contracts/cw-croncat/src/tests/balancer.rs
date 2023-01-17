@@ -17,6 +17,7 @@ fn mock_config() -> Config {
     Config {
         paused: false,
         owner_id: Addr::unchecked(ADMIN),
+        chain_name: "atom".to_string(),
         // treasury_id: None,
         min_tasks_per_agent: 3,
         agent_active_indices: Vec::<(SlotType, u32, u32)>::with_capacity(0),
