@@ -1,10 +1,5 @@
 [workspace]
-members = [
-  "contracts/croncat-*",
-  "contracts/mod-*",
-  "packages/croncat-sdk-*",
-  "packages/mod-sdk"
-]
+members = ["contracts/*", "packages/*"]
 
 [profile.release]
 codegen-units = 1
