@@ -126,8 +126,7 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             indices_with_extra_tasks.dedup();
 
             let mut diff = vect_difference(&agent_active_indices, &indices_with_extra_tasks);
-            diff.extend(indices_with_extra_tasks.clone());
-            println!("{:?}", &diff);
+            diff.extend(indices_with_extra_tasks);
 
             let agent_diff_index =
                 diff.iter()
@@ -199,7 +198,6 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         active_agents: &Item<'a, Vec<Addr>>,
         task_info: &TaskInfo,
     ) -> Result<(), ContractError> {
-
         let mut conf: Config = config.load(storage)?;
         let indices = conf.agent_active_indices.as_mut();
         let active = active_agents.load(storage)?;
