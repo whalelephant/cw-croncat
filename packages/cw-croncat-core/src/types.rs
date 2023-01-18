@@ -375,7 +375,7 @@ impl TaskRequest {
     ) -> Result<Task, CoreError> {
         let sender = deps
             .api
-            .addr_validate(&self.sender.clone().unwrap_or_else(|| "juno".to_owned()))?;
+            .addr_validate(&self.sender.clone().unwrap_or_else(|| "ADDRESS".to_owned()))?;
 
         let cw20 = if !self.cw20_coins.is_empty() {
             let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(self.cw20_coins.len());
@@ -716,20 +716,13 @@ pub fn simulate_task(
     contract_info: &ContractInfo,
     slot_granularity_time: u64,
 ) -> Result<SimulateTaskResponse, CoreError> {
-    let mut gas_amount: u64 = economics.gas_base_fee;
-    let gas_action_fee = economics.gas_action_fee;
     let task_info = task
-        .as_task(env, deps, contract_info, funds.clone(), economics)
+        .as_task(env, deps, contract_info, funds.clone(), economics.clone())
         .unwrap();
     let task_hash = task_info.to_hash();
 
-    let interval = task.interval;
-
-    for action in task.actions.iter() {
-        gas_amount = gas_amount
-            .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
-            .ok_or(CoreError::NoGasLimit {})?;
-    }
+    // Calculate expected gas
+    let gas_amount = calculate_gas(task_info.clone(), economics)?;
 
     // Calculate the maximum amount of occurrences for given funds (without boundaries)
     // It is defined by the amount for one execution
@@ -751,6 +744,7 @@ pub fn simulate_task(
 
     // Calculate the maximum amount of occurrences according to the given interval and boundary
     // and compare with occurrences_for_funds, take the minimum
+    let interval = task.interval;
     let boundary = CheckedBoundary::new(task.boundary, &interval)?;
 
     let occurrences = match interval {
@@ -799,6 +793,40 @@ pub fn simulate_task(
         occurrences,
         task_hash,
     })
+}
+
+fn calculate_gas(task: Task, economics: EconomicsContext) -> Result<u64, CoreError> {
+    let mut gas_amount: u64 = economics.gas_base_fee;
+    let gas_action_fee = economics.gas_action_fee;
+
+    // Gas for actions:
+    for action in task.actions.iter() {
+        gas_amount = gas_amount
+            .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
+            .ok_or(CoreError::NoGasLimit {})?;
+    }
+    // Gas for queries
+    if let Some(queries) = task.queries.as_ref() {
+        // If task has queries - Rules contract is queried which is wasm query
+        gas_amount = gas_amount
+            .checked_add(economics.wasm_query_gas)
+            .ok_or(CoreError::InvalidWasmMsg {})?;
+        for query in queries.iter() {
+            match query {
+                CroncatQuery::HasBalanceGte(_) => {
+                    gas_amount = gas_amount
+                        .checked_add(economics.query_gas)
+                        .ok_or(CoreError::InvalidWasmMsg {})?;
+                }
+                _ => {
+                    gas_amount = gas_amount
+                        .checked_add(economics.wasm_query_gas)
+                        .ok_or(CoreError::InvalidWasmMsg {})?;
+                }
+            }
+        }
+    };
+    Ok(gas_amount)
 }
 
 /// Calculate the amount including agent_fee
@@ -1134,6 +1162,7 @@ pub struct Transform {
     pub action_path: PathToValue,
     pub query_response_path: PathToValue,
 }
+#[derive(Clone)]
 pub struct EconomicsContext<'a> {
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
