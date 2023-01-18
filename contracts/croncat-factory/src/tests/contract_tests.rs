@@ -1,17 +1,107 @@
-use cosmwasm_std::{to_binary, Addr, Uint128};
-use croncat_sdk_factory::msg::{EntryResponse, ModuleInstantiateInfo, ContractMetadataResponse};
+use cosmwasm_std::{to_binary, Addr, StdError, Uint128};
+use croncat_sdk_factory::msg::{
+    Config, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
+};
 use cw20::Cw20Coin;
 use cw_multi_test::Executor;
 
 use super::{contracts, helpers::default_app, ADMIN, ANYONE};
-use crate::msg::*;
+use crate::{msg::*, ContractError};
 
 #[test]
-fn successful_init() {
+fn successful_inits() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+
+    let init_msg = InstantiateMsg { owner_addr: None };
+
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(config.owner_addr, Addr::unchecked(ADMIN));
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ANYONE.to_owned()),
+    };
+
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(config.owner_addr, Addr::unchecked(ANYONE));
+}
+
+#[test]
+fn failure_inits() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some("InVaLidAdDrEsS".to_owned()),
+    };
+
+    let err: ContractError = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::generic_err(
+            "Invalid input: address not normalized"
+        ))
+    );
+}
+
+#[test]
+fn deploy_check() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
     let cw20_code_id = app.store_code(contracts::cw20_contract());
 
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
     let manager_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -31,8 +121,19 @@ fn successful_init() {
             marketing: None,
         })
         .unwrap(),
-        label: "manager".to_owned(),
+        contract_name: "manager".to_owned(),
     };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Manager,
+            module_instantiate_info: manager_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
     let tasks_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -52,8 +153,19 @@ fn successful_init() {
             marketing: None,
         })
         .unwrap(),
-        label: "tasks".to_owned(),
+        contract_name: "tasks".to_owned(),
     };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info: tasks_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
     let agents_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -73,8 +185,18 @@ fn successful_init() {
             marketing: None,
         })
         .unwrap(),
-        label: "agents".to_owned(),
+        contract_name: "agents".to_owned(),
     };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Agents,
+            module_instantiate_info: agents_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
     let library_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -94,27 +216,18 @@ fn successful_init() {
             marketing: None,
         })
         .unwrap(),
-        label: "library".to_owned(),
+        contract_name: "library".to_owned(),
     };
-
-    let init_msg = InstantiateMsg {
-        owner_addr: Some(ADMIN.to_owned()),
-        manager_module_instantiate_info,
-        tasks_module_instantiate_info,
-        agents_module_instantiate_info,
-        library_modules_instantiate_info: vec![library_module_instantiate_info],
-    };
-
-    let contract_addr = app
-        .instantiate_contract(
-            contract_code_id,
-            Addr::unchecked(ADMIN),
-            &init_msg,
-            &[],
-            "factory",
-            None,
-        )
-        .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info: library_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
 
     let contracts: Vec<EntryResponse> = app
         .wrap()
@@ -140,7 +253,7 @@ fn successful_init() {
         )
         .unwrap();
     assert_eq!(manager_metadatas.len(), 1);
-    let manager_metadata = manager_metadatas.remove(0);
+    let _manager_metadata = manager_metadatas.remove(0);
     // TODO check it's manager
 
     let mut tasks_metadatas: Vec<ContractMetadataResponse> = app
@@ -155,13 +268,13 @@ fn successful_init() {
         )
         .unwrap();
     assert_eq!(tasks_metadatas.len(), 1);
-    let tasks_metadata = tasks_metadatas.remove(0);
+    let _tasks_metadata = tasks_metadatas.remove(0);
     // TODO check it's tasks
 
     let mut agents_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::VersionsByContractName {
                 contract_name: "agents".to_string(),
                 from_index: None,
@@ -170,17 +283,30 @@ fn successful_init() {
         )
         .unwrap();
     assert_eq!(agents_metadatas.len(), 1);
-    let agents_metadata = agents_metadatas.remove(0);
+    let _agents_metadata = agents_metadatas.remove(0);
 
     // TODO check it is agents
 }
 
 #[test]
-fn failure_init() {
+fn failure_deploy() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
     let cw20_code_id = app.store_code(contracts::cw20_contract());
 
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
     let manager_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -200,50 +326,137 @@ fn failure_init() {
             marketing: None,
         })
         .unwrap(),
-        label: "manager".to_owned(),
+        contract_name: "manager".to_owned(),
     };
-    let tasks_module_instantiate_info = ModuleInstantiateInfo {
+
+    // Not a owner_addr
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: manager_module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    let bad_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
-        })
-        .unwrap(),
-        label: "tasks".to_owned(),
+        msg: Default::default(),
+        contract_name: "manager".to_owned(),
     };
-    let agents_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
-        version: [0, 1],
-        commit_id: "some".to_owned(),
-        checksum: "qwe123".to_owned(),
-        changelog_url: None,
-        schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
-        })
-        .unwrap(),
-        label: "agents".to_owned(),
+
+    // Not a wrong_addr
+    let err: StdError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr,
+            &ExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: bad_module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        StdError::ParseErr {
+            target_type: "cw20_base::msg::InstantiateMsg".to_owned(),
+            msg: "EOF while parsing a JSON value.".to_owned()
+        }
+    )
+}
+
+#[test]
+fn update_config() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
     };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let update_config_msg = ExecuteMsg::UpdateConfig {
+        owner_addr: ANYONE.to_owned(),
+    };
+
+    // Not owner_addr execution
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &update_config_msg,
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &update_config_msg,
+        &[],
+    )
+    .unwrap();
+
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ANYONE)
+        }
+    )
+}
+
+#[test]
+fn remove() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+    let cw20_code_id = app.store_code(contracts::cw20_contract());
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
     let library_module_instantiate_info = ModuleInstantiateInfo {
         code_id: cw20_code_id,
         version: [0, 1],
@@ -251,26 +464,278 @@ fn failure_init() {
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        // bad instantiate_msg
-        msg: Default::default(),
-        label: "library".to_owned(),
+        msg: to_binary(&cw20_base::msg::InstantiateMsg {
+            name: "cron".to_owned(),
+            symbol: "cat".to_owned(),
+            decimals: 5,
+            initial_balances: vec![Cw20Coin {
+                address: ANYONE.to_owned(),
+                amount: Uint128::new(150),
+            }],
+            mint: None,
+            marketing: None,
+        })
+        .unwrap(),
+        contract_name: "library".to_owned(),
     };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info: library_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+    let library_v2_module_instantiate_info = ModuleInstantiateInfo {
+        code_id: cw20_code_id,
+        version: [0, 2],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&cw20_base::msg::InstantiateMsg {
+            name: "cron".to_owned(),
+            symbol: "cat".to_owned(),
+            decimals: 5,
+            initial_balances: vec![Cw20Coin {
+                address: ANYONE.to_owned(),
+                amount: Uint128::new(150),
+            }],
+            mint: None,
+            marketing: None,
+        })
+        .unwrap(),
+        contract_name: "library".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info: library_v2_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    // not owner_addr
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::Remove {
+                contract_name: "library".to_owned(),
+                version: [0, 1],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Unknown contract removed
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::Remove {
+                contract_name: "manager".to_owned(),
+                version: [0, 2],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::UnknownContract {});
+
+    // Latest version can't get removed
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::Remove {
+                contract_name: "library".to_owned(),
+                version: [0, 2],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::LatestVersionRemove {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Remove {
+            contract_name: "library".to_owned(),
+            version: [0, 1],
+        },
+        &[],
+    )
+    .unwrap();
+
+    let all_entries: Vec<EntryResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr,
+            &QueryMsg::AllEntries {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(all_entries.len(), 1);
+    assert_eq!(all_entries[0].metadata.version, [0, 2]);
+    // TODO: test non-library contracts
+}
+
+#[test]
+fn update_metadata() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+    let cw20_code_id = app.store_code(contracts::cw20_contract());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
-        manager_module_instantiate_info,
-        tasks_module_instantiate_info,
-        agents_module_instantiate_info,
-        library_modules_instantiate_info: vec![library_module_instantiate_info],
     };
-
-    let err = app.instantiate_contract(
-        contract_code_id,
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+    let library_module_instantiate_info = ModuleInstantiateInfo {
+        code_id: cw20_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&cw20_base::msg::InstantiateMsg {
+            name: "cron".to_owned(),
+            symbol: "cat".to_owned(),
+            decimals: 5,
+            initial_balances: vec![Cw20Coin {
+                address: ANYONE.to_owned(),
+                amount: Uint128::new(150),
+            }],
+            mint: None,
+            marketing: None,
+        })
+        .unwrap(),
+        contract_name: "library".to_owned(),
+    };
+    app.execute_contract(
         Addr::unchecked(ADMIN),
-        &init_msg,
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info: library_module_instantiate_info,
+        },
         &[],
-        "factory",
-        None,
-    );
-    assert!(err.is_err())
+    )
+    .unwrap();
+
+    // Not owner_addr
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::UpdateMetadata {
+                contract_name: "library".to_owned(),
+                version: [0, 1],
+                changelog_url: Some("new changelog".to_owned()),
+                schema: None,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Wrong contract_name
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::UpdateMetadata {
+                contract_name: "manager".to_owned(),
+                version: [0, 1],
+                changelog_url: Some("new changelog".to_owned()),
+                schema: None,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::UnknownContract {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateMetadata {
+            contract_name: "library".to_owned(),
+            version: [0, 1],
+            changelog_url: Some("new changelog".to_owned()),
+            schema: None,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadatas: Vec<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::VersionsByContractName {
+                contract_name: "library".to_owned(),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(metadatas[0].changelog_url, Some("new changelog".to_owned()));
+    assert_eq!(metadatas[0].schema, None);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateMetadata {
+            contract_name: "library".to_owned(),
+            version: [0, 1],
+            changelog_url: None,
+            schema: Some("new schema".to_owned()),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr,
+            &QueryMsg::LatestContract {
+                contract_name: "library".to_owned(),
+            },
+        )
+        .unwrap();
+    let metadata = metadata.unwrap();
+    assert_eq!(metadata.changelog_url, Some("new changelog".to_owned()));
+    assert_eq!(metadata.schema, Some("new schema".to_owned()));
 }

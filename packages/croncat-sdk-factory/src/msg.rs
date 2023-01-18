@@ -4,17 +4,21 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
 
 #[cw_serde]
+pub struct Config {
+    pub owner_addr: Addr,
+}
+
+#[cw_serde]
 pub struct FactoryInstantiateMsg {
     pub owner_addr: Option<String>,
-    pub manager_module_instantiate_info: ModuleInstantiateInfo,
-    pub tasks_module_instantiate_info: ModuleInstantiateInfo,
-    pub agents_module_instantiate_info: ModuleInstantiateInfo,
-
-    pub library_modules_instantiate_info: Vec<ModuleInstantiateInfo>,
 }
 
 #[cw_serde]
 pub enum FactoryExecuteMsg {
+    UpdateConfig {
+        owner_addr: String,
+    },
+
     Deploy {
         kind: VersionKind,
         module_instantiate_info: ModuleInstantiateInfo,
@@ -28,7 +32,8 @@ pub enum FactoryExecuteMsg {
     UpdateMetadata {
         contract_name: String,
         version: [u8; 2],
-        new_changelog: Option<String>,
+        changelog_url: Option<String>,
+        schema: Option<String>,
     },
 }
 // TODO: migrate
@@ -36,6 +41,9 @@ pub enum FactoryExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum FactoryQueryMsg {
+    #[returns[Config]]
+    Config {},
+
     #[returns[Vec<EntryResponse>]]
     LatestContracts {},
 
@@ -158,6 +166,6 @@ pub struct ModuleInstantiateInfo {
     /// Instantiate message to be used to create the contract.
     pub msg: Binary,
 
-    /// Label for the instantiated contract.
-    pub label: String,
+    /// Contract name for the instantiated contract.
+    pub contract_name: String,
 }

@@ -3,10 +3,7 @@ use cosmwasm_std::Addr;
 use croncat_sdk_factory::msg::ContractMetadata;
 use cw_storage_plus::{Item, Map};
 
-#[cw_serde]
-pub struct Config {
-    pub owner_addr: Addr,
-}
+pub use croncat_sdk_factory::msg::Config;
 
 /// Contract config, just the owner address for now, preferably dao
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -23,5 +20,10 @@ pub const LATEST_ADDRS: Map<&str, Addr> = Map::new("latest_addrs");
 // Latest contract name to the version
 pub const LATEST_VERSIONS: Map<&str, [u8; 2]> = Map::new("latest_versions");
 
-/// Temporary Map reply id to label
-pub const CONTRACT_NAMES: Map<u64, String> = Map::new("contract_names");
+#[cw_serde]
+pub struct TempReply {
+    pub contract_name: String,
+}
+
+// Temporary storing data for the reply
+pub const TEMP_REPLY: Item<TempReply> = Item::new("temp_reply");

@@ -13,17 +13,13 @@ use cw_utils::parse_reply_instantiate_data;
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, CONFIG, CONTRACT_ADDRS, CONTRACT_METADATAS, CONTRACT_NAMES, LATEST_ADDRS,
-    LATEST_VERSIONS,
+    Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_METADATAS, LATEST_ADDRS, LATEST_VERSIONS,
+    TEMP_REPLY,
 };
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:croncat-factory";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
-
-const CRONCAT_MANAGER_REPLY_ID: u64 = 0;
-const CRONCAT_TASKS_REPLY_ID: u64 = 1;
-const CRONCAT_AGENTS_REPLY_ID: u64 = 2;
 
 /// Save metadata and generate wasm msg
 fn init_save_metadata_generate_wasm_msg(
@@ -41,14 +37,18 @@ fn init_save_metadata_generate_wasm_msg(
         changelog_url: init_info.changelog_url,
         schema: init_info.schema,
     };
-    CONTRACT_METADATAS.save(storage, (&init_info.label, &init_info.version), &metadata)?;
-    LATEST_VERSIONS.save(storage, &init_info.label, &init_info.version)?;
+    CONTRACT_METADATAS.save(
+        storage,
+        (&init_info.contract_name, &init_info.version),
+        &metadata,
+    )?;
+    LATEST_VERSIONS.save(storage, &init_info.contract_name, &init_info.version)?;
     let msg = WasmMsg::Instantiate {
         admin: Some(factory.to_owned()),
         code_id: init_info.code_id,
         msg: init_info.msg,
         funds: vec![],
-        label: init_info.label,
+        label: init_info.contract_name,
     };
     Ok(msg)
 }
@@ -56,7 +56,7 @@ fn init_save_metadata_generate_wasm_msg(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
@@ -68,69 +68,9 @@ pub fn instantiate(
         .unwrap_or_else(|| info.sender.clone());
     CONFIG.save(deps.storage, &Config { owner_addr })?;
 
-    CONTRACT_NAMES.save(
-        deps.storage,
-        CRONCAT_MANAGER_REPLY_ID,
-        &msg.manager_module_instantiate_info.label,
-    )?;
-    let manager_wasm = init_save_metadata_generate_wasm_msg(
-        deps.storage,
-        msg.manager_module_instantiate_info,
-        VersionKind::Manager {},
-        env.contract.address.as_str(),
-    )?;
-    let croncat_manager_msg = SubMsg::reply_on_success(manager_wasm, CRONCAT_MANAGER_REPLY_ID);
-
-    CONTRACT_NAMES.save(
-        deps.storage,
-        CRONCAT_TASKS_REPLY_ID,
-        &msg.tasks_module_instantiate_info.label,
-    )?;
-    let tasks_wasm = init_save_metadata_generate_wasm_msg(
-        deps.storage,
-        msg.tasks_module_instantiate_info,
-        VersionKind::Tasks {},
-        env.contract.address.as_str(),
-    )?;
-    let croncat_tasks_msg = SubMsg::reply_on_success(tasks_wasm, CRONCAT_TASKS_REPLY_ID);
-
-    CONTRACT_NAMES.save(
-        deps.storage,
-        CRONCAT_AGENTS_REPLY_ID,
-        &msg.agents_module_instantiate_info.label,
-    )?;
-    let agents_wasm = init_save_metadata_generate_wasm_msg(
-        deps.storage,
-        msg.agents_module_instantiate_info,
-        VersionKind::Agents {},
-        env.contract.address.as_str(),
-    )?;
-    let croncat_agents_msg = SubMsg::reply_on_success(agents_wasm, CRONCAT_AGENTS_REPLY_ID);
-
-    let query_modules_msg: Vec<SubMsg> = msg
-        .library_modules_instantiate_info
-        .into_iter()
-        .enumerate()
-        .map(|(id, init_info)| {
-            let reply_id = id as u64 + 3;
-            CONTRACT_NAMES.save(deps.storage, reply_id, &init_info.label)?;
-            let query_wasm = init_save_metadata_generate_wasm_msg(
-                deps.storage,
-                init_info,
-                VersionKind::Library {},
-                env.contract.address.as_str(),
-            )?;
-            Ok(SubMsg::reply_on_success(query_wasm, reply_id))
-        })
-        .collect::<StdResult<Vec<_>>>()?;
-
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("sender", info.sender)
-        .add_submessage(croncat_manager_msg)
-        .add_submessage(croncat_tasks_msg)
-        .add_submessage(croncat_agents_msg)
-        .add_submessages(query_modules_msg))
+        .add_attribute("sender", info.sender))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -147,6 +87,7 @@ pub fn execute(
     }
 
     match msg {
+        ExecuteMsg::UpdateConfig { owner_addr } => execute_update_config(deps, owner_addr),
         ExecuteMsg::Deploy {
             kind,
             module_instantiate_info,
@@ -158,27 +99,48 @@ pub fn execute(
         ExecuteMsg::UpdateMetadata {
             contract_name,
             version,
-            new_changelog,
-        } => execute_update_metadata_changelog(deps, contract_name, version, new_changelog),
+            changelog_url,
+            schema,
+        } => execute_update_metadata(deps, contract_name, version, changelog_url, schema),
     }
 }
 
-fn execute_update_metadata_changelog(
+fn execute_update_config(deps: DepsMut, owner_addr: String) -> Result<Response, ContractError> {
+    let config = Config {
+        owner_addr: deps.api.addr_validate(&owner_addr)?,
+    };
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::new()
+        .add_attribute("action", "update_config")
+        .add_attribute("owner_addr", config.owner_addr))
+}
+
+fn execute_update_metadata(
     deps: DepsMut,
     contract_name: String,
     version: [u8; 2],
     new_changelog: Option<String>,
+    schema: Option<String>,
 ) -> Result<Response, ContractError> {
-    CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
-        match metadata_res {
-            Some(mut metadata) => {
-                metadata.changelog_url = new_changelog;
-                Ok(metadata)
+    let metadata =
+        CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
+            match metadata_res {
+                Some(mut metadata) => {
+                    if new_changelog.is_some() {
+                        metadata.changelog_url = new_changelog;
+                    }
+                    if schema.is_some() {
+                        metadata.schema = schema;
+                    }
+                    Ok(metadata)
+                }
+                None => Err(ContractError::UnknownContract {}),
             }
-            None => Err(ContractError::UnknownContract {}),
-        }
-    })?;
-    Ok(Response::new().add_attribute("action", "update_metadata_changelog"))
+        })?;
+    Ok(Response::new()
+        .add_attribute("action", "update_metadata")
+        .add_attribute("changelog_url", format!("{:?}", metadata.changelog_url))
+        .add_attribute("schema", format!("{:?}", metadata.schema)))
 }
 
 fn execute_remove(
@@ -213,7 +175,7 @@ fn execute_deploy(
     kind: VersionKind,
     module_instantiate_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
-    let contract_name = module_instantiate_info.label.clone();
+    let contract_name = module_instantiate_info.contract_name.clone();
     let wasm = init_save_metadata_generate_wasm_msg(
         deps.storage,
         module_instantiate_info,
@@ -222,16 +184,21 @@ fn execute_deploy(
     )?;
     let msg = SubMsg::reply_on_success(wasm, 0);
 
+    let temp_reply = TempReply { contract_name };
+
+    TEMP_REPLY.save(deps.storage, &temp_reply)?;
+
     Ok(Response::new()
         .add_attribute("action", "deploy")
         .add_attribute("version_kind", kind.to_string())
-        .add_attribute("contract_name", contract_name)
+        .add_attribute("contract_name", temp_reply.contract_name)
         .add_submessage(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::LatestContracts {} => to_binary(&query_latest_contracts(deps)?),
         QueryMsg::LatestContract { contract_name } => {
             to_binary(&query_latest_contract(deps, contract_name)?)
@@ -390,19 +357,15 @@ pub fn query_latest_contract(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    let msg_id = msg.id;
     let res = parse_reply_instantiate_data(msg)?;
 
-    let contract_name = CONTRACT_NAMES.load(deps.storage, msg_id)?;
-    // Not needed anymore
-    CONTRACT_NAMES.remove(deps.storage, msg_id);
+    let contract_name: String = TEMP_REPLY.load(deps.storage)?.contract_name;
 
     let contract_address = deps.api.addr_validate(&res.contract_address)?;
     LATEST_ADDRS.save(deps.storage, &contract_name, &contract_address)?;
 
     let latest_version = LATEST_VERSIONS.load(deps.storage, &contract_name)?;
 
-    // let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &latest_version))?;
     CONTRACT_ADDRS.save(
         deps.storage,
         (&contract_name, &latest_version),
