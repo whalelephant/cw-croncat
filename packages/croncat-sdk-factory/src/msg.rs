@@ -10,25 +10,33 @@ pub struct Config {
 
 #[cw_serde]
 pub struct FactoryInstantiateMsg {
+    /// Owner address of the contract
+    /// Only owner can execute messages in this contract
+    /// If no owner_addr is passed sender will be used as owner address
     pub owner_addr: Option<String>,
 }
 
 #[cw_serde]
 pub enum FactoryExecuteMsg {
+    /// Updates the factory config
     UpdateConfig {
         owner_addr: String,
     },
 
+    /// Deploys contract and saves metadata of the contract to the factory
     Deploy {
         kind: VersionKind,
         module_instantiate_info: ModuleInstantiateInfo,
     },
 
+    /// Removes contract metadata from the factory if contract is paused or it is library contract.
+    /// Last version of the contract can't get removed
     Remove {
         contract_name: String,
         version: [u8; 2],
     },
 
+    /// Update fields of the contract metadata
     UpdateMetadata {
         contract_name: String,
         version: [u8; 2],
@@ -41,15 +49,19 @@ pub enum FactoryExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum FactoryQueryMsg {
+    /// Gets the factory's config
     #[returns[Config]]
     Config {},
 
+    /// Gets latest contract names and metadatas of the contracts
     #[returns[Vec<EntryResponse>]]
     LatestContracts {},
 
+    /// Gets latest version metadata of the contract
     #[returns[Option<ContractMetadataResponse>]]
     LatestContract { contract_name: String },
 
+    /// Gets metadatas of the contract
     #[returns[Vec<ContractMetadataResponse>]]
     VersionsByContractName {
         contract_name: String,
@@ -57,12 +69,14 @@ pub enum FactoryQueryMsg {
         limit: Option<u64>,
     },
 
+    /// Gets list of the contract names
     #[returns[Vec<String>]]
     ContractNames {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
 
+    /// Gets all contract names and metadatas stored in factory.
     #[returns[Vec<EntryResponse>]]
     AllEntries {
         from_index: Option<u64>,

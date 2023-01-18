@@ -22,6 +22,7 @@ const CONTRACT_NAME: &str = "crates.io:croncat-factory";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Save metadata and generate wasm msg
+/// Note: this will override contract metadata if same contract name and version was stored already
 fn init_save_metadata_generate_wasm_msg(
     storage: &mut dyn Storage,
     init_info: ModuleInstantiateInfo,
@@ -126,6 +127,8 @@ fn execute_update_metadata(
         CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
             match metadata_res {
                 Some(mut metadata) => {
+                    // Update only if it contains values
+                    // No reason to set it from Some(x) to None
                     if new_changelog.is_some() {
                         metadata.changelog_url = new_changelog;
                     }
@@ -148,21 +151,22 @@ fn execute_remove(
     contract_name: String,
     version: [u8; 2],
 ) -> Result<Response, ContractError> {
-    // Can't remove latest
     let latest_version = LATEST_VERSIONS
         .may_load(deps.storage, &contract_name)?
         .ok_or(ContractError::UnknownContract {})?;
+    // Can't remove latest
+    if latest_version == version {
+        return Err(ContractError::LatestVersionRemove {});
+    }
 
     let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &version))?;
+
     // Can't remove unpaused contract if not a library
     if metadata.kind != VersionKind::Library {
         // Check if paused
         todo!();
     }
 
-    if latest_version == version {
-        return Err(ContractError::LatestVersionRemove {});
-    }
     CONTRACT_METADATAS.remove(deps.storage, (&contract_name, &version));
     CONTRACT_ADDRS.remove(deps.storage, (&contract_name, &version));
 
@@ -184,8 +188,8 @@ fn execute_deploy(
     )?;
     let msg = SubMsg::reply_on_success(wasm, 0);
 
+    // Store temporary data that's needed in the reply
     let temp_reply = TempReply { contract_name };
-
     TEMP_REPLY.save(deps.storage, &temp_reply)?;
 
     Ok(Response::new()
