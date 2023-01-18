@@ -7,11 +7,6 @@ use cw_croncat_core::msg::AgentTaskResponse;
 use cw_croncat_core::types::SlotType;
 use cw_storage_plus::Item;
 
-#[derive(PartialEq, Eq)]
-pub enum BalancerMode {
-    ActivationOrder,
-    Equalizer,
-}
 pub trait Balancer<'a> {
     fn get_agent_tasks(
         &mut self,
@@ -39,13 +34,11 @@ pub trait Balancer<'a> {
     ) -> Result<(), ContractError>;
 }
 
-pub struct RoundRobinBalancer {
-    pub mode: BalancerMode,
-}
+pub struct RoundRobinBalancer {}
 
 impl RoundRobinBalancer {
-    pub fn new(mode: BalancerMode) -> RoundRobinBalancer {
-        RoundRobinBalancer { mode }
+    pub fn new() -> RoundRobinBalancer {
+        RoundRobinBalancer {}
     }
     pub(crate) fn update_or_append(
         &self,
@@ -97,8 +90,6 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             return Err(ContractError::AgentNotRegistered {});
         }
         let agent_count = active.len() as u64;
-        //println!("{:?}", (agent_index,agent_diff_index, agent_tasks_total));
-
         let agent_active_indices_config = conf.agent_active_indices;
         let agent_active_indices: Vec<usize> = (0..active.len()).collect();
 
@@ -116,133 +107,67 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         let mut num_cron_tasks = Uint64::zero();
         let mut num_cron_tasks_extra = Uint64::zero();
 
-        match self.mode {
-            BalancerMode::ActivationOrder => {
-                let activation_ordering =
-                    |total_tasks: u64| -> Result<(Uint64, Uint64), ContractError> {
-                        if total_tasks < 1 {
-                            return Ok((Uint64::zero(), Uint64::zero()));
-                        }
-                        if total_tasks <= active.len() as u64 {
-                            let agent_tasks_total = 1u64.saturating_sub(
-                                agent_index.saturating_sub(total_tasks.saturating_sub(1)),
-                            );
-                            Ok((agent_tasks_total.into(), Uint64::zero()))
-                        } else {
-                            let leftover = total_tasks % agent_count;
-
-                            let mut rich_agents: Vec<(SlotType, u32, u32)> =
-                                agent_active_indices_config
-                                    .clone()
-                                    .into_iter()
-                                    .filter(|e| e.2 > 0)
-                                    .collect::<_>();
-
-                            rich_agents.sort_by(|a, b| a.2.cmp(&b.2));
-                            let rich_indices: Vec<usize> =
-                                rich_agents.iter().map(|v| v.1 as usize).collect();
-
-                            let mut diff = vect_difference(&agent_active_indices, &rich_indices);
-                            diff.extend(rich_indices);
-                            let agent_index = diff
-                                .iter()
-                                .position(|x| x == &(agent_index as usize))
-                                .ok_or(ContractError::AgentNotRegistered {})?
-                                as u64;
-
-                            let mut extra = 0u64;
-                            if leftover > 0 {
-                                extra = 1u64.saturating_sub(
-                                    agent_index.saturating_sub(leftover.saturating_sub(1)),
-                                );
-                            }
-                            let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
-
-                            Ok((agent_tasks_total.into(), extra.into()))
-                        }
-                    };
-
-                if let Some(current_block_task_total) = slot_items.0 {
-                    let (n, ne) = activation_ordering(current_block_task_total)?;
-                    num_block_tasks = n;
-                    num_block_tasks_extra = ne;
-                }
-                if let Some(current_cron_task_total) = slot_items.1 {
-                    let (n, ne) = activation_ordering(current_cron_task_total)?;
-                    num_cron_tasks = n;
-                    num_cron_tasks_extra = ne;
-                }
-
-                Ok(Some(AgentTaskResponse {
-                    num_block_tasks,
-                    num_block_tasks_extra,
-                    num_cron_tasks,
-                    num_cron_tasks_extra,
-                }))
+        let equalizer = |total_tasks: u64| -> Result<(Uint64, Uint64), ContractError> {
+            if total_tasks < 1 {
+                return Ok((Uint64::zero(), Uint64::zero()));
             }
-            BalancerMode::Equalizer => {
-                let equalizer = |total_tasks: u64| -> Result<(Uint64, Uint64), ContractError> {
-                    if total_tasks < 1 {
-                        return Ok((Uint64::zero(), Uint64::zero()));
-                    }
-                    let mut rich_agents: Vec<(SlotType, u32, u32)> = agent_active_indices_config
-                        .clone()
-                        .into_iter()
-                        .filter(|e| e.2 > 0)
-                        .collect();
+            let mut agents_with_extra_tasks: Vec<(SlotType, u32, u32)> =
+                agent_active_indices_config
+                    .clone()
+                    .into_iter()
+                    .filter(|e| e.2 > 0)
+                    .collect();
 
-                    rich_agents.sort_by(|a, b| a.2.cmp(&b.2));
-                    let mut rich_indices: Vec<usize> =
-                        rich_agents.iter().map(|v| v.1 as usize).collect();
-                    rich_indices.dedup();
-                    let mut diff = vect_difference(&agent_active_indices, &rich_indices);
-                    diff.extend(rich_indices.clone());
-                    diff.dedup();
-                    let agent_diff_index = diff
-                        .iter()
-                        .position(|x| x == &(agent_index as usize))
-                        .ok_or(ContractError::AgentNotRegistered {})?
-                        as u64;
+            agents_with_extra_tasks.sort_by(|a, b| a.2.cmp(&b.2));
+            let mut indices_with_extra_tasks: Vec<usize> = agents_with_extra_tasks
+                .iter()
+                .map(|v| v.1 as usize)
+                .collect();
+            indices_with_extra_tasks.dedup();
 
-                    if total_tasks <= diff.len() as u64 {
-                        let agent_tasks_total = 1u64.saturating_sub(
-                            agent_diff_index.saturating_sub(total_tasks.saturating_sub(1)),
-                        );
+            let mut diff = vect_difference(&agent_active_indices, &indices_with_extra_tasks);
+            diff.extend(indices_with_extra_tasks.clone());
+            println!("{:?}", &diff);
 
-                        Ok((agent_tasks_total.into(), agent_tasks_total.into()))
-                    } else {
-                        let leftover = total_tasks % agent_count;
-                        let mut extra = 0u64;
-                        if leftover > 0 {
-                            extra = 1u64.saturating_sub(
-                                agent_index.saturating_sub(leftover.saturating_sub(1)),
-                            );
-                        }
-                        let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
+            let agent_diff_index =
+                diff.iter()
+                    .position(|x| x == &(agent_index as usize))
+                    .ok_or(ContractError::AgentNotRegistered {})? as u64;
 
-                        Ok((agent_tasks_total.into(), extra.into()))
-                    }
-                };
-
-                if let Some(current_block_task_total) = slot_items.0 {
-                    let (n, ne) = equalizer(current_block_task_total)?;
-                    num_block_tasks = n;
-                    num_block_tasks_extra = ne;
+            if total_tasks <= diff.len() as u64 {
+                let agent_tasks_total = 1u64
+                    .saturating_sub(agent_diff_index.saturating_sub(total_tasks.saturating_sub(1)));
+                Ok((agent_tasks_total.into(), agent_tasks_total.into()))
+            } else {
+                let leftover = total_tasks % agent_count;
+                let mut extra = 0u64;
+                if leftover > 0 {
+                    extra =
+                        1u64.saturating_sub(agent_index.saturating_sub(leftover.saturating_sub(1)));
                 }
-                if let Some(current_cron_task_total) = slot_items.1 {
-                    let (n, ne) = equalizer(current_cron_task_total)?;
-                    num_cron_tasks = n;
-                    num_cron_tasks_extra = ne;
-                }
+                let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
 
-                Ok(Some(AgentTaskResponse {
-                    num_block_tasks,
-                    num_block_tasks_extra,
-                    num_cron_tasks,
-                    num_cron_tasks_extra,
-                }))
+                Ok((agent_tasks_total.into(), extra.into()))
             }
+        };
+
+        if let Some(current_block_task_total) = slot_items.0 {
+            let (n, ne) = equalizer(current_block_task_total)?;
+            num_block_tasks = n;
+            num_block_tasks_extra = ne;
         }
+        if let Some(current_cron_task_total) = slot_items.1 {
+            let (n, ne) = equalizer(current_cron_task_total)?;
+            num_cron_tasks = n;
+            num_cron_tasks_extra = ne;
+        }
+
+        Ok(Some(AgentTaskResponse {
+            num_block_tasks,
+            num_block_tasks_extra,
+            num_cron_tasks,
+            num_cron_tasks_extra,
+        }))
     }
 
     fn on_agent_unregister(
@@ -274,9 +199,6 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         active_agents: &Item<'a, Vec<Addr>>,
         task_info: &TaskInfo,
     ) -> Result<(), ContractError> {
-        if !task_info.task_is_extra.unwrap_or(false) && self.mode == BalancerMode::ActivationOrder {
-            return Ok(());
-        };
 
         let mut conf: Config = config.load(storage)?;
         let indices = conf.agent_active_indices.as_mut();
@@ -297,6 +219,6 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
 
 impl Default for RoundRobinBalancer {
     fn default() -> RoundRobinBalancer {
-        RoundRobinBalancer::new(BalancerMode::Equalizer)
+        RoundRobinBalancer::new()
     }
 }

@@ -1,12 +1,14 @@
-use crate::balancer::{Balancer, BalancerMode, RoundRobinBalancer};
+use crate::balancer::{Balancer, RoundRobinBalancer};
 use crate::contract::{
     GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
     GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
 };
 use crate::state::{Config, TaskInfo};
 use crate::tests::helpers::{default_task, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
-use cosmwasm_std::testing::{mock_dependencies_with_balance, mock_env};
-use cosmwasm_std::{coins, Addr};
+use cosmwasm_std::testing::{
+    mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
+};
+use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps};
 use cw_croncat_core::types::{GasPrice, GenericBalance, SlotType};
 
 use crate::CwCroncat;
@@ -43,336 +45,295 @@ fn mock_config() -> Config {
         gas_base_fee: GAS_BASE_FEE,
     }
 }
-#[test]
-fn test_agent_has_valid_task_count_ao_mode() {
-    let store = CwCroncat::default();
-    let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
-    let env = mock_env();
-    let mut balancer = RoundRobinBalancer::default();
-    let config = mock_config();
 
-    store.config.save(&mut deps.storage, &config).unwrap();
+///Asserts if balancer get the expected amount of tasks with specified active agents and task slots
+///
+/// # Arguments
+///
+/// * `slots` - Task slots
+/// * `act_agents` - (Address,block_tasks,cron_tasks)
+/// * `expected` - (Address,block_tasks,cron_tasks)
+fn assert_balancer_tasks(
+    contract: &CwCroncat,
+    deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>,
+    env: &Env,
+    config: &mut Config,
+    slots: (Option<u64>, Option<u64>),
+    act_agents: &[(&str, u64, u64)],
+    expected: &[(&str, u64, u64)],
+) {
+    let mut balancer = RoundRobinBalancer::new();
 
-    let mut active_agents: Vec<Addr> = store
+    //reset active agent queue
+    contract.agent_active_queue.remove(&mut deps.storage);
+    let mut active_agents: Vec<Addr> = contract
         .agent_active_queue
         .may_load(&deps.storage)
         .unwrap()
         .unwrap_or_default();
-    active_agents.extend(vec![
-        Addr::unchecked(AGENT0),
-        Addr::unchecked(AGENT1),
-        Addr::unchecked(AGENT2),
-        Addr::unchecked(AGENT3),
-        Addr::unchecked(AGENT4),
-    ]);
-
-    store
-        .agent_active_queue
-        .save(&mut deps.storage, &active_agents)
-        .unwrap();
-    let slot: (Option<u64>, Option<u64>) = (Some(1), Some(2));
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT0),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
-    assert_eq!(result.num_block_tasks.u64(), 1);
-    assert_eq!(result.num_cron_tasks.u64(), 1);
-
-    //Verify earch gents valid amount
-    let slot: (Option<u64>, Option<u64>) = (Some(100), Some(50));
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT0),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
-    assert!(result.num_block_tasks.u64() == 20);
-    assert!(result.num_cron_tasks.u64() == 10);
-
-    //Verify agents gets zero
-    let slot: (Option<u64>, Option<u64>) = (Some(0), Some(0));
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT0),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
-    assert!(result.num_block_tasks.u64() == 0);
-    assert!(result.num_cron_tasks.u64() == 0);
-}
-
-#[test]
-fn test_check_valid_agents_get_extra_tasks_ao_mode() {
-    let store = CwCroncat::default();
-    let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
-    let env = mock_env();
-    let mut balancer = RoundRobinBalancer::default();
-    let config = mock_config();
-
-    store.config.save(&mut deps.storage, &config).unwrap();
-
-    let mut active_agents: Vec<Addr> = store
-        .agent_active_queue
-        .may_load(&deps.storage)
-        .unwrap()
-        .unwrap_or_default();
-    active_agents.extend(vec![
-        Addr::unchecked(AGENT0),
-        Addr::unchecked(AGENT1),
-        Addr::unchecked(AGENT2),
-        Addr::unchecked(AGENT3),
-        Addr::unchecked(AGENT4),
-    ]);
-
-    store
+    active_agents.extend(act_agents.iter().map(|mapped| Addr::unchecked(mapped.0)));
+    contract
         .agent_active_queue
         .save(&mut deps.storage, &active_agents)
         .unwrap();
 
-    //Verify agent0 gets extra
-    let slot: (Option<u64>, Option<u64>) = (Some(7), Some(7));
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT0),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
+    //reset agent task completion info
+    config.agent_active_indices = Vec::with_capacity(0);
+    contract.config.save(&mut deps.storage, &config).unwrap();
 
-    assert_eq!(result.num_block_tasks.u64(), 2);
-    assert_eq!(result.num_cron_tasks.u64(), 2);
-    assert_eq!(result.num_block_tasks_extra.u64(), 1);
-    assert_eq!(result.num_cron_tasks_extra.u64(), 1);
+    let mut result = Vec::<(&str, u64, u64)>::new();
 
-    //Verify agent1 gets extra
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT1),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
+    act_agents.iter().for_each(|f| {
+        if f.1 > 0 {
+            let task_info = TaskInfo {
+                task: default_task(),
+                task_hash: "".as_bytes().to_vec(),
+                task_is_extra: Some(true),
+                agent_id: Addr::unchecked(f.0),
+                slot_kind: SlotType::Block,
+            };
+            balancer
+                .on_task_completed(
+                    &mut deps.storage,
+                    &env,
+                    &contract.config,
+                    &contract.agent_active_queue,
+                    &task_info,
+                )
+                .unwrap();
+        }
+        if f.2 > 0 {
+            let task_info = TaskInfo {
+                task: default_task(),
+                task_hash: "".as_bytes().to_vec(),
+                task_is_extra: Some(true),
+                agent_id: Addr::unchecked(f.0),
+                slot_kind: SlotType::Cron,
+            };
+            balancer
+                .on_task_completed(
+                    &mut deps.storage,
+                    &env,
+                    &contract.config,
+                    &contract.agent_active_queue,
+                    &task_info,
+                )
+                .unwrap();
+        }
+    });
 
-    assert_eq!(result.num_block_tasks.u64(), 2);
-    assert_eq!(result.num_cron_tasks.u64(), 2);
-    assert_eq!(result.num_block_tasks_extra.u64(), 1);
-    assert_eq!(result.num_cron_tasks_extra.u64(), 1);
+    for a in act_agents {
+        let balancer_result = balancer
+            .get_agent_tasks(
+                &deps.as_ref(),
+                &env.clone(),
+                &contract.config,
+                &contract.agent_active_queue,
+                Addr::unchecked(a.0),
+                slots,
+            )
+            .unwrap()
+            .unwrap();
+        result.push((
+            a.0,
+            balancer_result.num_block_tasks.u64(),
+            balancer_result.num_cron_tasks.u64(),
+        ));
+    }
 
-    //Verify agent3 not getting extra
-    let result = balancer
-        .get_agent_tasks(
-            &deps.as_ref(),
-            &env.clone(),
-            &store.config,
-            &store.agent_active_queue,
-            Addr::unchecked(AGENT3),
-            slot,
-        )
-        .unwrap()
-        .unwrap();
-
-    assert_eq!(result.num_block_tasks.u64(), 1);
-    assert_eq!(result.num_cron_tasks.u64(), 1);
-    assert_eq!(result.num_block_tasks_extra.u64(), 0);
-    assert_eq!(result.num_cron_tasks_extra.u64(), 0);
+    assert_eq!(expected, &result);
 }
-
 //EQ Mode
 #[test]
 fn test_check_valid_agents_get_tasks_eq_mode() {
-    let store = CwCroncat::default();
-    let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+    let contract = CwCroncat::default();
+    let mut deps: OwnedDeps<
+        MemoryStorage,
+        cosmwasm_std::testing::MockApi,
+        cosmwasm_std::testing::MockQuerier,
+    > = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let mut balancer = RoundRobinBalancer::new(BalancerMode::Equalizer);
     let mut config = mock_config();
-    store.config.save(&mut deps.storage, &config).unwrap();
+    contract.config.save(&mut deps.storage, &config).unwrap();
+    //reset agent_active_indices
 
-    let mut local_test = |slots: (Option<u64>, Option<u64>),
-                          act_agents: &[(&str, u64, u64)],
-                          expected: &[(&str, u64, u64)]| {
-        config.agent_active_indices = Vec::with_capacity(0);
-        store.config.save(&mut deps.storage, &config).unwrap();
-
-        store.agent_active_queue.remove(&mut deps.storage);
-        let mut active_agents: Vec<Addr> = store
-            .agent_active_queue
-            .may_load(&deps.storage)
-            .unwrap()
-            .unwrap_or_default();
-        active_agents.extend(act_agents.iter().map(|mapped| Addr::unchecked(mapped.0)));
-        store
-            .agent_active_queue
-            .save(&mut deps.storage, &active_agents)
-            .unwrap();
-
-        let mut result = Vec::<(&str, u64, u64)>::new();
-        act_agents.iter().for_each(|f| {
-            if f.1 > 0 {
-                let task_info = TaskInfo {
-                    task: default_task(),
-                    task_hash: "".as_bytes().to_vec(),
-                    task_is_extra: Some(true),
-                    agent_id: Addr::unchecked(f.0),
-                    slot_kind: SlotType::Block,
-                };
-                balancer
-                    .on_task_completed(
-                        &mut deps.storage,
-                        &env,
-                        &store.config,
-                        &store.agent_active_queue,
-                        &task_info,
-                    )
-                    .unwrap();
-            }
-            if f.1 > 0 {
-                let task_info = TaskInfo {
-                    task: default_task(),
-                    task_hash: "".as_bytes().to_vec(),
-                    task_is_extra: Some(true),
-                    agent_id: Addr::unchecked(f.0),
-                    slot_kind: SlotType::Cron,
-                };
-                balancer
-                    .on_task_completed(
-                        &mut deps.storage,
-                        &env,
-                        &store.config,
-                        &store.agent_active_queue,
-                        &task_info,
-                    )
-                    .unwrap();
-            }
-        });
-        for a in act_agents {
-            let balancer_result = balancer
-                .get_agent_tasks(
-                    &deps.as_ref(),
-                    &env.clone(),
-                    &store.config,
-                    &store.agent_active_queue,
-                    Addr::unchecked(a.0),
-                    slots,
-                )
-                .unwrap()
-                .unwrap();
-            result.push((
-                a.0,
-                balancer_result.num_block_tasks.u64(),
-                balancer_result.num_cron_tasks.u64(),
-            ));
-        }
-        assert_eq!(expected, &result);
-    };
-
-    local_test(
-        (Some(7), Some(7)),
-        &[
-            (AGENT0, 0, 0),
-            (AGENT1, 0, 0),
-            (AGENT2, 0, 0),
-            (AGENT3, 0, 0),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-        &[
-            (AGENT0, 2, 2),
-            (AGENT1, 1, 1),
-            (AGENT2, 1, 1),
-            (AGENT3, 1, 1),
-            (AGENT4, 1, 1),
-            (AGENT5, 1, 1),
-        ],
-    );
-    local_test(
-        (Some(3), Some(3)),
-        &[
-            (AGENT0, 0, 0),
-            (AGENT1, 0, 0),
-            (AGENT2, 0, 0),
-            (AGENT3, 0, 0),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-        &[
-            (AGENT0, 1, 1),
-            (AGENT1, 1, 1),
-            (AGENT2, 1, 1),
-            (AGENT3, 0, 0),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-    );
-    local_test(
-        (Some(3), Some(3)),
-        &[
-            (AGENT0, 0, 0),
-            (AGENT1, 0, 0),
-            (AGENT2, 0, 0),
-            (AGENT3, 0, 0),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-        &[
-            (AGENT0, 1, 1),
-            (AGENT1, 1, 1),
-            (AGENT2, 1, 1),
-            (AGENT3, 0, 0),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-    );
-    local_test(
-        (Some(3), Some(3)),
-        &[
-            (AGENT0, 0, 0),
-            (AGENT1, 1, 1),
-            (AGENT2, 1, 1),
-            (AGENT3, 1, 1),
-            (AGENT4, 0, 0),
-            (AGENT5, 0, 0),
-        ],
-        &[
-            (AGENT0, 1, 1),
-            (AGENT1, 0, 0),
-            (AGENT2, 0, 0),
-            (AGENT3, 0, 0),
-            (AGENT4, 1, 1),
-            (AGENT5, 1, 1),
-        ],
-    );
+    let cases: &[(
+        (Option<u64>, Option<u64>),
+        &[(&str, u64, u64)],
+        &[(&str, u64, u64)],
+    )] = &[
+        (
+            (Some(7), Some(7)),
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 2, 2),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 1, 1),
+                (AGENT4, 1, 1),
+                (AGENT5, 1, 1),
+            ],
+        ),
+        (
+            (Some(3), Some(3)),
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+        ),
+        (
+            (Some(3), Some(3)),
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+        ),
+        (
+            (Some(3), Some(3)),
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 1, 1),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 0),
+                (AGENT4, 1, 1),
+                (AGENT5, 1, 1),
+            ],
+        ),
+        (
+            (Some(1), Some(1)),
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 1, 1),
+                (AGENT4, 1, 1),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 1, 1),
+            ],
+        ),
+        (
+            (Some(3), Some(0)),
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 1, 0),
+                (AGENT4, 1, 0),
+                (AGENT5, 1, 0),
+            ],
+        ),
+        (
+            (Some(0), Some(3)),
+            &[
+                (AGENT0, 1, 1),
+                (AGENT1, 1, 1),
+                (AGENT2, 1, 1),
+                (AGENT3, 0, 0),
+                (AGENT4, 0, 0),
+                (AGENT5, 0, 0),
+            ],
+            &[
+                (AGENT0, 0, 0),
+                (AGENT1, 0, 0),
+                (AGENT2, 0, 0),
+                (AGENT3, 0, 1),
+                (AGENT4, 0, 1),
+                (AGENT5, 0, 1),
+            ],
+        ),
+        (
+            (Some(4), Some(6)),
+            &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
+            &[(AGENT0, 2, 2), (AGENT1, 1, 2), (AGENT2, 1, 2)],
+        ),
+        (
+            (Some(0), Some(0)),
+            &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
+            &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
+        ),
+        (
+            (Some(23), Some(37)),
+            &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
+            &[(AGENT0, 8, 13), (AGENT1, 8, 12), (AGENT2, 7, 12)],
+        ),
+        (
+            (Some(345), Some(897)),
+            &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
+            &[(AGENT0, 115, 299), (AGENT1, 115, 299), (AGENT2, 115, 299)],
+        ),
+    ];
+    for case in cases {
+        assert_balancer_tasks(
+            &contract,
+            &mut deps,
+            &env,
+            &mut config,
+            case.0,
+            case.1,
+            case.2,
+        );
+    }
 }
 #[test]
 fn test_check_valid_agents_get_extra_tasks_eq_mode() {
     let store = CwCroncat::default();
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let mut balancer = RoundRobinBalancer::new(BalancerMode::Equalizer);
+    let mut balancer = RoundRobinBalancer::new();
     let config = mock_config();
 
     store.config.save(&mut deps.storage, &config).unwrap();
