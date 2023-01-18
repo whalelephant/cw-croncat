@@ -19,9 +19,7 @@ pub struct FactoryInstantiateMsg {
 #[cw_serde]
 pub enum FactoryExecuteMsg {
     /// Updates the factory config
-    UpdateConfig {
-        owner_addr: String,
-    },
+    UpdateConfig { owner_addr: String },
 
     /// Deploys contract and saves metadata of the contract to the factory
     Deploy {

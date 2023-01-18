@@ -1,5 +1,5 @@
 [package]
-name = "mod-nft"
+name = "croncat-mod-nft"
 version = "0.1.0"
 authors = []
 edition = "2021"
@@ -17,6 +17,10 @@ library = []
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
-thiserror = { workspace = true }
+cw2 = { workspace = true }
+cw721 = { workspace = true }
+mod-sdk = { workspace = true }
 
 [dev-dependencies]
+cw721-base = { workspace = true }
+cw-multi-test = { workspace = true }
