@@ -17,7 +17,10 @@ pub struct Config {
 
     pub slot_granularity_time: u64,
 
-    // Economics should be queried from the manager contract
+    pub gas_base_fee: u64,
+    pub gas_action_fee: u64,
+    pub gas_query_fee: u64,
+    pub gas_wasm_query_fee: u64,
 }
 
 #[cw_serde]
