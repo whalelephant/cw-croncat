@@ -10,9 +10,9 @@ pub struct ManagerInstantiateMsg {
     /// Address of the factory contract
     pub croncat_factory_addr: String,
     /// Name of the key for raw querying Tasks address from the factory
-    pub croncat_tasks_name: String,
+    pub croncat_tasks_key: (String, [u8; 2]),
     /// Name of the key for raw querying Agents address from the factory
-    pub croncat_agents_name: String,
+    pub croncat_agents_key: (String, [u8; 2]),
     /// Address of the contract owner, defaults to the sender
     pub owner_id: Option<String>,
     /// Gas needed to cover [ExecuteMsg::ProxyCall] without any action

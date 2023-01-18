@@ -42,8 +42,8 @@ mod instantiate_tests {
             agents_eject_threshold: 600,
             agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
             croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
-            croncat_tasks_name: "croncat_tasks_name".to_owned(),
-            croncat_agents_name: "croncat_agents_name".to_owned(),
+            croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
+            croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
             agent_fee: 5,
             gas_price: Default::default(),
             gas_base_fee: GAS_BASE_FEE,
@@ -65,8 +65,8 @@ mod instantiate_tests {
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
             croncat_factory_addr: AGENT0.to_owned(),
-            croncat_tasks_name: AGENT1.to_owned(),
-            croncat_agents_name: AGENT2.to_owned(),
+            croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
+            croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_id: Some(ANYONE.to_owned()),
             gas_base_fee: Some(Uint64::new(1001)),
             gas_action_fee: Some(Uint64::new(2002)),
@@ -99,8 +99,8 @@ mod instantiate_tests {
             agents_eject_threshold: 600,
             agent_nomination_duration: 20,
             croncat_factory_addr: Addr::unchecked(AGENT0),
-            croncat_tasks_name: AGENT1.to_owned(),
-            croncat_agents_name: AGENT2.to_owned(),
+            croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
+            croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             agent_fee: 5,
             gas_price: GasPrice {
                 numerator: 10,
@@ -216,6 +216,8 @@ fn update_config() {
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
+        croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
+        croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
     };
 
     app.execute_contract(
@@ -233,8 +235,8 @@ fn update_config() {
         agents_eject_threshold: 3,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
         croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
-        croncat_tasks_name: "croncat_tasks_name".to_owned(),
-        croncat_agents_name: "croncat_agents_name".to_owned(),
+        croncat_tasks_key: ("new_key_tasks".to_owned(), [0, 1]),
+        croncat_agents_key: ("new_key_agents".to_owned(), [0, 1]),
         agent_fee: 0,
         gas_price: GasPrice {
             numerator: 555,
@@ -291,6 +293,8 @@ fn invalid_updates_config() {
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
+        croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
+        croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
     };
     let err: ContractError = app
         .execute_contract(
@@ -323,6 +327,8 @@ fn invalid_updates_config() {
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
+        croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
+        croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
     };
     let err: ContractError = app
         .execute_contract(
@@ -354,6 +360,8 @@ fn invalid_updates_config() {
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
+        croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
+        croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
     };
     let err: ContractError = app
         .execute_contract(

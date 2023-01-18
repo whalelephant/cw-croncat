@@ -82,8 +82,8 @@ pub(crate) fn default_instantiate_message() -> InstantiateMsg {
     InstantiateMsg {
         denom: DENOM.to_owned(),
         croncat_factory_addr: "croncat_factory_addr".to_owned(),
-        croncat_tasks_name: "croncat_tasks_name".to_owned(),
-        croncat_agents_name: "croncat_agents_name".to_owned(),
+        croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
+        croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
         owner_id: None,
         gas_base_fee: None,
         gas_action_fee: None,

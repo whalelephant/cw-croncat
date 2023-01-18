@@ -61,24 +61,29 @@ pub struct Config {
     pub paused: bool,
     pub owner_id: Addr,
 
-    // Agent management
-    // The minimum number of tasks per agent
-    // Example: 10
-    // Explanation: For every 1 agent, 10 tasks per slot are available.
-    // NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
-    // NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
+    /// Agent management
+    /// The minimum number of tasks per agent
+    /// Example: 10
+    /// Explanation: For every 1 agent, 10 tasks per slot are available.
+    /// NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
+    /// NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub min_tasks_per_agent: u64,
     // How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
-    // The duration a prospective agent has to nominate themselves.
-    // When a task is created such that a new agent can join,
-    // The agent at the zeroth index of the pending agent queue has this time to nominate
-    // The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
-    // Value is in seconds
+    /// The duration a prospective agent has to nominate themselves.
+    /// When a task is created such that a new agent can join,
+    /// The agent at the zeroth index of the pending agent queue has this time to nominate
+    /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
+    /// Value is in seconds
     pub agent_nomination_duration: u16,
+
+    /// Address of the croncat_factory
     pub croncat_factory_addr: Addr,
-    pub croncat_tasks_name: String,
-    pub croncat_agents_name: String,
+
+    /// Key to query address of the tasks and agents
+    pub croncat_tasks_key: (String, [u8; 2]),
+    /// Key to query address of the tasks and agents
+    pub croncat_agents_key: (String, [u8; 2]),
 
     // Economics
     pub agent_fee: u64,
@@ -114,6 +119,8 @@ pub struct UpdateConfig {
     pub min_tasks_per_agent: Option<u64>,
     pub agents_eject_threshold: Option<u64>,
     pub balancer: Option<RoundRobinBalancer>,
+    pub croncat_tasks_key: Option<(String, [u8; 2])>,
+    pub croncat_agents_key: Option<(String, [u8; 2])>,
     // pub treasury_id: Option<String>,
 }
 
