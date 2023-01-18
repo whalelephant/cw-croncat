@@ -284,9 +284,7 @@ export interface AgentResponse {
 }
 export interface AgentTaskResponse {
   num_block_tasks: Uint64;
-  num_block_tasks_extra: Uint64;
   num_cron_tasks: Uint64;
-  num_cron_tasks_extra: Uint64;
   [k: string]: unknown;
 }
 export interface GetSlotHashesResponse {

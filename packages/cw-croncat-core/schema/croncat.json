@@ -286,21 +286,13 @@
       "type": "object",
       "required": [
         "num_block_tasks",
-        "num_block_tasks_extra",
-        "num_cron_tasks",
-        "num_cron_tasks_extra"
+        "num_cron_tasks"
       ],
       "properties": {
         "num_block_tasks": {
           "$ref": "#/definitions/Uint64"
         },
-        "num_block_tasks_extra": {
-          "$ref": "#/definitions/Uint64"
-        },
         "num_cron_tasks": {
-          "$ref": "#/definitions/Uint64"
-        },
-        "num_cron_tasks_extra": {
           "$ref": "#/definitions/Uint64"
         }
       }

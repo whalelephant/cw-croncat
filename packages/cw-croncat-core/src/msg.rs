@@ -175,8 +175,10 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct AgentTaskResponse {
     pub num_block_tasks: Uint64,
+    #[serde(skip_deserializing, skip_serializing)]
     pub num_block_tasks_extra: Uint64,
     pub num_cron_tasks: Uint64,
+    #[serde(skip_deserializing, skip_serializing)]
     pub num_cron_tasks_extra: Uint64,
 }
 
