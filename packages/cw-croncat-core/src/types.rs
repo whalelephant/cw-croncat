@@ -373,7 +373,9 @@ impl TaskRequest {
         funds: Vec<Coin>,
         economics: EconomicsContext,
     ) -> Result<Task, CoreError> {
-        let sender = deps.api.addr_validate(&self.sender.clone().unwrap())?;
+        let sender = deps
+            .api
+            .addr_validate(&self.sender.clone().unwrap_or_else(|| "juno".to_owned()))?;
 
         let cw20 = if !self.cw20_coins.is_empty() {
             let mut cw20: Vec<Cw20CoinVerified> = Vec::with_capacity(self.cw20_coins.len());
@@ -714,9 +716,8 @@ pub fn simulate_task(
     contract_info: &ContractInfo,
     slot_granularity_time: u64,
 ) -> Result<SimulateTaskResponse, CoreError> {
-    let mut occurrences: u64 = 0;
     let mut gas_amount: u64 = economics.gas_base_fee;
-    let gac_action_fee = economics.gas_action_fee;
+    let gas_action_fee = economics.gas_action_fee;
     let task_info = task
         .as_task(env, deps, contract_info, funds.clone(), economics)
         .unwrap();
@@ -726,86 +727,72 @@ pub fn simulate_task(
 
     for action in task.actions.iter() {
         gas_amount = gas_amount
-            .checked_add(action.gas_limit.unwrap_or(gac_action_fee))
+            .checked_add(action.gas_limit.unwrap_or(gas_action_fee))
             .ok_or(CoreError::NoGasLimit {})?;
     }
+
+    // Calculate the maximum amount of occurrences for given funds (without boundaries)
+    // It is defined by the amount for one execution
+    let amount_for_one_task_native = &task_info.amount_for_one_task.native.first().unwrap();
+    let amount_given = funds
+        .iter()
+        .find(|coin| coin.denom == amount_for_one_task_native.denom)
+        .ok_or_else(|| {
+            CoreError::Std(StdError::generic_err(format!(
+                "No coins with correct denom: {}",
+                amount_for_one_task_native.denom
+            )))
+        })?
+        .amount
+        .u128();
+    let occurrences_for_funds = amount_given
+        .checked_div(amount_for_one_task_native.amount.u128())
+        .unwrap() as u64;
+
+    // Calculate the maximum amount of occurrences according to the given interval and boundary
+    // and compare with occurrences_for_funds, take the minimum
     let boundary = CheckedBoundary::new(task.boundary, &interval)?;
 
-    match interval {
-        Interval::Once | Interval::Immediate => {
-            occurrences = occurrences.saturating_add(1);
-        }
+    let occurrences = match interval {
+        Interval::Once | Interval::Immediate => 1,
         Interval::Block(block) => {
-            let mut start_block: u64 = boundary.start.unwrap_or(env.block.height);
-            let end_block: u64;
-            match (boundary.start, boundary.end) {
-                (Some(start), None) => {
-                    let mut amount = 0u128;
-                    if let Some(coin) = funds.get(0) {
-                        amount = coin.amount.u128();
-                    } else if let Some(cw20) = task.cw20_coins.get(0) {
-                        amount = cw20.amount.u128();
-                    }
-                    amount = amount.saturating_div(gas_amount.into());
-                    end_block = start.saturating_add(amount as u64 * block);
-                }
-                (Some(_), Some(end)) => {
-                    end_block = end;
-                }
-                _ => {
-                    start_block = 0;
-                    end_block = 0
-                }
+            if let Some(end) = boundary.end {
+                let start = boundary
+                    .start
+                    .unwrap_or(env.block.height)
+                    .max(env.block.height);
+
+                let occurrences_for_boundary = end.saturating_sub(start).saturating_div(block);
+                std::cmp::min(occurrences_for_boundary, occurrences_for_funds)
+            } else {
+                // If there's no end boundary, the occurrences are limited only by funds
+                occurrences_for_funds
             }
-            if env.block.height >= end_block {
-                return Err(CoreError::InvalidBoundary {});
-            }
-            occurrences = end_block.saturating_sub(start_block).saturating_div(block);
         }
         Interval::Cron(crontab) => {
-            let schedule = Schedule::from_str(&crontab).unwrap();
-            let mut start_time: u64 = boundary.start.unwrap_or(env.block.height);
-            let current_block_ts = env.block.time.nanos();
-            let current_ts = std::cmp::max(current_block_ts, start_time);
-            let next_ts = schedule.next_after(&current_ts).unwrap();
-            let current_block_slot =
-                current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
-            let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
-            // put task in the next slot if next_ts_slot in the current slot
-            let next_slot = if next_ts_slot == current_block_slot {
-                next_ts_slot + slot_granularity_time
+            if let Some(end) = boundary.end {
+                let schedule = Schedule::from_str(&crontab).unwrap();
+                let start_time: u64 = boundary.start.unwrap_or(env.block.height);
+                let current_block_ts = env.block.time.nanos();
+                let current_ts = std::cmp::max(current_block_ts, start_time);
+                let next_ts = schedule.next_after(&current_ts).unwrap();
+                let current_block_slot =
+                    current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
+                let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
+                // put task in the next slot if next_ts_slot in the current slot
+                let next_slot = if next_ts_slot == current_block_slot {
+                    next_ts_slot + slot_granularity_time
+                } else {
+                    next_ts_slot
+                };
+                let diff = next_slot.saturating_sub(current_block_slot);
+                end.saturating_sub(start_time).saturating_div(diff)
             } else {
-                next_ts_slot
-            };
-            let diff = next_slot.saturating_sub(current_block_slot);
-            let end_time: u64;
-
-            match (boundary.start, boundary.end) {
-                (Some(start), None) => {
-                    let mut amount = 0u128;
-                    if let Some(coin) = funds.get(0) {
-                        amount = coin.amount.u128();
-                    } else if let Some(cw20) = task.cw20_coins.get(0) {
-                        amount = cw20.amount.u128();
-                    }
-                    amount = amount.saturating_div(gas_amount.into());
-                    end_time = start.saturating_add(diff * amount as u64);
-                }
-                (Some(_), Some(end)) => {
-                    if env.block.time.seconds() >= end {
-                        return Err(CoreError::InvalidBoundary {});
-                    }
-                    end_time = end;
-                }
-                _ => {
-                    start_time = 0;
-                    end_time = 0
-                }
+                // If there's no end boundary, the occurrences are limited only by funds
+                occurrences_for_funds
             }
-
-            occurrences = end_time.saturating_sub(start_time).saturating_div(diff);
         }
-    }
+    };
 
     Ok(SimulateTaskResponse {
         estimated_gas: gas_amount,
