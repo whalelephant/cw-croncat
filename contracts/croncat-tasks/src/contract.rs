@@ -65,11 +65,12 @@ fn execute_create_task(
         })
         .transpose()?;
 
-    // Validate boundary
-    let boundary = validate_boundary(task.boundary)?;
+    // Validate boundary and interval
+    let boundary = validate_boundary(env.block, task.boundary, &task.interval)?;
     if !task.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
+
     Ok(Response::new().add_attribute("action", "create_task"))
 }
 

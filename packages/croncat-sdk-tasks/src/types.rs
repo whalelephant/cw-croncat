@@ -6,6 +6,21 @@ use cron_schedule::Schedule;
 use cw20::{Cw20Coin, Cw20CoinVerified};
 
 #[cw_serde]
+pub struct Config {
+    // Runtime
+    pub paused: bool,
+    pub owner_addr: Addr,
+
+    pub croncat_factory_addr: Addr,
+    pub croncat_manager_key: (String, [u8; 2]),
+    pub croncat_agents_key: (String, [u8; 2]),
+
+    pub slot_granularity_time: u64,
+
+    // Economics should be queried from the manager contract
+}
+
+#[cw_serde]
 pub struct TaskRequest {
     pub interval: Interval,
     pub boundary: Option<Boundary>,
@@ -93,7 +108,7 @@ pub enum Boundary {
 
 #[cw_serde]
 pub struct BoundaryValidated {
-    pub start: Option<u64>,
+    pub start: u64,
     pub end: Option<u64>,
     pub is_block_boundary: bool,
 }
@@ -189,15 +204,14 @@ pub enum SlotType {
     Cron,
 }
 
-
 /// Get the next block within the boundary
 fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
-    let next_block_height = match boundary.start {
-        // shorthand - remove 1 since it adds 1 later
-        Some(id) if current_block_height < id => id - 1,
-        _ => current_block_height,
+    let next_block_height = if current_block_height < boundary.start {
+        boundary.start - 1
+    } else {
+        current_block_height
     };
 
     match boundary.end {
@@ -218,16 +232,15 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
     let current_block_height = env.block.height;
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
-    let next_block_height = match boundary.start {
-        Some(start) if current_block_height < start => {
-            let rem = start % block;
-            if rem > 0 {
-                start.saturating_sub(rem) + block
-            } else {
-                start
-            }
+    let next_block_height = if current_block_height < boundary.start {
+        let rem = boundary.start % block;
+        if rem > 0 {
+            boundary.start.saturating_sub(rem) + block
+        } else {
+            boundary.start
         }
-        _ => modulo_block,
+    } else {
+        modulo_block
     };
 
     match boundary.end {
@@ -261,9 +274,10 @@ fn get_next_cron_time(
         current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
 
     // get earliest possible time
-    let current_ts = match boundary.start {
-        Some(ts) if current_block_ts < ts => ts,
-        _ => current_block_ts,
+    let current_ts = if current_block_ts < boundary.start {
+        boundary.start
+    } else {
+        current_block_ts
     };
 
     // receive time from schedule, calculate slot for this time
