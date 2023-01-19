@@ -37,7 +37,7 @@ mod instantiate_tests {
 
         let expected_config = Config {
             paused: false,
-            owner_id: Addr::unchecked(ADMIN),
+            owner_addr: Addr::unchecked(ADMIN),
             min_tasks_per_agent: 3,
             agents_eject_threshold: 600,
             agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
@@ -55,6 +55,7 @@ mod instantiate_tests {
             native_denom: DENOM.to_owned(),
             balancer: Default::default(),
             limit: 100,
+            treasury_addr: None,
         };
         assert_eq!(config, expected_config)
     }
@@ -67,7 +68,7 @@ mod instantiate_tests {
             croncat_factory_addr: AGENT0.to_owned(),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
-            owner_id: Some(ANYONE.to_owned()),
+            owner_addr: Some(ANYONE.to_owned()),
             gas_base_fee: Some(Uint64::new(1001)),
             gas_action_fee: Some(Uint64::new(2002)),
             gas_query_fee: Some(Uint64::new(3003)),
@@ -78,6 +79,7 @@ mod instantiate_tests {
                 gas_adjustment_numerator: 30,
             }),
             agent_nomination_duration: Some(20),
+            treasury_addr: Some(AGENT2.to_owned()),
         };
         let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
         app.sudo(
@@ -94,7 +96,7 @@ mod instantiate_tests {
 
         let expected_config = Config {
             paused: false,
-            owner_id: Addr::unchecked(ANYONE),
+            owner_addr: Addr::unchecked(ANYONE),
             min_tasks_per_agent: 3,
             agents_eject_threshold: 600,
             agent_nomination_duration: 20,
@@ -116,6 +118,7 @@ mod instantiate_tests {
             native_denom: "cron".to_owned(),
             balancer: Default::default(),
             limit: 100,
+            treasury_addr: Some(Addr::unchecked(AGENT2)),
         };
         assert_eq!(config, expected_config);
 
@@ -148,7 +151,7 @@ mod instantiate_tests {
 
         // Bad owner_id
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            owner_id: Some("BAD_INPUT".to_owned()),
+            owner_addr: Some("BAD_INPUT".to_owned()),
             ..default_instantiate_message()
         };
 
@@ -200,7 +203,7 @@ fn update_config() {
     let manager_addr = init_manager(&mut app, instantiate_msg, &attach_funds).unwrap();
 
     let update_cfg_msg = UpdateConfig {
-        owner_id: Some("new_owner".to_string()),
+        owner_addr: Some("new_owner".to_string()),
         slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
@@ -218,19 +221,20 @@ fn update_config() {
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
+        treasury_addr: Some(ANYONE.to_owned()),
     };
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
         manager_addr.clone(),
-        &ExecuteMsg::UpdateConfig(update_cfg_msg),
+        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
         &[],
     )
     .unwrap();
     let config = query_manager_config(&app, &manager_addr);
     let expected_config = Config {
         paused: true,
-        owner_id: Addr::unchecked("new_owner"),
+        owner_addr: Addr::unchecked("new_owner"),
         min_tasks_per_agent: 1,
         agents_eject_threshold: 3,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
@@ -254,8 +258,38 @@ fn update_config() {
             mode: BalancerMode::Equalizer,
         },
         limit: 100,
+        treasury_addr: Some(Addr::unchecked(ANYONE)),
     };
-    assert_eq!(config, expected_config)
+    assert_eq!(config, expected_config);
+
+    // Shouldn't override any fields to None or anything
+    let update_cfg_msg = UpdateConfig {
+        owner_addr: None,
+        slot_granularity_time: None,
+        paused: None,
+        agent_fee: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_query_fee: None,
+        gas_wasm_query_fee: None,
+        gas_price: None,
+        min_tasks_per_agent: None,
+        agents_eject_threshold: None,
+        balancer: None,
+        croncat_tasks_key: None,
+        croncat_agents_key: None,
+        treasury_addr: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked("new_owner"),
+        manager_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+        &[],
+    )
+    .unwrap();
+    let config = query_manager_config(&app, &manager_addr);
+    assert_eq!(config, expected_config);
 }
 
 #[test]
@@ -277,7 +311,7 @@ fn invalid_updates_config() {
 
     // Unauthorized
     let update_cfg_msg = UpdateConfig {
-        owner_id: Some("new_owner".to_string()),
+        owner_addr: Some("new_owner".to_string()),
         slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
@@ -295,13 +329,14 @@ fn invalid_updates_config() {
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
+        treasury_addr: Some(ANYONE.to_owned()),
     };
     let err: ContractError = app
         .execute_contract(
             // Not admin
             Addr::unchecked(ANYONE),
             manager_addr.clone(),
-            &ExecuteMsg::UpdateConfig(update_cfg_msg),
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
         )
         .unwrap_err()
@@ -311,7 +346,7 @@ fn invalid_updates_config() {
 
     // Invalid gas_price
     let update_cfg_msg = UpdateConfig {
-        owner_id: Some("new_owner".to_string()),
+        owner_addr: Some("new_owner".to_string()),
         slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
@@ -329,12 +364,13 @@ fn invalid_updates_config() {
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
+        treasury_addr: Some(ANYONE.to_owned()),
     };
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
             manager_addr.clone(),
-            &ExecuteMsg::UpdateConfig(update_cfg_msg),
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
         )
         .unwrap_err()
@@ -344,7 +380,7 @@ fn invalid_updates_config() {
 
     // Invalid owner
     let update_cfg_msg = UpdateConfig {
-        owner_id: Some("New_owner".to_string()),
+        owner_addr: Some("New_owner".to_string()),
         slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
@@ -362,12 +398,13 @@ fn invalid_updates_config() {
         balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
+        treasury_addr: Some(ANYONE.to_owned()),
     };
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
             manager_addr,
-            &ExecuteMsg::UpdateConfig(update_cfg_msg),
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
         )
         .unwrap_err()
@@ -838,43 +875,11 @@ fn move_balances() {
         }
     );
 
-    // Withdraw half
+    // Withdraw all of balances
     app.execute_contract(
         Addr::unchecked(ADMIN),
         manager_addr.clone(),
-        &ExecuteMsg::OwnerWithdraw {
-            native_balances: vec![coin(2400, DENOM), coin(2500, "denom")],
-            cw20_balances: vec![Cw20Coin {
-                address: cw20_addr.to_string(),
-                amount: Uint128::new(500),
-            }],
-        },
-        &[],
-    )
-    .unwrap();
-    let available_balances = query_manager_balances(&app, &manager_addr);
-    assert_eq!(
-        available_balances,
-        BalancesResponse {
-            native_balance: coins(2500, "denom"),
-            cw20_balance: vec![Cw20CoinVerified {
-                address: cw20_addr.clone(),
-                amount: Uint128::new(500),
-            }]
-        }
-    );
-
-    // Withdraw rest of balances
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        manager_addr.clone(),
-        &ExecuteMsg::OwnerWithdraw {
-            native_balances: vec![coin(2500, "denom")],
-            cw20_balances: vec![Cw20Coin {
-                address: cw20_addr.to_string(),
-                amount: Uint128::new(500),
-            }],
-        },
+        &ExecuteMsg::OwnerWithdraw {},
         &[],
     )
     .unwrap();
@@ -925,69 +930,11 @@ fn failed_move_balances() {
         .execute_contract(
             Addr::unchecked(ANYONE),
             manager_addr.clone(),
-            &ExecuteMsg::OwnerWithdraw {
-                native_balances: vec![coin(2500, "denom")],
-                cw20_balances: vec![Cw20Coin {
-                    address: cw20_addr.to_string(),
-                    amount: Uint128::new(500),
-                }],
-            },
+            &ExecuteMsg::OwnerWithdraw {},
             &[],
         )
         .unwrap_err()
         .downcast()
         .unwrap();
     assert_eq!(err, ContractError::Unauthorized {});
-
-    // Withdraw too much native
-    let err: ContractError = app
-        .execute_contract(
-            Addr::unchecked(ADMIN),
-            manager_addr.clone(),
-            &ExecuteMsg::OwnerWithdraw {
-                native_balances: vec![coin(5001, "denom")],
-                cw20_balances: vec![Cw20Coin {
-                    address: cw20_addr.to_string(),
-                    amount: Uint128::new(500),
-                }],
-            },
-            &[],
-        )
-        .unwrap_err()
-        .downcast()
-        .unwrap();
-    assert_eq!(
-        err,
-        ContractError::Std(StdError::overflow(OverflowError::new(
-            cosmwasm_std::OverflowOperation::Sub,
-            "5000",
-            "5001"
-        )))
-    );
-
-    // Withdraw too much cw20
-    let err: ContractError = app
-        .execute_contract(
-            Addr::unchecked(ADMIN),
-            manager_addr,
-            &ExecuteMsg::OwnerWithdraw {
-                native_balances: vec![coin(10, "denom")],
-                cw20_balances: vec![Cw20Coin {
-                    address: cw20_addr.to_string(),
-                    amount: Uint128::new(1002),
-                }],
-            },
-            &[],
-        )
-        .unwrap_err()
-        .downcast()
-        .unwrap();
-    assert_eq!(
-        err,
-        ContractError::Std(StdError::overflow(OverflowError::new(
-            cosmwasm_std::OverflowOperation::Sub,
-            "1000",
-            "1002"
-        )))
-    );
 }

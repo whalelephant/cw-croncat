@@ -59,7 +59,7 @@ impl Default for GasPrice {
 pub struct Config {
     // Runtime
     pub paused: bool,
-    pub owner_id: Addr,
+    pub owner_addr: Addr,
 
     /// Agent management
     /// The minimum number of tasks per agent
@@ -95,7 +95,7 @@ pub struct Config {
     pub slot_granularity_time: u64,
 
     // Treasury
-    // pub treasury_id: Option<Addr>,
+    pub treasury_addr: Option<Addr>,
     pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
     pub native_denom: String,
 
@@ -107,7 +107,7 @@ pub struct Config {
 
 #[cw_serde]
 pub struct UpdateConfig {
-    pub owner_id: Option<String>,
+    pub owner_addr: Option<String>,
     pub slot_granularity_time: Option<u64>,
     pub paused: Option<bool>,
     pub agent_fee: Option<u64>,
@@ -121,7 +121,7 @@ pub struct UpdateConfig {
     pub balancer: Option<RoundRobinBalancer>,
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
-    // pub treasury_id: Option<String>,
+    pub treasury_addr: Option<String>,
 }
 
 #[cw_serde]

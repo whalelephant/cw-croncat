@@ -14,7 +14,7 @@ pub struct ManagerInstantiateMsg {
     /// Name of the key for raw querying Agents address from the factory
     pub croncat_agents_key: (String, [u8; 2]),
     /// Address of the contract owner, defaults to the sender
-    pub owner_id: Option<String>,
+    pub owner_addr: Option<String>,
     /// Gas needed to cover [ExecuteMsg::ProxyCall] without any action
     pub gas_base_fee: Option<Uint64>,
     /// Gas needed to cover single non-wasm task's Action
@@ -31,18 +31,20 @@ pub struct ManagerInstantiateMsg {
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
     pub agent_nomination_duration: Option<u16>,
+
+    /// Contract's treasury.
+    /// Fees from tasks will go to this address, if set or to the owner address otherwise
+    pub treasury_addr: Option<String>,
 }
 
 #[cw_serde]
 pub enum ManagerExecuteMsg {
     /// Updates the croncat Config.
     /// Note: it's shared across contracts
-    UpdateConfig(UpdateConfig),
-    /// Move balances from the manager to the address
-    OwnerWithdraw {
-        native_balances: Vec<Coin>,
-        cw20_balances: Vec<Cw20Coin>,
-    },
+    // Boxing cause of large enum variant
+    UpdateConfig(Box<UpdateConfig>),
+    /// Move balances from the manager to the owner address, or treasury_addr if set
+    OwnerWithdraw {},
     /// Execute current task in the queue or task with queries if task_hash given
     ProxyCall { task_hash: Option<String> },
     /// Receive native coins to include them to the task

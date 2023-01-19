@@ -84,13 +84,14 @@ pub(crate) fn default_instantiate_message() -> InstantiateMsg {
         croncat_factory_addr: "croncat_factory_addr".to_owned(),
         croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
         croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
-        owner_id: None,
+        owner_addr: None,
         gas_base_fee: None,
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,
         gas_price: None,
         agent_nomination_duration: None,
+        treasury_addr: None,
     }
 }
 

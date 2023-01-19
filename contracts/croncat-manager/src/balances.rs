@@ -270,37 +270,28 @@ pub fn execute_user_withdraw(
 }
 
 /// Execute: MoveBalances
-/// Used by owner of the contract to move balances from the manager to another address
-pub fn execute_owner_withdraw(
-    deps: DepsMut,
-    info: MessageInfo,
-    native_balances: Vec<Coin>,
-    cw20_balances: Vec<Cw20Coin>,
-) -> Result<Response, ContractError> {
+/// Used by owner of the contract to move balances from the manager to treasury or owner address
+pub fn execute_owner_withdraw(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if info.sender != config.owner_id {
+    if info.sender != config.owner_addr {
         return Err(ContractError::Unauthorized {});
     }
-    let address = config.owner_id;
+    let address = config.treasury_addr.unwrap_or(config.owner_addr);
+    let native_withdraw: Vec<Coin> = AVAILABLE_NATIVE_BALANCE
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|coin_res| coin_res.map(|(denom, amount)| Coin { denom, amount }))
+        .collect::<StdResult<_>>()?;
 
-    let cw20_balances: Vec<Cw20CoinVerified> = cw20_balances
-        .into_iter()
-        .map(|balance| {
-            let coin = Cw20CoinVerified {
-                address: deps.api.addr_validate(&balance.address)?,
-                amount: balance.amount,
-            };
-            Ok(coin)
-        })
-        .collect::<StdResult<Vec<Cw20CoinVerified>>>()?;
+    let cw20_withdraw: Vec<Cw20CoinVerified> = AVAILABLE_CW20_BALANCE
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|coin_res| coin_res.map(|(address, amount)| Cw20CoinVerified { address, amount }))
+        .collect::<StdResult<_>>()?;
 
-    for coin in native_balances.iter() {
-        sub_available_native(deps.storage, coin)?;
-    }
+    AVAILABLE_NATIVE_BALANCE.clear(deps.storage);
+    AVAILABLE_CW20_BALANCE.clear(deps.storage);
 
-    let mut cw20_messages = Vec::with_capacity(cw20_balances.len());
-    for cw20 in cw20_balances {
-        sub_available_cw20(deps.storage, &cw20)?;
+    let mut cw20_messages = Vec::with_capacity(cw20_withdraw.len());
+    for cw20 in cw20_withdraw {
         cw20_messages.push(WasmMsg::Execute {
             contract_addr: cw20.address.to_string(),
             msg: to_binary(&cw20::Cw20ExecuteMsg::Transfer {
@@ -312,12 +303,12 @@ pub fn execute_owner_withdraw(
     }
 
     let response = Response::new()
-        .add_attribute("action", "move_balances")
+        .add_attribute("action", "owner_withdraw")
         .add_messages(cw20_messages);
-    if !native_balances.is_empty() {
+    if !native_withdraw.is_empty() {
         Ok(response.add_message(BankMsg::Send {
             to_address: address.to_string(),
-            amount: native_balances,
+            amount: native_withdraw,
         }))
     } else {
         Ok(response)

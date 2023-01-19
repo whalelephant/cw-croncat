@@ -47,13 +47,14 @@ pub fn instantiate(
         croncat_factory_addr,
         croncat_tasks_key,
         croncat_agents_key,
-        owner_id,
+        owner_addr,
         gas_base_fee,
         gas_action_fee,
         gas_query_fee,
         gas_wasm_query_fee,
         gas_price,
         agent_nomination_duration,
+        treasury_addr,
     } = msg;
 
     let gas_price = gas_price.unwrap_or_default();
@@ -62,14 +63,14 @@ pub fn instantiate(
         return Err(ContractError::InvalidGasPrice {});
     }
 
-    let owner_id = owner_id
+    let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
         .unwrap_or(info.sender);
 
     let config = Config {
         paused: false,
-        owner_id,
+        owner_addr,
         min_tasks_per_agent: 3,
         agents_eject_threshold: 600,
         agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
@@ -89,6 +90,9 @@ pub fn instantiate(
         native_denom: denom,
         balancer: Default::default(),
         limit: 100,
+        treasury_addr: treasury_addr
+            .map(|human| deps.api.addr_validate(&human))
+            .transpose()?,
     };
 
     // Update state
@@ -101,7 +105,7 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("paused", config.paused.to_string())
-        .add_attribute("owner_id", config.owner_id.to_string()))
+        .add_attribute("owner_id", config.owner_addr.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -112,11 +116,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, msg),
-        ExecuteMsg::OwnerWithdraw {
-            native_balances,
-            cw20_balances,
-        } => execute_owner_withdraw(deps, info, native_balances, cw20_balances),
+        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
+        ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
         ExecuteMsg::ProxyCall {
             task_hash: Some(task_hash),
@@ -183,7 +184,7 @@ pub fn execute_update_config(
     let new_config = CONFIG.update(deps.storage, |config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
-            owner_id,
+            owner_addr,
             slot_granularity_time,
             paused,
             agent_fee,
@@ -197,9 +198,10 @@ pub fn execute_update_config(
             balancer,
             croncat_tasks_key,
             croncat_agents_key,
+            treasury_addr,
         } = msg;
 
-        if info.sender != config.owner_id {
+        if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
         }
 
@@ -208,14 +210,19 @@ pub fn execute_update_config(
             return Err(ContractError::InvalidGasPrice {});
         }
 
-        let owner_id = owner_id
+        let owner_addr = owner_addr
             .map(|human| deps.api.addr_validate(&human))
             .transpose()?
-            .unwrap_or(config.owner_id);
+            .unwrap_or(config.owner_addr);
+        let treasury_addr = if let Some(human) = treasury_addr {
+            Some(deps.api.addr_validate(&human)?)
+        } else {
+            config.treasury_addr
+        };
 
         let new_config = Config {
             paused: paused.unwrap_or(config.paused),
-            owner_id,
+            owner_addr,
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agents_eject_threshold: agents_eject_threshold.unwrap_or(config.agents_eject_threshold),
             agent_nomination_duration: config.agent_nomination_duration,
@@ -233,6 +240,7 @@ pub fn execute_update_config(
             native_denom: config.native_denom,
             balancer: balancer.unwrap_or(config.balancer),
             limit: config.limit,
+            treasury_addr,
         };
         Ok(new_config)
     })?;
@@ -241,7 +249,7 @@ pub fn execute_update_config(
         .add_attribute("action", "update_config")
         .add_attribute("action", "instantiate")
         .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_id", new_config.owner_id.to_string()))
+        .add_attribute("owner_id", new_config.owner_addr.to_string()))
 }
 
 /// Execute: UpdateConfig
