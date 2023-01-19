@@ -23,6 +23,7 @@ cw-storage-plus = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 croncat-sdk-agents = { workspace = true }
+cw2 = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

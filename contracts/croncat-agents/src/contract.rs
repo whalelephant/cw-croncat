@@ -6,6 +6,8 @@ use crate::error::ContractError;
 use crate::msg::AgentExecuteMsg as ExecuteMsg;
 use crate::msg::AgentQueryMsg as QueryMsg;
 use crate::msg::InstantiateMsg;
+use cw2::set_contract_version;
+
 use crate::state::{
     ACTIVE_AGENTS, AGENTS, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME, CONFIG, PENDING_AGENTS,
 };
@@ -18,14 +20,24 @@ use cosmwasm_std::{
 use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
 use croncat_sdk_agents::types::{Agent, AgentStatus};
 use croncat_sdk_core::types::Config;
+
+pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
+pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    mut _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    todo!();
+    let config: Config = CONFIG.load(deps.storage)?;
+    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "instantiate")
+        .add_attribute("paused", config.paused.to_string())
+        .add_attribute("owner_id", config.owner_id.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -261,7 +273,7 @@ pub(crate) fn send_tokens(
     to: &Addr,
     balance: Uint128,
 ) -> StdResult<(Vec<SubMsg>, Uint128)> {
-    let config = CONFIG.may_load(storage).unwrap().unwrap();
+    let config = CONFIG.may_load(storage)?.unwrap();
     let msgs: Vec<SubMsg> = if balance.is_zero() {
         vec![]
     } else {
