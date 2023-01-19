@@ -167,8 +167,14 @@ dependencies = [
 name = "croncat-agents"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-sdk-agents",
+ "croncat-sdk-core",
+ "cw-multi-test",
+ "cw-storage-plus 0.16.0",
+ "serde",
  "thiserror",
 ]
 
@@ -245,6 +251,12 @@ dependencies = [
 [[package]]
 name = "croncat-sdk-agents"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "croncat-sdk-config"
@@ -253,6 +265,12 @@ version = "0.1.0"
 [[package]]
 name = "croncat-sdk-core"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw20 0.16.0",
+ "thiserror",
+]
 
 [[package]]
 name = "croncat-sdk-factory"
