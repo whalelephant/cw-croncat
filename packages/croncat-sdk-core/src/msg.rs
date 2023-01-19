@@ -15,14 +15,6 @@ pub struct ManagerInstantiateMsg {
     pub croncat_agents_key: (String, [u8; 2]),
     /// Address of the contract owner, defaults to the sender
     pub owner_addr: Option<String>,
-    /// Gas needed to cover [ExecuteMsg::ProxyCall] without any action
-    pub gas_base_fee: Option<Uint64>,
-    /// Gas needed to cover single non-wasm task's Action
-    pub gas_action_fee: Option<Uint64>,
-    /// Gas needed to cover single non-wasm query
-    pub gas_query_fee: Option<Uint64>,
-    /// Gas needed to cover single wasm query
-    pub gas_wasm_query_fee: Option<Uint64>,
     /// Gas prices that expected to be used by the agent
     pub gas_price: Option<GasPrice>,
     /// The duration a prospective agent has to nominate themselves.

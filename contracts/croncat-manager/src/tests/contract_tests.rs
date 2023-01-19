@@ -6,10 +6,7 @@ use croncat_sdk_core::{
 use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
 
 use crate::{
-    contract::{
-        DEFAULT_NOMINATION_DURATION, GAS_ACTION_FEE, GAS_BASE_FEE, GAS_QUERY_FEE,
-        GAS_WASM_QUERY_FEE,
-    },
+    contract::DEFAULT_NOMINATION_DURATION,
     msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg},
     tests::{
         helpers::query_manager_balances,
@@ -18,7 +15,7 @@ use crate::{
     },
     ContractError,
 };
-use cosmwasm_std::{coin, StdError, Uint64};
+use cosmwasm_std::{coin, StdError};
 use croncat_sdk_core::types::GasPrice;
 use cw_multi_test::{BankSudo, Executor};
 
@@ -46,11 +43,6 @@ mod instantiate_tests {
             croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
             agent_fee: 5,
             gas_price: Default::default(),
-            gas_base_fee: GAS_BASE_FEE,
-            gas_action_fee: GAS_ACTION_FEE,
-            gas_query_fee: GAS_QUERY_FEE,
-            gas_wasm_query_fee: GAS_WASM_QUERY_FEE,
-            slot_granularity_time: 10_000_000_000,
             cw20_whitelist: vec![],
             native_denom: DENOM.to_owned(),
             balancer: Default::default(),
@@ -69,10 +61,6 @@ mod instantiate_tests {
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
-            gas_base_fee: Some(Uint64::new(1001)),
-            gas_action_fee: Some(Uint64::new(2002)),
-            gas_query_fee: Some(Uint64::new(3003)),
-            gas_wasm_query_fee: Some(Uint64::new(4004)),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -109,11 +97,6 @@ mod instantiate_tests {
                 denominator: 20,
                 gas_adjustment_numerator: 30,
             },
-            gas_base_fee: 1001,
-            gas_action_fee: 2002,
-            gas_query_fee: 3003,
-            gas_wasm_query_fee: 4004,
-            slot_granularity_time: 10_000_000_000,
             cw20_whitelist: vec![],
             native_denom: "cron".to_owned(),
             balancer: Default::default(),
@@ -204,13 +187,8 @@ fn update_config() {
 
     let update_cfg_msg = UpdateConfig {
         owner_addr: Some("new_owner".to_string()),
-        slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
-        gas_base_fee: Some(1111),
-        gas_action_fee: Some(2222),
-        gas_query_fee: Some(3333),
-        gas_wasm_query_fee: Some(4444),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,
@@ -247,11 +225,6 @@ fn update_config() {
             denominator: 666,
             gas_adjustment_numerator: 777,
         },
-        gas_base_fee: 1111,
-        gas_action_fee: 2222,
-        gas_query_fee: 3333,
-        gas_wasm_query_fee: 4444,
-        slot_granularity_time: 1234,
         cw20_whitelist: vec![],
         native_denom: DENOM.to_owned(),
         balancer: RoundRobinBalancer {
@@ -265,13 +238,8 @@ fn update_config() {
     // Shouldn't override any fields to None or anything
     let update_cfg_msg = UpdateConfig {
         owner_addr: None,
-        slot_granularity_time: None,
         paused: None,
         agent_fee: None,
-        gas_base_fee: None,
-        gas_action_fee: None,
-        gas_query_fee: None,
-        gas_wasm_query_fee: None,
         gas_price: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
@@ -312,13 +280,8 @@ fn invalid_updates_config() {
     // Unauthorized
     let update_cfg_msg = UpdateConfig {
         owner_addr: Some("new_owner".to_string()),
-        slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
-        gas_base_fee: Some(1111),
-        gas_action_fee: Some(2222),
-        gas_query_fee: Some(3333),
-        gas_wasm_query_fee: Some(4444),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,
@@ -347,13 +310,8 @@ fn invalid_updates_config() {
     // Invalid gas_price
     let update_cfg_msg = UpdateConfig {
         owner_addr: Some("new_owner".to_string()),
-        slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
-        gas_base_fee: Some(1111),
-        gas_action_fee: Some(2222),
-        gas_query_fee: Some(3333),
-        gas_wasm_query_fee: Some(4444),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 0,
@@ -381,13 +339,8 @@ fn invalid_updates_config() {
     // Invalid owner
     let update_cfg_msg = UpdateConfig {
         owner_addr: Some("New_owner".to_string()),
-        slot_granularity_time: Some(1234),
         paused: Some(true),
         agent_fee: Some(0),
-        gas_base_fee: Some(1111),
-        gas_action_fee: Some(2222),
-        gas_query_fee: Some(3333),
-        gas_wasm_query_fee: Some(4444),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,

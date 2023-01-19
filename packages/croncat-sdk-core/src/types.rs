@@ -88,11 +88,6 @@ pub struct Config {
     // Economics
     pub agent_fee: u64,
     pub gas_price: GasPrice,
-    pub gas_base_fee: u64,
-    pub gas_action_fee: u64,
-    pub gas_query_fee: u64,
-    pub gas_wasm_query_fee: u64,
-    pub slot_granularity_time: u64,
 
     // Treasury
     pub treasury_addr: Option<Addr>,
@@ -101,20 +96,15 @@ pub struct Config {
 
     pub balancer: RoundRobinBalancer,
 
-    // The default amount of tasks to query
+    // The default query limit
     pub limit: u64,
 }
 
 #[cw_serde]
 pub struct UpdateConfig {
     pub owner_addr: Option<String>,
-    pub slot_granularity_time: Option<u64>,
     pub paused: Option<bool>,
     pub agent_fee: Option<u64>,
-    pub gas_base_fee: Option<u64>,
-    pub gas_action_fee: Option<u64>,
-    pub gas_query_fee: Option<u64>,
-    pub gas_wasm_query_fee: Option<u64>,
     pub gas_price: Option<GasPrice>,
     pub min_tasks_per_agent: Option<u64>,
     pub agents_eject_threshold: Option<u64>,

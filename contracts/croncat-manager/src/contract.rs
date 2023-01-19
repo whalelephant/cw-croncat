@@ -19,14 +19,6 @@ pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub(crate) const DEFAULT_NOMINATION_DURATION: u16 = 360;
-/// Value based on non-wasm operations, wasm ops seem impossible to predict
-pub(crate) const GAS_BASE_FEE: u64 = 300_000;
-/// Gas needed for single action
-pub(crate) const GAS_ACTION_FEE: u64 = 130_000;
-/// Gas needed for single non-wasm query
-pub(crate) const GAS_QUERY_FEE: u64 = 5_000;
-/// Gas needed for single wasm query
-pub(crate) const GAS_WASM_QUERY_FEE: u64 = 60_000;
 
 /// Instantiate
 /// First contract method before it runs on the chains
@@ -48,10 +40,6 @@ pub fn instantiate(
         croncat_tasks_key,
         croncat_agents_key,
         owner_addr,
-        gas_base_fee,
-        gas_action_fee,
-        gas_query_fee,
-        gas_wasm_query_fee,
         gas_price,
         agent_nomination_duration,
         treasury_addr,
@@ -79,13 +67,6 @@ pub fn instantiate(
         croncat_agents_key,
         agent_fee: 5,
         gas_price,
-        gas_base_fee: gas_base_fee.map(Into::into).unwrap_or(GAS_BASE_FEE),
-        gas_action_fee: gas_action_fee.map(Into::into).unwrap_or(GAS_ACTION_FEE),
-        gas_query_fee: gas_query_fee.map(Into::into).unwrap_or(GAS_QUERY_FEE),
-        gas_wasm_query_fee: gas_wasm_query_fee
-            .map(Into::into)
-            .unwrap_or(GAS_WASM_QUERY_FEE),
-        slot_granularity_time: 10_000_000_000, // 10 seconds
         cw20_whitelist: vec![],
         native_denom: denom,
         balancer: Default::default(),
@@ -185,13 +166,8 @@ pub fn execute_update_config(
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
-            slot_granularity_time,
             paused,
             agent_fee,
-            gas_base_fee,
-            gas_action_fee,
-            gas_query_fee,
-            gas_wasm_query_fee,
             gas_price,
             min_tasks_per_agent,
             agents_eject_threshold,
@@ -231,11 +207,6 @@ pub fn execute_update_config(
             croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
             agent_fee: agent_fee.unwrap_or(config.agent_fee),
             gas_price,
-            gas_base_fee: gas_base_fee.unwrap_or(config.gas_base_fee),
-            gas_action_fee: gas_action_fee.unwrap_or(config.gas_action_fee),
-            gas_query_fee: gas_query_fee.unwrap_or(config.gas_query_fee),
-            gas_wasm_query_fee: gas_wasm_query_fee.unwrap_or(config.gas_wasm_query_fee),
-            slot_granularity_time: slot_granularity_time.unwrap_or(config.slot_granularity_time),
             cw20_whitelist: config.cw20_whitelist,
             native_denom: config.native_denom,
             balancer: balancer.unwrap_or(config.balancer),
