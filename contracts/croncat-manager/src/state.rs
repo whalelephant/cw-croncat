@@ -22,7 +22,10 @@ pub const AGENT_BALANCES_NATIVE: Map<(&Addr, &str), Uint128> = Map::new("agent_b
 
 pub const AGENT_BALANCES_CW20: Map<(&Addr, &Addr), Uint128> = Map::new("agent_balances_cw20");
 
-pub const USERS_BALANCES_CW20: Map<(&Addr, &Addr), Uint128> = Map::new("users_balances_cw20");
+// Temporary balances of users before task creation.
+// Please do not store your coins for any other use.
+pub const TEMP_BALANCES_CW20: Map<(&Addr, &Addr), Uint128> = Map::new("temp_balances_cw20");
+pub const TEMP_BALANCES_NATIVE: Map<(&Addr, &str), Uint128> = Map::new("temp_balances_native");
 
 #[cw_serde]
 pub struct TaskBalance {

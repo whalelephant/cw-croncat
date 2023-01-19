@@ -7,8 +7,8 @@ use croncat_sdk_core::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
-    add_available_native, execute_move_balances, execute_receive_cw20,
-    execute_withdraw_wallet_balances, query_available_balances, query_cw20_wallet_balances,
+    add_available_native, add_user_native, execute_owner_withdraw, execute_receive_cw20,
+    execute_user_withdraw, query_available_balances, query_users_balances,
 };
 use crate::error::ContractError;
 use crate::helpers::check_ready_for_execution;
@@ -113,21 +113,33 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, msg),
-        ExecuteMsg::MoveBalances {
+        ExecuteMsg::OwnerWithdraw {
             native_balances,
             cw20_balances,
-            address,
-        } => execute_move_balances(deps, info, native_balances, cw20_balances, address),
+        } => execute_owner_withdraw(deps, info, native_balances, cw20_balances),
         ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
         ExecuteMsg::ProxyCall {
             task_hash: Some(task_hash),
         } => execute_proxy_call_with_queries(deps, env, info, task_hash),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
-        ExecuteMsg::WithdrawCw20WalletBalances { cw20_amounts } => {
-            execute_withdraw_wallet_balances(deps, info, cw20_amounts)
-        }
+        ExecuteMsg::RefillNativeBalance {} => execute_refill_native_balance(deps, info),
+        ExecuteMsg::UserWithdraw {
+            native_balances,
+            cw20_balances,
+        } => execute_user_withdraw(deps, info, native_balances, cw20_balances),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
     }
+}
+
+fn execute_refill_native_balance(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    for coin in info.funds {
+        add_available_native(deps.storage, &coin)?;
+        add_user_native(deps.storage, &info.sender, &coin)?;
+    }
+    Ok(Response::new().add_attribute("action", "refill_native_balance"))
 }
 
 fn execute_proxy_call(
@@ -280,13 +292,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::AvailableBalances { from_index, limit } => {
             to_binary(&query_available_balances(deps, from_index, limit)?)
         }
-        QueryMsg::Cw20WalletBalances {
+        QueryMsg::UsersBalances {
             wallet,
             from_index,
             limit,
-        } => to_binary(&query_cw20_wallet_balances(
-            deps, wallet, from_index, limit,
-        )?),
+        } => to_binary(&query_users_balances(deps, wallet, from_index, limit)?),
     }
 }
 

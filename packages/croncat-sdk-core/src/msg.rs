@@ -1,7 +1,7 @@
 use crate::types::{BalancesResponse, Config, GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Coin, Uint64};
-use cw20::{Cw20Coin, Cw20CoinVerified};
+use cw20::Cw20Coin;
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
@@ -39,17 +39,21 @@ pub enum ManagerExecuteMsg {
     /// Note: it's shared across contracts
     UpdateConfig(UpdateConfig),
     /// Move balances from the manager to the address
-    MoveBalances {
+    OwnerWithdraw {
         native_balances: Vec<Coin>,
         cw20_balances: Vec<Cw20Coin>,
-        address: String,
     },
     /// Execute current task in the queue or task with queries if task_hash given
     ProxyCall { task_hash: Option<String> },
+    /// Receive native coins to include them to the task
+    RefillNativeBalance {},
     /// Receive cw20 coin
     Receive(cw20::Cw20ReceiveMsg),
-    /// Withdraw Cw20 coins
-    WithdrawCw20WalletBalances { cw20_amounts: Vec<Cw20Coin> },
+    /// Withdraw temp coins for users
+    UserWithdraw {
+        native_balances: Vec<Coin>,
+        cw20_balances: Vec<Cw20Coin>,
+    },
     /// Kick inactive agents
     Tick {},
 }
@@ -67,8 +71,8 @@ pub enum ManagerQueryMsg {
         limit: Option<u64>,
     },
     /// Gets Cw20 balances of the given wallet address
-    #[returns(Vec<Cw20CoinVerified>)]
-    Cw20WalletBalances {
+    #[returns(BalancesResponse)]
+    UsersBalances {
         wallet: String,
         from_index: Option<u64>,
         limit: Option<u64>,

@@ -126,8 +126,8 @@ pub struct UpdateConfig {
 
 #[cw_serde]
 pub struct BalancesResponse {
-    pub available_native_balance: Vec<Coin>,
-    pub available_cw20_balance: Vec<Cw20CoinVerified>,
+    pub native_balance: Vec<Coin>,
+    pub cw20_balance: Vec<Cw20CoinVerified>,
 }
 
 #[cfg(test)]
