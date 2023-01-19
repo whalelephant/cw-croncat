@@ -172,6 +172,7 @@ dependencies = [
  "cosmwasm-std",
  "croncat-sdk-agents",
  "croncat-sdk-core",
+ "croncat-sdk-tasks",
  "cw-multi-test",
  "cw-storage-plus 0.16.0",
  "serde",
@@ -283,6 +284,11 @@ dependencies = [
 [[package]]
 name = "croncat-sdk-tasks"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "croncat-sdk-core",
+]
 
 [[package]]
 name = "croncat-tasks"

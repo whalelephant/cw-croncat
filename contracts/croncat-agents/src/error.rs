@@ -14,4 +14,13 @@ pub enum ContractError {
 
     #[error("Agent not registered")]
     AgentNotRegistered,
+
+    #[error("Agent is not active")]
+    AgentNotActive,
+
+    #[error("Insufficient funds")]
+    InsufficientFunds,
+
+    #[error("Contract is in paused state")]
+    ContractPaused,
 }

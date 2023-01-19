@@ -18,6 +18,7 @@ library = []
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 croncat-sdk-core = { workspace = true }
+croncat-sdk-tasks = { workspace = true }
 cw-storage-plus = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }

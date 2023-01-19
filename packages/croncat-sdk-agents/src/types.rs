@@ -1,6 +1,6 @@
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Timestamp, Uint128, Addr};
+use cosmwasm_std::{Timestamp, Uint128, Addr, Deps};
 
 #[cw_serde]
 pub enum AgentExecuteMsg {
@@ -51,3 +51,4 @@ impl Agent {
         self.last_executed_slot = last_executed_slot;
     }
 }
+

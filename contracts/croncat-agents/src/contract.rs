@@ -1,14 +1,20 @@
+use crate::balancer::Balancer;
 use crate::error::ContractError;
+use crate::error::ContractError::{AgentAlreadyRegistered, AgentNotActive, AgentNotRegistered};
 use crate::msg::AgentExecuteMsg as ExecuteMsg;
 use crate::msg::{InstantiateMsg, QueryMsg};
-use crate::state::{ACTIVE_AGENTS, PENDING_AGENTS, AGENT_NOMINATION_BEGIN_TIME, AGENTS, CONFIG};
+use crate::state::{
+    ACTIVE_AGENTS, AGENTS, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME, CONFIG, PENDING_AGENTS,
+};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Storage, StdError, Uint128, SubMsg, WasmMsg, BankMsg, Coin};
-use croncat_sdk_agents::msg::{GetAgentIdsResponse, AgentResponse};
-use croncat_sdk_agents::types::{AgentStatus, Agent};
+use cosmwasm_std::{
+    Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    Storage, SubMsg, Uint128, WasmMsg,
+};
+use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
+use croncat_sdk_agents::types::{Agent, AgentStatus};
 use croncat_sdk_core::types::Config;
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     mut _deps: DepsMut,
@@ -54,8 +60,7 @@ pub(crate) fn query_get_agent(
         return Ok(None);
     };
 
-    let agent_status = 
-        get_agent_status(deps.storage, env, account_id)
+    let agent_status = get_agent_status(deps.storage, env, account_id)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
             msg: err.to_string(),
@@ -82,55 +87,25 @@ pub(crate) fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> 
     Ok(GetAgentIdsResponse { active, pending })
 }
 
-// TODO: Change this to solid round-table implementation. Setup this simple version for PoC
-/// Get how many tasks an agent can execute
-/// TODO: Remove this function, replaced by balancer
 pub(crate) fn query_get_agent_tasks(
     deps: Deps,
     env: Env,
     account_id: String,
+    slots: (u64, u64),
 ) -> StdResult<Option<AgentTaskResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
-    let active = Ag.load(deps.storage)?;
+    let active = ACTIVE_AGENTS.load(deps.storage)?;
     if !active.contains(&account_id) {
         return Err(StdError::GenericErr {
-            msg: AgentNotActive {}.to_string(),
+            msg: "Agent is not active!".to_owned(),
         });
     }
-    // Get all tasks (the final None means no limit when we take)
-    let block_slots = self
-        .block_slots
-        .range(
-            deps.storage,
-            None,
-            Some(Bound::inclusive(env.block.height)),
-            cosmwasm_std::Order::Ascending,
-        )
-        .count();
 
-    let time_slots = self
-        .time_slots
-        .range(
-            deps.storage,
-            None,
-            Some(Bound::inclusive(env.block.time.nanos())),
-            cosmwasm_std::Order::Ascending,
-        )
-        .count();
-
-    if (block_slots, time_slots) == (0, 0) {
+    if slots == (0, 0) {
         return Ok(None);
     }
-
-    balancer
-        .get_agent_tasks(
-            &deps,
-            &env,
-            &config,
-            &ACTIVE_AGENTS,
-            account_id,
-            (Some(block_slots as u64), Some(time_slots as u64)),
-        )
+    AGENT_BALANCER
+        .get_agent_tasks(&deps, &env, &CONFIG, &ACTIVE_AGENTS, account_id, slots)
         .map_err(|err| StdError::generic_err(err.to_string()))
 }
 
@@ -146,15 +121,11 @@ pub fn register_agent(
     payable_account_id: Option<String>,
 ) -> Result<Response, ContractError> {
     if !info.funds.is_empty() {
-        return Err(ContractError::CustomError {
-            val: "Do not attach funds".to_string(),
-        });
+        return Err(ContractError::InsufficientFunds);
     }
     let c: Config = CONFIG.load(deps.storage)?;
     if c.paused {
-        return Err(ContractError::ContractPaused {
-            val: "Register agent paused".to_string(),
-        });
+        return Err(ContractError::ContractPaused);
     }
 
     let account = info.sender;
@@ -258,8 +229,7 @@ pub(crate) fn withdraw_balances(
     storage: &mut dyn Storage,
     agent_id: &Addr,
 ) -> Result<Vec<SubMsg>, ContractError> {
-    let mut agent = 
-        AGENTS
+    let mut agent = AGENTS
         .may_load(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
 
@@ -277,15 +247,12 @@ pub(crate) fn withdraw_balances(
 }
 
 // Helper to distribute funds/tokens
-pub(crate) fn send_tokens(
-    to: &Addr,
-    balance: Uint128,
-) -> StdResult<(Vec<SubMsg>, Uint128)> {
+pub(crate) fn send_tokens(to: &Addr, balance: Uint128) -> StdResult<(Vec<SubMsg>, Uint128)> {
     let native_balance = &balance;
-    let mut msgs: Vec<SubMsg> = if native_balance.is_empty() {
+
+    let mut msgs: Vec<SubMsg> = if balance > 0 {
         vec![]
     } else {
-        coins.native = native_balance.to_vec();
         vec![SubMsg::new(BankMsg::Send {
             to_address: to.into(),
             amount:Coin{denom: CONFIG.},
@@ -456,7 +423,6 @@ pub fn unregister_agent(
 }
 
 pub fn get_agent_status(
-    
     storage: &dyn Storage,
     env: Env,
     account_id: Addr,
@@ -491,8 +457,7 @@ pub fn get_agent_status(
 
     // Load config's task ratio, total tasks, active agents, and AGENT_NOMINATION_BEGIN_TIME.
     // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-    let max_agent_index =
-        max_agent_nomination_index(storage, &c, env, &(active.len() as u64))?;
+    let max_agent_index = max_agent_nomination_index(storage, &c, env, &(active.len() as u64))?;
     let agent_status = match max_agent_index {
         Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
         _ => AgentStatus::Pending,
@@ -534,11 +499,7 @@ pub(crate) fn max_agent_nomination_index(
     }
 }
 
-pub fn agents_to_let_in(
-    max_tasks: &u64,
-    num_active_agents: &u64,
-    total_tasks: &u64,
-) -> u64 {
+pub fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64) -> u64 {
     let num_tasks_covered = num_active_agents * max_tasks;
     if total_tasks > &num_tasks_covered {
         // It's possible there are more "covered tasks" than total tasks,
