@@ -3,7 +3,7 @@ use croncat_sdk_core::{
     balancer::{BalancerMode, RoundRobinBalancer},
     types::{BalancesResponse, Config, UpdateConfig},
 };
-use cw20::{Cw20Coin, Cw20CoinVerified};
+use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
 
 use crate::{
     contract::{
@@ -832,7 +832,7 @@ fn failed_users_withdraws() {
 }
 
 #[test]
-fn move_balances() {
+fn withdraw_balances() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
@@ -874,6 +874,23 @@ fn move_balances() {
             }]
         }
     );
+    let owner_native1_balance = app
+        .wrap()
+        .query_balance(Addr::unchecked(ADMIN), DENOM)
+        .unwrap();
+    let owner_native2_balance = app
+        .wrap()
+        .query_balance(Addr::unchecked(ADMIN), "denom")
+        .unwrap();
+    let owner_cw20_balance: BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &cw20_base::msg::QueryMsg::Balance {
+                address: ADMIN.to_owned(),
+            },
+        )
+        .unwrap();
 
     // Withdraw all of balances
     app.execute_contract(
@@ -891,6 +908,46 @@ fn move_balances() {
             cw20_balance: vec![]
         }
     );
+
+    let updated_owner_native1_balance = app
+        .wrap()
+        .query_balance(Addr::unchecked(ADMIN), DENOM)
+        .unwrap();
+    let updated_owner_native2_balance = app
+        .wrap()
+        .query_balance(Addr::unchecked(ADMIN), "denom")
+        .unwrap();
+    let updated_owner_cw20_balance: BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr,
+            &cw20_base::msg::QueryMsg::Balance {
+                address: ADMIN.to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        updated_owner_native1_balance.amount,
+        owner_native1_balance.amount + Uint128::new(2400)
+    );
+    assert_eq!(
+        updated_owner_native2_balance.amount,
+        owner_native2_balance.amount + Uint128::new(5000)
+    );
+    assert_eq!(
+        updated_owner_cw20_balance.balance,
+        owner_cw20_balance.balance + Uint128::new(1000)
+    );
+
+    // Withdraw on empty balances should do nothing
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::OwnerWithdraw {},
+        &[],
+    )
+    .unwrap();
 }
 
 #[test]
