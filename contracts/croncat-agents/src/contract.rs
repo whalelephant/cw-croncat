@@ -260,9 +260,7 @@ pub(crate) fn withdraw_rewards(
     // This will send all token balances to Agent
     let (messages, balance) = send_tokens(storage, &agent.payable_account_id, agent.balance)?;
     agent.balance -= balance;
-    let mut config = CONFIG.load(storage)?;
     AGENTS.save(storage, agent_id, &agent)?;
-    CONFIG.save(storage, &config)?;
 
     Ok(messages)
 }
