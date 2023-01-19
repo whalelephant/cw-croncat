@@ -17,10 +17,8 @@ pub const AVAILABLE_NATIVE_BALANCE: Map<&str, Uint128> = Map::new("available_nat
 /// Value: Amount
 pub const AVAILABLE_CW20_BALANCE: Map<&Addr, Uint128> = Map::new("available_cw20_balance");
 
-// Accrued Agent reward balance
-pub const AGENT_BALANCES_NATIVE: Map<(&Addr, &str), Uint128> = Map::new("agent_balances_native");
-
-pub const AGENT_BALANCES_CW20: Map<(&Addr, &Addr), Uint128> = Map::new("agent_balances_cw20");
+// Accrued Agent reward balance in native coin
+pub const AGENT_REWARDS: Map<&Addr, Uint128> = Map::new("agent_rewards");
 
 // Temporary balances of users before task creation.
 // Please do not store your coins for any other use.
