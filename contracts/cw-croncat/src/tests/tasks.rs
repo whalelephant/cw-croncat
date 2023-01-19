@@ -163,7 +163,7 @@ fn query_get_tasks() {
 }
 
 #[test]
-fn query_simulate_task_once() {
+fn query_simulate_task_estimated_gas() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -178,7 +178,7 @@ fn query_simulate_task_once() {
     let msg: CosmosMsg = send.clone().into();
     let msg2: CosmosMsg = send2.clone().into();
 
-    // Interval::Once with one action
+    // One action
     let task_request = TaskRequest {
         interval: Interval::Once,
         boundary: None,
@@ -199,33 +199,42 @@ fn query_simulate_task_once() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: coins(1_000_000, NATIVE_DENOM),
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
+    assert_eq!(simulate.estimated_gas, GAS_BASE_FEE + GAS_ACTION_FEE);
 
-    assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
-    );
-
-    // Interval::Once with two actions
+    // One action with gas_limit
     let task_request = TaskRequest {
         interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: Some(123_321),
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.estimated_gas, GAS_BASE_FEE + 123_321);
+
+    // Two actions
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
         boundary: Some(Boundary::Height {
             start: None,
             end: Some(Uint64::from(12346u64)),
@@ -237,7 +246,7 @@ fn query_simulate_task_once() {
                 gas_limit: None,
             },
             Action {
-                msg: msg2,
+                msg: msg2.clone(),
                 gas_limit: None,
             },
         ],
@@ -253,34 +262,91 @@ fn query_simulate_task_once() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: coins(1_000_000, NATIVE_DENOM),
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
+    assert_eq!(simulate.estimated_gas, GAS_BASE_FEE + 2 * GAS_ACTION_FEE);
 
-    let hash = Sha256::digest(message.as_bytes());
+    // Two actions, one of them with gas_limit
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some(Uint64::from(12346u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: None,
+            },
+            Action {
+                msg: msg2.clone(),
+                gas_limit: Some(123_321),
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
     assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + 2 * GAS_ACTION_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
+        simulate.estimated_gas,
+        GAS_BASE_FEE + GAS_ACTION_FEE + 123_321
     );
 
-    // Interval::Once with one action and query CheckOwnerOfNft
+    // Two actions, both with gas_limit
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some(Uint64::from(12346u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: Some(321_123),
+            },
+            Action {
+                msg: msg2.clone(),
+                gas_limit: Some(123_321),
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.estimated_gas, GAS_BASE_FEE + 321_123 + 123_321);
+
+    // One action and query CheckOwnerOfNft
     // Estimated gas increases by 2 * GAS_WASM_QUERY_FEE
     let task_request = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Block(10),
         boundary: None,
         stop_on_fail: false,
         actions: vec![Action {
@@ -303,34 +369,19 @@ fn query_simulate_task_once() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: coins(1_000_000, NATIVE_DENOM),
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
-
     assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + 2 * GAS_WASM_QUERY_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
+        simulate.estimated_gas,
+        GAS_BASE_FEE + GAS_ACTION_FEE + 2 * GAS_WASM_QUERY_FEE,
     );
 
-    // Interval::Once with one action and query HasBalanceGte
-    // Estimated gas increases by GAS_WASM_QUERY_FEE and GAS_QUERY_FEE
+    // One action and query HasBalanceGte
+    // This query adds to estimated gas GAS_WASM_QUERY_FEE and GAS_QUERY_FEE
     let task_request = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("1 * * * * *".to_string()),
         boundary: None,
         stop_on_fail: false,
         actions: vec![Action {
@@ -352,33 +403,18 @@ fn query_simulate_task_once() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: coins(1_000_000, NATIVE_DENOM),
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
-
     assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
+        simulate.estimated_gas,
+        GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE,
     );
 }
 
 #[test]
-fn query_simulate_task_immediate() {
+fn query_simulate_task_hash() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -393,7 +429,138 @@ fn query_simulate_task_immediate() {
     let msg: CosmosMsg = send.clone().into();
     let msg2: CosmosMsg = send2.clone().into();
 
-    // Interval::Immediate with one action
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg,
+                gas_limit: Some(150_000),
+            },
+            Action {
+                msg: msg2.clone(),
+                gas_limit: None,
+            },
+        ],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(simulate.task_hash, encode(hash));
+}
+
+#[test]
+fn query_simulate_task_occurrences_once() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+
+    // Interval::Once without query
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(simulate.occurrences, 1);
+
+    // Interval::Once with query
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(simulate.occurrences, 1);
+}
+
+#[test]
+fn query_simulate_task_occurrences_immediate() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+
+    // Interval::Immediate without query
     let task_request = TaskRequest {
         interval: Interval::Immediate,
         boundary: None,
@@ -418,82 +585,10 @@ fn query_simulate_task_immediate() {
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
 
-    assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
-    );
+    assert_eq!(simulate.occurrences, 1);
 
-    // Interval::Immediate with two actions
-    let task_request = TaskRequest {
-        interval: Interval::Immediate,
-        boundary: Some(Boundary::Height {
-            start: None,
-            end: Some(Uint64::from(12346u64)),
-        }),
-        stop_on_fail: false,
-        actions: vec![
-            Action {
-                msg: msg.clone(),
-                gas_limit: None,
-            },
-            Action {
-                msg: msg2,
-                gas_limit: None,
-            },
-        ],
-        queries: None,
-        transforms: None,
-        cw20_coins: vec![],
-        sender: Some(ANYONE.to_owned()),
-    };
-
-    let simulate: SimulateTaskResponse = app
-        .wrap()
-        .query_wasm_smart(
-            &contract_addr.clone(),
-            &QueryMsg::SimulateTask {
-                task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
-            },
-        )
-        .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-
-    let hash = Sha256::digest(message.as_bytes());
-    assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + 2 * GAS_ACTION_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
-    );
-
-    // Interval::Immediate with one action and query CheckOwnerOfNft
-    // Estimated gas increases by 2 * GAS_WASM_QUERY_FEE
+    // Interval::Immediate with query
     let task_request = TaskRequest {
         interval: Interval::Immediate,
         boundary: None,
@@ -522,74 +617,359 @@ fn query_simulate_task_immediate() {
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
+    assert_eq!(simulate.occurrences, 1);
+}
 
-    assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + 2 * GAS_WASM_QUERY_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
-    );
+#[test]
+fn query_simulate_task_occurrences_block() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
 
-    // Interval::Immediate with one action and query HasBalanceGte
-    // Estimated gas increases by GAS_WASM_QUERY_FEE + GAS_QUERY_FEE
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let send2 = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(2, NATIVE_DENOM)]
+    };
+    let msg: CosmosMsg = send.clone().into();
+    let msg2: CosmosMsg = send2.clone().into();
+
+    // Interval::Block with one action, no boundaries
     let task_request = TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Block(5),
         boundary: None,
         stop_on_fail: false,
         actions: vec![Action {
             msg: msg.clone(),
             gas_limit: None,
         }],
-        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
-            address: ADMIN.to_string(),
-            required_balance: Balance::Native(NativeBalance(vec![coin(100, NATIVE_DENOM)])),
-        })]),
+        queries: None,
         transforms: None,
         cw20_coins: vec![],
         sender: Some(ANYONE.to_owned()),
     };
-
     let simulate: SimulateTaskResponse = app
         .wrap()
         .query_wasm_smart(
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: coins(1_000_000, NATIVE_DENOM),
             },
         )
         .unwrap();
-    let message = format!(
-        "{:?}{:?}{:?}{:?}{:?}{:?}",
-        Addr::unchecked(ANYONE),
-        task_request.interval,
-        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
-        task_request.actions,
-        task_request.queries,
-        task_request.transforms
-    );
-    let hash = Sha256::digest(message.as_bytes());
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
 
-    assert_eq!(
-        simulate,
-        SimulateTaskResponse {
-            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE,
-            occurrences: 1,
-            task_hash: encode(hash)
-        }
-    );
+    // Interval::Block with two actions, no boundaries
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: None,
+            },
+            Action {
+                msg: msg2,
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 35283
+    // Thus 1_000_000 should be enough for 28 proxy_call's
+    assert_eq!(simulate.occurrences, 28);
+
+    // Interval::Block with one action
+    // the start boundary is less than the current block
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            // Start is less than the current block
+            start: Some(12344u64.into()),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Block with one action
+    // the start boundary is bigger than the current block number
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            // Start is bigger than the current block number
+            start: Some(12350u64.into()),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Block with one action
+    // End boundary is too big to impact occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some((12345 + 5 * 36 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // End boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Block with one action
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some((12345 + 5 * 36 - 1 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // But the end boundary doesn't allow the last proxy_call
+    assert_eq!(simulate.occurrences, 35);
+
+    // Interval::Block with one action
+    // Start boundary is smaller than the current block number
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(12000u64.into()),
+            end: Some((12345 + 5 * 36 - 1 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // But the end boundary doesn't allow the last proxy_call
+    // Start boundary doesn't impact calculations
+    assert_eq!(simulate.occurrences, 35);
+
+    // Interval::Block with one action
+    // Start boundary is smaller than the current block number
+    // End boundary doesn't limit the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(12000u64.into()),
+            end: Some((12345 + 5 * 36 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The end boundary doesn't limit the number of proxy_call's
+    // Start boundary doesn't impact calculations
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Block with one action
+    // Start boundary is some future block
+    // End boundary doesn't limit the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(15000u64.into()),
+            end: Some((15000 + 5 * 36 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The difference between end and start is bid enough for all 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Block with one action
+    // Start boundary is some future block
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(15000u64.into()),
+            end: Some((15000 + 5 * 36 - 1 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(1_000_000, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The difference between end and start allows only 35 proxy_call's
+    assert_eq!(simulate.occurrences, 35);
+
 }
 
 #[test]
