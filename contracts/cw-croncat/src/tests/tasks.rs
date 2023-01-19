@@ -1,22 +1,27 @@
 use super::helpers::{ADMIN, ANYONE, NATIVE_DENOM, VERY_RICH};
 use crate::contract::{
     GAS_ACTION_FEE, GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_BASE_FEE, GAS_DENOMINATOR,
-    GAS_NUMERATOR_DEFAULT,
+    GAS_NUMERATOR_DEFAULT, GAS_QUERY_FEE, GAS_WASM_QUERY_FEE,
 };
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, Uint64,
+    WasmMsg,
 };
 use cw2::ContractVersion;
+use cw20::Balance;
 use cw_croncat_core::error::CoreError;
 use cw_croncat_core::msg::{
     ExecuteMsg, GetBalancesResponse, GetSlotHashesResponse, GetSlotIdsResponse, QueryMsg,
-    TaskRequest, TaskResponse, TaskWithQueriesResponse,
+    SimulateTaskResponse, TaskRequest, TaskResponse, TaskWithQueriesResponse,
 };
 use cw_croncat_core::types::{Action, Boundary, CheckedBoundary, GenericBalance, Interval, Task};
 use cw_multi_test::Executor;
-use cw_rules_core::types::{CroncatQuery, HasBalanceGte};
+use cw_rules_core::types::{CheckOwnerOfNft, CroncatQuery, HasBalanceGte};
+use cw_utils::NativeBalance;
+use hex::encode;
+use sha2::{Digest, Sha256};
 use std::convert::TryInto;
 
 #[test]
@@ -155,6 +160,436 @@ fn query_get_tasks() {
         )
         .unwrap();
     assert_eq!(owner_tasks.len(), 1);
+}
+
+#[test]
+fn query_simulate_task_once() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let send2 = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(2, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+    let msg2: CosmosMsg = send2.clone().into();
+
+    // Interval::Once with one action
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Once with two actions
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some(Uint64::from(12346u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: None,
+            },
+            Action {
+                msg: msg2,
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+
+    let hash = Sha256::digest(message.as_bytes());
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + 2 * GAS_ACTION_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Once with one action and query CheckOwnerOfNft
+    // Estimated gas increases by 2 * GAS_WASM_QUERY_FEE
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + 2 * GAS_WASM_QUERY_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Once with one action and query HasBalanceGte
+    // Estimated gas increases by GAS_WASM_QUERY_FEE and GAS_QUERY_FEE
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
+            address: ADMIN.to_string(),
+            required_balance: Balance::Native(NativeBalance(vec![coin(100, NATIVE_DENOM)])),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+}
+
+#[test]
+fn query_simulate_task_immediate() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let send2 = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(2, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+    let msg2: CosmosMsg = send2.clone().into();
+
+    // Interval::Immediate with one action
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Immediate with two actions
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: None,
+            end: Some(Uint64::from(12346u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: None,
+            },
+            Action {
+                msg: msg2,
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+
+    let hash = Sha256::digest(message.as_bytes());
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + 2 * GAS_ACTION_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Immediate with one action and query CheckOwnerOfNft
+    // Estimated gas increases by 2 * GAS_WASM_QUERY_FEE
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + 2 * GAS_WASM_QUERY_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
+
+    // Interval::Immediate with one action and query HasBalanceGte
+    // Estimated gas increases by GAS_WASM_QUERY_FEE + GAS_QUERY_FEE
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::HasBalanceGte(HasBalanceGte {
+            address: ADMIN.to_string(),
+            required_balance: Balance::Native(NativeBalance(vec![coin(100, NATIVE_DENOM)])),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    let message = format!(
+        "{:?}{:?}{:?}{:?}{:?}{:?}",
+        Addr::unchecked(ANYONE),
+        task_request.interval,
+        CheckedBoundary::new(task_request.boundary, &task_request.interval).unwrap(),
+        task_request.actions,
+        task_request.queries,
+        task_request.transforms
+    );
+    let hash = Sha256::digest(message.as_bytes());
+
+    assert_eq!(
+        simulate,
+        SimulateTaskResponse {
+            estimated_gas: GAS_BASE_FEE + GAS_ACTION_FEE + GAS_WASM_QUERY_FEE + GAS_QUERY_FEE,
+            occurrences: 1,
+            task_hash: encode(hash)
+        }
+    );
 }
 
 #[test]
