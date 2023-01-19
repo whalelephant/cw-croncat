@@ -1,6 +1,6 @@
 use crate::types::{BalancesResponse, Config, GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint64};
+use cosmwasm_std::Coin;
 use cw20::Cw20Coin;
 
 #[cw_serde]

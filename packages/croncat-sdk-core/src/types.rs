@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin};
 use cw20::Cw20CoinVerified;
 
-use crate::{balancer::RoundRobinBalancer, error::CoreError};
+use crate::error::CoreError;
 
 use self::gas_price_defaults::{
     GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT,
@@ -94,8 +94,6 @@ pub struct Config {
     pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
     pub native_denom: String,
 
-    pub balancer: RoundRobinBalancer,
-
     // The default query limit
     pub limit: u64,
 }
@@ -108,7 +106,6 @@ pub struct UpdateConfig {
     pub gas_price: Option<GasPrice>,
     pub min_tasks_per_agent: Option<u64>,
     pub agents_eject_threshold: Option<u64>,
-    pub balancer: Option<RoundRobinBalancer>,
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
     pub treasury_addr: Option<String>,

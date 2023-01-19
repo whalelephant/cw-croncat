@@ -69,7 +69,6 @@ pub fn instantiate(
         gas_price,
         cw20_whitelist: vec![],
         native_denom: denom,
-        balancer: Default::default(),
         limit: 100,
         treasury_addr: treasury_addr
             .map(|human| deps.api.addr_validate(&human))
@@ -171,7 +170,6 @@ pub fn execute_update_config(
             gas_price,
             min_tasks_per_agent,
             agents_eject_threshold,
-            balancer,
             croncat_tasks_key,
             croncat_agents_key,
             treasury_addr,
@@ -209,7 +207,6 @@ pub fn execute_update_config(
             gas_price,
             cw20_whitelist: config.cw20_whitelist,
             native_denom: config.native_denom,
-            balancer: balancer.unwrap_or(config.balancer),
             limit: config.limit,
             treasury_addr,
         };

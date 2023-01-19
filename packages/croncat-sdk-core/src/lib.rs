@@ -1,4 +1,3 @@
-pub mod balancer;
 mod error;
 pub mod msg;
 pub mod types;

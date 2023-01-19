@@ -1,8 +1,5 @@
 use cosmwasm_std::{coins, to_binary, Addr, OverflowError, Uint128};
-use croncat_sdk_core::{
-    balancer::{BalancerMode, RoundRobinBalancer},
-    types::{BalancesResponse, Config, UpdateConfig},
-};
+use croncat_sdk_core::types::{BalancesResponse, Config, UpdateConfig};
 use cw20::{BalanceResponse, Cw20Coin, Cw20CoinVerified};
 
 use crate::{
@@ -45,7 +42,6 @@ mod instantiate_tests {
             gas_price: Default::default(),
             cw20_whitelist: vec![],
             native_denom: DENOM.to_owned(),
-            balancer: Default::default(),
             limit: 100,
             treasury_addr: None,
         };
@@ -99,7 +95,6 @@ mod instantiate_tests {
             },
             cw20_whitelist: vec![],
             native_denom: "cron".to_owned(),
-            balancer: Default::default(),
             limit: 100,
             treasury_addr: Some(Addr::unchecked(AGENT2)),
         };
@@ -196,7 +191,6 @@ fn update_config() {
         }),
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
-        balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -227,9 +221,6 @@ fn update_config() {
         },
         cw20_whitelist: vec![],
         native_denom: DENOM.to_owned(),
-        balancer: RoundRobinBalancer {
-            mode: BalancerMode::Equalizer,
-        },
         limit: 100,
         treasury_addr: Some(Addr::unchecked(ANYONE)),
     };
@@ -243,7 +234,6 @@ fn update_config() {
         gas_price: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
-        balancer: None,
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
@@ -289,7 +279,6 @@ fn invalid_updates_config() {
         }),
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
-        balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -319,7 +308,6 @@ fn invalid_updates_config() {
         }),
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
-        balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -348,7 +336,6 @@ fn invalid_updates_config() {
         }),
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(3),
-        balancer: Some(RoundRobinBalancer::new(BalancerMode::Equalizer)),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
