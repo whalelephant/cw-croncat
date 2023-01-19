@@ -5,7 +5,17 @@ use crate::types::{SlotHashesResponse, SlotIdsResponse, Task, TaskRequest, TaskR
 
 #[cw_serde]
 pub struct TasksInstantiateMsg {
-    pub manager_addr: String,
+    pub owner_addr: String,
+    
+    pub croncat_manager_key: (String, [u8; 2]),
+    pub croncat_agents_key: (String, [u8; 2]),
+
+    pub slot_granularity_time: Option<u64>,
+
+    pub gas_base_fee: Option<u64>,
+    pub gas_action_fee: Option<u64>,
+    pub gas_query_fee: Option<u64>,
+    pub gas_wasm_query_fee: Option<u64>,
 }
 
 #[cw_serde]
