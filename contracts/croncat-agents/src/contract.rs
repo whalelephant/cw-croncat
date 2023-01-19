@@ -3,9 +3,11 @@ use std::ops::Div;
 
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::msg::AgentExecuteMsg as ExecuteMsg;
-use crate::msg::AgentQueryMsg as QueryMsg;
-use crate::msg::InstantiateMsg;
+use crate::msg::{
+    AgentContractInstantiateMsg as InstantiateMsg, 
+    AgentExecuteMsg as ExecuteMsg,
+    AgentQueryMsg as QueryMsg,
+};
 use cw2::set_contract_version;
 
 use crate::state::{

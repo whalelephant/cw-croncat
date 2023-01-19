@@ -4,6 +4,9 @@ use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
 use crate::types::AgentStatus;
 
 #[cw_serde]
+pub struct AgentContractInstantiateMsg {}
+
+#[cw_serde]
 pub enum AgentExecuteMsg {
     RegisterAgent {
         payable_account_id: Option<String>,
@@ -31,6 +34,7 @@ pub enum AgentQueryMsg {
         slots: (u64, u64),
     },
 }
+
 #[cw_serde]
 pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
