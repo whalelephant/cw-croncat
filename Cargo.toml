@@ -66,12 +66,14 @@ cw721-base = "0.16.0"
 croncat-agents = { path = "./contracts/croncat-agents" }
 croncat-manager = { path = "./contracts/croncat-manager" }
 croncat-tasks = { path = "./contracts/croncat-tasks" }
-mod-balances = { path = "./contracts/mod-balances" }
-mod-dao = { path = "./contracts/mod-dao" }
-mod-nft = { path = "./contracts/mod-nft" }
+croncat-mod-balances = { path = "./contracts/mod-balances" }
+croncat-mod-dao = { path = "./contracts/mod-dao" }
+croncat-mod-generic = { path = "./contracts/mod-generic" }
+croncat-mod-nft = { path = "./contracts/mod-nft" }
 
 croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
 croncat-sdk-config = { path = "./packages/croncat-sdk-config" }
 croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
 croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }
 mod-sdk = { path = "./packages/mod-sdk" }
+croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }

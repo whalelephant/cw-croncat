@@ -21,8 +21,8 @@ cw2 = { workspace = true }
 mod-sdk = { workspace = true }
 schemars = "0.8.11"
 serde = { workspace = true }
-dao-proposal-single = { workspace = true }
-dao-proposal-multiple = { workspace = true }
+dao-proposal-single = { workspace = true, features = ["library"] }
+dao-proposal-multiple = { workspace = true, features = ["library"] }
 dao-voting = { workspace = true }
 
 [dev-dependencies]
