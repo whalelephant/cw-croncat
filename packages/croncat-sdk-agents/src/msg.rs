@@ -5,13 +5,32 @@ use crate::types::AgentStatus;
 
 #[cw_serde]
 pub enum AgentExecuteMsg {
-    RegisterAgent { payable_account_id: Option<String> },
-    UpdateAgent { payable_account_id: String },
+    RegisterAgent {
+        payable_account_id: Option<String>,
+        cost: u128,
+    },
+    UpdateAgent {
+        payable_account_id: String,
+    },
     CheckInAgent {},
-    UnregisterAgent { from_behind: Option<bool> },
+    UnregisterAgent {
+        from_behind: Option<bool>,
+    },
     WithdrawReward {},
 }
 
+#[cw_serde]
+pub enum AgentQueryMsg {
+    GetAgent {
+        account_id: String,
+        total_tasks: u64,
+    },
+    GetAgentIds {},
+    GetAgentTasks {
+        account_id: String,
+        slots: (u64, u64),
+    },
+}
 #[cw_serde]
 pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,

@@ -15,4 +15,4 @@ pub const AGENT_NOMINATION_BEGIN_TIME: Item<Option<Timestamp>> =
     Item::new("agent_nomination_begin_time");
 
 pub const AGENT_BALANCER_STATS:Item<Vec<(SlotType, u32, u32)>>=Item::new("agent_task_info");
-pub const AGENT_BALANCER:RoundRobinBalancer=RoundRobinBalancer::default();
+pub const AGENT_BALANCER:RoundRobinBalancer=RoundRobinBalancer::new();

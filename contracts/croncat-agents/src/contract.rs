@@ -1,16 +1,19 @@
+use std::cmp;
+use std::ops::Div;
+
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::error::ContractError::{AgentAlreadyRegistered, AgentNotActive, AgentNotRegistered};
 use crate::msg::AgentExecuteMsg as ExecuteMsg;
-use crate::msg::{InstantiateMsg, QueryMsg};
+use crate::msg::AgentQueryMsg as QueryMsg;
+use crate::msg::InstantiateMsg;
 use crate::state::{
     ACTIVE_AGENTS, AGENTS, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME, CONFIG, PENDING_AGENTS,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
-    Storage, SubMsg, Uint128, WasmMsg,
+    has_coins, to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, Storage, SubMsg, Uint128,
 };
 use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
 use croncat_sdk_agents::types::{Agent, AgentStatus};
@@ -26,6 +29,20 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::GetAgent {
+            account_id,
+            total_tasks,
+        } => to_binary(&query_get_agent(deps, env, account_id, total_tasks)?),
+        QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
+        QueryMsg::GetAgentTasks { account_id, slots } => {
+            to_binary(&query_get_agent_tasks(deps, env, account_id, slots)?)
+        }
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -33,9 +50,10 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::RegisterAgent { payable_account_id } => {
-            register_agent(deps, info, env, payable_account_id)
-        }
+        ExecuteMsg::RegisterAgent {
+            payable_account_id,
+            cost,
+        } => register_agent(deps, info, env, payable_account_id, cost),
         ExecuteMsg::UpdateAgent { payable_account_id } => {
             update_agent(deps, info, env, payable_account_id)
         }
@@ -51,6 +69,7 @@ pub(crate) fn query_get_agent(
     deps: Deps,
     env: Env,
     account_id: String,
+    total_tasks: u64,
 ) -> StdResult<Option<AgentResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let agent = AGENTS.may_load(deps.storage, &account_id)?;
@@ -60,7 +79,7 @@ pub(crate) fn query_get_agent(
         return Ok(None);
     };
 
-    let agent_status = get_agent_status(deps.storage, env, account_id)
+    let agent_status = get_agent_status(deps.storage, env, account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
             msg: err.to_string(),
@@ -87,11 +106,11 @@ pub(crate) fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> 
     Ok(GetAgentIdsResponse { active, pending })
 }
 
-pub(crate) fn query_get_agent_tasks(
+fn query_get_agent_tasks(
     deps: Deps,
     env: Env,
     account_id: String,
-    slots: (u64, u64),
+    slots: (u64, u64), //block_slots,cron_slots
 ) -> StdResult<Option<AgentTaskResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = ACTIVE_AGENTS.load(deps.storage)?;
@@ -119,6 +138,7 @@ pub fn register_agent(
     info: MessageInfo,
     env: Env,
     payable_account_id: Option<String>,
+    cost: u128,
 ) -> Result<Response, ContractError> {
     if !info.funds.is_empty() {
         return Err(ContractError::InsufficientFunds);
@@ -133,16 +153,10 @@ pub fn register_agent(
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-    let gas_amount_with_agent_fee = gas_amount_with_agent_fee(c.gas_action_fee, c.agent_fee)?;
-    let unit_cost = c.gas_price.calculate(4 * gas_amount_with_agent_fee)?;
-    if !has_coins(
-        &agent_wallet_balances,
-        &Coin::new(unit_cost, c.native_denom),
-    ) || agent_wallet_balances.is_empty()
+    if !has_coins(&agent_wallet_balances, &Coin::new(cost, c.native_denom))
+        || agent_wallet_balances.is_empty()
     {
-        return Err(ContractError::CustomError {
-            val: "Insufficient funds".to_string(),
-        });
+        return Err(ContractError::InsufficientFunds);
     }
 
     let payable_id = if let Some(addr) = payable_account_id {
@@ -167,7 +181,7 @@ pub fn register_agent(
         |a: Option<Agent>| -> Result<_, ContractError> {
             match a {
                 // make sure that account isn't already added
-                Some(_) => Err(ContractError::a),
+                Some(_) => Err(ContractError::AgentAlreadyRegistered),
                 None => {
                     Ok(Agent {
                         payable_account_id: payable_id,
@@ -199,9 +213,7 @@ pub fn update_agent(
     let payable_account_id = deps.api.addr_validate(&payable_account_id)?;
     let c: Config = CONFIG.load(deps.storage)?;
     if c.paused {
-        return Err(ContractError::ContractPaused {
-            val: "Register agent paused".to_string(),
-        });
+        return Err(ContractError::ContractPaused);
     }
 
     let agent = AGENTS.update(
@@ -225,7 +237,7 @@ pub fn update_agent(
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-pub(crate) fn withdraw_balances(
+pub(crate) fn withdraw_rewards(
     storage: &mut dyn Storage,
     agent_id: &Addr,
 ) -> Result<Vec<SubMsg>, ContractError> {
@@ -234,12 +246,9 @@ pub(crate) fn withdraw_balances(
         .ok_or(ContractError::AgentNotRegistered {})?;
 
     // This will send all token balances to Agent
-    let (messages, balances) = send_tokens(&agent.payable_account_id, &agent.balance)?;
-    agent.balance.checked_sub_generic(&balances)?;
+    let (messages, balance) = send_tokens(storage, &agent.payable_account_id, agent.balance)?;
+    agent.balance -= balance;
     let mut config = CONFIG.load(storage)?;
-    CONFIG
-        .available_balance
-        .checked_sub_native(&balances.native)?;
     AGENTS.save(storage, agent_id, &agent)?;
     CONFIG.save(storage, &config)?;
 
@@ -247,22 +256,28 @@ pub(crate) fn withdraw_balances(
 }
 
 // Helper to distribute funds/tokens
-pub(crate) fn send_tokens(to: &Addr, balance: Uint128) -> StdResult<(Vec<SubMsg>, Uint128)> {
-    let native_balance = &balance;
-
-    let mut msgs: Vec<SubMsg> = if balance > 0 {
+pub(crate) fn send_tokens(
+    storage: &mut dyn Storage,
+    to: &Addr,
+    balance: Uint128,
+) -> StdResult<(Vec<SubMsg>, Uint128)> {
+    let config = CONFIG.may_load(storage).unwrap().unwrap();
+    let msgs: Vec<SubMsg> = if balance.is_zero() {
         vec![]
     } else {
         vec![SubMsg::new(BankMsg::Send {
             to_address: to.into(),
-            amount:Coin{denom: CONFIG.},
+            amount: vec![Coin {
+                denom: config.native_denom,
+                amount: balance,
+            }],
         })]
     };
-    Ok((msgs, coins))
+    Ok((msgs, balance))
 }
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
 pub fn withdraw_agent_balance(deps: DepsMut, agent_id: &Addr) -> Result<Response, ContractError> {
-    let messages = withdraw_balances(deps.storage, agent_id)?;
+    let messages = withdraw_rewards(deps.storage, agent_id)?;
 
     Ok(Response::new()
         .add_attribute("method", "withdraw_agent_balance")
@@ -280,7 +295,7 @@ pub fn accept_nomination_agent(
     let c: Config = CONFIG.load(deps.storage)?;
 
     let mut active_agents: Vec<Addr> = ACTIVE_AGENTS.load(deps.storage)?;
-    let mut pending_queue_iter = agent_pending_queue.iter(deps.storage)?;
+    let mut pending_queue_iter = PENDING_AGENTS.iter(deps.storage)?;
     // Agent must be in the pending queue
     // Get the position in the pending queue
     let agent_position = if let Some(agent_position) = pending_queue_iter.position(|address| {
@@ -293,7 +308,7 @@ pub fn accept_nomination_agent(
         agent_position
     } else {
         // Sender's address does not exist in the agent pending queue
-        return Err(ContractError::AgentNotRegistered {});
+        return Err(ContractError::AgentNotRegistered);
     };
     let time_difference =
         if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage)? {
@@ -304,16 +319,14 @@ pub fn accept_nomination_agent(
                 active_agents.push(info.sender.clone());
                 ACTIVE_AGENTS.save(deps.storage, &active_agents)?;
 
-                agent_pending_queue.pop_front(deps.storage)?;
+                PENDING_AGENTS.pop_front(deps.storage)?;
                 AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
                 return Ok(Response::new()
                     .add_attribute("method", "accept_nomination_agent")
                     .add_attribute("new_agent", info.sender.as_str()));
             } else {
                 // No agents can join yet
-                return Err(ContractError::CustomError {
-                    val: "Not accepting new agents".to_string(),
-                });
+                return Err(ContractError::NotAcceptingNewAgents);
             }
         };
 
@@ -329,7 +342,7 @@ pub fn accept_nomination_agent(
         let kicked_agents: Vec<Addr> = {
             let mut kicked = Vec::with_capacity(agent_position);
             for _ in 0..=agent_position {
-                let agent = agent_pending_queue.pop_front(deps.storage)?;
+                let agent = PENDING_AGENTS.pop_front(deps.storage)?;
                 // Since we already iterated over it - we know it exists
                 let kicked_agent;
                 unsafe {
@@ -349,9 +362,7 @@ pub fn accept_nomination_agent(
         AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
         kicked_agents
     } else {
-        return Err(ContractError::CustomError {
-            val: "Must wait longer before accepting nomination".to_string(),
-        });
+        return Err(ContractError::TryLaterForNomination);
     };
     // Find difference
     Ok(Response::new()
@@ -370,14 +381,14 @@ pub fn unregister_agent(
 ) -> Result<Response, ContractError> {
     // Get withdraw messages, if any
     // NOTE: Since this also checks if agent exists, safe to not have redundant logic
-    let messages = withdraw_balances(storage, agent_id)?;
+    let messages = withdraw_rewards(storage, agent_id)?;
     AGENTS.remove(storage, agent_id);
 
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = ACTIVE_AGENTS.load(storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
         //Notify the balancer agent has been removed, to rebalance itself
-        balancer.on_agent_unregister(storage, &config, &ACTIVE_AGENTS, agent_id.clone())?;
+        AGENT_BALANCER.on_agent_unregister(storage, &ACTIVE_AGENTS, agent_id.clone())?;
         active_agents.remove(index);
 
         ACTIVE_AGENTS.save(storage, &active_agents)?;
@@ -385,9 +396,9 @@ pub fn unregister_agent(
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
         let mut return_those_agents: Vec<Addr> =
-            Vec::with_capacity((agent_pending_queue.len(storage)? / 2) as usize);
+            Vec::with_capacity((PENDING_AGENTS.len(storage)? / 2) as usize);
         if from_behind.unwrap_or(false) {
-            while let Some(addr) = agent_pending_queue.pop_front(storage)? {
+            while let Some(addr) = PENDING_AGENTS.pop_front(storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -395,10 +406,10 @@ pub fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                agent_pending_queue.push_front(storage, ag)?;
+                PENDING_AGENTS.push_front(storage, ag)?;
             }
         } else {
-            while let Some(addr) = agent_pending_queue.pop_back(storage)? {
+            while let Some(addr) = PENDING_AGENTS.pop_back(storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -406,7 +417,7 @@ pub fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                agent_pending_queue.push_back(storage, ag)?;
+                PENDING_AGENTS.push_back(storage, ag)?;
             }
         }
     }
@@ -422,16 +433,17 @@ pub fn unregister_agent(
     }
 }
 
-pub fn get_agent_status(
+fn get_agent_status(
     storage: &dyn Storage,
     env: Env,
     account_id: Addr,
+    total_tasks: u64,
 ) -> Result<AgentStatus, ContractError> {
     let c: Config = CONFIG.load(storage)?;
     let active = ACTIVE_AGENTS.load(storage)?;
 
     // Pending
-    let mut pending_iter = agent_pending_queue.iter(storage)?;
+    let mut pending_iter = PENDING_AGENTS.iter(storage)?;
     // If agent is pending, Check if they should get nominated to checkin to become active
     let agent_position = if let Some(pos) = pending_iter.position(|address| {
         if let Ok(addr) = address {
@@ -446,7 +458,7 @@ pub fn get_agent_status(
         if active.contains(&account_id) {
             return Ok(AgentStatus::Active);
         } else {
-            return Err(AgentNotRegistered {});
+            return Err(ContractError::AgentNotRegistered {});
         }
     };
 
@@ -457,7 +469,8 @@ pub fn get_agent_status(
 
     // Load config's task ratio, total tasks, active agents, and AGENT_NOMINATION_BEGIN_TIME.
     // Then determine if this agent is considered "Nominated" and should call CheckInAgent
-    let max_agent_index = max_agent_nomination_index(storage, &c, env, &(active.len() as u64))?;
+    let max_agent_index =
+        max_agent_nomination_index(storage, &c, env, &(active.len() as u64), total_tasks)?;
     let agent_status = match max_agent_index {
         Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
         _ => AgentStatus::Pending,
@@ -471,6 +484,7 @@ pub(crate) fn max_agent_nomination_index(
     cfg: &Config,
     env: Env,
     num_active_agents: &u64,
+    total_tasks: u64,
 ) -> Result<Option<u64>, ContractError> {
     let block_time = env.block.time.seconds();
 
@@ -479,7 +493,6 @@ pub(crate) fn max_agent_nomination_index(
     match agent_nomination_begin_time {
         Some(begin_time) => {
             let min_tasks_per_agent = cfg.min_tasks_per_agent;
-            let total_tasks = task_total(storage)?;
             let num_agents_to_accept =
                 agents_to_let_in(&min_tasks_per_agent, num_active_agents, &total_tasks);
 

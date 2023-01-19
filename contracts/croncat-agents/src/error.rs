@@ -23,4 +23,10 @@ pub enum ContractError {
 
     #[error("Contract is in paused state")]
     ContractPaused,
+
+    #[error("Not accepting new agents")]
+    NotAcceptingNewAgents,
+
+    #[error("Try again later for nomination")]
+    TryLaterForNomination,
 }
