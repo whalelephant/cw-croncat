@@ -1,7 +1,7 @@
 [package]
 name = "croncat-factory"
 version = "0.1.0"
-authors = ["buckram <buckram123@gmail.com>"]
+authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
 

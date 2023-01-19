@@ -69,9 +69,7 @@ pub fn instantiate(
         .unwrap_or_else(|| info.sender.clone());
     CONFIG.save(deps.storage, &Config { owner_addr })?;
 
-    Ok(Response::new()
-        .add_attribute("action", "instantiate")
-        .add_attribute("sender", info.sender))
+    Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
