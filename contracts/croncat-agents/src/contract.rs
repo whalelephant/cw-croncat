@@ -77,7 +77,7 @@ pub fn execute(
     }
 }
 
-pub(crate) fn query_get_agent(
+fn query_get_agent(
     deps: Deps,
     env: Env,
     account_id: String,
@@ -109,7 +109,7 @@ pub(crate) fn query_get_agent(
 }
 
 /// Get a list of agent addresses
-pub(crate) fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> {
+fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> {
     let active: Vec<Addr> = ACTIVE_AGENTS.load(deps.storage)?;
     let pending: Vec<Addr> = PENDING_AGENTS
         .iter(deps.storage)?
@@ -145,7 +145,7 @@ fn query_get_agent_tasks(
 ///
 /// Optional Parameters:
 /// "payable_account_id" - Allows a different account id to be specified, so a user can receive funds at a different account than the agent account.
-pub fn register_agent(
+fn register_agent(
     deps: DepsMut,
     info: MessageInfo,
     env: Env,
@@ -216,7 +216,7 @@ pub fn register_agent(
 }
 
 /// Update agent details, specifically the payable account id for an agent.
-pub fn update_agent(
+fn update_agent(
     deps: DepsMut,
     info: MessageInfo,
     _env: Env,
@@ -249,7 +249,7 @@ pub fn update_agent(
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-pub(crate) fn withdraw_rewards(
+fn withdraw_rewards(
     storage: &mut dyn Storage,
     agent_id: &Addr,
 ) -> Result<Vec<SubMsg>, ContractError> {
@@ -266,7 +266,7 @@ pub(crate) fn withdraw_rewards(
 }
 
 // Helper to distribute funds/tokens
-pub(crate) fn send_tokens(
+fn send_tokens(
     storage: &mut dyn Storage,
     to: &Addr,
     balance: Uint128,
@@ -286,7 +286,7 @@ pub(crate) fn send_tokens(
     Ok((msgs, balance))
 }
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-pub fn withdraw_agent_balance(deps: DepsMut, agent_id: &Addr) -> Result<Response, ContractError> {
+fn withdraw_agent_balance(deps: DepsMut, agent_id: &Addr) -> Result<Response, ContractError> {
     let messages = withdraw_rewards(deps.storage, agent_id)?;
 
     Ok(Response::new()
@@ -296,7 +296,7 @@ pub fn withdraw_agent_balance(deps: DepsMut, agent_id: &Addr) -> Result<Response
 }
 
 /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
-pub fn accept_nomination_agent(
+fn accept_nomination_agent(
     deps: DepsMut,
     info: MessageInfo,
     env: Env,
@@ -384,7 +384,7 @@ pub fn accept_nomination_agent(
 /// Removes the agent from the active set of AGENTS.
 /// Withdraws all reward balances to the agent payable account id.
 /// In case it fails to unregister pending agent try to set `from_behind` to true
-pub fn unregister_agent(
+fn unregister_agent(
     storage: &mut dyn Storage,
     agent_id: &Addr,
     from_behind: Option<bool>,
@@ -489,7 +489,7 @@ fn get_agent_status(
 }
 
 /// Calculate the biggest index of nomination for pending agents
-pub(crate) fn max_agent_nomination_index(
+fn max_agent_nomination_index(
     storage: &dyn Storage,
     cfg: &Config,
     env: Env,
@@ -522,7 +522,7 @@ pub(crate) fn max_agent_nomination_index(
     }
 }
 
-pub fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64) -> u64 {
+fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64) -> u64 {
     let num_tasks_covered = num_active_agents * max_tasks;
     if total_tasks > &num_tasks_covered {
         // It's possible there are more "covered tasks" than total tasks,
