@@ -5,7 +5,7 @@ SH_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE
 SH_DIR="$(cd -P "$(dirname "${SH_PATH}")";pwd)"
 SC_PATH="$(cd -P "$(dirname "${SH_PATH}")/../..";pwd)"
 SCRIPTS_PATH="$(cd -P "$(dirname "${SH_PATH}")/..";pwd)"
-WASM_AGENTS="artifacts/croncat_agents.wasm"
+
 echo "CONTRACT-DIR: $SC_PATH"
 echo "SCRIPT-DIR: $SH_DIR"
 cd $SC_PATH
@@ -13,6 +13,7 @@ cd $SC_PATH
 echo "Initializing vars"
 . $SH_DIR/common/dec.sh
 
+WASM_AGENTS="artifacts/croncat_agents$WASM_POSTFIX.wasm"
 usage() {
   printf "Usage: $SH_DIR/start.sh -w -c"
 }
@@ -99,14 +100,14 @@ echo "${Cyan}Wasm file: cw20_base.wasm"
 
 echo "${Yellow}Instantiating smart contracts...${NoColor}"
 echo $owner
-AGENTS_RES=$(junod tx wasm store $WASM_AGENTS --from owner $TXFLAG -y --output json -b block)
+AGENTS_RES=$(junod tx wasm store $WASM_AGENTS --from signer $TXFLAG -y --output json -b block)
 AGENTS_CODE_ID=$(echo $AGENTS_RES | jq -r '.logs[0].events[-1].attributes[1].value')
 
 echo "${Cyan}CODE_ID :" $AGENTS_CODE_ID "${NoColor}"
 
 #AGENTS
 AGENTS_INIT='{}'
-$BINARY tx wasm instantiate $AGENTS_CODE_ID "$AGENTS_INIT" --from owner --label "croncat-agents" $TXFLAG -y --no-admin
+$BINARY tx wasm instantiate $AGENTS_CODE_ID "$AGENTS_INIT" --from signer --label "croncat-agents" $TXFLAG -y --no-admin
 
 # get smart contract address
 AGENTS_CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $AGENTS_CODE_ID $NODE --output json | jq -r '.contracts[-1]')

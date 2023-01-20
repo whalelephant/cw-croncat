@@ -13,3 +13,5 @@ AGENT_BALANCE=$($BINARY q bank balances $($BINARY keys show agent --address) $NO
 echo "${Green}Agent Balance :" $AGENT_BALANCE "${NoColor}"
 USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address) $NODE)
 echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
+SIGNER_BALANCE=$($BINARY q bank balances $($BINARY keys show signer --address) $NODE)
+echo "${Green}Signer Balance :" $SIGNER_BALANCE "${NoColor}"

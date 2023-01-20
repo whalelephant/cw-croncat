@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
-. $SH_DIR/common/dec.sh
+if [[ -z "$SH_DIR" ]]; then
+   . ./scripts/testnet/common/dec.sh
+
+else
+  . $SH_DIR/common/dec.sh
+fi
+
 
 OWNER_BALANCE=120000
 AGENT_BALANCE=10000
