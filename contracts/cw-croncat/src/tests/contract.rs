@@ -24,6 +24,7 @@ fn configure() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
+        chain_name: "atom".to_string(),
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,

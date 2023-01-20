@@ -99,6 +99,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: Some(true),
         owner_id: None,
+        chain_name: None,
         // treasury_id: None,
         agent_fee: None,
         min_tasks_per_agent: None,
@@ -167,6 +168,7 @@ fn proxy_call_fail_cases() -> StdResult<()> {
         &ExecuteMsg::UpdateSettings {
             paused: Some(false),
             owner_id: None,
+            chain_name: None,
             // treasury_id: None,
             agent_fee: None,
             min_tasks_per_agent: None,
@@ -258,7 +260,7 @@ fn proxy_call_success() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "c67daffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
+        "atom:ffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -520,7 +522,7 @@ fn proxy_callback_fail_cases() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "0efd342012e0e2791902f167d9b87547fd73064690a8dc81d612704c89d6c77c".to_string();
+        "atom:42012e0e2791902f167d9b87547fd73064690a8dc81d612704c89d6c77c".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let validator = String::from("you");
@@ -751,7 +753,7 @@ fn proxy_callback_block_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "c67daffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
+        "atom:ffe9c635cc899c44f4fa8a5c40ed38ad41c46c3e92cd395a6408162feb3".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -882,7 +884,7 @@ fn proxy_callback_time_slots() -> StdResult<()> {
     let contract_addr = cw_template_contract.addr();
     let proxy_call_msg = ExecuteMsg::ProxyCall { task_hash: None };
     let task_id_str =
-        "48a8dec99cd112818db4a74ef3e84fb10d524203aaecbaccd28565627062f65f".to_string();
+        "atom:ec99cd112818db4a74ef3e84fb10d524203aaecbaccd28565627062f65f".to_string();
 
     // Doing this msg since its the easiest to guarantee success in reply
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
@@ -1921,6 +1923,7 @@ fn tick() {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: Some(1000), // allow to miss 1000 slots
@@ -2115,6 +2118,7 @@ fn tick_task() -> StdResult<()> {
     let change_settings_msg = ExecuteMsg::UpdateSettings {
         paused: None,
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: Some(1),
         agents_eject_threshold: Some(1000), // allow to miss 100 slots

@@ -132,6 +132,7 @@ fn everything_can_be_de_serialized() {
         amount_for_one_task_cw20: vec![],
         actions: vec![],
         queries: None,
+        transforms: None,
     };
     let task_response = task_response_raw.clone().into();
     let validate_interval_response = false.into();

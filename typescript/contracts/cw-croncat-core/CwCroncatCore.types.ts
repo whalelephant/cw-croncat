@@ -246,6 +246,7 @@ export interface GetConfigResponse {
   agent_nomination_duration: number;
   agents_eject_threshold: number;
   available_balance: GenericBalance;
+  chain_name: string;
   cw20_whitelist: Addr[];
   cw_rules_addr: Addr;
   gas_action_fee: number;
@@ -312,6 +313,7 @@ export interface TaskResponse {
   task_hash: string;
   total_cw20_deposit: Cw20CoinVerified[];
   total_deposit: Coin[];
+  transforms?: Transform[] | null;
   [k: string]: unknown;
 }
 export interface ActionForEmpty {
@@ -377,6 +379,13 @@ export interface SmartQuery {
   path_to_query_value: PathToValue;
   [k: string]: unknown;
 }
+export interface Transform {
+  action_idx: number;
+  action_path: PathToValue;
+  query_idx: number;
+  query_response_path: PathToValue;
+  [k: string]: unknown;
+}
 export interface GetWalletBalancesResponse {
   cw20_balances: Cw20CoinVerified[];
   [k: string]: unknown;
@@ -400,13 +409,6 @@ export interface CheckedBoundary {
   start?: number | null;
   [k: string]: unknown;
 }
-export interface Transform {
-  action_idx: number;
-  action_path: PathToValue;
-  query_idx: number;
-  query_response_path: PathToValue;
-  [k: string]: unknown;
-}
 export interface TaskRequest {
   actions: ActionForEmpty[];
   boundary?: Boundary | null;
@@ -426,6 +428,7 @@ export type ExecuteMsg = {
   update_settings: {
     agent_fee?: number | null;
     agents_eject_threshold?: number | null;
+    chain_name?: string | null;
     gas_action_fee?: Uint64 | null;
     gas_base_fee?: Uint64 | null;
     gas_price?: GasPrice | null;
@@ -537,6 +540,7 @@ export interface TaskWithQueriesResponse {
 }
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
+  chain_name: string;
   cw_rules_addr: string;
   denom: string;
   gas_action_fee?: Uint64 | null;

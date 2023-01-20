@@ -257,6 +257,7 @@ fn test_instantiate_sets_balance() {
             Addr::unchecked("grapestem"),
             &InstantiateMsg {
                 denom: "grape".to_string(),
+                chain_name: "atom".to_string(),
                 cw_rules_addr: "grapestem".to_string(),
                 owner_id: None,
                 gas_action_fee: None,
@@ -312,6 +313,7 @@ fn register_agent_fail_cases() {
     let pause_contract_params = ExecuteMsg::UpdateSettings {
         paused: Some(true), // Note this change
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
@@ -346,6 +348,7 @@ fn register_agent_fail_cases() {
     let payload_2 = ExecuteMsg::UpdateSettings {
         paused: Some(false), // unpause
         owner_id: None,
+        chain_name: None,
         agent_fee: None,
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
@@ -623,7 +626,7 @@ fn accept_nomination_agent() {
     let res = add_task_exec(&mut app, &contract_addr, PARTICIPANT0);
     let task_hash = res.events[1].attributes[4].clone().value;
     assert_eq!(
-        "f82d8bba87d76697192d8b7d4aa1224ea280b62777027f10c4f338c98bf31c2e", task_hash,
+        "atom:bba87d76697192d8b7d4aa1224ea280b62777027f10c4f338c98bf31c2e", task_hash,
         "Unexpected task hash"
     );
 
@@ -761,6 +764,7 @@ fn test_get_agent_status() {
     let msg = InstantiateMsg {
         denom: NATIVE_DENOM.to_string(),
         owner_id: None,
+        chain_name: "atom".to_string(),
         gas_action_fee: None,
         gas_query_fee: None,
         gas_wasm_query_fee: None,

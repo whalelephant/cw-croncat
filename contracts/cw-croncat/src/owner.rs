@@ -77,6 +77,7 @@ impl<'a> CwCroncat<'a> {
         match payload {
             ExecuteMsg::UpdateSettings {
                 owner_id,
+                chain_name,
                 slot_granularity_time,
                 paused,
                 agent_fee,
@@ -104,6 +105,7 @@ impl<'a> CwCroncat<'a> {
                         let new_config = Config {
                             paused: paused.unwrap_or(old_config.paused),
                             owner_id: owner_id.unwrap_or(old_config.owner_id),
+                            chain_name: chain_name.unwrap_or(old_config.chain_name),
                             min_tasks_per_agent: min_tasks_per_agent
                                 .unwrap_or(old_config.min_tasks_per_agent),
                             agent_active_indices: old_config.agent_active_indices,

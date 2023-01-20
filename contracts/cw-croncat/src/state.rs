@@ -17,6 +17,7 @@ pub struct Config {
     // Runtime
     pub paused: bool,
     pub owner_id: Addr,
+    pub chain_name: String,
 
     // Agent management
     // The minimum number of tasks per agent
