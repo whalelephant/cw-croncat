@@ -724,6 +724,15 @@ pub fn simulate_task(
     // Calculate expected gas
     let gas_amount = calculate_gas(task_info.clone(), economics)?;
 
+    // If task has queries, return 1 occurrence
+    if task_info.with_queries() {
+        return Ok(SimulateTaskResponse {
+            estimated_gas: gas_amount,
+            occurrences: 1,
+            task_hash,
+        });
+    }
+
     // Calculate the maximum amount of occurrences for given funds (without boundaries)
     // It is defined by the amount for one execution
     let amount_for_one_task_native = &task_info.amount_for_one_task.native.first().unwrap();

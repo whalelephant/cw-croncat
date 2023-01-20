@@ -478,7 +478,7 @@ fn query_simulate_task_hash() {
 }
 
 #[test]
-fn query_simulate_task_occurrences_once() {
+fn query_simulate_task_occurrences_with_queries() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -487,34 +487,6 @@ fn query_simulate_task_occurrences_once() {
         amount: vec![coin(1, NATIVE_DENOM)],
     };
     let msg: CosmosMsg = send.clone().into();
-
-    // Interval::Once without query
-    let task_request = TaskRequest {
-        interval: Interval::Once,
-        boundary: None,
-        stop_on_fail: false,
-        actions: vec![Action {
-            msg: msg.clone(),
-            gas_limit: None,
-        }],
-        queries: None,
-        transforms: None,
-        cw20_coins: vec![],
-        sender: Some(ANYONE.to_owned()),
-    };
-
-    let simulate: SimulateTaskResponse = app
-        .wrap()
-        .query_wasm_smart(
-            &contract_addr.clone(),
-            &QueryMsg::SimulateTask {
-                task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
-            },
-        )
-        .unwrap();
-
-    assert_eq!(simulate.occurrences, 1);
 
     // Interval::Once with query
     let task_request = TaskRequest {
@@ -530,6 +502,133 @@ fn query_simulate_task_occurrences_once() {
             nft_address: "NFT".to_string(),
             token_id: "TOKEN".to_string(),
         })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // Interval::Immediate with query
+    let task_request = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // Interval::Block with query
+    let task_request = TaskRequest {
+        interval: Interval::Block(15),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // Interval::Cron with query
+    let task_request = TaskRequest {
+        interval: Interval::Cron("* 1 * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
+            address: ADMIN.to_string(),
+            nft_address: "NFT".to_string(),
+            token_id: "TOKEN".to_string(),
+        })]),
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: coins(352820, NATIVE_DENOM),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+}
+
+#[test]
+fn query_simulate_task_occurrences_once() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+
+    let task_request = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
         transforms: None,
         cw20_coins: vec![],
         sender: Some(ANYONE.to_owned()),
@@ -560,7 +659,6 @@ fn query_simulate_task_occurrences_immediate() {
     };
     let msg: CosmosMsg = send.clone().into();
 
-    // Interval::Immediate without query
     let task_request = TaskRequest {
         interval: Interval::Immediate,
         boundary: None,
@@ -587,37 +685,6 @@ fn query_simulate_task_occurrences_immediate() {
         .unwrap();
 
     assert_eq!(simulate.occurrences, 1);
-
-    // Interval::Immediate with query
-    let task_request = TaskRequest {
-        interval: Interval::Immediate,
-        boundary: None,
-        stop_on_fail: false,
-        actions: vec![Action {
-            msg: msg.clone(),
-            gas_limit: None,
-        }],
-        queries: Some(vec![CroncatQuery::CheckOwnerOfNft(CheckOwnerOfNft {
-            address: ADMIN.to_string(),
-            nft_address: "NFT".to_string(),
-            token_id: "TOKEN".to_string(),
-        })]),
-        transforms: None,
-        cw20_coins: vec![],
-        sender: Some(ANYONE.to_owned()),
-    };
-
-    let simulate: SimulateTaskResponse = app
-        .wrap()
-        .query_wasm_smart(
-            &contract_addr.clone(),
-            &QueryMsg::SimulateTask {
-                task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
-            },
-        )
-        .unwrap();
-    assert_eq!(simulate.occurrences, 1);
 }
 
 #[test]
@@ -631,7 +698,7 @@ fn query_simulate_task_occurrences_block() {
     };
     let send2 = BankMsg::Send {
         to_address: String::from(ANYONE),
-        amount: vec![coin(2, NATIVE_DENOM)]
+        amount: vec![coin(2, NATIVE_DENOM)],
     };
     let msg: CosmosMsg = send.clone().into();
     let msg2: CosmosMsg = send2.clone().into();
@@ -969,7 +1036,6 @@ fn query_simulate_task_occurrences_block() {
     // Thus 1_000_000 should be enough for 36 proxy_call's
     // The difference between end and start allows only 35 proxy_call's
     assert_eq!(simulate.occurrences, 35);
-
 }
 
 #[test]
