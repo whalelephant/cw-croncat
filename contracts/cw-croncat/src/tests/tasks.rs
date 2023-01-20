@@ -6,8 +6,8 @@ use crate::contract::{
 use crate::tests::helpers::proper_instantiate;
 use crate::ContractError;
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Uint128, Uint64,
-    WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, CosmosMsg, StakingMsg, StdResult, Timestamp, Uint128,
+    Uint64, WasmMsg,
 };
 use cw2::ContractVersion;
 use cw20::Balance;
@@ -1365,6 +1365,657 @@ fn query_simulate_task_occurrences_block_without_funds() {
         )
         .unwrap();
     assert_eq!(simulate.occurrences, 100);
+}
+
+#[test]
+fn query_simulate_task_occurrences_cron_with_funds() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+    let current_time: u64 = 1571797419879305533;
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let send2 = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(2, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+    let msg2: CosmosMsg = send2.clone().into();
+
+    // Interval::Cron with one action, no boundaries
+    // "0 * * * * *" schedules proxy_call once for a minute
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Cron with two actions, no boundaries
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: msg.clone(),
+                gas_limit: None,
+            },
+            Action {
+                msg: msg2,
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 35283
+    // Thus 1_000_000 should be enough for 28 proxy_call's
+    assert_eq!(simulate.occurrences, 28);
+
+    // Interval::Cron with one action
+    // the start boundary is less than the current time
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            // Start is less than the current time
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(100)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Cron with one action
+    // the start boundary is bigger than the current time
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            // Start is bigger than the current time
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(100)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Cron with one action
+    // End boundary is too big to impact occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: None,
+            // The task will be scheduled for 1571797440, 1571797500, ... 1571799480, 1571799510 seconds
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 35)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // End boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Cron with one action
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: None,
+            // The task will be scheduled for 1571797440, 1571797500, ... 1571799420, 1571799450 seconds
+            // the last one possible proxy_call is out of boundaries
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 34)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // But the end boundary doesn't allow the last proxy_call
+    assert_eq!(simulate.occurrences, 35);
+
+    // Interval::Cron with one action
+    // End boundary is big, thus occurrences are calculated by funds
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: None,
+            // The task will be scheduled for 1571797440, 1571797500, ... 1571799480, 1571799540 seconds
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 100)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+
+    // Interval::Cron with one action
+    // Start boundary is smaller than the current time
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(60 * 34)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 34)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // But the end boundary doesn't allow the last proxy_call
+    // Start boundary doesn't impact calculations
+    assert_eq!(simulate.occurrences, 35);
+
+    // Start boundary is smaller than the current time
+    // End boundary doesn't limit the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(60 * 34)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 35)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The end boundary doesn't limit the number of proxy_call's
+    // Start boundary doesn't impact it
+    assert_eq!(simulate.occurrences, 36);
+
+    // Start boundary is smaller than the current time
+    // End boundary is big, thus occurrences are calculated by funds
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(60 * 34)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 100)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact calculations
+    assert_eq!(simulate.occurrences, 36);
+
+    println!("SEE HERE");
+    // Start boundary is some future block
+    // End boundary doesn't limit the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            // Schedule: 1571803440, 1571803500, ... 1571805480, 1571805510 seconds
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 100)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 135)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The difference between end and start is bid enough for all 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+
+    // Start boundary is some future time
+    // End boundary limits the occurrences
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 100)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 134)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // The difference between end and start allows only 35 proxy_call's
+    assert_eq!(simulate.occurrences, 35);
+
+    // Start boundary is some future time
+    // End boundary is big, thus occurrences are calculated by funds
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 100)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 200)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+}
+
+#[test]
+fn query_simulate_task_occurrences_cron_without_funds() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+    let current_time = 1571797419879305533;
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+
+    // Test cases when funds aren't provided
+
+    // Interval::Cron with one action
+    // No funds and boundaries
+    // For this task amount_for_one_task == 27091
+    // "0 * * * * *" schedules proxy_call once for a minute
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only start in the past
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(60)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only start in the future
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(100)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only end
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: None,
+            // The task is scheduled for 1571797440, 1571797500, ... 1571797920, 1571797950 seconds
+            // 10 occurrences total
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 9)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 10);
+
+    // No funds
+    // Start block is smaller that the current block
+    // Boundary has end
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).minus_seconds(60 * 9)),
+            // The task is scheduled for 12350, 12355, ... 12845
+            // 10 occurrences total
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 9)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    // Start doesn't impact occurrences
+    assert_eq!(simulate.occurrences, 10);
+
+    // No funds
+    // Start block is bigger that the current block
+    // Boundary has end
+    let task_request = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: Some(Boundary::Time {
+            start: Some(Timestamp::from_nanos(current_time).plus_seconds(60)),
+            end: Some(Timestamp::from_nanos(current_time).plus_seconds(60 * 10)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 10);
 }
 
 #[test]

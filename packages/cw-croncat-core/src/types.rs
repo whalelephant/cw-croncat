@@ -799,7 +799,6 @@ pub fn simulate_task(
             }
         }
         Interval::Cron(crontab) => {
-            // get_next_cron_time
             if boundary.end.is_some() {
                 let mut next_id = env.block.time.nanos();
                 let mut occur: u64 = 0;
@@ -816,6 +815,7 @@ pub fn simulate_task(
                         .checked_add(1)
                         .ok_or_else(|| StdError::generic_err("Invalid amount of occurrences"))?;
 
+                    println!("next_id: {} \n", next_id / 1_000_000_000);
                     // If this was the last occurrence before the end, get_next_block_by_offset returns the same block again
                     // If the block number recur, stop the loop
                     if prev_id == next_id {
