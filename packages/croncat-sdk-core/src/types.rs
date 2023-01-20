@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use cw20::Cw20CoinVerified;
 
 use crate::error::CoreError;
@@ -56,6 +56,13 @@ impl Default for GasPrice {
 }
 
 #[cw_serde]
+pub struct TaskBalance {
+    pub native_balance: Uint128,
+    pub cw20_balance: Option<Cw20CoinVerified>,
+    pub ibc_coin: Option<Coin>,
+}
+
+#[cw_serde]
 pub struct Config {
     // Runtime
     pub paused: bool,
@@ -109,12 +116,6 @@ pub struct UpdateConfig {
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
     pub treasury_addr: Option<String>,
-}
-
-#[cw_serde]
-pub struct BalancesResponse {
-    pub native_balance: Vec<Coin>,
-    pub cw20_balance: Vec<Cw20CoinVerified>,
 }
 
 #[cfg(test)]

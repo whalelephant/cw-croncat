@@ -20,4 +20,10 @@ pub enum ContractError {
 
     #[error("Must not attach funds")]
     RedundantFunds {},
+
+    #[error("Only up to one ibc coin supported")]
+    TooManyCoins {},
+
+    #[error("Unknown task hash")]
+    NoTaskHash {},
 }

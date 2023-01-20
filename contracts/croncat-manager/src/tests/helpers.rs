@@ -1,6 +1,6 @@
 use cosmwasm_std::{coins, Addr, Coin, Uint128};
-use croncat_sdk_core::types::{BalancesResponse, Config};
-use cw20::Cw20Coin;
+use croncat_sdk_core::types::Config;
+use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 
 use anyhow::Result as AnyResult;
@@ -97,15 +97,9 @@ pub(crate) fn query_manager_config(app: &App, manager: &Addr) -> Config {
         .unwrap()
 }
 
-pub(crate) fn query_manager_balances(app: &App, manager: &Addr) -> BalancesResponse {
+pub(crate) fn query_manager_balances(app: &App, manager: &Addr) -> Uint128 {
     app.wrap()
-        .query_wasm_smart(
-            manager,
-            &QueryMsg::AvailableBalances {
-                from_index: None,
-                limit: None,
-            },
-        )
+        .query_wasm_smart(manager, &QueryMsg::TreasuryBalance {})
         .unwrap()
 }
 
@@ -113,7 +107,7 @@ pub(crate) fn query_users_manager(
     app: &App,
     manager: &Addr,
     wallet: impl Into<String>,
-) -> BalancesResponse {
+) -> Vec<Cw20CoinVerified> {
     app.wrap()
         .query_wasm_smart(
             manager,

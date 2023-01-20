@@ -1,19 +1,19 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, Uint128,
 };
 use croncat_sdk_core::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
-    add_available_native, add_user_native, execute_owner_withdraw, execute_receive_cw20,
-    execute_user_withdraw, query_available_balances, query_users_balances,
+    execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
+    execute_refill_task_cw20, execute_user_withdraw, query_users_balances,
 };
 use crate::error::ContractError;
 use crate::helpers::check_ready_for_execution;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG};
+use crate::state::{Config, CONFIG, TREASURY_BALANCE};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -77,9 +77,7 @@ pub fn instantiate(
 
     // Update state
     CONFIG.save(deps.storage, &config)?;
-    for coin in info.funds {
-        add_available_native(deps.storage, &coin)?;
-    }
+    TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
@@ -103,24 +101,16 @@ pub fn execute(
             task_hash: Some(task_hash),
         } => execute_proxy_call_with_queries(deps, env, info, task_hash),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
-        ExecuteMsg::RefillNativeBalance {} => execute_refill_native_balance(deps, info),
-        ExecuteMsg::UserWithdraw {
-            native_balances,
-            cw20_balances,
-        } => execute_user_withdraw(deps, info, native_balances, cw20_balances),
+        ExecuteMsg::RefillTaskBalance { task_hash } => {
+            execute_refill_native_balance(deps, info, task_hash)
+        }
+        ExecuteMsg::RefillTaskCw20Balance { task_hash, cw20 } => {
+            execute_refill_task_cw20(deps, info, task_hash, cw20)
+        }
+        ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
+        // TODO: make method ONLY for tasks contract to create task_hash's balance! 
     }
-}
-
-fn execute_refill_native_balance(
-    deps: DepsMut,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    for coin in info.funds {
-        add_available_native(deps.storage, &coin)?;
-        add_user_native(deps.storage, &info.sender, &coin)?;
-    }
-    Ok(Response::new().add_attribute("action", "refill_native_balance"))
 }
 
 fn execute_proxy_call(
@@ -265,9 +255,7 @@ pub fn execute_tick(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
-        QueryMsg::AvailableBalances { from_index, limit } => {
-            to_binary(&query_available_balances(deps, from_index, limit)?)
-        }
+        QueryMsg::TreasuryBalance {} => to_binary(&TREASURY_BALANCE.load(deps.storage)?),
         QueryMsg::UsersBalances {
             wallet,
             from_index,
