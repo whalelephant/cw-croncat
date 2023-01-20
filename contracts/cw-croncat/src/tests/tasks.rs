@@ -199,7 +199,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -226,7 +226,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -262,7 +262,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -298,7 +298,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -337,7 +337,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -369,7 +369,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -403,7 +403,7 @@ fn query_simulate_task_estimated_gas() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -459,7 +459,7 @@ fn query_simulate_task_hash() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -512,7 +512,7 @@ fn query_simulate_task_occurrences_with_queries() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -542,7 +542,7 @@ fn query_simulate_task_occurrences_with_queries() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -572,7 +572,7 @@ fn query_simulate_task_occurrences_with_queries() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -602,7 +602,7 @@ fn query_simulate_task_occurrences_with_queries() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -640,7 +640,7 @@ fn query_simulate_task_occurrences_once() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -679,7 +679,7 @@ fn query_simulate_task_occurrences_immediate() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(352820, NATIVE_DENOM),
+                funds: Some(coins(352820, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -723,7 +723,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -757,7 +757,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -790,7 +790,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -824,7 +824,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -857,7 +857,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -890,7 +890,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -924,7 +924,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -959,7 +959,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -994,7 +994,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();
@@ -1028,7 +1028,7 @@ fn query_simulate_task_occurrences_block() {
             &contract_addr.clone(),
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
-                funds: coins(1_000_000, NATIVE_DENOM),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
             },
         )
         .unwrap();

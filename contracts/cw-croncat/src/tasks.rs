@@ -206,7 +206,7 @@ impl<'a> CwCroncat<'a> {
         env: Env,
         deps: Deps,
         task: TaskRequest,
-        funds: Vec<Coin>,
+        funds: Option<Vec<Coin>>,
     ) -> StdResult<SimulateTaskResponse> {
         let cfg: Config = self.config.load(deps.storage)?;
         let version = self.get_contract_version(&env, &deps);

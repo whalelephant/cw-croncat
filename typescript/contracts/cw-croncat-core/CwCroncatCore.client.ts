@@ -71,7 +71,7 @@ export interface CwCroncatCoreReadOnlyInterface {
     funds,
     task
   }: {
-    funds: Coin[];
+    funds?: Coin[];
     task: TaskRequest;
   }) => Promise<SimulateTaskResponse>;
 }
@@ -239,7 +239,7 @@ export class CwCroncatCoreQueryClient implements CwCroncatCoreReadOnlyInterface 
     funds,
     task
   }: {
-    funds: Coin[];
+    funds?: Coin[];
     task: TaskRequest;
   }): Promise<SimulateTaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {

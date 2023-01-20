@@ -617,7 +617,7 @@ export type QueryMsg = {
   };
 } | {
   simulate_task: {
-    funds: Coin[];
+    funds?: Coin[] | null;
     task: TaskRequest;
     [k: string]: unknown;
   };

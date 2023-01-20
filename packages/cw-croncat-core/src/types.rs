@@ -711,11 +711,12 @@ pub fn simulate_task(
     env: &Env,
     deps: &Deps,
     task: TaskRequest,
-    funds: Vec<Coin>,
+    funds: Option<Vec<Coin>>,
     economics: EconomicsContext,
     contract_info: &ContractInfo,
     slot_granularity_time: u64,
 ) -> Result<SimulateTaskResponse, CoreError> {
+    let funds = funds.unwrap_or_default();
     let task_info = task
         .as_task(env, deps, contract_info, funds.clone(), economics.clone())
         .unwrap();
@@ -733,26 +734,32 @@ pub fn simulate_task(
         });
     }
 
-    // Calculate the maximum amount of occurrences for given funds (without boundaries)
+    // Calculate the maximum amount of occurrences for given funds (if funds are provided)
     // It is defined by the amount for one execution
-    let amount_for_one_task_native = &task_info.amount_for_one_task.native.first().unwrap();
-    let amount_given = funds
-        .iter()
-        .find(|coin| coin.denom == amount_for_one_task_native.denom)
-        .ok_or_else(|| {
-            CoreError::Std(StdError::generic_err(format!(
-                "No coins with correct denom: {}",
-                amount_for_one_task_native.denom
-            )))
-        })?
-        .amount
-        .u128();
-    let occurrences_for_funds = amount_given
-        .checked_div(amount_for_one_task_native.amount.u128())
-        .unwrap() as u64;
+    let occurrences_for_funds = if !funds.is_empty() {
+        let amount_for_one_task_native = &task_info.amount_for_one_task.native.first().unwrap();
+        let amount_given = funds
+            .iter()
+            .find(|coin| coin.denom == amount_for_one_task_native.denom)
+            .ok_or_else(|| {
+                CoreError::Std(StdError::generic_err(format!(
+                    "No coins with correct denom: {}",
+                    amount_for_one_task_native.denom
+                )))
+            })?
+            .amount
+            .u128();
+        Some(
+            amount_given
+                .checked_div(amount_for_one_task_native.amount.u128())
+                .unwrap() as u64,
+        )
+    } else {
+        None
+    };
 
     // Calculate the maximum amount of occurrences according to the given interval and boundary
-    // and compare with occurrences_for_funds, take the minimum
+    // and compare with occurrences_for_funds, if it's defined
     let interval = task.interval;
     let boundary = CheckedBoundary::new(task.boundary, &interval)?;
 
@@ -766,10 +773,16 @@ pub fn simulate_task(
                     .max(env.block.height);
 
                 let occurrences_for_boundary = end.saturating_sub(start).saturating_div(block);
-                std::cmp::min(occurrences_for_boundary, occurrences_for_funds)
+                // If funds are provided, take minimum of calculated occurrences
+                // If funds aren't provided, returns occurrences_for_boundary
+                std::cmp::min(
+                    occurrences_for_boundary,
+                    occurrences_for_funds.unwrap_or(u64::MAX),
+                )
             } else {
                 // If there's no end boundary, the occurrences are limited only by funds
-                occurrences_for_funds
+                // If there's no funds, return 1
+                occurrences_for_funds.unwrap_or(1)
             }
         }
         Interval::Cron(crontab) => {
@@ -792,7 +805,8 @@ pub fn simulate_task(
                 end.saturating_sub(start_time).saturating_div(diff)
             } else {
                 // If there's no end boundary, the occurrences are limited only by funds
-                occurrences_for_funds
+                // If there's no funds, return 1
+                occurrences_for_funds.unwrap_or(1)
             }
         }
     };

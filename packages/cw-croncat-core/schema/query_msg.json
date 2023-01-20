@@ -281,12 +281,14 @@
         "simulate_task": {
           "type": "object",
           "required": [
-            "funds",
             "task"
           ],
           "properties": {
             "funds": {
-              "type": "array",
+              "type": [
+                "array",
+                "null"
+              ],
               "items": {
                 "$ref": "#/definitions/Coin"
               }

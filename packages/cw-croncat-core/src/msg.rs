@@ -170,7 +170,7 @@ pub enum QueryMsg {
     },
     SimulateTask {
         task: TaskRequest,
-        funds: Vec<Coin>,
+        funds: Option<Vec<Coin>>,
     },
 }
 
