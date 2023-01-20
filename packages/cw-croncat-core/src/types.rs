@@ -766,15 +766,22 @@ pub fn simulate_task(
     let occurrences = match interval {
         Interval::Once | Interval::Immediate => 1,
         Interval::Block(block) => {
-            if let Some(_end) = boundary.end {
+            if boundary.end.is_some() {
                 let mut next_id = env.block.height;
                 let mut occur: u64 = 0;
 
                 while next_id > 0 {
+                    let prev_id = next_id;
                     (next_id, _) = get_next_block_by_offset(next_id, boundary, block);
                     occur = occur
                         .checked_add(1)
                         .ok_or_else(|| StdError::generic_err("Invalid amount of occurrences"))?;
+
+                    // If this was the last occurrence before the end, get_next_block_by_offset returns the same block again
+                    // If the block number recur, stop the loop
+                    if prev_id == next_id {
+                        break;
+                    }
                 }
                 // The last occurrence with next_id == 0 has to be subtracted
                 let occurrences_for_boundary = occur - 1;
