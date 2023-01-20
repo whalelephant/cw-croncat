@@ -1,8 +1,8 @@
 use cosmwasm_std::Addr;
-use croncat_sdk_tasks::types::Task;
+use croncat_sdk_tasks::types::{Task, Config};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
-pub const MANAGER_ADDR: Item<Addr> = Item::new("manager_addr");
+pub const CONFIG: Item<Config> = Item::new("config");
 
 /// Total amount of tasks without queries
 pub const TASKS_TOTAL: Item<u64> = Item::new("tasks_total");

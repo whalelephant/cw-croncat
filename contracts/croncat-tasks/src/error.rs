@@ -14,4 +14,19 @@ pub enum ContractError {
 
     #[error("Empty balance, must attach funds")]
     MustAttach {},
+
+    #[error("invalid cosmwasm message")]
+    InvalidWasmMsg {},
+
+    #[error("Actions message unsupported or invalid message data")]
+    InvalidAction {},
+
+    #[error("Invalid gas input")]
+    InvalidGas {},
+
+    #[error("Must provide gas limit for WASM actions")]
+    NoGasLimit {},
+
+    #[error("Contract is paused for actions")]
+    Paused {},
 }

@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, CosmosMsg, Empty, Env, Timestamp, Uint64};
+use cosmwasm_std::{Addr, Coin, CosmosMsg, Empty, Env, Timestamp, Uint64, Uint128};
 use cron_schedule::Schedule;
 use cw20::{Cw20Coin, Cw20CoinVerified};
 
@@ -20,7 +20,8 @@ pub struct Config {
     pub gas_base_fee: u64,
     pub gas_action_fee: u64,
     pub gas_query_fee: u64,
-    pub gas_wasm_query_fee: u64,
+
+    pub gas_limit: u64,
 }
 
 #[cw_serde]
@@ -32,7 +33,12 @@ pub struct TaskRequest {
     // TODO: connect with queries modules
     // pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
-    pub cw20_coin: Option<Cw20Coin>,
+
+    pub native: Uint128,
+    // How much of cw20 coin is attached to this task
+    pub cw20: Option<Cw20Coin>,
+    // How much of native coin is attached to this task
+    pub ibc: Option<Coin>,
 }
 
 /// Defines the spacing of execution
@@ -162,10 +168,46 @@ pub struct Task {
 }
 
 #[cw_serde]
+#[derive(Default)]
 pub struct AmountForOneTask {
-    pub native: u64,
+    pub gas: u64,
     pub cw20: Option<Cw20CoinVerified>,
-    pub ibc: Option<Coin>,
+    pub coin: Option<Coin>,
+}
+
+impl AmountForOneTask {
+    #[must_use]
+    pub fn add_gas(&mut self, gas: u64, limit: u64) -> bool {
+        self.gas = self.gas.saturating_add(gas);
+
+        self.gas <= limit
+    }
+
+    #[must_use]
+    pub fn add_coin(&mut self, coin: Coin) -> bool {
+        if let Some(coin_inner) = &mut self.coin {
+            if coin_inner.denom != coin.denom {
+                return false;
+            }
+            coin_inner.amount = coin_inner.amount + coin.amount;
+        } else {
+            self.coin = Some(coin);
+        }
+        true
+    }
+
+    #[must_use]
+    pub fn add_cw20(&mut self, cw20: Cw20CoinVerified) -> bool {
+        if let Some(cw20_inner) = &mut self.cw20 {
+            if cw20_inner.address != cw20.address {
+                return false;
+            }
+            cw20_inner.amount = cw20_inner.amount + cw20.amount;
+        } else {
+            self.cw20 = Some(cw20);
+        }
+        true
+    }
 }
 
 #[cw_serde]
@@ -178,17 +220,13 @@ pub struct TaskResponse {
     pub boundary: Option<Boundary>,
 
     pub stop_on_fail: bool,
-    pub total_deposit: Vec<Coin>,
-    pub total_cw20_deposit: Vec<Cw20CoinVerified>,
-    pub amount_for_one_task_native: Vec<Coin>,
-    pub amount_for_one_task_cw20: Vec<Cw20CoinVerified>,
+    pub amount_for_one_task: AmountForOneTask,
 
     pub actions: Vec<Action>,
     // TODO: pub queries: Option<Vec<CroncatQuery>>,
 }
 
 #[cw_serde]
-
 pub struct SlotHashesResponse {
     pub block_id: u64,
     pub block_task_hash: Vec<String>,

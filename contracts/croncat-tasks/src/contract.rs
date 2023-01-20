@@ -1,31 +1,62 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use croncat_sdk_tasks::types::{BoundaryValidated, TaskRequest};
+use croncat_sdk_tasks::types::{Config, TaskRequest};
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
 
 use crate::error::ContractError;
 use crate::helpers::validate_boundary;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::MANAGER_ADDR;
+use crate::state::CONFIG;
 
 const CONTRACT_NAME: &str = "croncat:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// Default value based on non-wasm operations, wasm ops seem impossible to predict
+// TODO: this values based of pre-split, need to recalculate GAS_BASE_FEE
+pub(crate) const GAS_BASE_FEE: u64 = 300_000;
+pub(crate) const GAS_ACTION_FEE: u64 = 130_000;
+pub(crate) const GAS_QUERY_FEE: u64 = 130_000; // Load query module(~61_000) and query after that(~65_000+)
+pub(crate) const GAS_LIMIT: u64 = 9_500_000; // 10M is default for juno, but let's make sure we have space for missed gas calculations
+pub(crate) const SLOT_GRANULARITY_TIME: u64 = 10_000_000_000; // 10 seconds
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    let validated = deps.api.addr_validate(&msg.manager_addr)?;
-    MANAGER_ADDR.save(deps.storage, &validated)?;
-    Ok(Response::new()
-        .add_attribute("action", "instantiate")
-        .add_attribute("manager_addr", validated))
+    let InstantiateMsg {
+        croncat_factory_addr,
+        owner_addr,
+        croncat_manager_key,
+        croncat_agents_key,
+        slot_granularity_time,
+        gas_base_fee,
+        gas_action_fee,
+        gas_query_fee,
+        gas_limit,
+    } = msg;
+    let config = Config {
+        paused: false,
+        owner_addr: owner_addr
+            .map(|human| deps.api.addr_validate(&human))
+            .transpose()?
+            .unwrap_or(info.sender),
+        croncat_factory_addr: deps.api.addr_validate(&croncat_factory_addr)?,
+        croncat_manager_key,
+        croncat_agents_key,
+        slot_granularity_time: slot_granularity_time.unwrap_or(SLOT_GRANULARITY_TIME),
+        gas_base_fee: gas_base_fee.unwrap_or(GAS_BASE_FEE),
+        gas_action_fee: gas_action_fee.unwrap_or(GAS_ACTION_FEE),
+        gas_query_fee: gas_query_fee.unwrap_or(GAS_QUERY_FEE),
+        gas_limit: gas_limit.unwrap_or(GAS_LIMIT),
+    };
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -39,11 +70,6 @@ pub fn execute(
     match msg {
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, task),
         ExecuteMsg::RemoveTask { task_hash } => todo!(),
-        ExecuteMsg::RefillTaskBalance { task_hash } => todo!(),
-        ExecuteMsg::RefillTaskCw20Balance {
-            task_hash,
-            cw20_coins,
-        } => todo!(),
     }
 }
 
@@ -53,10 +79,14 @@ fn execute_create_task(
     info: MessageInfo,
     task: TaskRequest,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.paused {
+        return Err(ContractError::Paused {});
+    }
     let owner_id = &info.sender;
     // Validate cw20
     let verified_cw20 = task
-        .cw20_coin
+        .cw20
         .map(|cw20| -> StdResult<_> {
             Ok(Cw20CoinVerified {
                 address: deps.api.addr_validate(&cw20.address)?,
