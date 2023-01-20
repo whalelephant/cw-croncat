@@ -163,7 +163,6 @@ pub struct Task {
     // TODO:
     // pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
-    // TODO: funds! should we support funds being attached?
     pub version: String,
 }
 

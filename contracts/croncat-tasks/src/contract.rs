@@ -6,7 +6,7 @@ use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
 
 use crate::error::ContractError;
-use crate::helpers::validate_boundary;
+use crate::helpers::{self, validate_boundary, validate_msg_calculate_usage};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::CONFIG;
 
@@ -84,6 +84,21 @@ fn execute_create_task(
         return Err(ContractError::Paused {});
     }
     let owner_id = &info.sender;
+
+    // Validate boundary and interval
+    let boundary = validate_boundary(env.block, &task.boundary, &task.interval)?;
+    if !task.interval.is_valid() {
+        return Err(ContractError::InvalidInterval {});
+    }
+
+    let amount_for_one_task = validate_msg_calculate_usage(
+        deps.api,
+        &task,
+        &env.contract.address,
+        &info.sender,
+        &config,
+    )?;
+
     // Validate cw20
     let verified_cw20 = task
         .cw20
@@ -95,12 +110,7 @@ fn execute_create_task(
         })
         .transpose()?;
 
-    // Validate boundary and interval
-    let boundary = validate_boundary(env.block, task.boundary, &task.interval)?;
-    if !task.interval.is_valid() {
-        return Err(ContractError::InvalidInterval {});
-    }
-
+    // TODO: pass message to manager with amount_for_one_task
     Ok(Response::new().add_attribute("action", "create_task"))
 }
 

@@ -8,7 +8,7 @@ use crate::ContractError;
 
 pub(crate) fn validate_boundary(
     block_info: BlockInfo,
-    boundary: Option<Boundary>,
+    boundary: &Option<Boundary>,
     interval: &Interval,
 ) -> Result<BoundaryValidated, ContractError> {
     let prevalid_boundary = match (interval, boundary) {
