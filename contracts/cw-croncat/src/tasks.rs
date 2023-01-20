@@ -239,7 +239,7 @@ impl<'a> CwCroncat<'a> {
                 version: &version,
             },
             cfg.slot_granularity_time,
-            prefix
+            prefix,
         )
         .map_err(|e| cosmwasm_std::StdError::generic_err(e.to_string()))?;
         Ok(sim)

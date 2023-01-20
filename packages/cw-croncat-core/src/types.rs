@@ -806,6 +806,7 @@ impl Task {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn simulate_task(
     env: &Env,
     deps: &Deps,

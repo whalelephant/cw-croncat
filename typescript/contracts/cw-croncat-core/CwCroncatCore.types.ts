@@ -246,7 +246,6 @@ export interface GetConfigResponse {
   agent_nomination_duration: number;
   agents_eject_threshold: number;
   available_balance: GenericBalance;
-  chain_name: string;
   cw20_whitelist: Addr[];
   cw_rules_addr: Addr;
   gas_action_fee: number;

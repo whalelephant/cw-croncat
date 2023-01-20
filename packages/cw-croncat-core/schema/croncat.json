@@ -986,7 +986,6 @@
         "agent_nomination_duration",
         "agents_eject_threshold",
         "available_balance",
-        "chain_name",
         "cw20_whitelist",
         "cw_rules_addr",
         "gas_action_fee",
@@ -1042,9 +1041,6 @@
         },
         "available_balance": {
           "$ref": "#/definitions/GenericBalance"
-        },
-        "chain_name": {
-          "type": "string"
         },
         "cw20_whitelist": {
           "type": "array",

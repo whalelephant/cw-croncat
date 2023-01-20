@@ -20,7 +20,7 @@ use cw_croncat_core::types::{Action, Boundary, CheckedBoundary, GenericBalance, 
 use cw_multi_test::Executor;
 use cw_rules_core::types::{CheckOwnerOfNft, CroncatQuery, HasBalanceGte};
 use cw_utils::NativeBalance;
-use hex::encode;
+use hex::ToHex;
 use sha2::{Digest, Sha256};
 use std::convert::TryInto;
 
@@ -473,8 +473,13 @@ fn query_simulate_task_hash() {
         task_request.transforms
     );
     let hash = Sha256::digest(message.as_bytes());
+    let encoded: String = hash.encode_hex();
+    let prefix = NATIVE_DENOM;
 
-    assert_eq!(simulate.task_hash, encode(hash));
+    let (_, l) = encoded.split_at(prefix.len() + 1);
+    let task_hash = format!("{}:{}", prefix, l);
+
+    assert_eq!(simulate.task_hash, task_hash);
 }
 
 #[test]
