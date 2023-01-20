@@ -932,7 +932,7 @@ fn query_simulate_task_occurrences_block_with_funds() {
     assert_eq!(simulate.occurrences, 35);
 
     // Interval::Block with one action
-    // End boundary is big, thus occurrences are calculated by funds 
+    // End boundary is big, thus occurrences are calculated by funds
     let task_request = TaskRequest {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {
@@ -1138,7 +1138,7 @@ fn query_simulate_task_occurrences_block_with_funds() {
     assert_eq!(simulate.occurrences, 35);
 
     // Start boundary is some future block
-    // End boundary is big, thus occurrences are calculated by funds 
+    // End boundary is big, thus occurrences are calculated by funds
     let task_request = TaskRequest {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {

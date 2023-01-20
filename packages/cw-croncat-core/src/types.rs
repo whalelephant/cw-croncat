@@ -766,14 +766,20 @@ pub fn simulate_task(
     let occurrences = match interval {
         Interval::Once | Interval::Immediate => 1,
         Interval::Block(block) => {
-            if let Some(end) = boundary.end {
-                let start = boundary
-                    .start
-                    .unwrap_or(env.block.height)
-                    .max(env.block.height);
+            if let Some(_end) = boundary.end {
+                let mut next_id = env.block.height;
+                let mut occur: u64 = 0;
 
-                let occurrences_for_boundary = end.saturating_sub(start).saturating_div(block);
-                // If funds are provided, take minimum of calculated occurrences
+                while next_id > 0 {
+                    (next_id, _) = get_next_block_by_offset(next_id, boundary, block);
+                    occur = occur
+                        .checked_add(1)
+                        .ok_or_else(|| StdError::generic_err("Invalid amount of occurrences"))?;
+                }
+                // The last occurrence with next_id == 0 has to be subtracted
+                let occurrences_for_boundary = occur - 1;
+
+                // If funds are provided, take the minimum of calculated occurrences
                 // If funds aren't provided, returns occurrences_for_boundary
                 std::cmp::min(
                     occurrences_for_boundary,
