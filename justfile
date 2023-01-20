@@ -1,7 +1,7 @@
 deploy:
 	#!/bin/bash
 	chmod +x ./scripts/testnet/deploy.sh
-	./scripts/testnet/deploy.sh
+	./scripts/testnet/deploy.sh -w -c
 optimize:
 	docker run --rm -v "$(pwd)":/code \
 		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \

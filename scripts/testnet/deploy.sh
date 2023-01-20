@@ -80,8 +80,8 @@ if [ $RECREATE_ARTIFACTS == 1 ]; then
       --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
       cosmwasm/rust-optimizer$PLATFORM:0.12.11
   fi
-  #Download basic implementation of a cw20
-  curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm"
+#   #Download basic implementation of a cw20
+#   curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm"
 
 fi
 #Recreate containers
@@ -98,6 +98,7 @@ echo "${Cyan}Wasm file: cw20_base.wasm"
 #---------------------------------------------------------------------------
 
 echo "${Yellow}Instantiating smart contracts...${NoColor}"
+echo $owner
 AGENTS_RES=$(junod tx wasm store $WASM_AGENTS --from owner $TXFLAG -y --output json -b block)
 AGENTS_CODE_ID=$(echo $AGENTS_RES | jq -r '.logs[0].events[-1].attributes[1].value')
 
@@ -105,7 +106,7 @@ echo "${Cyan}CODE_ID :" $AGENTS_CODE_ID "${NoColor}"
 
 #AGENTS
 AGENTS_INIT='{}'
-$BINARY tx wasm instantiate $CODE_ID "$AGENTS_INIT" --from owner --label "croncat-agents" $TXFLAG -y --no-admin
+$BINARY tx wasm instantiate $AGENTS_CODE_ID "$AGENTS_INIT" --from owner --label "croncat-agents" $TXFLAG -y --no-admin
 
 # get smart contract address
 AGENTS_CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $AGENTS_CODE_ID $NODE --output json | jq -r '.contracts[-1]')
