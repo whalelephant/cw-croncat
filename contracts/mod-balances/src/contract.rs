@@ -1,13 +1,15 @@
+use cosmwasm_std::entry_point;
+use cosmwasm_std::{
+    coin, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+};
 #[cfg(not(feature = "library"))]
 use cw2::set_contract_version;
 use cw20::{Balance, BalanceResponse};
-use cosmwasm_std::entry_point;
-use cosmwasm_std::{coin, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128};
 use mod_sdk::types::QueryResponse;
 
-use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::types::{HasBalanceComparator, BalanceComparator};
+use crate::types::{BalanceComparator, HasBalanceComparator};
+use crate::ContractError;
 
 // version info for migration info
 const CONTRACT_NAME: &str = "croncat:mod-balances";
@@ -19,7 +21,7 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
-) -> Result<Response, ContractError> {
+) -> Result<Response, StdError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
@@ -49,13 +51,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             address,
             required_balance,
             comparator,
-        }) => to_binary(&query_has_balance_comparator(deps, address, required_balance, comparator)?),
+        }) => to_binary(&query_has_balance_comparator(
+            deps,
+            address,
+            required_balance,
+            comparator,
+        )?),
     }
 }
 
 /// Query: GetBalance
 /// Used as a helper method to get the native balance for an account
-/// 
+///
 /// Response: QueryResponse
 /// Always returns true, even if balance is 0
 /// Data is the balance found for this account
@@ -70,7 +77,7 @@ fn query_get_balance(deps: Deps, address: String, denom: String) -> StdResult<Qu
 
 /// Query: GetCw20Balance
 /// Used as a helper method to get the CW20 balance for an account
-/// 
+///
 /// Response: QueryResponse
 /// Always returns true, even if balance is 0
 /// Data is the balance found for this account
@@ -97,9 +104,10 @@ fn query_get_cw20_balance(
 /// Query: HasBalanceComparator
 /// Used for comparing on-chain balance with a pre-defined input balance
 /// Comparator allows the flexibility of a single method implementation
-/// for all types of comparators: Equal, Not Equal, Greater Than, 
+/// for all types of comparators: Equal, Not Equal, Greater Than,
 /// Greater Than Equal To, Less Than, Less Than Equal To
-/// 
+/// If address doesn't exist, the query works as if the balance is zero
+///
 /// Response: QueryResponse
 /// Will never error, but default to returning false for logical use.
 fn query_has_balance_comparator(
@@ -111,7 +119,7 @@ fn query_has_balance_comparator(
     let valid_address = deps.api.addr_validate(&address)?;
 
     // NOTE: This implementation requires only 1 coin to be compared.
-    let (balance_amount, required_amount): (Uint128, Uint128) = match required_balance {
+    let (balance_amount, required_amount) = match required_balance {
         Balance::Native(required_native) => {
             // Get the required denom from required_balance
             // then loop the queried chain balances to find matching required denom
@@ -120,8 +128,7 @@ fn query_has_balance_comparator(
             if let Some(native) = native {
                 let balance = deps.querier.query_balance(valid_address, native.denom)?;
                 (balance.amount, native.amount)
-            }
-            else {
+            } else {
                 return Ok(QueryResponse {
                     result: false,
                     data: Default::default(),
@@ -138,24 +145,12 @@ fn query_has_balance_comparator(
     };
 
     let result = match comparator {
-        BalanceComparator::Eq => {
-            required_amount == balance_amount
-        },
-        BalanceComparator::Ne => {
-            required_amount != balance_amount
-        },
-        BalanceComparator::Gt => {
-            required_amount > balance_amount
-        },
-        BalanceComparator::Gte => {
-            required_amount >= balance_amount
-        },
-        BalanceComparator::Lt => {
-            required_amount < balance_amount
-        },
-        BalanceComparator::Lte => {
-            required_amount <= balance_amount
-        },
+        BalanceComparator::Eq => required_amount == balance_amount,
+        BalanceComparator::Ne => required_amount != balance_amount,
+        BalanceComparator::Gt => required_amount < balance_amount,
+        BalanceComparator::Gte => required_amount <= balance_amount,
+        BalanceComparator::Lt => required_amount > balance_amount,
+        BalanceComparator::Lte => required_amount >= balance_amount,
     };
 
     Ok(QueryResponse {
