@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, CosmosMsg, Empty, Env, Timestamp, Uint64, Uint128};
+use cosmwasm_std::{Addr, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
 use cron_schedule::Schedule;
 use cw20::{Cw20Coin, Cw20CoinVerified};
 
@@ -188,7 +188,7 @@ impl AmountForOneTask {
             if coin_inner.denom != coin.denom {
                 return false;
             }
-            coin_inner.amount = coin_inner.amount + coin.amount;
+            coin_inner.amount += coin.amount;
         } else {
             self.coin = Some(coin);
         }
@@ -201,7 +201,7 @@ impl AmountForOneTask {
             if cw20_inner.address != cw20.address {
                 return false;
             }
-            cw20_inner.amount = cw20_inner.amount + cw20.amount;
+            cw20_inner.amount += cw20.amount;
         } else {
             self.cw20 = Some(cw20);
         }

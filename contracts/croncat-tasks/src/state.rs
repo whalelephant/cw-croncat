@@ -1,5 +1,5 @@
 use cosmwasm_std::Addr;
-use croncat_sdk_tasks::types::{Task, Config};
+use croncat_sdk_tasks::types::{Config, Task};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -33,7 +33,11 @@ pub fn tasks_map<'a>() -> IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>> {
 
 pub fn tasks_with_queries_map<'a>() -> IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>> {
     let indexes = TaskIndexes {
-        owner: MultiIndex::new(token_owner_idx, "tasks_with_queries", "tasks_with_queries__owner"),
+        owner: MultiIndex::new(
+            token_owner_idx,
+            "tasks_with_queries",
+            "tasks_with_queries__owner",
+        ),
     };
     IndexedMap::new("tasks_with_queries", indexes)
 }

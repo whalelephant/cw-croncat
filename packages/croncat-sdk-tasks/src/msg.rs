@@ -52,7 +52,7 @@ pub enum TasksQueryMsg {
     #[returns(TaskResponse)]
     Task { task_hash: String },
     #[returns(String)]
-    TaskHash { task: Task },
+    TaskHash { task: Box<Task> },
     #[returns(SlotHashesResponse)]
     SlotHashes { slot: Option<u64> },
     #[returns(SlotIdsResponse)]
