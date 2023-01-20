@@ -799,23 +799,38 @@ pub fn simulate_task(
             }
         }
         Interval::Cron(crontab) => {
-            if let Some(end) = boundary.end {
-                let schedule = Schedule::from_str(&crontab).unwrap();
-                let start_time: u64 = boundary.start.unwrap_or(env.block.height);
-                let current_block_ts = env.block.time.nanos();
-                let current_ts = std::cmp::max(current_block_ts, start_time);
-                let next_ts = schedule.next_after(&current_ts).unwrap();
-                let current_block_slot =
-                    current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
-                let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
-                // put task in the next slot if next_ts_slot in the current slot
-                let next_slot = if next_ts_slot == current_block_slot {
-                    next_ts_slot + slot_granularity_time
-                } else {
-                    next_ts_slot
-                };
-                let diff = next_slot.saturating_sub(current_block_slot);
-                end.saturating_sub(start_time).saturating_div(diff)
+            // get_next_cron_time
+            if boundary.end.is_some() {
+                let mut next_id = env.block.time.nanos();
+                let mut occur: u64 = 0;
+
+                while next_id > 0 {
+                    let prev_id = next_id;
+                    (next_id, _) = get_next_cron_time_by_ts(
+                        next_id,
+                        boundary,
+                        &crontab,
+                        slot_granularity_time,
+                    );
+                    occur = occur
+                        .checked_add(1)
+                        .ok_or_else(|| StdError::generic_err("Invalid amount of occurrences"))?;
+
+                    // If this was the last occurrence before the end, get_next_block_by_offset returns the same block again
+                    // If the block number recur, stop the loop
+                    if prev_id == next_id {
+                        break;
+                    }
+                }
+                // The last occurrence with next_id == 0 has to be subtracted
+                let occurrences_for_boundary = occur - 1;
+
+                // If funds are provided, take the minimum of calculated occurrences
+                // If funds aren't provided, returns occurrences_for_boundary
+                std::cmp::min(
+                    occurrences_for_boundary,
+                    occurrences_for_funds.unwrap_or(u64::MAX),
+                )
             } else {
                 // If there's no end boundary, the occurrences are limited only by funds
                 // If there's no funds, return 1
@@ -829,6 +844,43 @@ pub fn simulate_task(
         occurrences,
         task_hash,
     })
+}
+
+// Does the same as get_next_cron_time but for specific timestamp
+fn get_next_cron_time_by_ts(
+    current_ts: u64,
+    boundary: CheckedBoundary,
+    crontab: &str,
+    slot_granularity_time: u64,
+) -> (u64, SlotType) {
+    let current_ts_slot = current_ts.saturating_sub(current_ts % slot_granularity_time);
+
+    // get earliest possible time
+    let current_ts = match boundary.start {
+        Some(ts) if current_ts < ts => ts,
+        _ => current_ts,
+    };
+
+    // receive time from schedule, calculate slot for this time
+    let schedule = Schedule::from_str(crontab).unwrap();
+    let next_ts = schedule.next_after(&current_ts).unwrap();
+    let next_ts_slot = next_ts.saturating_sub(next_ts % slot_granularity_time);
+
+    // put task in the next slot if next_ts_slot in the current slot
+    let next_slot = if next_ts_slot == current_ts_slot {
+        next_ts_slot + slot_granularity_time
+    } else {
+        next_ts_slot
+    };
+
+    match boundary.end {
+        Some(end) if current_ts > end => (0, SlotType::Cron),
+        Some(end) => {
+            let end_slot = end.saturating_sub(end % slot_granularity_time);
+            (u64::min(end_slot, next_slot), SlotType::Cron)
+        }
+        _ => (next_slot, SlotType::Cron),
+    }
 }
 
 fn calculate_gas(task: Task, economics: EconomicsContext) -> Result<u64, CoreError> {
