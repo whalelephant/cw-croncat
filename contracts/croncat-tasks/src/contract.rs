@@ -59,6 +59,8 @@ pub fn instantiate(
         gas_limit: gas_limit.unwrap_or(GAS_LIMIT),
     };
     CONFIG.save(deps.storage, &config)?;
+    TASKS_TOTAL.save(deps.storage, &0)?;
+    TASKS_WITH_QUERIES_TOTAL.save(deps.storage, &0)?;
     Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
@@ -96,17 +98,6 @@ fn execute_create_task(
 
     let amount_for_one_task =
         validate_msg_calculate_usage(deps.api, &task, &env.contract.address, &owner_addr, &config)?;
-
-    // Validate cw20
-    let verified_cw20 = task
-        .cw20
-        .map(|cw20| -> StdResult<_> {
-            Ok(Cw20CoinVerified {
-                address: deps.api.addr_validate(&cw20.address)?,
-                amount: cw20.amount,
-            })
-        })
-        .transpose()?;
 
     let version = query_contract_info(&deps.querier, env.contract.address.as_str())?.version;
     let item = Task {
