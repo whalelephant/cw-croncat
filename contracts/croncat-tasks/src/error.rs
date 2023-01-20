@@ -29,4 +29,10 @@ pub enum ContractError {
 
     #[error("Contract is paused for actions")]
     Paused {},
+
+    #[error("Task ended")]
+    TaskEnded {},
+
+    #[error("Task already exists")]
+    TaskExists {},
 }

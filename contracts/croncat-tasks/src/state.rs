@@ -54,5 +54,5 @@ impl<'a> IndexList<Task> for TaskIndexes<'a> {
 }
 
 pub fn token_owner_idx(_pk: &[u8], d: &Task) -> Addr {
-    d.owner_id.clone()
+    d.owner_addr.clone()
 }

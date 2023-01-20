@@ -7,7 +7,7 @@ use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use crate::ContractError;
 
 pub(crate) fn validate_boundary(
-    block_info: BlockInfo,
+    block_info: &BlockInfo,
     boundary: &Option<Boundary>,
     interval: &Interval,
 ) -> Result<BoundaryValidated, ContractError> {

@@ -1,9 +1,12 @@
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{coin, Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
 use cron_schedule::Schedule;
+use croncat_mod_generic::types::PathToValue;
 use cw20::{Cw20Coin, Cw20CoinVerified};
+use hex::ToHex;
+use sha2::{Digest, Sha256};
 
 #[cw_serde]
 pub struct Config {
@@ -30,14 +33,14 @@ pub struct TaskRequest {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
-    // TODO: connect with queries modules
-    // pub queries: Option<Vec<CroncatQuery>>,
+    pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
 
+    /// How much coins of this chain attach
     pub native: Uint128,
-    // How much of cw20 coin is attached to this task
+    /// How much of cw20 coin is attached to this task
     pub cw20: Option<Cw20Coin>,
-    // How much of native coin is attached to this task
+    /// How much of native coin is attached to this task
     pub ibc: Option<Coin>,
 }
 
@@ -65,7 +68,7 @@ impl Interval {
     pub fn next(
         &self,
         env: &Env,
-        boundary: BoundaryValidated,
+        boundary: &BoundaryValidated,
         slot_granularity_time: u64,
     ) -> (u64, SlotType) {
         match self {
@@ -136,15 +139,15 @@ pub struct Action<T = Empty> {
 pub struct Transform {
     pub action_idx: u64,
     pub query_idx: u64,
-    // TODO:
-    // pub action_path: PathToValue,
-    // pub query_response_path: PathToValue,
+
+    pub action_path: PathToValue,
+    pub query_response_path: PathToValue,
 }
 
 #[cw_serde]
 pub struct Task {
     /// Entity responsible for this task, can change task details
-    pub owner_id: Addr,
+    pub owner_addr: Addr,
 
     /// Scheduling definitions
     pub interval: Interval,
@@ -160,10 +163,55 @@ pub struct Task {
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
-    // TODO:
-    // pub queries: Option<Vec<CroncatQuery>>,
-    pub transforms: Option<Vec<Transform>>,
+    pub queries: Vec<CroncatQuery>,
+    pub transforms: Vec<Transform>,
     pub version: String,
+}
+
+impl Task {
+    /// Get the hash of a task based on parameters
+    pub fn to_hash(&self, prefix: &str) -> String {
+        let message = format!(
+            "{:?}{:?}{:?}{:?}{:?}{:?}",
+            self.owner_addr,
+            self.interval,
+            self.boundary,
+            self.actions,
+            self.queries,
+            self.transforms
+        );
+
+        let hash = Sha256::digest(message.as_bytes());
+        let encoded: String = hash.encode_hex();
+
+        // Return prefixed hash, since multi-chain tasks require simpler identification
+        // Using the specified native_denom, if none, no prefix
+        // Example:
+        // No prefix:   fca49b82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca (No longer used/stored)
+        // with prefix: stars:82eb84818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        // with prefix: longnetwork:818215768293c9e57e7d4194a7c862538e1dedb4516bf2dff0ca
+        let (_, l) = encoded.split_at(prefix.len() + 1);
+        format!("{}:{}", prefix, l)
+    }
+
+    /// Get the hash of a task based on parameters
+    pub fn to_hash_vec(&self, prefix: &str) -> Vec<u8> {
+        self.to_hash(prefix).into_bytes()
+    }
+
+    pub fn recurring(&self) -> bool {
+        !matches!(self.interval, Interval::Once)
+    }
+
+    pub fn with_queries(&self) -> bool {
+        !self.queries.is_empty()
+    }
+}
+
+#[cw_serde]
+pub struct CroncatQuery {
+    pub query_mod: String,
+    pub msg: Binary,
 }
 
 #[cw_serde]
@@ -244,8 +292,17 @@ pub enum SlotType {
     Cron,
 }
 
+impl Display for SlotType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SlotType::Block => write!(f, "block"),
+            SlotType::Cron => write!(f, "cron"),
+        }
+    }
+}
+
 /// Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary: &BoundaryValidated) -> (u64, SlotType) {
     let current_block_height = env.block.height;
 
     let next_block_height = if current_block_height < boundary.start {
@@ -268,7 +325,11 @@ fn get_next_block_limited(env: &Env, boundary: BoundaryValidated) -> (u64, SlotT
 /// Either:
 /// - Boundary specifies a start/end that block offsets can be computed from
 /// - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) -> (u64, SlotType) {
+fn get_next_block_by_offset(
+    env: &Env,
+    boundary: &BoundaryValidated,
+    block: u64,
+) -> (u64, SlotType) {
     let current_block_height = env.block.height;
     let modulo_block = current_block_height.saturating_sub(current_block_height % block) + block;
 
@@ -305,7 +366,7 @@ fn get_next_block_by_offset(env: &Env, boundary: BoundaryValidated, block: u64) 
 /// Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
-    boundary: BoundaryValidated,
+    boundary: &BoundaryValidated,
     crontab: &str,
     slot_granularity_time: u64,
 ) -> (u64, SlotType) {
