@@ -634,6 +634,7 @@ fn query_simulate_task_occurrences_once() {
         sender: Some(ANYONE.to_owned()),
     };
 
+    // With funds
     let simulate: SimulateTaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -641,6 +642,19 @@ fn query_simulate_task_occurrences_once() {
             &QueryMsg::SimulateTask {
                 task: task_request.clone(),
                 funds: Some(coins(352820, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // Without funds
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
             },
         )
         .unwrap();
@@ -673,6 +687,7 @@ fn query_simulate_task_occurrences_immediate() {
         sender: Some(ANYONE.to_owned()),
     };
 
+    // With funds
     let simulate: SimulateTaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -683,12 +698,24 @@ fn query_simulate_task_occurrences_immediate() {
             },
         )
         .unwrap();
+    assert_eq!(simulate.occurrences, 1);
 
+    // Without funds
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
     assert_eq!(simulate.occurrences, 1);
 }
 
 #[test]
-fn query_simulate_task_occurrences_block() {
+fn query_simulate_task_occurrences_block_with_funds() {
     let (app, cw_template_contract, _) = proper_instantiate();
     let contract_addr = cw_template_contract.addr();
 
@@ -839,6 +866,8 @@ fn query_simulate_task_occurrences_block() {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {
             start: None,
+            // 12345 is the current block
+            // The task will be scheduled for blocks 12350, 12355, 12360 ... 12520, 12525
             end: Some((12345 + 5 * 36 as u64).into()),
         }),
         stop_on_fail: false,
@@ -872,6 +901,9 @@ fn query_simulate_task_occurrences_block() {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {
             start: None,
+            // 12345 is the current block
+            // The task will be scheduled for blocks 12350, 12355, 12360 ... 12520
+            // 12525 is out of boundary
             end: Some((12345 + 5 * 36 - 1 as u64).into()),
         }),
         stop_on_fail: false,
@@ -898,6 +930,40 @@ fn query_simulate_task_occurrences_block() {
     // Thus 1_000_000 should be enough for 36 proxy_call's
     // But the end boundary doesn't allow the last proxy_call
     assert_eq!(simulate.occurrences, 35);
+
+    // Interval::Block with one action
+    // End boundary is big, thus occurrences are calculated by funds 
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: None,
+            // 12345 is the current block
+            // The task will be scheduled for blocks 12350, 12355, 12360 ... 12520
+            end: Some((12345 + 5 * 100 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
 
     // Interval::Block with one action
     // Start boundary is smaller than the current block number
@@ -934,7 +1000,6 @@ fn query_simulate_task_occurrences_block() {
     // Start boundary doesn't impact calculations
     assert_eq!(simulate.occurrences, 35);
 
-    // Interval::Block with one action
     // Start boundary is smaller than the current block number
     // End boundary doesn't limit the occurrences
     let task_request = TaskRequest {
@@ -969,14 +1034,48 @@ fn query_simulate_task_occurrences_block() {
     // Start boundary doesn't impact calculations
     assert_eq!(simulate.occurrences, 36);
 
-    // Interval::Block with one action
+    // Start boundary is smaller than the current block number
+    // End boundary is big, thus occurrences are calculated by funds
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(12000u64.into()),
+            end: Some((12345 + 5 * 100 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    // Start boundary doesn't impact calculations
+    assert_eq!(simulate.occurrences, 36);
+
     // Start boundary is some future block
     // End boundary doesn't limit the occurrences
     let task_request = TaskRequest {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {
             start: Some(15000u64.into()),
-            end: Some((15000 + 5 * 36 as u64).into()),
+            // 14995 here is because the start block is in the future
+            // and the task will be scheduled for block 15000
+            end: Some((14995 + 5 * 36 as u64).into()),
         }),
         stop_on_fail: false,
         actions: vec![Action {
@@ -1003,14 +1102,15 @@ fn query_simulate_task_occurrences_block() {
     // The difference between end and start is bid enough for all 36 proxy_call's
     assert_eq!(simulate.occurrences, 36);
 
-    // Interval::Block with one action
     // Start boundary is some future block
     // End boundary limits the occurrences
     let task_request = TaskRequest {
         interval: Interval::Block(5),
         boundary: Some(Boundary::Height {
             start: Some(15000u64.into()),
-            end: Some((15000 + 5 * 36 - 1 as u64).into()),
+            // 14995 here is because the start block is in the future
+            // and the task will be scheduled for block 15000
+            end: Some((14995 + 5 * 36 - 1 as u64).into()),
         }),
         stop_on_fail: false,
         actions: vec![Action {
@@ -1036,6 +1136,235 @@ fn query_simulate_task_occurrences_block() {
     // Thus 1_000_000 should be enough for 36 proxy_call's
     // The difference between end and start allows only 35 proxy_call's
     assert_eq!(simulate.occurrences, 35);
+
+    // Start boundary is some future block
+    // End boundary is big, thus occurrences are calculated by funds 
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(15000u64.into()),
+            end: Some((14995 + 5 * 100 as u64).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: Some(coins(1_000_000, NATIVE_DENOM)),
+            },
+        )
+        .unwrap();
+    // For this task amount_for_one_task == 27091
+    // Thus 1_000_000 should be enough for 36 proxy_call's
+    assert_eq!(simulate.occurrences, 36);
+}
+
+#[test]
+fn query_simulate_task_occurrences_block_without_funds() {
+    let (app, cw_template_contract, _) = proper_instantiate();
+    let contract_addr = cw_template_contract.addr();
+
+    let send = BankMsg::Send {
+        to_address: String::from(ANYONE),
+        amount: vec![coin(1, NATIVE_DENOM)],
+    };
+    let msg: CosmosMsg = send.clone().into();
+
+    // Test cases when funds aren't provided
+
+    // Interval::Block with one action
+    // No funds and boundaries
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only start in the past
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(12360u64)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only start in the future
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(12360u64)),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 1);
+
+    // No funds, boundary has only end
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: None,
+            // The task is scheduled for 12350, 12355, ... 12845
+            // 100 occurrences total
+            end: Some(Uint64::from(12345 + 5 * 100 as u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 100);
+
+    // No funds
+    // Start block is smaller that the current block
+    // Boundary has end
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(12300u64)),
+            // The task is scheduled for 12350, 12355, ... 12845
+            // 100 occurrences total
+            end: Some(Uint64::from(12345 + 5 * 100 as u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    // Start doesn't impact occurrences
+    assert_eq!(simulate.occurrences, 100);
+
+    // No funds
+    // Start block is bigger that the current block
+    // Boundary has end
+    let task_request = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(Uint64::from(15000u64)),
+            // The task is scheduled for 15000, 15005, 15010, ... 15495
+            // 100 occurrences total
+            end: Some(Uint64::from(14995 + 5 * 100 as u64)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: msg.clone(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20_coins: vec![],
+        sender: Some(ANYONE.to_owned()),
+    };
+    let simulate: SimulateTaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &contract_addr.clone(),
+            &QueryMsg::SimulateTask {
+                task: task_request.clone(),
+                funds: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(simulate.occurrences, 100);
 }
 
 #[test]
