@@ -23,6 +23,7 @@ pub enum AgentExecuteMsg {
 }
 
 #[cw_serde]
+#[derive(QueryResponses)]
 pub enum AgentQueryMsg {
     GetAgent {
         account_id: String,
