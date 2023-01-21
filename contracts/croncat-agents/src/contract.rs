@@ -85,7 +85,6 @@ pub fn execute(
         ExecuteMsg::UnregisterAgent { from_behind } => {
             unregister_agent(deps.storage, &info.sender, from_behind)
         }
-        ExecuteMsg::WithdrawReward {} => withdraw_agent_balance(deps, &info.sender),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
     }
 }
