@@ -2,7 +2,7 @@ use croncat_sdk_agents::msg::Config;
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::balancer::{Balancer, RoundRobinBalancer};
-use crate::state::{AGENTS_ACTIVE, CONFIG, AGENT_STATS};
+use crate::state::{AGENTS_ACTIVE, AGENT_STATS, CONFIG};
 use crate::tests::common::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
@@ -10,7 +10,6 @@ use cosmwasm_std::testing::{
 use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps};
 
 use super::common::{mock_config, NATIVE_DENOM};
-
 
 ///Asserts if balancer get the expected amount of tasks with specified active agents and task slots
 ///
@@ -39,7 +38,9 @@ fn assert_balancer_tasks(
         .unwrap_or_default();
     active_agents.extend(act_agents.iter().map(|mapped| Addr::unchecked(mapped.0)));
 
-    AGENTS_ACTIVE.save(&mut deps.storage, &active_agents).unwrap();
+    AGENTS_ACTIVE
+        .save(&mut deps.storage, &active_agents)
+        .unwrap();
     act_agents.iter().for_each(|f| {
         if f.1 > 0 {
             balancer
@@ -47,12 +48,11 @@ fn assert_balancer_tasks(
                     &mut deps.storage,
                     &env,
                     &Addr::unchecked(f.0),
-                    SlotType::Block
+                    SlotType::Block,
                 )
                 .unwrap();
         }
         if f.2 > 0 {
-        
             balancer
                 .on_task_completed(
                     &mut deps.storage,
@@ -66,12 +66,7 @@ fn assert_balancer_tasks(
 
     for a in act_agents {
         let balancer_result = balancer
-            .get_agent_tasks(
-                &deps.as_ref(),
-                &env.clone(),
-                Addr::unchecked(a.0),
-                slots,
-            )
+            .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
             .unwrap()
             .unwrap();
         result.push((
@@ -253,70 +248,44 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             &[(AGENT0, 115, 299), (AGENT1, 115, 299), (AGENT2, 115, 299)],
         ),
     ];
-    
+
     for case in cases {
-        assert_balancer_tasks(
-            &mut deps,
-            &env,
-            &mut config,
-            case.0,
-            case.1,
-            case.2,
-        );
+        assert_balancer_tasks(&mut deps, &env, &mut config, case.0, case.1, case.2);
     }
 }
 
-// #[test]
-// fn test_on_task_completed() {
-//     let store = CwCroncat::default();
-//     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
-//     let env = mock_env();
-//     let balancer = RoundRobinBalancer::default();
-//     let mut config = mock_config();
+#[test]
+fn test_on_task_completed() {
+    let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
+    let env = mock_env();
+    let balancer = RoundRobinBalancer::default();
 
-//     store.config.save(&mut deps.storage, &config).unwrap();
+    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
+        .may_load(&deps.storage)
+        .unwrap()
+        .unwrap_or_default();
+    active_agents.extend(vec![
+        Addr::unchecked(AGENT0),
+        Addr::unchecked(AGENT1),
+        Addr::unchecked(AGENT2),
+        Addr::unchecked(AGENT3),
+        Addr::unchecked(AGENT4),
+    ]);
 
-//     let mut active_agents: Vec<Addr> = store
-//         .agent_active_queue
-//         .may_load(&deps.storage)
-//         .unwrap()
-//         .unwrap_or_default();
-//     active_agents.extend(vec![
-//         Addr::unchecked(AGENT0),
-//         Addr::unchecked(AGENT1),
-//         Addr::unchecked(AGENT2),
-//         Addr::unchecked(AGENT3),
-//         Addr::unchecked(AGENT4),
-//     ]);
+    AGENTS_ACTIVE
+        .save(&mut deps.storage, &active_agents)
+        .unwrap();
 
-//     store
-//         .agent_active_queue
-//         .save(&mut deps.storage, &active_agents)
-//         .unwrap();
+    let agent0_addr = &Addr::unchecked(AGENT0);
+    for _ in 0..5 {
+        balancer
+            .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Block)
+            .unwrap();
+    }
 
-//     let task_info = TaskInfo {
-//         task: default_task(),
-//         task_hash: "".as_bytes().to_vec(),
-//         task_is_extra: Some(true),
-//         agent_id: Addr::unchecked(AGENT0),
-//         slot_kind: SlotType::Block,
-//     };
-
-//     balancer.update_or_append(&mut config.agent_active_indices, (SlotType::Block, 0, 10));
-//     store.config.save(&mut deps.storage, &config).unwrap();
-//     balancer
-//         .on_task_completed(
-//             &mut deps.storage,
-//             &env,
-//             &store.config,
-//             &store.agent_active_queue,
-//             &task_info,
-//         )
-//         .unwrap();
-
-//     config = store.config.load(&mut deps.storage).unwrap();
-//     assert_eq!(config.agent_active_indices, vec![(SlotType::Block, 0, 11)])
-// }
+    let stats = AGENT_STATS.load(&mut deps.storage, &agent0_addr).unwrap();
+    assert_eq!(stats.completed_block_tasks, 5);
+}
 
 // #[test]
 // fn test_on_agent_unregister() {

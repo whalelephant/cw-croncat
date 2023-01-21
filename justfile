@@ -4,6 +4,7 @@ lint:
 test:
 	#!/bin/bash
 	cargo test -- --nocapture 
+
 build:
 	#!/bin/bash
 	set -e
