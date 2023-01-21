@@ -413,7 +413,7 @@ fn unregister_agent(
         active_agents.remove(index);
         AGENTS_ACTIVE.save(storage, &active_agents)?;
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_BALANCER.on_agent_unregistered(storage, agent_id.clone())?;
+        AGENT_BALANCER.on_agent_unregistered(storage, &agent_id)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue

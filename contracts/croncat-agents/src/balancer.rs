@@ -24,7 +24,7 @@ pub trait Balancer<'a> {
     fn on_agent_unregistered(
         &self,
         storage: &'a mut dyn Storage,
-        agent_id: Addr,
+        agent_id: &Addr,
     ) -> Result<(), ContractError>;
 
     #[doc = r"Updates agent stats when agent completed task on specified slot"]
@@ -124,10 +124,10 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
     fn on_agent_unregistered(
         &self,
         storage: &'a mut dyn Storage,
-        agent_id: Addr,
+        agent_id: &Addr,
     ) -> Result<(), ContractError> {
         let active = AGENTS_ACTIVE.load(storage)?;
-        if active.contains(&agent_id) {
+        if !active.contains(&agent_id) {
             return Err(ContractError::AgentNotRegistered);
         }
         AGENT_STATS.remove(storage, &agent_id);
