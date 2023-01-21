@@ -3,8 +3,7 @@ lint:
 	cargo fmt --all && cargo clippy -- -D warnings
 test:
 	#!/bin/bash
-	cargo unit-test
-	cargo wasm
+	cargo test -- --nocapture 
 build:
 	#!/bin/bash
 	set -e

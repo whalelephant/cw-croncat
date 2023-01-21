@@ -7,7 +7,7 @@ use crate::types::AgentStatus;
 pub struct InstantiateMsg {
     pub owner_addr: Option<String>,
     pub native_denom: Option<String>,
-    pub agent_nomination_duration:Option<u16>
+    pub agent_nomination_duration: Option<u16>,
 }
 
 #[cw_serde]
@@ -39,7 +39,7 @@ pub enum QueryMsg {
     #[returns[Option<AgentTaskResponse>]]
     GetAgentTasks {
         account_id: String,
-        slots: (u64, u64),
+        slots: (Option<u64>, Option<u64>),
     },
 }
 
@@ -62,9 +62,7 @@ pub struct AgentResponse {
 #[cw_serde]
 pub struct AgentTaskResponse {
     pub num_block_tasks: Uint64,
-    pub num_block_tasks_extra: Uint64,
     pub num_cron_tasks: Uint64,
-    pub num_cron_tasks_extra: Uint64,
 }
 
 #[cw_serde]
@@ -72,11 +70,11 @@ pub struct Config {
     pub owner_addr: Addr,
     pub paused: bool,
     pub native_denom: String,
-    pub min_tasks_per_agent: u64,    /// The duration a prospective agent has to nominate themselves.
+    pub min_tasks_per_agent: u64,
+    /// The duration a prospective agent has to nominate themselves.
     /// When a task is created such that a new agent can join,
     /// The agent at the zeroth index of the pending agent queue has this time to nominate
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
     pub agent_nomination_duration: u16,
-
 }

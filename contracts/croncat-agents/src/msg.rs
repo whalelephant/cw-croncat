@@ -1,4 +1,3 @@
 pub use croncat_sdk_agents::msg::{
-    InstantiateMsg, ExecuteMsg, QueryMsg, AgentResponse, GetAgentIdsResponse,Config
+    AgentResponse, Config, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
 };
-

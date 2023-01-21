@@ -1,6 +1,5 @@
-
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Timestamp, Uint128, Addr, Deps};
+use cosmwasm_std::{Addr, Timestamp, Uint128};
 
 #[cw_serde]
 pub enum AgentExecuteMsg {
@@ -31,13 +30,6 @@ pub struct Agent {
     // accrued reward balance
     pub balance: Uint128,
 
-    // stats
-    pub total_tasks_executed: u64,
-
-    // Holds slot number of the last slot when agent called proxy_call.
-    // If agent does a task, this number is set to the current block.
-    pub last_executed_slot: u64,
-
     // Timestamp of when agent first registered
     // Useful for rewarding agents for their patience while they are pending and operating service
     // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
@@ -45,10 +37,14 @@ pub struct Agent {
     pub register_start: Timestamp,
 }
 
-impl Agent {
-    pub fn update(&mut self, last_executed_slot: u64) {
-        self.total_tasks_executed = self.total_tasks_executed.saturating_add(1);
-        self.last_executed_slot = last_executed_slot;
-    }
+#[cw_serde]
+#[derive(Default)]
+pub struct AgentStats {
+    pub completed_block_tasks: u64,
+    pub completed_cron_tasks: u64,
+    pub missed_blocked_tasks: u64,
+    pub missed_cron_tasks: u64,
+    // Holds slot number of the last slot when agent called proxy_call.
+    // If agent does a task, this number is set to the current block.
+    pub last_executed_slot: u64,
 }
-

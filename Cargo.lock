@@ -171,7 +171,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "croncat-sdk-agents",
- "croncat-sdk-core",
  "croncat-sdk-tasks",
  "cw-multi-test",
  "cw-storage-plus 0.16.0",

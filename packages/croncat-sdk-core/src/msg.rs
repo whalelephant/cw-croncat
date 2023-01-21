@@ -83,4 +83,3 @@ pub enum ManagerQueryMsg {
 pub enum ManagerReceiveMsg {
     RefillCw20Balance {},
 }
-
