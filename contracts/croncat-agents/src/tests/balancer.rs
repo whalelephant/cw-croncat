@@ -283,8 +283,13 @@ fn test_on_task_completed() {
             .unwrap();
     }
 
+    balancer
+        .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Cron)
+        .unwrap();
+
     let stats = AGENT_STATS.load(&mut deps.storage, &agent0_addr).unwrap();
     assert_eq!(stats.completed_block_tasks, 5);
+    assert_eq!(stats.completed_cron_tasks, 1);
 }
 
 #[test]
@@ -323,10 +328,9 @@ fn test_on_agent_unregister() {
         .on_agent_unregistered(&mut deps.storage, &agent1_addr)
         .unwrap();
 
-    let stats0 = AGENT_STATS.load(&mut deps.storage, &agent1_addr);
+    let stats0 = AGENT_STATS.load(&mut deps.storage, &agent0_addr);
     let stats1 = AGENT_STATS.load(&mut deps.storage, &agent1_addr);
 
-    // assert!(stats0.is_ok());
-    // assert!(stats1.is_err());
-
+    assert!(stats0.is_ok());
+    assert!(stats1.is_err());
 }
