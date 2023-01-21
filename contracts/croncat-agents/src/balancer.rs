@@ -1,6 +1,6 @@
 use cosmwasm_std::{Addr, Deps, Env, Storage, Uint64};
-use croncat_sdk_agents::msg::AgentTaskResponse;
-use croncat_sdk_core::{helpers::vect_difference, types::Config};
+use croncat_sdk_agents::msg::{AgentTaskResponse, Config};
+use croncat_sdk_core::{helpers::vect_difference};
 use croncat_sdk_tasks::types::{SlotType, TaskInfo};
 use cw_storage_plus::Item;
 

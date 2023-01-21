@@ -3,15 +3,12 @@ use std::ops::Div;
 
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::msg::{
-    AgentContractInstantiateMsg as InstantiateMsg, 
-    AgentExecuteMsg as ExecuteMsg,
-    AgentQueryMsg as QueryMsg,
-};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw2::set_contract_version;
 
 use crate::state::{
-    ACTIVE_AGENTS, AGENTS, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME, CONFIG, PENDING_AGENTS,
+    ACTIVE_AGENTS, AGENTS, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME, CONFIG,
+    DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION, PENDING_AGENTS,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -19,9 +16,8 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
     StdError, StdResult, Storage, SubMsg, Uint128,
 };
-use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse};
+use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, Config, GetAgentIdsResponse};
 use croncat_sdk_agents::types::{Agent, AgentStatus};
-use croncat_sdk_core::types::Config;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -30,16 +26,31 @@ pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
-    _msg: InstantiateMsg,
+    info: MessageInfo,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
+    let valid_owner_addr = msg
+        .owner_addr
+        .map(|human| deps.api.addr_validate(&human))
+        .transpose()?
+        .unwrap_or_else(|| info.sender.clone());
+
+    let config = &Config {
+        min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
+        agent_nomination_duration: msg
+            .agent_nomination_duration
+            .unwrap_or(DEFAULT_NOMINATION_DURATION),
+        owner_addr: valid_owner_addr,
+        paused: false,
+        native_denom: msg.native_denom.expect("Invalid native_denom"), //TODO: Remove native denom from agents
+    };
+    CONFIG.save(deps.storage, config)?;
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("paused", config.paused.to_string())
-        .add_attribute("owner_id", config.owner_id.to_string()))
+        .add_attribute("owner", config.owner_addr.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
