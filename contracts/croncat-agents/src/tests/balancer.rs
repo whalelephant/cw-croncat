@@ -2,7 +2,7 @@ use croncat_sdk_agents::msg::Config;
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::balancer::{Balancer, RoundRobinBalancer};
-use crate::state::{AGENTS_ACTIVE, AGENT_STATS, CONFIG};
+use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
 use crate::tests::common::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
