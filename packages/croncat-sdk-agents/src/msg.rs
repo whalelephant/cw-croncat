@@ -24,6 +24,7 @@ pub enum ExecuteMsg {
         from_behind: Option<bool>,
     },
     WithdrawReward {},
+    NewTaskCreated {},
 }
 
 #[cw_serde]
