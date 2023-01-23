@@ -1,5 +1,5 @@
 use cosmwasm_std::MessageInfo;
-use croncat_sdk_core::types::Config;
+use croncat_sdk_manager::types::Config;
 
 use crate::ContractError;
 

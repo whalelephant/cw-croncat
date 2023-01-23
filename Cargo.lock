@@ -196,7 +196,7 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
- "croncat-sdk-core",
+ "croncat-sdk-manager",
  "cw-multi-test",
  "cw-storage-plus 0.16.0",
  "cw2 1.0.1",
@@ -256,12 +256,6 @@ version = "0.1.0"
 [[package]]
 name = "croncat-sdk-core"
 version = "0.1.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw20 0.16.0",
- "thiserror",
-]
 
 [[package]]
 name = "croncat-sdk-factory"
@@ -269,6 +263,16 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+]
+
+[[package]]
+name = "croncat-sdk-manager"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw20 0.16.0",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,8 +1,8 @@
 use cosmwasm_std::{Addr, Uint128};
-use croncat_sdk_core::types::TaskBalance;
+use croncat_sdk_manager::types::TaskBalance;
 use cw_storage_plus::{Item, Map};
 
-pub use croncat_sdk_core::types::Config;
+pub use croncat_sdk_manager::types::Config;
 
 pub const CONFIG: Item<Config> = Item::new("config");
 

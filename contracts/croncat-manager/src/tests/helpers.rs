@@ -1,5 +1,5 @@
 use cosmwasm_std::{coins, Addr, Coin, Uint128};
-use croncat_sdk_core::types::Config;
+use croncat_sdk_manager::types::Config;
 use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 

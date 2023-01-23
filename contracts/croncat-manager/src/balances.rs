@@ -2,7 +2,7 @@ use cosmwasm_std::{
     coins, from_binary, to_binary, Addr, BankMsg, Deps, DepsMut, MessageInfo, Order, Response,
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
-use croncat_sdk_core::types::Config;
+use croncat_sdk_manager::types::Config;
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{

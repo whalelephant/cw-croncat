@@ -3,7 +3,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, Uint128,
 };
-use croncat_sdk_core::types::UpdateConfig;
+use croncat_sdk_manager::types::UpdateConfig;
 use cw2::set_contract_version;
 
 use crate::balances::{
@@ -109,7 +109,7 @@ pub fn execute(
         }
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
-        // TODO: make method ONLY for tasks contract to create task_hash's balance! 
+        // TODO: make method ONLY for tasks contract to create task_hash's balance!
     }
 }
 

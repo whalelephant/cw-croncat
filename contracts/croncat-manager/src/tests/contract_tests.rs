@@ -1,5 +1,5 @@
 use cosmwasm_std::{coins, to_binary, Addr, Uint128};
-use croncat_sdk_core::types::{Config, UpdateConfig};
+use croncat_sdk_manager::types::{Config, UpdateConfig};
 use cw20::Cw20CoinVerified;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
-use croncat_sdk_core::types::GasPrice;
+use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::{BankSudo, Executor};
 
 use super::helpers::{init_cw20, query_users_manager};
@@ -411,7 +411,7 @@ fn cw20_bad_messages() {
     assert_eq!(
         err,
         ContractError::Std(StdError::parse_err(
-            "croncat_sdk_core::msg::ManagerReceiveMsg",
+            "croncat_sdk_manager::msg::ManagerReceiveMsg",
             "EOF while parsing a JSON value."
         ))
     );
@@ -434,7 +434,7 @@ fn cw20_bad_messages() {
     assert_eq!(
         err,
         ContractError::Std(StdError::parse_err(
-            "croncat_sdk_core::msg::ManagerReceiveMsg",
+            "croncat_sdk_manager::msg::ManagerReceiveMsg",
             "Expected to parse either a `true`, `false`, or a `null`."
         ))
     );
