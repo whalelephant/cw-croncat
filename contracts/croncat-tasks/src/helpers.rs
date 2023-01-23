@@ -11,7 +11,7 @@ pub(crate) fn validate_boundary(
     boundary: &Option<Boundary>,
     interval: &Interval,
 ) -> Result<BoundaryValidated, ContractError> {
-    let prevalid_boundary = match (interval, boundary) {
+    let boundary_validated = match (interval, boundary) {
         (Interval::Cron(_), Some(Boundary::Height { .. }))
         | (Interval::Block(_), Some(Boundary::Time { .. })) => {
             Err(ContractError::InvalidBoundary {})
@@ -39,12 +39,12 @@ pub(crate) fn validate_boundary(
         }),
     }?;
 
-    if let Some(end) = prevalid_boundary.end {
-        if end >= prevalid_boundary.start {
+    if let Some(end) = boundary_validated.end {
+        if end >= boundary_validated.start {
             return Err(ContractError::InvalidBoundary {});
         }
     }
-    Ok(prevalid_boundary)
+    Ok(boundary_validated)
 }
 
 pub(crate) fn validate_msg_calculate_usage(
