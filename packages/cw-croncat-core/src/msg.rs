@@ -1,8 +1,8 @@
 use crate::error::CoreError;
 use crate::traits::Intervals;
 use crate::types::{
-    Action, AgentStatus, BalancerMode, Boundary, CheckedBoundary, GasPrice, GenericBalance,
-    Interval, Task, Transform,
+    Action, AgentStatus, Boundary, CheckedBoundary, GasPrice, GenericBalance, Interval, Task,
+    Transform,
 };
 use crate::types::{Agent, SlotType};
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint64};
@@ -428,19 +428,6 @@ pub struct TaskWithQueriesResponse {
     pub interval: Interval,
     pub boundary: Option<Boundary>,
     pub queries: Option<Vec<CroncatQuery>>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CwCroncatResponse {
-    pub agent_active_queue: Vec<Addr>,
-    pub agent_pending_queue: Vec<Addr>,
-    pub tasks: Vec<TaskResponse>,
-    pub task_total: Uint64,
-    pub reply_index: Uint64,
-
-    pub agent_nomination_begin_time: Option<Timestamp>,
-
-    pub balancer_mode: BalancerMode,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
