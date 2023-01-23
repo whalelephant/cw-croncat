@@ -24,7 +24,11 @@ pub enum ExecuteMsg {
         from_behind: Option<bool>,
     },
     WithdrawReward {},
-    NewTaskCreated {},
+    //Task contract will send message when task is created
+    OnTaskCreated {
+        task_hash: String,
+        total_tasks: u64,
+    },
 }
 
 #[cw_serde]
@@ -36,7 +40,10 @@ pub enum QueryMsg {
         total_tasks: u64,
     },
     #[returns[Option<GetAgentIdsResponse>]]
-    GetAgentIds {},
+    GetAgentIds {
+        skip: Option<usize>,
+        take: Option<usize>,
+    },
     #[returns[Option<AgentTaskResponse>]]
     GetAgentTasks {
         account_id: String,

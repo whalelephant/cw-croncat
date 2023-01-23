@@ -60,7 +60,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             account_id,
             total_tasks,
         } => to_binary(&query_get_agent(deps, env, account_id, total_tasks)?),
-        QueryMsg::GetAgentIds {} => to_binary(&query_get_agent_ids(deps)?),
+        QueryMsg::GetAgentIds { skip, take } => to_binary(&query_get_agent_ids(deps, skip, take)?),
         QueryMsg::GetAgentTasks { account_id, slots } => {
             to_binary(&query_get_agent_tasks(deps, env, account_id, slots)?)
         }
@@ -87,6 +87,10 @@ pub fn execute(
         }
         ExecuteMsg::WithdrawReward {} => withdraw_agent_balance(deps, &info.sender),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
+        ExecuteMsg::OnTaskCreated {
+            task_hash,
+            total_tasks,
+        } => on_task_created(env, deps, task_hash, total_tasks),
     }
 }
 
@@ -125,10 +129,21 @@ fn query_get_agent(
 }
 
 /// Get a list of agent addresses
-fn query_get_agent_ids(deps: Deps) -> StdResult<GetAgentIdsResponse> {
-    let active: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
+fn query_get_agent_ids(
+    deps: Deps,
+    skip: Option<usize>,
+    take: Option<usize>,
+) -> StdResult<GetAgentIdsResponse> {
+    let active_loaded: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
+    let active = active_loaded
+        .into_iter()
+        .skip(skip.unwrap_or(0))
+        .take(take.unwrap_or(usize::MAX))
+        .collect();
     let pending: Vec<Addr> = AGENTS_PENDING
         .iter(deps.storage)?
+        .skip(skip.unwrap_or(0))
+        .take(take.unwrap_or(usize::MAX))
         .collect::<StdResult<Vec<Addr>>>()?;
 
     Ok(GetAgentIdsResponse { active, pending })
@@ -148,7 +163,7 @@ fn query_get_agent_tasks(
         });
     }
 
-    if slots == (None,None) {
+    if slots == (None, None) {
         return Ok(None);
     }
     AGENT_BALANCER
@@ -545,4 +560,28 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
     } else {
         0
     }
+}
+fn on_task_created(
+    env: Env,
+    deps: DepsMut,
+    task_hash: String,
+    total_tasks: u64,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    let min_tasks_per_agent = config.min_tasks_per_agent;
+    let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
+    let num_agents_to_accept =
+        agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
+    // If we should allow a new agent to take over
+    if num_agents_to_accept != 0 {
+        // Don't wipe out an older timestamp
+        let begin = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage)?;
+        if begin.is_none() {
+            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
+        }
+    }
+    let response = Response::new()
+        .add_attribute("method", "on_task_created")
+        .add_attribute("task_hash", task_hash);
+    Ok(response)
 }
