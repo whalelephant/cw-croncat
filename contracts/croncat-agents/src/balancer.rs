@@ -1,4 +1,3 @@
-
 use cosmwasm_std::{Addr, Deps, Env, Storage, Uint64};
 use croncat_sdk_agents::msg::AgentTaskResponse;
 use croncat_sdk_tasks::types::SlotType;
@@ -126,10 +125,10 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
         agent_id: &Addr,
     ) -> Result<(), ContractError> {
         let active = AGENTS_ACTIVE.load(storage)?;
-        if !active.contains(&agent_id) {
+        if !active.contains(agent_id) {
             return Err(ContractError::AgentNotRegistered);
         }
-        AGENT_STATS.remove(storage, &agent_id);
+        AGENT_STATS.remove(storage, agent_id);
         Ok(())
     }
 

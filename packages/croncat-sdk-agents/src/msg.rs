@@ -29,6 +29,7 @@ pub enum ExecuteMsg {
         task_hash: String,
         total_tasks: u64,
     },
+    UpdateConfig(Box<UpdateConfig>),
 }
 
 #[cw_serde]
@@ -74,15 +75,10 @@ pub struct AgentTaskResponse {
 }
 
 #[cw_serde]
-pub struct Config {
-    pub owner_addr: Addr,
-    pub paused: bool,
-    pub native_denom: String,
-    pub min_tasks_per_agent: u64,
-    /// The duration a prospective agent has to nominate themselves.
-    /// When a task is created such that a new agent can join,
-    /// The agent at the zeroth index of the pending agent queue has this time to nominate
-    /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
-    /// Value is in seconds
-    pub agent_nomination_duration: u16,
+pub struct UpdateConfig {
+    pub owner_addr: Option<String>,
+    pub paused: Option<bool>,
+    pub native_denom: Option<String>,
+    pub min_tasks_per_agent: Option<u64>,
+    pub agent_nomination_duration: Option<u16>,
 }

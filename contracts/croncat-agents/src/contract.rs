@@ -3,6 +3,7 @@ use std::ops::Div;
 
 use crate::balancer::Balancer;
 use crate::error::ContractError;
+use crate::msg::*;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw2::set_contract_version;
 
@@ -16,8 +17,6 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
     StdError, StdResult, Storage, SubMsg, Uint128,
 };
-use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, Config, GetAgentIdsResponse};
-use croncat_sdk_agents::types::{Agent, AgentStatus};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -91,6 +90,7 @@ pub fn execute(
             task_hash,
             total_tasks,
         } => on_task_created(env, deps, task_hash, total_tasks),
+        ExecuteMsg::UpdateConfig(config) => execute_update_config(deps, info, *config),
     }
 }
 
@@ -428,7 +428,7 @@ fn unregister_agent(
         active_agents.remove(index);
         AGENTS_ACTIVE.save(storage, &active_agents)?;
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_BALANCER.on_agent_unregistered(storage, &agent_id)?;
+        AGENT_BALANCER.on_agent_unregistered(storage, agent_id)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
@@ -468,6 +468,48 @@ fn unregister_agent(
     } else {
         Ok(responses.add_submessages(messages))
     }
+}
+
+pub fn execute_update_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    msg: UpdateConfig,
+) -> Result<Response, ContractError> {
+    let new_config = CONFIG.update(deps.storage, |config| {
+        // Deconstruct, so we don't miss any fields
+        let UpdateConfig {
+            owner_addr,
+            paused,
+            native_denom,
+            min_tasks_per_agent,
+            agent_nomination_duration,
+        } = msg;
+
+        if info.sender != config.owner_addr {
+            return Err(ContractError::Unauthorized {});
+        }
+
+        let owner_addr = owner_addr
+            .map(|human| deps.api.addr_validate(&human))
+            .transpose()?
+            .unwrap_or(config.owner_addr);
+
+        let new_config = Config {
+            paused: paused.unwrap_or(config.paused),
+            owner_addr,
+            min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
+            agent_nomination_duration: agent_nomination_duration
+                .unwrap_or(config.agent_nomination_duration),
+            native_denom: native_denom.unwrap_or(config.native_denom),
+        };
+        Ok(new_config)
+    })?;
+
+    Ok(Response::new()
+        .add_attribute("action", "update_config")
+        .add_attribute("action", "instantiate")
+        .add_attribute("paused", new_config.paused.to_string())
+        .add_attribute("owner_id", new_config.owner_addr.to_string()))
 }
 
 fn get_agent_status(

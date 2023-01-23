@@ -1,9 +1,6 @@
 use crate::balancer::RoundRobinBalancer;
+use crate::msg::*;
 use cosmwasm_std::{Addr, Timestamp};
-use croncat_sdk_agents::{
-    msg::Config,
-    types::{Agent, AgentStats},
-};
 use cw_storage_plus::{Deque, Item, Map};
 
 /// Contract config, just the owner address for now, preferably dao

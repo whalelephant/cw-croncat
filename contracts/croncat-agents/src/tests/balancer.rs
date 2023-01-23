@@ -1,4 +1,4 @@
-use croncat_sdk_agents::msg::Config;
+use crate::msg::*;
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::balancer::{Balancer, RoundRobinBalancer};

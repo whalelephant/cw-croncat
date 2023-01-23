@@ -2,15 +2,6 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Timestamp, Uint128};
 
 #[cw_serde]
-pub enum AgentExecuteMsg {
-    RegisterAgent { payable_account_id: Option<String> },
-    UpdateAgent { payable_account_id: String },
-    CheckInAgent {},
-    UnregisterAgent { from_behind: Option<bool> },
-    WithdrawReward {},
-}
-
-#[cw_serde]
 pub enum AgentStatus {
     // Default for any new agent, if tasks ratio allows
     Active,
@@ -47,4 +38,25 @@ pub struct AgentStats {
     // Holds slot number of the last slot when agent called proxy_call.
     // If agent does a task, this number is set to the current block.
     pub last_executed_slot: u64,
+}
+
+#[cw_serde]
+pub struct Config {
+    pub owner_addr: Addr,
+    pub paused: bool,
+    pub native_denom: String,
+    /// Agent management
+    /// The minimum number of tasks per agent
+    /// Example: 10
+    /// Explanation: For every 1 agent, 10 tasks per slot are available.
+    /// NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
+    /// NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
+    pub min_tasks_per_agent: u64,
+
+    /// The duration a prospective agent has to nominate themselves.
+    /// When a task is created such that a new agent can join,
+    /// The agent at the zeroth index of the pending agent queue has this time to nominate
+    /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
+    /// Value is in seconds
+    pub agent_nomination_duration: u16,
 }

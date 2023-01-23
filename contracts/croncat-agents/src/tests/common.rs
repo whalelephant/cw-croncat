@@ -1,10 +1,14 @@
-use croncat_sdk_agents::msg::{InstantiateMsg, Config};
-use cosmwasm_std::{
-    testing::{mock_env, mock_info},
-    Addr,DepsMut, Empty, Response, coins,
+use crate::msg::*;
+use crate::{
+    contract::instantiate,
+    error::ContractError,
+    state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION},
 };
-use crate::{state::{DEFAULT_NOMINATION_DURATION, DEFAULT_MIN_TASKS_PER_AGENT}, contract::instantiate, error::ContractError};
-
+use cosmwasm_std::{
+    coins,
+    testing::{mock_env, mock_info},
+    Addr, DepsMut, Empty, Response,
+};
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";

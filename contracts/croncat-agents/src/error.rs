@@ -32,4 +32,7 @@ pub enum ContractError {
 
     #[error("Contract method does not accept any funds")]
     NoFundsShouldBeAttached,
+
+    #[error("Unauthorized funciton call")]
+    Unauthorized {},
 }
