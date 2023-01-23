@@ -1,9 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
-use croncat_sdk_tasks::types::{Config, SlotType, Task, TaskRequest};
+use cosmwasm_std::{
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
+};
+use croncat_sdk_tasks::types::{
+    Config, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest, TaskResponse,
+};
 use cw2::{query_contract_info, set_contract_version};
-use cw20::Cw20CoinVerified;
 
 use crate::error::ContractError;
 use crate::helpers::{validate_boundary, validate_msg_calculate_usage};
@@ -74,8 +77,78 @@ pub fn execute(
     // TODO: check config if paused
     match msg {
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, task),
-        ExecuteMsg::RemoveTask { task_hash } => todo!(),
+        ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, task_hash, info),
     }
+}
+
+fn execute_remove_task(
+    deps: DepsMut,
+    task_hash: String,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let hash = task_hash.as_bytes();
+    if let Some(task) = tasks_map().may_load(deps.storage, hash)? {
+        if task.owner_addr != info.sender {
+            return Err(ContractError::Unauthorized {});
+        }
+        tasks_map().remove(deps.storage, hash)?;
+        TASKS_TOTAL.update(deps.storage, |total| StdResult::Ok(total - 1))?;
+        // TODO: optimize removal of the task
+        if task.boundary.is_block_boundary {
+            let blocks = BLOCK_SLOTS
+                .range(deps.storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
+            for (bid, mut block_hashes) in blocks {
+                let found = false;
+                block_hashes.retain(|h| {
+                    let found = h == hash;
+                    !found
+                });
+                if found {
+                    if block_hashes.is_empty() {
+                        BLOCK_SLOTS.remove(deps.storage, bid);
+                    } else {
+                        BLOCK_SLOTS.save(deps.storage, bid, &block_hashes)?;
+                    }
+                    break;
+                }
+            }
+        } else {
+            let time_buckets = TIME_SLOTS
+                .range(deps.storage, None, None, Order::Ascending)
+                .collect::<StdResult<Vec<_>>>()?;
+            for (tid, mut time_hashes) in time_buckets {
+                let found = false;
+                time_hashes.retain(|h| {
+                    let found = h == hash;
+                    !found
+                });
+                if found {
+                    if time_hashes.is_empty() {
+                        TIME_SLOTS.remove(deps.storage, tid);
+                    } else {
+                        TIME_SLOTS.save(deps.storage, tid, &time_hashes)?;
+                    }
+                    break;
+                }
+            }
+        }
+    } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, hash)? {
+        if task.owner_addr != info.sender {
+            return Err(ContractError::Unauthorized {});
+        }
+        tasks_with_queries_map().remove(deps.storage, hash)?;
+        if task.boundary.is_block_boundary {
+            BLOCK_MAP_QUERIES.remove(deps.storage, hash)
+        } else {
+            TIME_MAP_QUERIES.remove(deps.storage, hash)
+        }
+        TASKS_WITH_QUERIES_TOTAL.update(deps.storage, |total| StdResult::Ok(total - 1))?;
+    } else {
+        return Err(ContractError::NoTaskFound {});
+    }
+    // TODO: ping manager to remove balance of the task hash
+    Ok(Response::new().add_attribute("action", "remove_task"))
 }
 
 fn execute_create_task(
@@ -174,6 +247,189 @@ fn execute_create_task(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, _msg: QueryMsg) -> StdResult<Binary> {
-    todo!();
+pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Tasks { from_index, limit } => {
+            to_binary(&query_tasks(deps, env, from_index, limit)?)
+        }
+        QueryMsg::TasksWithQueries { from_index, limit } => {
+            to_binary(&query_tasks_with_queries(deps, env, from_index, limit)?)
+        }
+        QueryMsg::TasksByOwner {
+            owner_addr,
+            from_index,
+            limit,
+        } => to_binary(&query_tasks_by_owner(
+            deps, env, owner_addr, from_index, limit,
+        )?),
+        QueryMsg::Task { task_hash } => to_binary(&query_task(deps, env, task_hash)?),
+        QueryMsg::TaskHash { task } => to_binary(&task.to_hash(&env.block.chain_id)),
+        QueryMsg::SlotHashes { slot } => to_binary(&query_slot_hashes(deps, slot)?),
+        QueryMsg::SlotIds { from_index, limit } => {
+            to_binary(&query_slot_ids(deps, from_index, limit)?)
+        }
+    }
+}
+
+fn query_slot_ids(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<SlotIdsResponse> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    let time_ids = TIME_SLOTS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .collect::<StdResult<_>>()?;
+    let block_ids = BLOCK_SLOTS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .collect::<StdResult<_>>()?;
+
+    Ok(SlotIdsResponse {
+        time_ids,
+        block_ids,
+    })
+}
+
+fn query_slot_hashes(deps: Deps, slot: Option<u64>) -> StdResult<SlotHashesResponse> {
+    let mut block_id: u64 = 0;
+    let mut block_hashes: Vec<Vec<u8>> = Vec::new();
+    let mut time_id: u64 = 0;
+    let mut time_hashes: Vec<Vec<u8>> = Vec::new();
+
+    // Check if slot was supplied, otherwise get the next slots for block and time
+    if let Some(id) = slot {
+        block_hashes = BLOCK_SLOTS.may_load(deps.storage, id)?.unwrap_or_default();
+        if !block_hashes.is_empty() {
+            block_id = id;
+        }
+        time_hashes = TIME_SLOTS.may_load(deps.storage, id)?.unwrap_or_default();
+        if !time_hashes.is_empty() {
+            time_id = id;
+        }
+    } else {
+        let time: Vec<(u64, _)> = TIME_SLOTS
+            .range(deps.storage, None, None, Order::Ascending)
+            .take(1)
+            .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+        if !time.is_empty() {
+            // (time_id, time_hashes) = time[0].clone();
+            let slot = time[0].clone();
+            time_id = slot.0;
+            time_hashes = slot.1;
+        }
+
+        let block: Vec<(u64, _)> = BLOCK_SLOTS
+            .range(deps.storage, None, None, Order::Ascending)
+            .take(1)
+            .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+        if !block.is_empty() {
+            // (block_id, block_hashes) = block[0].clone();
+            let slot = block[0].clone();
+            block_id = slot.0;
+            block_hashes = slot.1;
+        }
+    }
+
+    // Generate strings for all hashes
+    let block_task_hash: Vec<_> = block_hashes
+        .iter()
+        .map(|b| String::from_utf8(b.to_vec()).unwrap_or_else(|_| "".to_string()))
+        .collect();
+    let time_task_hash: Vec<_> = time_hashes
+        .iter()
+        .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
+        .collect();
+
+    Ok(SlotHashesResponse {
+        block_id,
+        block_task_hash,
+        time_id,
+        time_task_hash,
+    })
+}
+
+fn query_task(deps: Deps, env: Env, task_hash: String) -> StdResult<Option<TaskResponse>> {
+    if let Some(task) = tasks_map().may_load(deps.storage, task_hash.as_bytes())? {
+        Ok(Some(task.into_response(&env.block.chain_id)))
+    } else if let Some(task) =
+        tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())?
+    {
+        Ok(Some(task.into_response(&env.block.chain_id)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn query_tasks_by_owner(
+    deps: Deps,
+    env: Env,
+    owner_addr: String,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskResponse>> {
+    let owner_addr = deps.api.addr_validate(&owner_addr)?;
+
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    let tasks = tasks_map().idx.owner.prefix(owner_addr.clone()).range(
+        deps.storage,
+        None,
+        None,
+        Order::Ascending,
+    );
+    let tasks_with_queries = tasks_with_queries_map().idx.owner.prefix(owner_addr).range(
+        deps.storage,
+        None,
+        None,
+        Order::Ascending,
+    );
+    tasks
+        .chain(tasks_with_queries)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
+        .collect()
+}
+
+fn query_tasks_with_queries(
+    deps: Deps,
+    env: Env,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskResponse>> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    tasks_with_queries_map()
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
+        .collect()
+}
+
+fn query_tasks(
+    deps: Deps,
+    env: Env,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskResponse>> {
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    tasks_map()
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
+        .collect()
 }

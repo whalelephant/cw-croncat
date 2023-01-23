@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{coin, Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 use cw20::{Cw20Coin, Cw20CoinVerified};
@@ -206,6 +206,40 @@ impl Task {
     pub fn with_queries(&self) -> bool {
         !self.queries.is_empty()
     }
+
+    pub fn into_response(self, prefix: &str) -> TaskResponse {
+        let task_hash = self.to_hash(prefix);
+        let boundary = if self.boundary.is_block_boundary {
+            Boundary::Height {
+                start: Some(self.boundary.start.into()),
+                end: self.boundary.end.map(Into::into),
+            }
+        } else {
+            Boundary::Time {
+                start: Some(Timestamp::from_nanos(self.boundary.start)),
+                end: self.boundary.end.map(Timestamp::from_nanos),
+            }
+        };
+
+        let queries = if !self.queries.is_empty() {
+            Some(self.queries)
+        } else {
+            None
+        };
+
+        TaskResponse {
+            task_hash,
+            owner_addr: self.owner_addr,
+            interval: self.interval,
+            boundary,
+            stop_on_fail: self.stop_on_fail,
+            amount_for_one_task: self.amount_for_one_task,
+            actions: self.actions,
+            queries,
+            transforms: self.transforms,
+            version: self.version,
+        }
+    }
 }
 
 #[cw_serde]
@@ -261,16 +295,18 @@ impl AmountForOneTask {
 pub struct TaskResponse {
     pub task_hash: String,
 
-    pub owner_id: Addr,
+    pub owner_addr: Addr,
 
     pub interval: Interval,
-    pub boundary: Option<Boundary>,
+    pub boundary: Boundary,
 
     pub stop_on_fail: bool,
     pub amount_for_one_task: AmountForOneTask,
 
     pub actions: Vec<Action>,
-    // TODO: pub queries: Option<Vec<CroncatQuery>>,
+    pub queries: Option<Vec<CroncatQuery>>,
+    pub transforms: Vec<Transform>,
+    pub version: String,
 }
 
 #[cw_serde]

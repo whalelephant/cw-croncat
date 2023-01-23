@@ -35,4 +35,10 @@ pub enum ContractError {
 
     #[error("Task already exists")]
     TaskExists {},
+
+    #[error("No task found by hash")]
+    NoTaskFound {},
+
+    #[error("Unauthorized")]
+    Unauthorized {},
 }

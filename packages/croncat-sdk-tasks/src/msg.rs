@@ -48,8 +48,12 @@ pub enum TasksQueryMsg {
         limit: Option<u64>,
     },
     #[returns(Vec<TaskResponse>)]
-    TasksByOwner { owner_addr: String },
-    #[returns(TaskResponse)]
+    TasksByOwner {
+        owner_addr: String,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    #[returns(Option<TaskResponse>)]
     Task { task_hash: String },
     #[returns(String)]
     TaskHash { task: Box<Task> },
