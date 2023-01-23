@@ -41,4 +41,7 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("Chain name can't be longer than 32 characters")]
+    TooLongChainName {},
 }

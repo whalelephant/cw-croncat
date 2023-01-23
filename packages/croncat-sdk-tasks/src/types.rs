@@ -14,6 +14,8 @@ pub struct Config {
     pub paused: bool,
     pub owner_addr: Addr,
 
+    pub chain_name: String,
+
     pub croncat_factory_addr: Addr,
     pub croncat_manager_key: (String, [u8; 2]),
     pub croncat_agents_key: (String, [u8; 2]),

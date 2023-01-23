@@ -37,6 +37,7 @@ pub fn instantiate(
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let InstantiateMsg {
         croncat_factory_addr,
+        chain_name,
         owner_addr,
         croncat_manager_key,
         croncat_agents_key,
@@ -48,6 +49,7 @@ pub fn instantiate(
     } = msg;
     let config = Config {
         paused: false,
+        chain_name,
         owner_addr: owner_addr
             .map(|human| deps.api.addr_validate(&human))
             .transpose()?
@@ -74,7 +76,6 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    // TODO: check config if paused
     match msg {
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, task_hash, info),
@@ -86,6 +87,10 @@ fn execute_remove_task(
     task_hash: String,
     info: MessageInfo,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.paused {
+        return Err(ContractError::Paused {});
+    }
     let hash = task_hash.as_bytes();
     if let Some(task) = tasks_map().may_load(deps.storage, hash)? {
         if task.owner_addr != info.sender {
@@ -184,7 +189,7 @@ fn execute_create_task(
         transforms: task.transforms.unwrap_or_default(),
         version,
     };
-    let hash_prefix = &env.block.chain_id;
+    let hash_prefix = &config.chain_name;
     let hash = item.to_hash(hash_prefix);
 
     let (next_id, slot_kind) =
@@ -247,23 +252,19 @@ fn execute_create_task(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::Tasks { from_index, limit } => {
-            to_binary(&query_tasks(deps, env, from_index, limit)?)
-        }
+        QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
         QueryMsg::TasksWithQueries { from_index, limit } => {
-            to_binary(&query_tasks_with_queries(deps, env, from_index, limit)?)
+            to_binary(&query_tasks_with_queries(deps, from_index, limit)?)
         }
         QueryMsg::TasksByOwner {
             owner_addr,
             from_index,
             limit,
-        } => to_binary(&query_tasks_by_owner(
-            deps, env, owner_addr, from_index, limit,
-        )?),
-        QueryMsg::Task { task_hash } => to_binary(&query_task(deps, env, task_hash)?),
-        QueryMsg::TaskHash { task } => to_binary(&task.to_hash(&env.block.chain_id)),
+        } => to_binary(&query_tasks_by_owner(deps, owner_addr, from_index, limit)?),
+        QueryMsg::Task { task_hash } => to_binary(&query_task(deps, task_hash)?),
+        QueryMsg::TaskHash { task } => to_binary(&query_task_hash(deps, *task)?),
         QueryMsg::SlotHashes { slot } => to_binary(&query_slot_hashes(deps, slot)?),
         QueryMsg::SlotIds { from_index, limit } => {
             to_binary(&query_slot_ids(deps, from_index, limit)?)
@@ -271,29 +272,90 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-fn query_slot_ids(
+fn query_tasks(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<SlotIdsResponse> {
+) -> StdResult<Vec<TaskResponse>> {
+    let config = CONFIG.load(deps.storage)?;
+
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
 
-    let time_ids = TIME_SLOTS
-        .keys(deps.storage, None, None, Order::Ascending)
+    tasks_map()
+        .range(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
-        .collect::<StdResult<_>>()?;
-    let block_ids = BLOCK_SLOTS
-        .keys(deps.storage, None, None, Order::Ascending)
-        .skip(from_index as usize)
-        .take(limit as usize)
-        .collect::<StdResult<_>>()?;
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .collect()
+}
 
-    Ok(SlotIdsResponse {
-        time_ids,
-        block_ids,
-    })
+fn query_tasks_with_queries(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskResponse>> {
+    let config = CONFIG.load(deps.storage)?;
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    tasks_with_queries_map()
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .collect()
+}
+
+fn query_tasks_by_owner(
+    deps: Deps,
+    owner_addr: String,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskResponse>> {
+    let owner_addr = deps.api.addr_validate(&owner_addr)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    let tasks = tasks_map().idx.owner.prefix(owner_addr.clone()).range(
+        deps.storage,
+        None,
+        None,
+        Order::Ascending,
+    );
+    let tasks_with_queries = tasks_with_queries_map().idx.owner.prefix(owner_addr).range(
+        deps.storage,
+        None,
+        None,
+        Order::Ascending,
+    );
+    tasks
+        .chain(tasks_with_queries)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .collect()
+}
+
+fn query_task(deps: Deps, task_hash: String) -> StdResult<Option<TaskResponse>> {
+    let config = CONFIG.load(deps.storage)?;
+
+    if let Some(task) = tasks_map().may_load(deps.storage, task_hash.as_bytes())? {
+        Ok(Some(task.into_response(&config.chain_name)))
+    } else if let Some(task) =
+        tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())?
+    {
+        Ok(Some(task.into_response(&config.chain_name)))
+    } else {
+        Ok(None)
+    }
+}
+
+fn query_task_hash(deps: Deps, task: Task) -> StdResult<String> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(task.to_hash(&config.chain_name))
 }
 
 fn query_slot_hashes(deps: Deps, slot: Option<u64>) -> StdResult<SlotHashesResponse> {
@@ -356,80 +418,27 @@ fn query_slot_hashes(deps: Deps, slot: Option<u64>) -> StdResult<SlotHashesRespo
     })
 }
 
-fn query_task(deps: Deps, env: Env, task_hash: String) -> StdResult<Option<TaskResponse>> {
-    if let Some(task) = tasks_map().may_load(deps.storage, task_hash.as_bytes())? {
-        Ok(Some(task.into_response(&env.block.chain_id)))
-    } else if let Some(task) =
-        tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())?
-    {
-        Ok(Some(task.into_response(&env.block.chain_id)))
-    } else {
-        Ok(None)
-    }
-}
-
-fn query_tasks_by_owner(
+fn query_slot_ids(
     deps: Deps,
-    env: Env,
-    owner_addr: String,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
-    let owner_addr = deps.api.addr_validate(&owner_addr)?;
-
+) -> StdResult<SlotIdsResponse> {
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
 
-    let tasks = tasks_map().idx.owner.prefix(owner_addr.clone()).range(
-        deps.storage,
-        None,
-        None,
-        Order::Ascending,
-    );
-    let tasks_with_queries = tasks_with_queries_map().idx.owner.prefix(owner_addr).range(
-        deps.storage,
-        None,
-        None,
-        Order::Ascending,
-    );
-    tasks
-        .chain(tasks_with_queries)
+    let time_ids = TIME_SLOTS
+        .keys(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
-        .collect()
-}
-
-fn query_tasks_with_queries(
-    deps: Deps,
-    env: Env,
-    from_index: Option<u64>,
-    limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
-
-    tasks_with_queries_map()
-        .range(deps.storage, None, None, Order::Ascending)
+        .collect::<StdResult<_>>()?;
+    let block_ids = BLOCK_SLOTS
+        .keys(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
-        .collect()
-}
+        .collect::<StdResult<_>>()?;
 
-fn query_tasks(
-    deps: Deps,
-    env: Env,
-    from_index: Option<u64>,
-    limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
-
-    tasks_map()
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(from_index as usize)
-        .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&env.block.chain_id)))
-        .collect()
+    Ok(SlotIdsResponse {
+        time_ids,
+        block_ids,
+    })
 }

@@ -7,6 +7,9 @@ pub struct TasksInstantiateMsg {
     /// Address of the factory contract
     pub croncat_factory_addr: String,
 
+    /// Chain name to add prefix to the task_hash 
+    pub chain_name: String,
+
     /// Address of the contract owner, defaults to the sender
     pub owner_addr: Option<String>,
     /// Name of the key for raw querying Manager address from the factory
