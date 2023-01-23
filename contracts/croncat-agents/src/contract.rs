@@ -63,6 +63,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentTasks { account_id, slots } => {
             to_binary(&query_get_agent_tasks(deps, env, account_id, slots)?)
         }
+        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
     }
 }
 

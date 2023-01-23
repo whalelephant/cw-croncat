@@ -58,6 +58,7 @@ dao-interface = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-
 # Testing generic msg
 cw4 = "0.16.0"
 cw4-group = "0.16.0"
+
 base64 = "0.13.0"
 serde_json = { version = "1.0" }
 anyhow = "1"

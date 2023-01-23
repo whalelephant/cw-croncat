@@ -9,6 +9,7 @@ use cosmwasm_std::{
     testing::{mock_env, mock_info},
     Addr, DepsMut, Empty, Response,
 };
+use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper};
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
@@ -19,6 +20,7 @@ pub const AGENT5: &str = "agent5k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
 
 pub const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT0: &str = "cosmos1055rfv3fv0zxsp8h3x88mctnm7x9mlgmf4m4d6";
 pub const PARTICIPANT1: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
@@ -31,14 +33,21 @@ pub const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const NATIVE_DENOM: &str = "atom";
 pub const TWO_MINUTES: u64 = 120_000_000_000;
 
-pub(crate) fn mock_instantiate(deps: DepsMut<Empty>) -> Result<Response, ContractError> {
-    let msg = InstantiateMsg {
-        native_denom: Some(NATIVE_DENOM.to_string()),
-        owner_addr: None,
-        agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
-    };
+pub(crate) fn mock_instantiate(
+    deps: DepsMut<Empty>,
+    init_msg: Option<InstantiateMsg>,
+) -> Result<Response, ContractError> {
     let info = mock_info("sender", &coins(1000, "meow"));
-    instantiate(deps, mock_env(), info.clone(), msg)
+    instantiate(
+        deps,
+        mock_env(),
+        info.clone(),
+        init_msg.unwrap_or(InstantiateMsg {
+            native_denom: Some(NATIVE_DENOM.to_string()),
+            owner_addr: None,
+            agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+        }),
+    )
 }
 pub(crate) fn mock_config() -> Config {
     Config {
@@ -48,4 +57,29 @@ pub(crate) fn mock_config() -> Config {
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
     }
+}
+
+pub(crate) fn default_app() -> App {
+    AppBuilder::new().build(|router, _, storage| {
+        let accounts: Vec<(u128, String)> = vec![
+            (6_000_000, ADMIN.to_string()),
+            (500_000, ANYONE.to_string()),
+        ];
+        for (amt, address) in accounts {
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked(address), coins(amt, NATIVE_DENOM))
+                .unwrap();
+        }
+    })
+}
+
+
+pub(crate) fn agent_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        crate::contract::execute,
+        crate::contract::instantiate,
+        crate::contract::query,
+    );
+    Box::new(contract)
 }
