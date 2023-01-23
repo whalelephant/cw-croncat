@@ -1,6 +1,7 @@
 use std::ops::Add;
 
 use crate::msg::*;
+use crate::state::CONFIG;
 use crate::{
     contract::instantiate,
     error::ContractError,
@@ -45,6 +46,15 @@ pub(crate) fn mock_config() -> Config {
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
     }
 }
+pub(crate) fn mock_update_config() -> UpdateConfig {
+    UpdateConfig {
+        owner_addr: Some(ADMIN.to_string()),
+        paused: Some(false),
+        native_denom: Some(NATIVE_DENOM.to_string()),
+        min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
+        agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+    }
+}
 
 pub(crate) fn default_app() -> App {
     AppBuilder::new().build(|router, _, storage| {
@@ -78,7 +88,8 @@ pub(crate) fn init_agents_contract(
     funds:Option<&[Coin]>
 ) -> (u64, Addr) {
     let contract_code_id = app.store_code(agent_contract());
-
+    
+    
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,
         native_denom: Some(NATIVE_DENOM.to_string()),

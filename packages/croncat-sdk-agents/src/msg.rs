@@ -23,7 +23,6 @@ pub enum ExecuteMsg {
     UnregisterAgent {
         from_behind: Option<bool>,
     },
-    WithdrawReward {},
     //Task contract will send message when task is created
     OnTaskCreated {
         task_hash: String,

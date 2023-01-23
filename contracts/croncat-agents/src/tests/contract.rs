@@ -6,12 +6,13 @@ use cw_multi_test::Executor;
 use crate::balancer::{Balancer, RoundRobinBalancer};
 use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
 use crate::tests::common::{
-    agent_contract, default_app, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5, ANYONE,
+    agent_contract, default_app, mock_update_config, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4,
+    AGENT5, ANYONE,
 };
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
 };
-use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps, StdError, Uint128};
+use cosmwasm_std::{coins, Addr, Coin, Empty, Env, MemoryStorage, OwnedDeps, StdError, Uint128};
 
 use super::common::{init_agents_contract, mock_config, NATIVE_DENOM};
 
@@ -120,4 +121,53 @@ fn test_register_agent_is_successfull() {
     assert_eq!(agent_response.status, AgentStatus::Active);
     assert_eq!(agent_response.total_tasks_executed, 0);
     assert_eq!(agent_response.balance, Uint128::new(0));
+}
+
+#[test]
+fn test_register_agent_fails() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::RegisterAgent {
+                payable_account_id: Some(ANYONE.to_string()),
+                cost: 1,
+            },
+            &[Coin {
+                denom: NATIVE_DENOM.to_string(),
+                amount: Uint128::new(10),
+            }],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::NoFundsShouldBeAttached);
+
+    //Check contract is paused and failing
+    let mut config = mock_update_config();
+    config.paused = Some(true);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(config)),
+        &[],
+    )
+    .unwrap();
+
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::RegisterAgent {
+                payable_account_id: Some(ANYONE.to_string()),
+                cost: 1,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::ContractPaused);
 }

@@ -49,7 +49,7 @@ pub fn instantiate(
         native_denom: msg.native_denom.expect("Invalid native_denom"), //TODO: Remove native denom from agents
     };
     CONFIG.save(deps.storage, config)?;
-    AGENTS_ACTIVE.save(deps.storage, &vec![])?;//Init active agents empty vector
+    AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
@@ -91,7 +91,6 @@ pub fn execute(
         ExecuteMsg::UnregisterAgent { from_behind } => {
             unregister_agent(deps.storage, &info.sender, from_behind)
         }
-        ExecuteMsg::WithdrawReward {} => withdraw_agent_balance(deps, &info.sender),
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated {
             task_hash,
@@ -286,23 +285,6 @@ fn update_agent(
         .add_attribute("payable_account_id", agent.payable_account_id))
 }
 
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn withdraw_rewards(
-    storage: &mut dyn Storage,
-    agent_id: &Addr,
-) -> Result<Vec<SubMsg>, ContractError> {
-    let mut agent = AGENTS
-        .may_load(storage, agent_id)?
-        .ok_or(ContractError::AgentNotRegistered {})?;
-
-    // This will send all token balances to Agent
-    let (messages, balance) = send_tokens(storage, &agent.payable_account_id, agent.balance)?;
-    agent.balance -= balance;
-    AGENTS.save(storage, agent_id, &agent)?;
-
-    Ok(messages)
-}
-
 // Helper to distribute funds/tokens
 fn send_tokens(
     storage: &mut dyn Storage,
@@ -322,15 +304,6 @@ fn send_tokens(
         })]
     };
     Ok((msgs, balance))
-}
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn withdraw_agent_balance(deps: DepsMut, agent_id: &Addr) -> Result<Response, ContractError> {
-    let messages = withdraw_rewards(deps.storage, agent_id)?;
-
-    Ok(Response::new()
-        .add_attribute("method", "withdraw_agent_balance")
-        .add_attribute("account_id", agent_id)
-        .add_submessages(messages))
 }
 
 /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
@@ -427,9 +400,6 @@ fn unregister_agent(
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    // Get withdraw messages, if any
-    // NOTE: Since this also checks if agent exists, safe to not have redundant logic
-    let messages = withdraw_rewards(storage, agent_id)?;
     AGENTS.remove(storage, agent_id);
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(storage)?;
@@ -472,11 +442,7 @@ fn unregister_agent(
         .add_attribute("method", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
-    if messages.is_empty() {
-        Ok(responses)
-    } else {
-        Ok(responses.add_submessages(messages))
-    }
+    Ok(responses)
 }
 
 pub fn execute_update_config(

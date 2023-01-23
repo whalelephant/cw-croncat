@@ -66,7 +66,8 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
             if total_tasks < 1 {
                 return Ok((Uint64::zero(), Uint64::zero()));
             }
-            //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate), and O(n log n) worst-case.
+            //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate), 
+            //and O(n log n) worst-case.
             //It is typically faster than stable sorting, except in a few special cases,
             //e.g., when the slice consists of several concatenated sorted sequences.
             active.sort_unstable_by(|left, right| {
