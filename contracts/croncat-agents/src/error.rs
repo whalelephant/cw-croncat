@@ -29,4 +29,7 @@ pub enum ContractError {
 
     #[error("Try again later for nomination")]
     TryLaterForNomination,
+
+    #[error("Contract method does not accept any funds")]
+    NoFundsShouldBeAttached,
 }

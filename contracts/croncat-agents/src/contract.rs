@@ -184,7 +184,7 @@ fn register_agent(
     cost: u128,
 ) -> Result<Response, ContractError> {
     if !info.funds.is_empty() {
-        return Err(ContractError::InsufficientFunds);
+        return Err(ContractError::NoFundsShouldBeAttached);
     }
     let c: Config = CONFIG.load(deps.storage)?;
     if c.paused {
