@@ -34,6 +34,11 @@ pub fn instantiate(
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
 
+    if msg.native_denom.is_none() {
+        return Err(ContractError::InvalidNativeDenom {
+            denom: msg.native_denom,
+        });
+    }
     let config = &Config {
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: msg
@@ -44,6 +49,7 @@ pub fn instantiate(
         native_denom: msg.native_denom.expect("Invalid native_denom"), //TODO: Remove native denom from agents
     };
     CONFIG.save(deps.storage, config)?;
+    AGENTS_ACTIVE.save(deps.storage, &vec![])?;//Init active agents empty vector
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
 
     Ok(Response::new()
@@ -209,7 +215,9 @@ fn register_agent(
         account.clone()
     };
 
-    let mut active_agents_vec: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
+    let mut active_agents_vec: Vec<Addr> = AGENTS_ACTIVE
+        .may_load(deps.storage)?
+        .ok_or(ContractError::NoActiveAgents)?;
     let total_agents = active_agents_vec.len();
     let agent_status = if total_agents == 0 {
         active_agents_vec.push(account.clone());

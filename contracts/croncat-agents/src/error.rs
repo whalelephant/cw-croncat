@@ -34,5 +34,11 @@ pub enum ContractError {
     NoFundsShouldBeAttached,
 
     #[error("Unauthorized funciton call")]
-    Unauthorized {},
+    Unauthorized,
+
+    #[error("Invalid native denom")]
+    InvalidNativeDenom { denom: Option<String> },
+
+    #[error("No active agents in active agent list")]
+    NoActiveAgents,
 }

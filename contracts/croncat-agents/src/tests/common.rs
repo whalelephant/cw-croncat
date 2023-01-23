@@ -1,15 +1,18 @@
+use std::ops::Add;
+
 use crate::msg::*;
 use crate::{
     contract::instantiate,
     error::ContractError,
     state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION},
 };
+use cosmwasm_std::Coin;
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
     Addr, DepsMut, Empty, Response,
 };
-use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper};
+use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
@@ -33,22 +36,6 @@ pub const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const NATIVE_DENOM: &str = "atom";
 pub const TWO_MINUTES: u64 = 120_000_000_000;
 
-pub(crate) fn mock_instantiate(
-    deps: DepsMut<Empty>,
-    init_msg: Option<InstantiateMsg>,
-) -> Result<Response, ContractError> {
-    let info = mock_info("sender", &coins(1000, "meow"));
-    instantiate(
-        deps,
-        mock_env(),
-        info.clone(),
-        init_msg.unwrap_or(InstantiateMsg {
-            native_denom: Some(NATIVE_DENOM.to_string()),
-            owner_addr: None,
-            agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
-        }),
-    )
-}
 pub(crate) fn mock_config() -> Config {
     Config {
         paused: false,
@@ -74,7 +61,6 @@ pub(crate) fn default_app() -> App {
     })
 }
 
-
 pub(crate) fn agent_contract() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
         crate::contract::execute,
@@ -82,4 +68,33 @@ pub(crate) fn agent_contract() -> Box<dyn Contract<Empty>> {
         crate::contract::query,
     );
     Box::new(contract)
+}
+
+pub(crate) fn init_agents_contract(
+    app: &mut App,
+    sender: Option<&str>,
+    owner:Option<String>,
+    init_msg: Option<InstantiateMsg>,
+    funds:Option<&[Coin]>
+) -> (u64, Addr) {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(agent_contract());
+
+    let init_msg = init_msg.unwrap_or(InstantiateMsg {
+        owner_addr: owner,
+        native_denom: Some(NATIVE_DENOM.to_string()),
+        agent_nomination_duration: None,
+    });
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(sender.unwrap_or(ADMIN)),
+            &init_msg,
+            funds.unwrap_or(&[]),
+            "agents",
+            None,
+        )
+        .unwrap();
+
+    (contract_code_id, contract_addr)
 }
