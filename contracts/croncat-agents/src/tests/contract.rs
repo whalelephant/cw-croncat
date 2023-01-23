@@ -11,7 +11,7 @@ use crate::tests::common::{
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
 };
-use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps, StdError};
+use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps, StdError, Uint128};
 
 use super::common::{init_agents_contract, mock_config, NATIVE_DENOM};
 
@@ -117,5 +117,7 @@ fn test_register_agent_is_successfull() {
         )
         .unwrap();
 
-    assert_eq!(agent_response.status, AgentStatus::Pending);
+    assert_eq!(agent_response.status, AgentStatus::Active);
+    assert_eq!(agent_response.total_tasks_executed, 0);
+    assert_eq!(agent_response.balance, Uint128::new(0));
 }

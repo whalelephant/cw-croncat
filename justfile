@@ -17,7 +17,12 @@ deploy:
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
-	./scripts/local/deploy.sh -w # only wasm uodate
+	./scripts/local/deploy.sh -w # only wasm update
+
+deploy-local-reset:
+	#!/bin/bash
+	chmod +x ./scripts/local/deploy.sh
+	./scripts/local/deploy.sh -w  -c #  wasm update & container update
 optimize:
 	docker run --rm -v "$(pwd)":/code \
 		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \

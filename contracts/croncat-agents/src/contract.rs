@@ -138,19 +138,19 @@ fn query_get_agent(
 /// Get a list of agent addresses
 fn query_get_agent_ids(
     deps: Deps,
-    skip: Option<usize>,
-    take: Option<usize>,
+    skip: Option<u64>,
+    take: Option<u64>,
 ) -> StdResult<GetAgentIdsResponse> {
     let active_loaded: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     let active = active_loaded
         .into_iter()
-        .skip(skip.unwrap_or(0))
-        .take(take.unwrap_or(usize::MAX))
+        .skip(skip.unwrap_or(0) as usize)
+        .take(take.unwrap_or(u64::MAX) as usize)
         .collect();
     let pending: Vec<Addr> = AGENTS_PENDING
         .iter(deps.storage)?
-        .skip(skip.unwrap_or(0))
-        .take(take.unwrap_or(usize::MAX))
+        .skip(skip.unwrap_or(0) as usize)
+        .take(take.unwrap_or(u64::MAX) as usize)
         .collect::<StdResult<Vec<Addr>>>()?;
 
     Ok(GetAgentIdsResponse { active, pending })

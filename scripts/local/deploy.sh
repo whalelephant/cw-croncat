@@ -146,7 +146,7 @@ fi
 
 # echo $DIR
 # # move binary to docker container
-docker cp "artifacts/croncat_agents$WASM_POSTFIX.wasm" "$IMAGE_NAME:/croncat_agents$WASM_POSTFIX.wasm"
+docker cp $SC_PATH"/artifacts/croncat_agents$WASM_POSTFIX.wasm" "$IMAGE_NAME:/croncat_agents$WASM_POSTFIX.wasm"
 
 cd $JUNO_DIR
 

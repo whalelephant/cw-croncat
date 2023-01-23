@@ -77,7 +77,6 @@ pub(crate) fn init_agents_contract(
     init_msg: Option<InstantiateMsg>,
     funds:Option<&[Coin]>
 ) -> (u64, Addr) {
-    let mut app = default_app();
     let contract_code_id = app.store_code(agent_contract());
 
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
