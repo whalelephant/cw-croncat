@@ -13,23 +13,39 @@ use sha2::{Digest, Sha256};
 pub struct Config {
     // Runtime
     pub paused: bool,
+
+    /// Address of the contract owner
     pub owner_addr: Addr,
 
+    /// Address of the factory contract
+    pub croncat_factory_addr: Addr,
+
+    /// Chain name to add prefix to the task_hash
     pub chain_name: String,
 
-    pub croncat_factory_addr: Addr,
+    /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: (String, [u8; 2]),
+
+    /// Name of the key for raw querying Agents address from the factory
     pub croncat_agents_key: (String, [u8; 2]),
 
+    /// Time in nanos for each bucket of tasks
     pub slot_granularity_time: u64,
 
+    /// Gas needed to cover proxy call without any action
     pub gas_base_fee: u64,
+
+    /// Gas needed to cover single non-wasm task's Action
     pub gas_action_fee: u64,
+
+    /// Gas needed to cover single query
     pub gas_query_fee: u64,
 
+    /// Gas limit, to make sure task won't lock contract
     pub gas_limit: u64,
 }
 
+/// Request to create a task
 #[cw_serde]
 pub struct TaskRequest {
     pub interval: Interval,
@@ -109,6 +125,7 @@ impl Interval {
     }
 }
 
+/// Start and end block or timestamp when task should be executed for the last time
 #[cw_serde]
 pub enum Boundary {
     Height {
@@ -130,7 +147,6 @@ pub struct BoundaryValidated {
 
 #[cw_serde]
 pub struct Action<T = Empty> {
-    // NOTE: Only allow static pre-defined query msg
     /// Supported CosmosMsgs only!
     pub msg: CosmosMsg<T>,
 
@@ -138,12 +154,26 @@ pub struct Action<T = Empty> {
     pub gas_limit: Option<u64>,
 }
 
+/// Transforms of the tasks actions
 #[cw_serde]
 pub struct Transform {
+    /// Action index to update
+    /// first action would be "0"
     pub action_idx: u64,
+
+    /// Query index of the new data for this action
+    /// first query would be "0"
     pub query_idx: u64,
 
+    /// Action key path to the value that should get replaced
+    /// for example:
+    /// X: {Y: {Z: value}}
+    /// [X,Y,Z] to reach that value
     pub action_path: PathToValue,
+    /// Query response key's path to the value that needs to be taken to replace value from the above
+    /// for example query gave that response:
+    /// A: {B: {C: value}}
+    /// In order to reach a value [A,B,C] should be used as input
     pub query_response_path: PathToValue,
 }
 
@@ -245,9 +275,10 @@ impl Task {
     }
 }
 
+/// Query given module contract with a message
 #[cw_serde]
 pub struct CroncatQuery {
-    pub query_mod: String,
+    pub query_mod_addr: String,
     pub msg: Binary,
 }
 
@@ -267,28 +298,6 @@ pub struct TaskResponse {
     pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Vec<Transform>,
     pub version: String,
-}
-
-#[cw_serde]
-pub struct CurrentTaskResponse {
-    pub task_hash: Vec<u8>,
-
-    pub owner_addr: Addr,
-
-    pub interval: Interval,
-    pub boundary: BoundaryValidated,
-
-    pub stop_on_fail: bool,
-    pub amount_for_one_task: AmountForOneTask,
-
-    pub actions: Vec<Action>,
-    pub queries: Vec<CroncatQuery>,
-    pub transforms: Vec<Transform>,
-    pub version: String,
-
-    // manager needs to know if task can get rescheduled
-    // to avoid extra call during proxy call
-    pub next_id: u64,
 }
 
 #[cw_serde]

@@ -7,8 +7,7 @@ use croncat_sdk_core::internal_messages::agents::AgentNewTask;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::types::{
-    Config, CurrentTaskResponse, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest,
-    TaskResponse,
+    Config, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest, TaskResponse,
 };
 use cw2::{query_contract_info, set_contract_version};
 use cw_storage_plus::Bound;
@@ -71,6 +70,7 @@ pub fn instantiate(
         gas_query_fee: gas_query_fee.unwrap_or(GAS_QUERY_FEE),
         gas_limit: gas_limit.unwrap_or(GAS_LIMIT),
     };
+    // Save initializing states
     CONFIG.save(deps.storage, &config)?;
     TASKS_TOTAL.save(deps.storage, &0)?;
     TASKS_WITH_QUERIES_TOTAL.save(deps.storage, &0)?;
@@ -89,15 +89,15 @@ pub fn execute(
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
         ExecuteMsg::RemoveTaskByManager(remove_task_msg) => {
-            execute_remove_task_internal(deps, info, remove_task_msg)
+            execute_remove_task_by_manager(deps, info, remove_task_msg)
         }
         ExecuteMsg::RescheduleTask(reschedule_msg) => {
-            execute_try_to_reschedule_task(deps, env, info, reschedule_msg)
+            execute_reschedule_task(deps, env, info, reschedule_msg)
         }
     }
 }
 
-fn execute_try_to_reschedule_task(
+fn execute_reschedule_task(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -107,6 +107,8 @@ fn execute_try_to_reschedule_task(
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
+    let mut remove_task = None;
+    // Check default map
     let (next_id, slot_kind) = if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
         let (next_id, slot_kind) =
             task.interval
@@ -136,6 +138,7 @@ fn execute_try_to_reschedule_task(
             }
         } else {
             remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            remove_task = Some(ManagerRemoveTask { task_hash });
         }
         (next_id, slot_kind)
     } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, &task_hash)? {
@@ -153,6 +156,7 @@ fn execute_try_to_reschedule_task(
             }
         } else {
             remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            remove_task = Some(ManagerRemoveTask { task_hash });
         }
         (next_id, slot_kind)
     } else {
@@ -160,12 +164,13 @@ fn execute_try_to_reschedule_task(
     };
 
     Ok(Response::new()
-        .add_attribute("action", "try_to_reschedule_task")
+        .add_attribute("action", "reschedule_task")
         .add_attribute("slot_id", next_id.to_string())
-        .add_attribute("slot_kind", slot_kind.to_string()))
+        .add_attribute("slot_kind", slot_kind.to_string())
+        .set_data(to_binary(&remove_task)?))
 }
 
-fn execute_remove_task_internal(
+fn execute_remove_task_by_manager(
     deps: DepsMut,
     info: MessageInfo,
     remove_task_msg: TasksRemoveTaskByManager,
@@ -182,7 +187,7 @@ fn execute_remove_task_internal(
         return Err(ContractError::NoTaskFound {});
     }
 
-    Ok(Response::new().add_attribute("action", "remove_task_internal"))
+    Ok(Response::new().add_attribute("action", "remove_task_by_manager"))
 }
 
 fn execute_remove_task(
@@ -238,6 +243,9 @@ fn execute_create_task(
 
     let amount_for_one_task =
         validate_msg_calculate_usage(deps.api, &task, &env.contract.address, &owner_addr, &config)?;
+    if amount_for_one_task.gas > config.gas_limit {
+        return Err(ContractError::InvalidGas {});
+    }
 
     let version = query_contract_info(&deps.querier, env.contract.address.as_str())?.version;
     let item = Task {
@@ -307,7 +315,7 @@ fn execute_create_task(
         task_hash: hash.as_bytes().to_owned(),
         amount_for_one_task,
     }
-    .into_cosmos_msg(manager_addr)?;
+    .into_cosmos_msg(manager_addr, info.funds)?;
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentNewTask {}.into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
@@ -345,7 +353,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 /// Get the slot with lowest height/timestamp
 /// NOTE: This prioritizes blocks over timestamps
-fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<CurrentTaskResponse>> {
+fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
     let config = CONFIG.load(deps.storage)?;
 
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
@@ -360,23 +368,7 @@ fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<CurrentTaskR
     if !block_slot.is_empty() {
         let task_hash = block_slot.pop().unwrap().1.pop().unwrap();
         let task = tasks_map().load(deps.storage, &task_hash)?;
-        let (next_id, _slot_kind) =
-            task.interval
-                .next(&env, &task.boundary, config.slot_granularity_time);
-        let task_response = CurrentTaskResponse {
-            task_hash,
-            owner_addr: task.owner_addr,
-            interval: task.interval,
-            boundary: task.boundary,
-            stop_on_fail: task.stop_on_fail,
-            amount_for_one_task: task.amount_for_one_task,
-            actions: task.actions,
-            queries: task.queries,
-            transforms: task.transforms,
-            version: task.version,
-            next_id,
-        };
-        Ok(Some(task_response))
+        Ok(Some(task.into_response(&config.chain_name)))
     } else {
         let mut time_slot: Vec<(u64, Vec<Vec<u8>>)> = TIME_SLOTS
             .range(
@@ -390,23 +382,7 @@ fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<CurrentTaskR
         if !time_slot.is_empty() {
             let task_hash = time_slot.pop().unwrap().1.pop().unwrap();
             let task = tasks_map().load(deps.storage, &task_hash)?;
-            let (next_id, _slot_kind) =
-                task.interval
-                    .next(&env, &task.boundary, config.slot_granularity_time);
-            let task_response = CurrentTaskResponse {
-                task_hash,
-                owner_addr: task.owner_addr,
-                interval: task.interval,
-                boundary: task.boundary,
-                stop_on_fail: task.stop_on_fail,
-                amount_for_one_task: task.amount_for_one_task,
-                actions: task.actions,
-                queries: task.queries,
-                transforms: task.transforms,
-                version: task.version,
-                next_id,
-            };
-            Ok(Some(task_response))
+            Ok(Some(task.into_response(&config.chain_name)))
         } else {
             return Ok(None);
         }

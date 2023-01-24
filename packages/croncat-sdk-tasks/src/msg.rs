@@ -34,43 +34,62 @@ pub struct TasksInstantiateMsg {
 
 #[cw_serde]
 pub enum TasksExecuteMsg {
-    CreateTask { task: TaskRequest },
-    RemoveTask { task_hash: String },
-    // Methods for other contracts
+    /// Allows any user or contract to pay for future txns based on a specific schedule
+    /// contract, function id & other settings. When the task runs out of balance
+    /// the task is no longer executed, any additional funds will be returned to task owner.
+    CreateTask {
+        task: TaskRequest,
+    },
+
+    /// Deletes a task in its entirety, returning any remaining balance to task owner.
+    RemoveTask {
+        task_hash: String,
+    },
+    // Methods for other internal contracts
+    /// Remove task, used by the manager if task reached it's stop condition
     RemoveTaskByManager(TasksRemoveTaskByManager),
+    /// Try to reschedule a task, if possible, used by the manager
     RescheduleTask(TasksRescheduleTask),
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum TasksQueryMsg {
+    /// Get list of active tasks, without queries
     #[returns(Vec<crate::types::TaskResponse>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    /// Get list of active tasks, with queries
     #[returns(Vec<crate::types::TaskResponse>)]
     TasksWithQueries {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    /// Get tasks created by the given address
     #[returns(Vec<crate::types::TaskResponse>)]
     TasksByOwner {
         owner_addr: String,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    /// Get task by the task hash
     #[returns(Option<crate::types::TaskResponse>)]
     Task { task_hash: String },
+    /// Simulate task_hash by the given task
     #[returns(String)]
     TaskHash { task: Box<crate::types::Task> },
+    /// Get slot hashes by given slot
     #[returns(crate::types::SlotHashesResponse)]
     SlotHashes { slot: Option<u64> },
+    /// Get active slots
     #[returns(crate::types::SlotIdsResponse)]
     SlotIds {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    #[returns(Option<crate::types::CurrentTaskResponse>)]
+    /// Get next task to be done
+    #[returns(Option<crate::types::TaskResponse>)]
     GetCurrentTask {},
 }
