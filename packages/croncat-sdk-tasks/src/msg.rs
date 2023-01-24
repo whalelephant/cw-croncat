@@ -6,7 +6,7 @@ use crate::types::TaskRequest;
 #[cw_serde]
 pub struct TasksInstantiateMsg {
     /// Address of the factory contract
-    pub croncat_factory_addr: String,
+    pub croncat_factory_addr: Option<String>,
 
     /// Chain name to add prefix to the task_hash
     pub chain_name: String,

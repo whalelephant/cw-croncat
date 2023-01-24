@@ -54,14 +54,19 @@ pub fn instantiate(
         gas_query_fee,
         gas_limit,
     } = msg;
+    let owner_addr = owner_addr
+        .map(|human| deps.api.addr_validate(&human))
+        .transpose()?
+        .unwrap_or(info.sender.clone());
+    let croncat_factory_addr = croncat_factory_addr
+        .map(|human| deps.api.addr_validate(&human))
+        .transpose()?
+        .unwrap_or(info.sender);
     let config = Config {
         paused: false,
         chain_name,
-        owner_addr: owner_addr
-            .map(|human| deps.api.addr_validate(&human))
-            .transpose()?
-            .unwrap_or(info.sender),
-        croncat_factory_addr: deps.api.addr_validate(&croncat_factory_addr)?,
+        owner_addr,
+        croncat_factory_addr,
         croncat_manager_key,
         croncat_agents_key,
         slot_granularity_time: slot_granularity_time.unwrap_or(SLOT_GRANULARITY_TIME),

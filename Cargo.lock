@@ -355,6 +355,7 @@ dependencies = [
  "cosmwasm-std",
  "croncat-factory",
  "croncat-sdk-core",
+ "croncat-sdk-factory",
  "croncat-sdk-tasks",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",

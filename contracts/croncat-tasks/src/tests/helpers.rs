@@ -1,0 +1,103 @@
+use super::{
+    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
+    PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
+    PARTICIPANT6, VERY_RICH,
+};
+use crate::msg::InstantiateMsg;
+use cosmwasm_std::{coins, to_binary, Addr};
+use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
+use cw_multi_test::{App, AppBuilder, Executor};
+
+pub(crate) fn default_app() -> App {
+    AppBuilder::new().build(|router, _, storage| {
+        let accounts: Vec<(u128, String)> = vec![
+            (6_000_000, ADMIN.to_string()),
+            (500_000, ANYONE.to_string()),
+            (2_000_000, AGENT0.to_string()),
+            (2_000_000, AGENT1.to_string()),
+            (2_000_000, AGENT2.to_string()),
+            (2_000_000, AGENT3.to_string()),
+            (2_000_000, AGENT4.to_string()),
+            (500_0000, PARTICIPANT0.to_string()),
+            (500_0000, PARTICIPANT1.to_string()),
+            (500_0000, PARTICIPANT2.to_string()),
+            (500_0000, PARTICIPANT3.to_string()),
+            (500_0000, PARTICIPANT4.to_string()),
+            (500_0000, PARTICIPANT5.to_string()),
+            (500_0000, PARTICIPANT6.to_string()),
+            (2_000_000, AGENT_BENEFICIARY.to_string()),
+            (u128::max_value(), VERY_RICH.to_string()),
+        ];
+        for (amt, address) in accounts {
+            router
+                .bank
+                .init_balance(storage, &Addr::unchecked(address), coins(amt, DENOM))
+                .unwrap();
+        }
+    })
+}
+
+pub(crate) fn init_factory(app: &mut App) -> Addr {
+    let code_id = app.store_code(contracts::croncat_factory_contract());
+    let addr = app
+        .instantiate_contract(
+            code_id,
+            Addr::unchecked(ADMIN),
+            &croncat_factory::msg::InstantiateMsg { owner_addr: None },
+            &[],
+            "croncat_factory",
+            None,
+        )
+        .unwrap();
+    addr
+}
+
+pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Addr) -> Addr {
+    let code_id = app.store_code(contracts::croncat_tasks_contract());
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+    let addr = app
+        .instantiate_contract(
+            code_id,
+            Addr::unchecked(ADMIN),
+            msg,
+            &[],
+            "croncat_tasks",
+            None,
+        )
+        .unwrap();
+    addr
+}
+
+pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
+    InstantiateMsg {
+        croncat_factory_addr: None,
+        chain_name: "atom".to_owned(),
+        owner_addr: None,
+        croncat_manager_key: ("manager".to_owned(), [0, 0]),
+        croncat_agents_key: ("agents".to_owned(), [0, 0]),
+        slot_granularity_time: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_query_fee: None,
+        gas_limit: None,
+    }
+}
