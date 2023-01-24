@@ -379,6 +379,7 @@ fn execute_create_task(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
+        QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
         QueryMsg::TasksWithQueries { from_index, limit } => {
             to_binary(&query_tasks_with_queries(deps, from_index, limit)?)

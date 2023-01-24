@@ -70,6 +70,8 @@ pub enum TasksExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum TasksQueryMsg {
+    #[returns(crate::types::Config)]
+    Config {},
     /// Get list of active tasks, without queries
     #[returns(Vec<crate::types::TaskResponse>)]
     Tasks {
