@@ -4,7 +4,7 @@ use croncat_sdk_tasks::types::SlotType;
 use cw_multi_test::{App, AppResponse, Executor};
 use serde::__private::de::Content;
 
-use crate::balancer::{Balancer, RoundRobinBalancer};
+use crate::distributor::{AgentTaskDistributor, RoundRobinAgentTaskDistributor};
 use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
 use crate::tests::common::{
     add_seconds_to_block, agent_contract, default_app, increment_block_height, mock_update_config,

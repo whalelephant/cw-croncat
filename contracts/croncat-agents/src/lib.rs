@@ -1,4 +1,4 @@
-pub mod balancer;
+pub mod distributor;
 pub mod contract;
 pub mod error;
 pub mod msg;

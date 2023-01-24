@@ -1,4 +1,4 @@
-use crate::balancer::RoundRobinBalancer;
+use crate::distributor::AgentTaskDistributor;
 use crate::msg::*;
 use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::{Deque, Item, Map};
@@ -15,4 +15,4 @@ pub const AGENTS: Map<&Addr, Agent> = Map::new("agents");
 pub const AGENTS_ACTIVE: Item<Vec<Addr>> = Item::new("agents_active");
 pub const AGENTS_PENDING: Deque<Addr> = Deque::new("agents_pending");
 pub const AGENT_STATS: Map<&Addr, AgentStats> = Map::new("agent_stats");
-pub const AGENT_BALANCER: RoundRobinBalancer = RoundRobinBalancer::new();
+pub const AGENT_TASK_DISTRIBUTOR: AgentTaskDistributor = AgentTaskDistributor::new();

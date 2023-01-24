@@ -1,14 +1,13 @@
 use std::cmp;
 use std::ops::Div;
 
-use crate::balancer::Balancer;
+use crate::distributor::*;
 use crate::error::ContractError;
-use crate::msg::{self, *};
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::*;
 use cw2::set_contract_version;
 
 use crate::state::{
-    AGENTS, AGENTS_ACTIVE, AGENTS_PENDING, AGENT_BALANCER, AGENT_NOMINATION_BEGIN_TIME,
+    AGENTS, AGENTS_ACTIVE, AGENTS_PENDING, AGENT_TASK_DISTRIBUTOR, AGENT_NOMINATION_BEGIN_TIME,
     AGENT_STATS, CONFIG, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
 };
 #[cfg(not(feature = "library"))]
@@ -169,7 +168,7 @@ fn query_get_agent_tasks(
     if slots == (None, None) {
         return Ok(None);
     }
-    AGENT_BALANCER
+    AGENT_TASK_DISTRIBUTOR
         .get_agent_tasks(&deps, &env, account_id, slots)
         .map_err(|err| StdError::generic_err(err.to_string()))
 }
@@ -383,7 +382,7 @@ fn unregister_agent(
         active_agents.remove(index);
         AGENTS_ACTIVE.save(storage, &active_agents)?;
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_BALANCER.on_agent_unregistered(storage, agent_id)?;
+        AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(storage, agent_id)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
