@@ -8,8 +8,9 @@ use crate::balancer::{Balancer, RoundRobinBalancer};
 use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
 use crate::tests::common::{
     add_seconds_to_block, agent_contract, default_app, increment_block_height, mock_update_config,
-    ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5, AGENT_BENEFICIARY, ANYONE, PARTICIPANT0,
-    PARTICIPANT1, PARTICIPANT4, PARTICIPANT5, PARTICIPANT6, PARTICIPANT2, PARTICIPANT3, AGENT6,
+    ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5, AGENT6, AGENT_BENEFICIARY, ANYONE,
+    PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
+    PARTICIPANT6,
 };
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
@@ -27,7 +28,7 @@ fn test_contract_initialize_is_successfull() {
         owner_addr: Some(ADMIN.to_string()),
         native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
-        min_tasks_per_agent:None,
+        min_tasks_per_agent: None,
     };
     let contract_addr = app
         .instantiate_contract(
@@ -50,7 +51,7 @@ fn test_contract_initialize_is_successfull() {
         owner_addr: Some(ANYONE.to_string()),
         native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
-        min_tasks_per_agent:None,
+        min_tasks_per_agent: None,
     };
 
     let contract_addr = app
@@ -79,7 +80,7 @@ fn test_contract_initialize_fail_cases() {
         owner_addr: Some(ADMIN.to_string()),
         native_denom: None,
         agent_nomination_duration: None,
-        min_tasks_per_agent:None,
+        min_tasks_per_agent: None,
     };
     let error: ContractError = app
         .instantiate_contract(
@@ -324,37 +325,43 @@ fn accept_nomination_agent() {
     let mut total_tasks = 0;
 
     // Register AGENT1, who immediately becomes active
-    register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
+    register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
 
-    on_task_created(&mut app,&contract_addr,PARTICIPANT0,"task0",total_tasks);
-    total_tasks+=1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT0, "task0", total_tasks);
+    total_tasks += 1;
 
     assert_eq!(total_tasks, 1);
 
     // Register two agents
-    register_agent(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY);
-    register_agent(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
+    register_agent(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
 
     let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &contract_addr);
     assert_eq!(1, num_active_agents);
     assert_eq!(2, agent_ids_res.pending.len());
 
-    on_task_created(&mut app,&contract_addr,PARTICIPANT1,"task1",total_tasks);
-    total_tasks+=1;
-    on_task_created(&mut app,&contract_addr,PARTICIPANT2,"task2",total_tasks);
-    total_tasks+=1;
-    on_task_created(&mut app,&contract_addr,PARTICIPANT3,"task3",total_tasks);
-    total_tasks+=1;
-    
+    on_task_created(&mut app, &contract_addr, PARTICIPANT1, "task1", total_tasks);
+    total_tasks += 1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT2, "task2", total_tasks);
+    total_tasks += 1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task3", total_tasks);
+    total_tasks += 1;
+
     assert_eq!(total_tasks, 4);
 
     // Fast forward time a little
     app.update_block(|block| add_seconds_to_block(block, 19));
     app.update_block(|block| increment_block_height(block, None));
 
-    let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks);
+    let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+        .unwrap()
+        .unwrap()
+        .status;
     assert_eq!(AgentStatus::Pending, agent_status);
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT2, total_tasks);
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT2, total_tasks)
+        .unwrap()
+        .unwrap()
+        .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
 
     // Attempt to accept nomination
@@ -393,27 +400,36 @@ fn accept_nomination_agent() {
         error_msg.downcast().unwrap()
     );
 
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks);
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+        .unwrap()
+        .unwrap()
+        .status;
     assert_eq!(AgentStatus::Pending, agent_status);
 
     println!("start");
-    on_task_created(&mut app,&contract_addr,PARTICIPANT3,"task4",total_tasks);
-    total_tasks+=1;
-    on_task_created(&mut app,&contract_addr,PARTICIPANT3,"task5",total_tasks);
-    total_tasks+=1;
-    on_task_created(&mut app,&contract_addr,PARTICIPANT3,"task6",total_tasks);
-    total_tasks+=1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task4", total_tasks);
+    total_tasks += 1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task5", total_tasks);
+    total_tasks += 1;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task6", total_tasks);
+    total_tasks += 1;
 
     // Add another agent, since there's now the need
-    register_agent(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY);
+    register_agent(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
     // Fast forward time past the duration of the first pending agent,
     // allowing the second to nominate themselves
     app.update_block(|block| add_seconds_to_block(block, 420));
 
     // Now that enough time has passed, both agents should see they're nominated
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks);
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+        .unwrap()
+        .unwrap()
+        .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT4, total_tasks);
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT4, total_tasks)
+        .unwrap()
+        .unwrap()
+        .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
 
     // Agent second in line nominates themself
@@ -432,12 +448,61 @@ fn accept_nomination_agent() {
     );
 }
 
+#[test]
+fn test_get_agent_status() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+    let mut total_tasks = 0;
+
+   
+    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1, 0).unwrap();
+    assert_eq!(None, agent_status_res);
+
+    // Register AGENT1, who immediately becomes active
+    let register_agent_res = register_agent(&mut app, &contract_addr, AGENT0, &AGENT_BENEFICIARY);
+    // First registered agent becomes active
+    assert!(
+        register_agent_res.is_ok(),
+        "Registering agent should succeed"
+    );
+
+    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT0, 0);
+    assert_eq!(
+        AgentStatus::Active,
+        agent_status_res.unwrap().unwrap().status
+    );
+
+    // Register an agent and make sure the status comes back as pending
+    let register_agent_res = register_agent(&mut app, &contract_addr, AGENT1, PARTICIPANT1);
+    assert!(
+        register_agent_res.is_ok(),
+        "Registering agent should succeed"
+    );
+    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1, total_tasks);
+    assert_eq!(
+        AgentStatus::Pending,
+        agent_status_res.unwrap().unwrap().status,
+        "New agent should be pending"
+    );
+    total_tasks += 3;
+    on_task_created(&mut app, &contract_addr, PARTICIPANT2, "task2", total_tasks);
+
+    // Agent status is nominated
+    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1, total_tasks);
+
+    assert_eq!(
+        AgentStatus::Nominated,
+        agent_status_res.unwrap().unwrap().status,
+        "New agent should have nominated status"
+    );
+}
+
 fn register_agent(
     app: &mut App,
     contract_addr: &Addr,
     agent: &str,
     beneficiary: &str,
-) -> AppResponse {
+) -> Result<AppResponse, anyhow::Error> {
     app.execute_contract(
         Addr::unchecked(agent),
         contract_addr.clone(),
@@ -447,7 +512,6 @@ fn register_agent(
         },
         &[],
     )
-    .expect("Error registering agent")
 }
 fn get_agent_ids(app: &App, contract_addr: &Addr) -> (GetAgentIdsResponse, usize, usize) {
     let res: GetAgentIdsResponse = app
@@ -468,18 +532,16 @@ fn get_agent_status(
     contract_addr: &Addr,
     agent: &str,
     total_tasks: u64,
-) -> AgentStatus {
-    let agent_info: AgentResponse = app
-        .wrap()
-        .query_wasm_smart(
-            &contract_addr.clone(),
-            &QueryMsg::GetAgent {
-                account_id: agent.to_string(),
-                total_tasks,
-            },
-        )
-        .expect("Error getting agent status");
-    agent_info.status
+) -> Result<Option<AgentResponse>, anyhow::Error> {
+    let agent_info: Option<AgentResponse> = app.wrap().query_wasm_smart(
+        &contract_addr.clone(),
+        &QueryMsg::GetAgent {
+            account_id: agent.to_string(),
+            total_tasks,
+        },
+    )?;
+
+    return Ok(agent_info);
 }
 
 fn check_in_agent(
