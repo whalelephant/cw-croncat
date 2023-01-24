@@ -3,6 +3,9 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
 };
+use croncat_sdk_core::internal_messages::agents::AgentNewTask;
+use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskResponse, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest,
     TaskResponse,
@@ -12,8 +15,8 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::helpers::{
-    check_if_sender_is_manager, remove_task_with_queries, remove_task_without_queries,
-    validate_boundary, validate_msg_calculate_usage,
+    check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task_with_queries,
+    remove_task_without_queries, validate_boundary, validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -85,11 +88,11 @@ pub fn execute(
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
-        ExecuteMsg::RemoveTaskInternal { task_hash } => {
-            execute_remove_task_internal(deps, info, task_hash)
+        ExecuteMsg::RemoveTaskByManager(remove_task_msg) => {
+            execute_remove_task_internal(deps, info, remove_task_msg)
         }
-        ExecuteMsg::TryToRescheduleTask { task_hash } => {
-            execute_try_to_reschedule_task(deps, env, info, task_hash)
+        ExecuteMsg::RescheduleTask(reschedule_msg) => {
+            execute_try_to_reschedule_task(deps, env, info, reschedule_msg)
         }
     }
 }
@@ -98,8 +101,9 @@ fn execute_try_to_reschedule_task(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    task_hash: Vec<u8>,
+    reschedule_msg: TasksRescheduleTask,
 ) -> Result<Response, ContractError> {
+    let task_hash = reschedule_msg.task_hash;
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
@@ -164,8 +168,9 @@ fn execute_try_to_reschedule_task(
 fn execute_remove_task_internal(
     deps: DepsMut,
     info: MessageInfo,
-    task_hash: Vec<u8>,
+    remove_task_msg: TasksRemoveTaskByManager,
 ) -> Result<Response, ContractError> {
+    let task_hash = remove_task_msg.task_hash;
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
@@ -203,8 +208,14 @@ fn execute_remove_task(
     } else {
         return Err(ContractError::NoTaskFound {});
     }
-    // TODO: ping manager to remove balance of the task hash
-    Ok(Response::new().add_attribute("action", "remove_task"))
+    let manager_addr = get_manager_addr(&deps.querier, &config)?;
+    let remove_task_msg = ManagerRemoveTask {
+        task_hash: task_hash.into_bytes(),
+    }
+    .into_cosmos_msg(manager_addr)?;
+    Ok(Response::new()
+        .add_attribute("action", "remove_task")
+        .add_message(remove_task_msg))
 }
 
 fn execute_create_task(
@@ -234,7 +245,7 @@ fn execute_create_task(
         interval: task.interval,
         boundary,
         stop_on_fail: task.stop_on_fail,
-        amount_for_one_task,
+        amount_for_one_task: amount_for_one_task.clone(),
         actions: task.actions,
         queries: task.queries.unwrap_or_default(),
         transforms: task.transforms.unwrap_or_default(),
@@ -291,15 +302,23 @@ fn execute_create_task(
         }
     }
 
-    // TODO: pass message to manager with amount_for_one_task
-    // TODO: ping agent to notify new task is arrived
+    let manager_addr = get_manager_addr(&deps.querier, &config)?;
+    let manager_create_task_balance_msg = ManagerCreateTaskBalance {
+        task_hash: hash.as_bytes().to_owned(),
+        amount_for_one_task,
+    }
+    .into_cosmos_msg(manager_addr)?;
+    let agent_addr = get_agents_addr(&deps.querier, &config)?;
+    let agent_new_task_msg = AgentNewTask {}.into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
         .add_attribute("task_hash", hash)
-        .add_attribute("with_queries", with_queries.to_string()))
+        .add_attribute("with_queries", with_queries.to_string())
+        .add_message(agent_new_task_msg)
+        .add_message(manager_create_task_balance_msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

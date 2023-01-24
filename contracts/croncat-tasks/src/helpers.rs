@@ -210,17 +210,38 @@ pub(crate) fn check_if_sender_is_manager(
     config: &Config,
     sender: &Addr,
 ) -> Result<(), ContractError> {
-    let (manager_name, version) = &config.croncat_manager_key;
-    let manager_addr = croncat_factory::state::CONTRACT_ADDRS
-        .query(
-            deps_queries,
-            config.croncat_factory_addr.clone(),
-            (&manager_name, version),
-        )?
-        .ok_or(ContractError::InvalidKey {})?;
+    let manager_addr = get_manager_addr(deps_queries, config)?;
     if manager_addr != *sender {
         return Err(ContractError::Unauthorized {});
     }
 
     Ok(())
+}
+
+pub(crate) fn get_manager_addr(
+    deps_queries: &QuerierWrapper<Empty>,
+    config: &Config,
+) -> Result<Addr, ContractError> {
+    let (manager_name, version) = &config.croncat_manager_key;
+    croncat_factory::state::CONTRACT_ADDRS
+        .query(
+            deps_queries,
+            config.croncat_factory_addr.clone(),
+            (&manager_name, version),
+        )?
+        .ok_or(ContractError::InvalidKey {})
+}
+
+pub(crate) fn get_agents_addr(
+    deps_queries: &QuerierWrapper<Empty>,
+    config: &Config,
+) -> Result<Addr, ContractError> {
+    let (agents_name, version) = &config.croncat_agents_key;
+    croncat_factory::state::CONTRACT_ADDRS
+        .query(
+            deps_queries,
+            config.croncat_factory_addr.clone(),
+            (&agents_name, version),
+        )?
+        .ok_or(ContractError::InvalidKey {})
 }

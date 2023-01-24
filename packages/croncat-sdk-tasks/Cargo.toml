@@ -12,5 +12,7 @@ cw20 = { workspace = true }
 cron_schedule = { workspace = true }
 
 croncat-mod-generic = { workspace = true }
+croncat-sdk-core = { workspace = true }
+
 sha2 = { workspace = true }
 hex = { workspace = true }

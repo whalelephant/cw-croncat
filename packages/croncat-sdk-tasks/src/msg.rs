@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 
 use crate::types::TaskRequest;
 
@@ -36,8 +37,8 @@ pub enum TasksExecuteMsg {
     CreateTask { task: TaskRequest },
     RemoveTask { task_hash: String },
     // Methods for other contracts
-    RemoveTaskInternal { task_hash: Vec<u8> },
-    TryToRescheduleTask { task_hash: Vec<u8> },
+    RemoveTaskByManager(TasksRemoveTaskByManager),
+    RescheduleTask(TasksRescheduleTask),
 }
 
 #[cw_serde]
