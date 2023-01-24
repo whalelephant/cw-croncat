@@ -14,8 +14,8 @@ use crate::state::{
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, Storage, SubMsg, Uint128,
+    has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Storage, Uint128,
 };
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
@@ -283,27 +283,6 @@ fn update_agent(
     Ok(Response::new()
         .add_attribute("method", "update_agent")
         .add_attribute("payable_account_id", agent.payable_account_id))
-}
-
-// Helper to distribute funds/tokens
-fn send_tokens(
-    storage: &mut dyn Storage,
-    to: &Addr,
-    balance: Uint128,
-) -> StdResult<(Vec<SubMsg>, Uint128)> {
-    let config = CONFIG.may_load(storage)?.unwrap();
-    let msgs: Vec<SubMsg> = if balance.is_zero() {
-        vec![]
-    } else {
-        vec![SubMsg::new(BankMsg::Send {
-            to_address: to.into(),
-            amount: vec![Coin {
-                denom: config.native_denom,
-                amount: balance,
-            }],
-        })]
-    };
-    Ok((msgs, balance))
 }
 
 /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.

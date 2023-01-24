@@ -2,6 +2,7 @@ use crate::error::ContractError;
 use crate::msg::*;
 use croncat_sdk_tasks::types::SlotType;
 use cw_multi_test::Executor;
+use serde::__private::de::Content;
 
 use crate::balancer::{Balancer, RoundRobinBalancer};
 use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
@@ -169,5 +170,106 @@ fn test_register_agent_fails() {
         .unwrap_err()
         .downcast()
         .unwrap();
+    assert_eq!(error, ContractError::ContractPaused);
+}
+
+#[test]
+fn test_update_agent_is_successfull() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(ANYONE.to_string()),
+            cost: 1,
+        },
+        &[],
+    )
+    .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateAgent {
+            payable_account_id: ADMIN.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let agent_response: AgentResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr,
+            &QueryMsg::GetAgent {
+                account_id: ADMIN.to_string(),
+                total_tasks: 10,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        agent_response.payable_account_id.to_string(),
+        ADMIN.to_string()
+    );
+}
+
+#[test]
+fn test_update_agent_fails() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(ANYONE.to_string()),
+            cost: 1,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &ExecuteMsg::UpdateAgent {
+                payable_account_id: ADMIN.to_string(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(error, ContractError::AgentNotRegistered);
+
+    //Check contract is paused and failing
+    let mut config = mock_update_config();
+    config.paused = Some(true);
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(config)),
+        &[],
+    )
+    .unwrap();
+
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::UpdateAgent {
+                payable_account_id: ADMIN.to_string(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
     assert_eq!(error, ContractError::ContractPaused);
 }
