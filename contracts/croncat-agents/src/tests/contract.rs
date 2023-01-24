@@ -5,7 +5,6 @@ use cw_multi_test::{App, AppResponse, Executor};
 use crate::tests::common::*;
 use cosmwasm_std::{Addr, Coin, Uint128};
 
-
 #[test]
 fn test_contract_initialize_is_successfull() {
     let mut app = default_app();
@@ -63,7 +62,7 @@ fn test_contract_initialize_is_successfull() {
 fn test_contract_initialize_fail_cases() {
     let mut app = default_app();
     let contract_code_id = app.store_code(agent_contract());
-    
+
     let init_msg = InstantiateMsg {
         manager_addr: String::new(),
         owner_addr: Some(ADMIN.to_string()),

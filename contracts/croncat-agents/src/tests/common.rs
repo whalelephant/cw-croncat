@@ -138,7 +138,8 @@ pub(crate) fn init_agents_contract(
     init_msg: Option<InstantiateMsg>,
     funds: Option<&[Coin]>,
 ) -> (u64, Addr) {
-    let (_,croncat_manager_addr)=init_croncat_manager_contract(app,sender,owner.clone(),funds.clone());
+    let (_, croncat_manager_addr) =
+        init_croncat_manager_contract(app, sender, owner.clone(), funds.clone());
     let contract_code_id = app.store_code(agent_contract());
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,

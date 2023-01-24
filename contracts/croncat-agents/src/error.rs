@@ -40,5 +40,5 @@ pub enum ContractError {
     NoActiveAgents,
 
     #[error("Invalid CronCat manager address")]
-    InvalidCroncatManagerAddress{addr:String},
+    InvalidCroncatManagerAddress { addr: String },
 }

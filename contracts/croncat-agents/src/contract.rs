@@ -467,7 +467,7 @@ pub fn execute_update_config(
 
         let new_config = Config {
             manager_addr: Addr::unchecked(
-                manager_addr.unwrap_or(String::from(&config.manager_addr)),
+                manager_addr.unwrap_or_else(|| config.manager_addr.to_string()),
             ),
             paused: paused.unwrap_or(config.paused),
             owner_addr,
