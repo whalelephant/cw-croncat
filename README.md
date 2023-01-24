@@ -107,8 +107,6 @@ We'll minify the JSON and plug in the environment variables into a single line w
 
     CRONCAT_FACTORY_DEPLOY_MANAGER=$(echo '{"deploy":{"kind":"manager","module_instantiate_info":{"code_id":'$CRONCAT_MANAGER_ID',"version":[0,1],"commit_id":"8e08b808465c42235f961423fcf9e4792ce02462","checksum":"abc123","changelog_url":"https://example.com/lucky","schema":"https://croncat-schema.example.com/version-0-1","msg":"'$CRONCAT_MANAGER_INST_MSG'","contract_name":"croncat-manager--version-0-1"}}}')
 
-No
-
 Finally, let's deploy the manager contract via the factory:
 
     CRONCAT_MANAGER_ADDR=$(junod tx wasm execute $CRONCAT_FACTORY_ADDR $CRONCAT_FACTORY_DEPLOY_MANAGER --from owner --gas-prices 0.025stake --gas auto --gas-adjustment 1.3 -b block -o json -y | jq -r ".logs[0].events[1].attributes[0].value")
@@ -129,7 +127,7 @@ To instantiate the agent contract, we'll use this:
 
 **Note**: you may see the optional fields by looking for the `InstantiateMsg` in `packages/croncat-sdk-agents/src/msg.rs`
 
-Back to the payload we'll send to the factory `deploy` method, let's take a look at the human-readable JSON:
+Back to the payload we're sending to the factory `deploy` method, let's take a look at the human-readable JSON:
 
 ```json
 {
