@@ -454,7 +454,6 @@ fn test_get_agent_status() {
     let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
     let mut total_tasks = 0;
 
-   
     let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1, 0).unwrap();
     assert_eq!(None, agent_status_res);
 

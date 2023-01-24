@@ -16,6 +16,12 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Storage, Uint128,
 };
+use croncat_sdk_agents::msg::{
+    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+};
+use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
+use croncat_sdk_core::msg::ManagerQueryMsg;
+use croncat_sdk_core::types::Config as ManagerConfig;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -27,6 +33,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let manager_addr = deps.api.addr_validate(&msg.manager_addr)?;
     let valid_owner_addr = msg
         .owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -37,12 +44,12 @@ pub fn instantiate(
         min_tasks_per_agent: msg
             .min_tasks_per_agent
             .unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
+        manager_addr,
         agent_nomination_duration: msg
             .agent_nomination_duration
             .unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr: valid_owner_addr,
         paused: false,
-        native_denom: msg.native_denom.ok_or(ContractError::InvalidNativeDenom)?, //TODO: Remove native denom from agents
     };
     CONFIG.save(deps.storage, config)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
@@ -85,7 +92,7 @@ pub fn execute(
             update_agent(deps, info, env, payable_account_id)
         }
         ExecuteMsg::UnregisterAgent { from_behind } => {
-            unregister_agent(deps.storage, &info.sender, from_behind)
+            unregister_agent(deps, &info.sender, from_behind)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated {
@@ -198,8 +205,15 @@ fn register_agent(
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
-    if !has_coins(&agent_wallet_balances, &Coin::new(cost, c.native_denom))
-        || agent_wallet_balances.is_empty()
+
+    // Get the denom from the manager contract
+    let manager_config: ManagerConfig = deps
+        .querier
+        .query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
+    if !has_coins(
+        &agent_wallet_balances,
+        &Coin::new(cost, manager_config.native_denom),
+    ) || agent_wallet_balances.is_empty()
     {
         return Err(ContractError::InsufficientFunds);
     }
@@ -243,7 +257,7 @@ fn register_agent(
 
     Ok(Response::new()
         .add_attribute("method", "register_agent")
-        .add_attribute("agent_status", format!("{:?}", agent_status))
+        .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
         .add_attribute("register_start", agent.register_start.nanos().to_string())
         .add_attribute("payable_account_id", agent.payable_account_id))
 }
@@ -371,25 +385,25 @@ fn accept_nomination_agent(
 /// Withdraws all reward balances to the agent payable account id.
 /// In case it fails to unregister pending agent try to set `from_behind` to true
 fn unregister_agent(
-    storage: &mut dyn Storage,
+    deps: DepsMut,
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    AGENTS.remove(storage, agent_id);
+    AGENTS.remove(deps.storage, agent_id);
     // Remove from the list of active agents if the agent in this list
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(storage)?;
+    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
         active_agents.remove(index);
-        AGENTS_ACTIVE.save(storage, &active_agents)?;
+        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(storage, agent_id)?;
+        AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(deps.storage, agent_id)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
         let mut return_those_agents: Vec<Addr> =
-            Vec::with_capacity((AGENTS_PENDING.len(storage)? / 2) as usize);
+            Vec::with_capacity((AGENTS_PENDING.len(deps.storage)? / 2) as usize);
         if from_behind.unwrap_or(false) {
-            while let Some(addr) = AGENTS_PENDING.pop_front(storage)? {
+            while let Some(addr) = AGENTS_PENDING.pop_front(deps.storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -397,10 +411,10 @@ fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                AGENTS_PENDING.push_front(storage, ag)?;
+                AGENTS_PENDING.push_front(deps.storage, ag)?;
             }
         } else {
-            while let Some(addr) = AGENTS_PENDING.pop_back(storage)? {
+            while let Some(addr) = AGENTS_PENDING.pop_back(deps.storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -408,7 +422,7 @@ fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                AGENTS_PENDING.push_back(storage, ag)?;
+                AGENTS_PENDING.push_back(deps.storage, ag)?;
             }
         }
     }
@@ -430,7 +444,7 @@ pub fn execute_update_config(
         let UpdateConfig {
             owner_addr,
             paused,
-            native_denom,
+            manager_addr,
             min_tasks_per_agent,
             agent_nomination_duration,
         } = msg;
@@ -445,12 +459,14 @@ pub fn execute_update_config(
             .unwrap_or(config.owner_addr);
 
         let new_config = Config {
+            manager_addr: Addr::unchecked(
+                manager_addr.unwrap_or(String::from(&config.manager_addr)),
+            ),
             paused: paused.unwrap_or(config.paused),
             owner_addr,
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agent_nomination_duration: agent_nomination_duration
                 .unwrap_or(config.agent_nomination_duration),
-            native_denom: native_denom.unwrap_or(config.native_denom),
         };
         Ok(new_config)
     })?;
@@ -571,7 +587,9 @@ fn on_task_created(
     // If we should allow a new agent to take over
     if num_agents_to_accept != 0 {
         // Don't wipe out an older timestamp
-        let begin = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage).unwrap_or_default();
+        let begin = AGENT_NOMINATION_BEGIN_TIME
+            .load(deps.storage)
+            .unwrap_or_default();
         if begin.is_none() {
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }

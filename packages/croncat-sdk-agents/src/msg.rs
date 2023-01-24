@@ -1,14 +1,13 @@
+use crate::types::AgentStatus;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
 
-use crate::types::{AgentStatus, Config};
-
 #[cw_serde]
 pub struct InstantiateMsg {
+    pub manager_addr: String,
     pub owner_addr: Option<String>,
-    pub native_denom: Option<String>,
     pub agent_nomination_duration: Option<u16>,
-    pub min_tasks_per_agent:Option<u64>,
+    pub min_tasks_per_agent: Option<u64>,
 }
 
 #[cw_serde]
@@ -80,7 +79,7 @@ pub struct AgentTaskResponse {
 pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
-    pub native_denom: Option<String>,
+    pub manager_addr: Option<String>,
     pub min_tasks_per_agent: Option<u64>,
     pub agent_nomination_duration: Option<u16>,
 }

@@ -17,7 +17,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.64.0
+          toolchain: 1.66.0
           target: wasm32-unknown-unknown
           override: true
 
@@ -48,7 +48,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.63.0
+          toolchain: 1.66.0
           override: true
           components: rustfmt, clippy
 
@@ -62,7 +62,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: -- -D warnings
+          args: --all-targets -- -D warnings
       
       - name: Generate Schema
         run: ./scripts/schema.sh
