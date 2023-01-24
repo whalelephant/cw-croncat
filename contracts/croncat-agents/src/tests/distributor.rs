@@ -1,7 +1,7 @@
 use crate::msg::*;
 use croncat_sdk_tasks::types::SlotType;
 
-use crate::balancer::{Balancer, RoundRobinBalancer};
+use crate::distributor::{AgentTaskDistributor, RoundRobinAgentTaskDistributor};
 use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
 use crate::tests::common::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
 use cosmwasm_std::testing::{
@@ -26,7 +26,7 @@ fn assert_balancer_tasks(
     act_agents: &[(&str, u64, u64)],
     expected: &[(&str, u64, u64)],
 ) {
-    let balancer = RoundRobinBalancer::new();
+    let task_distributor = AgentTaskDistributor::new();
     let mut result = Vec::<(&str, u64, u64)>::new();
 
     AGENTS_ACTIVE.remove(&mut deps.storage);
@@ -43,7 +43,7 @@ fn assert_balancer_tasks(
         .unwrap();
     act_agents.iter().for_each(|f| {
         if f.1 > 0 {
-            balancer
+            task_distributor
                 .on_task_completed(
                     &mut deps.storage,
                     &env,
@@ -53,7 +53,7 @@ fn assert_balancer_tasks(
                 .unwrap();
         }
         if f.2 > 0 {
-            balancer
+            task_distributor
                 .on_task_completed(
                     &mut deps.storage,
                     &env,
@@ -65,7 +65,7 @@ fn assert_balancer_tasks(
     });
 
     for a in act_agents {
-        let balancer_result = balancer
+        let balancer_result = task_distributor
             .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
             .unwrap()
             .unwrap();
@@ -87,7 +87,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
         cosmwasm_std::testing::MockQuerier,
     > = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let mut config = mock_config();
+    let mut config = mock_config(String::new().as_str());
 
     let cases: &[(
         (Option<u64>, Option<u64>),
@@ -258,7 +258,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
 fn test_on_task_completed() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let balancer = RoundRobinBalancer::default();
+    let task_distributor = AgentTaskDistributor::default();
 
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
         .may_load(&deps.storage)
@@ -278,12 +278,12 @@ fn test_on_task_completed() {
 
     let agent0_addr = &Addr::unchecked(AGENT0);
     for _ in 0..5 {
-        balancer
+        task_distributor
             .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Block)
             .unwrap();
     }
 
-    balancer
+    task_distributor
         .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Cron)
         .unwrap();
 
@@ -296,7 +296,7 @@ fn test_on_task_completed() {
 fn test_on_agent_unregister() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let balancer = RoundRobinBalancer::default();
+    let task_distributor = AgentTaskDistributor::default();
 
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
         .may_load(&deps.storage)
@@ -317,14 +317,14 @@ fn test_on_agent_unregister() {
     let agent0_addr = &Addr::unchecked(AGENT0);
     let agent1_addr = &Addr::unchecked(AGENT1);
 
-    balancer
+    task_distributor
         .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Block)
         .unwrap();
-    balancer
+    task_distributor
         .on_task_completed(&mut deps.storage, &env, &agent1_addr, SlotType::Block)
         .unwrap();
 
-    balancer
+    task_distributor
         .on_agent_unregistered(&mut deps.storage, &agent1_addr)
         .unwrap();
 

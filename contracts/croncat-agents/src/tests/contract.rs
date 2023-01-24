@@ -1,34 +1,21 @@
 use crate::error::ContractError;
 use crate::msg::*;
-use croncat_sdk_tasks::types::SlotType;
 use cw_multi_test::{App, AppResponse, Executor};
-use serde::__private::de::Content;
 
-use crate::balancer::{Balancer, RoundRobinBalancer};
-use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
-use crate::tests::common::{
-    add_seconds_to_block, agent_contract, default_app, increment_block_height, mock_update_config,
-    ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5, AGENT6, AGENT_BENEFICIARY, ANYONE,
-    PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6,
-};
-use cosmwasm_std::testing::{
-    mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
-};
-use cosmwasm_std::{coins, Addr, Coin, Empty, Env, MemoryStorage, OwnedDeps, StdError, Uint128};
-
-use super::common::{init_agents_contract, mock_config, NATIVE_DENOM};
+use crate::tests::common::*;
+use cosmwasm_std::{Addr, Coin, Uint128};
 
 #[test]
 fn test_contract_initialize_is_successfull() {
     let mut app = default_app();
     let contract_code_id = app.store_code(agent_contract());
-
+    let (_, croncat_manager_addr) =
+        init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_string()),
-        native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
+        manager_addr: croncat_manager_addr.to_string(),
     };
     let contract_addr = app
         .instantiate_contract(
@@ -49,9 +36,9 @@ fn test_contract_initialize_is_successfull() {
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ANYONE.to_string()),
-        native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
+        manager_addr: croncat_manager_addr.to_string(),
     };
 
     let contract_addr = app
@@ -77,8 +64,8 @@ fn test_contract_initialize_fail_cases() {
     let contract_code_id = app.store_code(agent_contract());
 
     let init_msg = InstantiateMsg {
+        manager_addr: String::new(),
         owner_addr: Some(ADMIN.to_string()),
-        native_denom: None,
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
     };
@@ -95,7 +82,12 @@ fn test_contract_initialize_fail_cases() {
         .downcast()
         .unwrap();
 
-    assert_eq!(error, ContractError::InvalidNativeDenom);
+    assert_eq!(
+        error,
+        ContractError::InvalidCroncatManagerAddress {
+            addr: String::new()
+        }
+    );
 }
 //RegisterAgent
 #[test]
@@ -151,8 +143,11 @@ fn test_register_agent_fails() {
         .unwrap();
     assert_eq!(error, ContractError::NoFundsShouldBeAttached);
 
+    let (_, croncat_manager_addr) =
+        init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
+
     //Check contract is paused and failing
-    let mut config = mock_update_config();
+    let mut config = mock_update_config(croncat_manager_addr.to_string().as_str());
     config.paused = Some(true);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -253,9 +248,10 @@ fn test_update_agent_fails() {
         .unwrap();
 
     assert_eq!(error, ContractError::AgentNotRegistered);
-
+    let (_, croncat_manager_addr) =
+        init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
     //Check contract is paused and failing
-    let mut config = mock_update_config();
+    let mut config = mock_update_config(croncat_manager_addr.to_string().as_str());
     config.paused = Some(true);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -287,23 +283,12 @@ fn test_agent_check_in_successfull() {
     let mut app = default_app();
     let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &ExecuteMsg::RegisterAgent {
-            payable_account_id: Some(ANYONE.to_string()),
-            cost: 1,
-        },
-        &[],
-    )
-    .unwrap();
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &ExecuteMsg::CheckInAgent {},
-        &[],
-    )
-    .unwrap();
+    register_agent(&mut app, &contract_addr, ANYONE, PARTICIPANT0).unwrap();
+    register_agent(&mut app, &contract_addr, ADMIN, PARTICIPANT0).unwrap();
+    app.update_block(|block| add_seconds_to_block(block, 500));
+    on_task_created(&mut app, &contract_addr, ADMIN, "task1", 4);
+
+    check_in_agent(&mut app, &contract_addr, ADMIN).unwrap();
 
     let agent_response: AgentResponse = app
         .wrap()

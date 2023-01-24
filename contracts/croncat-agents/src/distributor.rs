@@ -7,7 +7,7 @@ use crate::{
     state::{AGENTS_ACTIVE, AGENT_STATS},
 };
 
-pub trait Balancer<'a> {
+pub trait RoundRobinAgentTaskDistributor<'a> {
     #[doc = r".Gets agent tasks count for block/cron slots
     # Errors
     This function will return an error if agent does not exists"]
@@ -35,14 +35,14 @@ pub trait Balancer<'a> {
     ) -> Result<(), ContractError>;
 }
 
-pub struct RoundRobinBalancer {}
+pub struct AgentTaskDistributor {}
 
-impl RoundRobinBalancer {
-    pub const fn new() -> RoundRobinBalancer {
-        RoundRobinBalancer {}
+impl AgentTaskDistributor {
+    pub const fn new() -> AgentTaskDistributor {
+        AgentTaskDistributor {}
     }
 }
-impl<'a> Balancer<'a> for RoundRobinBalancer {
+impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
     fn get_agent_tasks(
         &self,
         deps: &Deps,
@@ -150,8 +150,8 @@ impl<'a> Balancer<'a> for RoundRobinBalancer {
     }
 }
 
-impl Default for RoundRobinBalancer {
-    fn default() -> RoundRobinBalancer {
-        RoundRobinBalancer::new()
+impl Default for AgentTaskDistributor {
+    fn default() -> AgentTaskDistributor {
+        AgentTaskDistributor::new()
     }
 }
