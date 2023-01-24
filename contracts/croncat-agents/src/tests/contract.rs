@@ -77,8 +77,8 @@ fn test_contract_initialize_fail_cases() {
     let contract_code_id = app.store_code(agent_contract());
 
     let init_msg = InstantiateMsg {
+        manager_addr:None,
         owner_addr: Some(ADMIN.to_string()),
-        native_denom: None,
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
     };
