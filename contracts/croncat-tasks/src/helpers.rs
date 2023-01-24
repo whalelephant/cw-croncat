@@ -1,10 +1,19 @@
-use cosmwasm_std::{Addr, Api, BankMsg, BlockInfo, CosmosMsg, WasmMsg};
+use cosmwasm_std::{
+    Addr, Api, BankMsg, BlockInfo, CosmosMsg, Empty, Order, QuerierWrapper, StdResult, Storage,
+    WasmMsg,
+};
 use croncat_sdk_tasks::types::{
     AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
-use crate::ContractError;
+use crate::{
+    state::{
+        tasks_map, tasks_with_queries_map, BLOCK_MAP_QUERIES, BLOCK_SLOTS, TASKS_TOTAL,
+        TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS,
+    },
+    ContractError,
+};
 
 pub(crate) fn validate_boundary(
     block_info: &BlockInfo,
@@ -129,4 +138,89 @@ pub(crate) fn validate_msg_calculate_usage(
         }
     }
     Ok(amount_for_one_task)
+}
+
+pub(crate) fn remove_task_without_queries(
+    storage: &mut dyn Storage,
+    hash: &[u8],
+    is_block: bool,
+) -> StdResult<()> {
+    tasks_map().remove(storage, hash)?;
+    TASKS_TOTAL.update(storage, |total| StdResult::Ok(total - 1))?;
+    if is_block {
+        let blocks = BLOCK_SLOTS
+            .range(storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        for (bid, mut block_hashes) in blocks {
+            let found = false;
+            block_hashes.retain(|h| {
+                let found = h == hash;
+                !found
+            });
+            if found {
+                if block_hashes.is_empty() {
+                    BLOCK_SLOTS.remove(storage, bid);
+                } else {
+                    BLOCK_SLOTS.save(storage, bid, &block_hashes)?;
+                }
+                break;
+            }
+        }
+    } else {
+        let time_buckets = TIME_SLOTS
+            .range(storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        for (tid, mut time_hashes) in time_buckets {
+            let found = false;
+            time_hashes.retain(|h| {
+                let found = h == hash;
+                !found
+            });
+            if found {
+                if time_hashes.is_empty() {
+                    TIME_SLOTS.remove(storage, tid);
+                } else {
+                    TIME_SLOTS.save(storage, tid, &time_hashes)?;
+                }
+                break;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn remove_task_with_queries(
+    storage: &mut dyn Storage,
+    hash: &[u8],
+    is_block: bool,
+) -> StdResult<()> {
+    tasks_with_queries_map().remove(storage, hash)?;
+    if is_block {
+        BLOCK_MAP_QUERIES.remove(storage, hash)
+    } else {
+        TIME_MAP_QUERIES.remove(storage, hash)
+    }
+    TASKS_WITH_QUERIES_TOTAL.update(storage, |total| StdResult::Ok(total - 1))?;
+    Ok(())
+}
+
+pub(crate) fn check_if_sender_is_manager(
+    deps_queries: &QuerierWrapper<Empty>,
+    config: &Config,
+    sender: &Addr,
+) -> Result<(), ContractError> {
+    let (manager_name, version) = &config.croncat_manager_key;
+    let manager_addr = croncat_factory::state::CONTRACT_ADDRS
+        .query(
+            deps_queries,
+            config.croncat_factory_addr.clone(),
+            (&manager_name, version),
+        )?
+        .ok_or(ContractError::InvalidKey {})?;
+    if manager_addr != *sender {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    Ok(())
 }

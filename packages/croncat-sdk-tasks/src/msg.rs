@@ -1,13 +1,13 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use crate::types::{SlotHashesResponse, SlotIdsResponse, Task, TaskRequest, TaskResponse};
+use crate::types::TaskRequest;
 
 #[cw_serde]
 pub struct TasksInstantiateMsg {
     /// Address of the factory contract
     pub croncat_factory_addr: String,
 
-    /// Chain name to add prefix to the task_hash 
+    /// Chain name to add prefix to the task_hash
     pub chain_name: String,
 
     /// Address of the contract owner, defaults to the sender
@@ -35,36 +35,41 @@ pub struct TasksInstantiateMsg {
 pub enum TasksExecuteMsg {
     CreateTask { task: TaskRequest },
     RemoveTask { task_hash: String },
+    // Methods for other contracts
+    RemoveTaskInternal { task_hash: Vec<u8> },
+    TryToRescheduleTask { task_hash: Vec<u8> },
 }
 
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum TasksQueryMsg {
-    #[returns(Vec<TaskResponse>)]
+    #[returns(Vec<crate::types::TaskResponse>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    #[returns(Vec<TaskResponse>)]
+    #[returns(Vec<crate::types::TaskResponse>)]
     TasksWithQueries {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    #[returns(Vec<TaskResponse>)]
+    #[returns(Vec<crate::types::TaskResponse>)]
     TasksByOwner {
         owner_addr: String,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    #[returns(Option<TaskResponse>)]
+    #[returns(Option<crate::types::TaskResponse>)]
     Task { task_hash: String },
     #[returns(String)]
-    TaskHash { task: Box<Task> },
-    #[returns(SlotHashesResponse)]
+    TaskHash { task: Box<crate::types::Task> },
+    #[returns(crate::types::SlotHashesResponse)]
     SlotHashes { slot: Option<u64> },
-    #[returns(SlotIdsResponse)]
+    #[returns(crate::types::SlotIdsResponse)]
     SlotIds {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    #[returns(Option<crate::types::CurrentTaskResponse>)]
+    GetCurrentTask {},
 }

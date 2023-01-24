@@ -44,4 +44,7 @@ pub enum ContractError {
 
     #[error("Chain name can't be longer than 32 characters")]
     TooLongChainName {},
+
+    #[error("Invalid version key, please update it")]
+    InvalidKey {},
 }

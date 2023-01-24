@@ -312,6 +312,28 @@ pub struct TaskResponse {
 }
 
 #[cw_serde]
+pub struct CurrentTaskResponse {
+    pub task_hash: Vec<u8>,
+
+    pub owner_addr: Addr,
+
+    pub interval: Interval,
+    pub boundary: BoundaryValidated,
+
+    pub stop_on_fail: bool,
+    pub amount_for_one_task: AmountForOneTask,
+
+    pub actions: Vec<Action>,
+    pub queries: Vec<CroncatQuery>,
+    pub transforms: Vec<Transform>,
+    pub version: String,
+
+    // manager needs to know if task can get rescheduled
+    // to avoid extra call during proxy call
+    pub next_id: u64,
+}
+
+#[cw_serde]
 pub struct SlotHashesResponse {
     pub block_id: u64,
     pub block_task_hash: Vec<String>,
