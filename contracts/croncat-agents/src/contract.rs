@@ -35,7 +35,9 @@ pub fn instantiate(
         .unwrap_or_else(|| info.sender.clone());
 
     let config = &Config {
-        min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
+        min_tasks_per_agent: msg
+            .min_tasks_per_agent
+            .unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: msg
             .agent_nomination_duration
             .unwrap_or(DEFAULT_NOMINATION_DURATION),
@@ -516,7 +518,9 @@ fn max_agent_nomination_index(
 ) -> Result<Option<u64>, ContractError> {
     let block_time = env.block.time.seconds();
 
-    let agent_nomination_begin_time = AGENT_NOMINATION_BEGIN_TIME.load(storage)?;
+    let agent_nomination_begin_time = AGENT_NOMINATION_BEGIN_TIME
+        .load(storage)
+        .unwrap_or_default();
 
     match agent_nomination_begin_time {
         Some(begin_time) => {
@@ -546,6 +550,7 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
         // It's possible there are more "covered tasks" than total tasks,
         // so use saturating subtraction to hit zero and not go below
         let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
+
         let remainder = u64::from(total_tasks_needing_agents % max_tasks != 0);
         total_tasks_needing_agents / max_tasks + remainder
     } else {
@@ -563,10 +568,11 @@ fn on_task_created(
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
     let num_agents_to_accept =
         agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
+
     // If we should allow a new agent to take over
     if num_agents_to_accept != 0 {
         // Don't wipe out an older timestamp
-        let begin = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage)?;
+        let begin = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage).unwrap_or_default();
         if begin.is_none() {
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }

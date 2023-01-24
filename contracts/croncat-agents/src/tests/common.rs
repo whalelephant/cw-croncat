@@ -7,7 +7,7 @@ use crate::{
     error::ContractError,
     state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION},
 };
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Coin, BlockInfo};
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
@@ -21,6 +21,7 @@ pub const AGENT2: &str = "agent2qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
 pub const AGENT3: &str = "agent3c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const AGENT4: &str = "agent4ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
 pub const AGENT5: &str = "agent5k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
+pub const AGENT6: &str = "agent614a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
 
 pub const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
@@ -61,6 +62,14 @@ pub(crate) fn default_app() -> App {
         let accounts: Vec<(u128, String)> = vec![
             (6_000_000, ADMIN.to_string()),
             (500_000, ANYONE.to_string()),
+            (500_000, AGENT0.to_string()),
+            (500_000, AGENT1.to_string()),
+            (500_000, AGENT2.to_string()),
+            (500_000, AGENT3.to_string()),
+            (500_000, AGENT4.to_string()),
+            (500_000, AGENT5.to_string()),
+            (500_000, AGENT6.to_string()),
+
         ];
         for (amt, address) in accounts {
             router
@@ -93,6 +102,7 @@ pub(crate) fn init_agents_contract(
         owner_addr: owner,
         native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
+        min_tasks_per_agent:Some(2),
     });
     let contract_addr = app
         .instantiate_contract(
@@ -106,4 +116,11 @@ pub(crate) fn init_agents_contract(
         .unwrap();
 
     (contract_code_id, contract_addr)
+}
+
+pub(crate) fn add_seconds_to_block(block: &mut BlockInfo,seconds:u64) {
+    block.time = block.time.plus_seconds(seconds);
+}
+pub(crate) fn increment_block_height(block: &mut BlockInfo,inc_value:Option<u64>) {
+    block.height += inc_value.unwrap_or(1);
 }

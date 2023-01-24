@@ -8,6 +8,7 @@ pub struct InstantiateMsg {
     pub owner_addr: Option<String>,
     pub native_denom: Option<String>,
     pub agent_nomination_duration: Option<u16>,
+    pub min_tasks_per_agent:Option<u64>,
 }
 
 #[cw_serde]
