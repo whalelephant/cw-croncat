@@ -7,12 +7,12 @@ use crate::{
     error::ContractError,
     state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION},
 };
-use cosmwasm_std::{Coin, BlockInfo};
 use cosmwasm_std::{
     coins,
     testing::{mock_env, mock_info},
     Addr, DepsMut, Empty, Response,
 };
+use cosmwasm_std::{BlockInfo, Coin};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
@@ -69,7 +69,6 @@ pub(crate) fn default_app() -> App {
             (500_000, AGENT4.to_string()),
             (500_000, AGENT5.to_string()),
             (500_000, AGENT6.to_string()),
-
         ];
         for (amt, address) in accounts {
             router
@@ -102,7 +101,7 @@ pub(crate) fn init_agents_contract(
         owner_addr: owner,
         native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
-        min_tasks_per_agent:Some(2),
+        min_tasks_per_agent: Some(2),
     });
     let contract_addr = app
         .instantiate_contract(
@@ -118,9 +117,9 @@ pub(crate) fn init_agents_contract(
     (contract_code_id, contract_addr)
 }
 
-pub(crate) fn add_seconds_to_block(block: &mut BlockInfo,seconds:u64) {
+pub(crate) fn add_seconds_to_block(block: &mut BlockInfo, seconds: u64) {
     block.time = block.time.plus_seconds(seconds);
 }
-pub(crate) fn increment_block_height(block: &mut BlockInfo,inc_value:Option<u64>) {
+pub(crate) fn increment_block_height(block: &mut BlockInfo, inc_value: Option<u64>) {
     block.height += inc_value.unwrap_or(1);
 }

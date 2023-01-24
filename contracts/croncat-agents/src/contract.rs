@@ -17,7 +17,9 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Storage, Uint128,
 };
-use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig};
+use croncat_sdk_agents::msg::{
+    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+};
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::msg::ManagerQueryMsg;
 use croncat_sdk_core::types::Config as ManagerConfig;
@@ -206,9 +208,13 @@ fn register_agent(
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
     // Get the denom from the manager contract
-    let manager_config: ManagerConfig = deps.querier.query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
-    if !has_coins(&agent_wallet_balances, &Coin::new(cost, manager_config.native_denom))
-        || agent_wallet_balances.is_empty()
+    let manager_config: ManagerConfig = deps
+        .querier
+        .query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
+    if !has_coins(
+        &agent_wallet_balances,
+        &Coin::new(cost, manager_config.native_denom),
+    ) || agent_wallet_balances.is_empty()
     {
         return Err(ContractError::InsufficientFunds);
     }
@@ -454,7 +460,9 @@ pub fn execute_update_config(
             .unwrap_or(config.owner_addr);
 
         let new_config = Config {
-            manager_addr: Addr::unchecked(manager_addr.unwrap_or(String::from(&config.manager_addr))),
+            manager_addr: Addr::unchecked(
+                manager_addr.unwrap_or(String::from(&config.manager_addr)),
+            ),
             paused: paused.unwrap_or(config.paused),
             owner_addr,
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
@@ -580,7 +588,9 @@ fn on_task_created(
     // If we should allow a new agent to take over
     if num_agents_to_accept != 0 {
         // Don't wipe out an older timestamp
-        let begin = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage).unwrap_or_default();
+        let begin = AGENT_NOMINATION_BEGIN_TIME
+            .load(deps.storage)
+            .unwrap_or_default();
         if begin.is_none() {
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }
