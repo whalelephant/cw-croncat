@@ -1,8 +1,0 @@
-[package]
-name = "croncat-sdk-config"
-version = "0.1.0"
-authors = []
-edition = "2021"
-repository = "https://github.com/CronCats/cw-croncat"
-
-[dependencies]
