@@ -36,9 +36,9 @@ pub enum ContractError {
     #[error("Unauthorized funciton call")]
     Unauthorized,
 
-    #[error("Invalid native denom")]
-    InvalidNativeDenom,
-
     #[error("No active agents in active agent list")]
     NoActiveAgents,
+
+    #[error("Invalid CronCat manager address")]
+    InvalidCroncatManagerAddress{addr:String},
 }

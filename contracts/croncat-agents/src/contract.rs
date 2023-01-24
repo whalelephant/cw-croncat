@@ -7,8 +7,8 @@ use crate::msg::*;
 use cw2::set_contract_version;
 
 use crate::state::{
-    AGENTS, AGENTS_ACTIVE, AGENTS_PENDING, AGENT_TASK_DISTRIBUTOR, AGENT_NOMINATION_BEGIN_TIME,
-    AGENT_STATS, CONFIG, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
+    AGENTS, AGENTS_ACTIVE, AGENTS_PENDING, AGENT_NOMINATION_BEGIN_TIME, AGENT_STATS,
+    AGENT_TASK_DISTRIBUTOR, CONFIG, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -21,7 +21,7 @@ use croncat_sdk_agents::msg::{
 };
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::msg::ManagerQueryMsg;
-use croncat_sdk_core::types::Config as ManagerConfig;
+use croncat_sdk_manager::types::Config as ManagerConfig;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -33,7 +33,11 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let manager_addr = deps.api.addr_validate(&msg.manager_addr)?;
+    let manager_addr = deps.api.addr_validate(&msg.manager_addr).map_err(|_| {
+        ContractError::InvalidCroncatManagerAddress {
+            addr: msg.manager_addr,
+        }
+    })?;
     let valid_owner_addr = msg
         .owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -210,6 +214,7 @@ fn register_agent(
     let manager_config: ManagerConfig = deps
         .querier
         .query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
+
     if !has_coins(
         &agent_wallet_balances,
         &Coin::new(cost, manager_config.native_denom),
@@ -320,25 +325,27 @@ fn accept_nomination_agent(
         // Sender's address does not exist in the agent pending queue
         return Err(ContractError::AgentNotRegistered);
     };
-    let time_difference =
-        if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME.load(deps.storage)? {
-            env.block.time.seconds() - nomination_start.seconds()
-        } else {
-            // edge case if last agent left
-            if active_agents.is_empty() && agent_position == 0 {
-                active_agents.push(info.sender.clone());
-                AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
+    let time_difference = if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME
+        .load(deps.storage)
+        .unwrap_or_default()
+    {
+        env.block.time.seconds() - nomination_start.seconds()
+    } else {
+        // edge case if last agent left
+        if active_agents.is_empty() && agent_position == 0 {
+            active_agents.push(info.sender.clone());
+            AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
 
-                AGENTS_PENDING.pop_front(deps.storage)?;
-                AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
-                return Ok(Response::new()
-                    .add_attribute("method", "accept_nomination_agent")
-                    .add_attribute("new_agent", info.sender.as_str()));
-            } else {
-                // No agents can join yet
-                return Err(ContractError::NotAcceptingNewAgents);
-            }
-        };
+            AGENTS_PENDING.pop_front(deps.storage)?;
+            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
+            return Ok(Response::new()
+                .add_attribute("method", "accept_nomination_agent")
+                .add_attribute("new_agent", info.sender.as_str()));
+        } else {
+            // No agents can join yet
+            return Err(ContractError::NotAcceptingNewAgents);
+        }
+    };
 
     // It works out such that the time difference between when this is called,
     // and the agent nomination begin time can be divided by the nomination
@@ -473,9 +480,8 @@ pub fn execute_update_config(
 
     Ok(Response::new()
         .add_attribute("action", "update_config")
-        .add_attribute("action", "instantiate")
         .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_id", new_config.owner_addr.to_string()))
+        .add_attribute("owner_addr", new_config.owner_addr.to_string()))
 }
 
 fn get_agent_status(

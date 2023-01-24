@@ -38,22 +38,22 @@ pub const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const NATIVE_DENOM: &str = "atom";
 pub const TWO_MINUTES: u64 = 120_000_000_000;
 
-pub(crate) fn mock_config() -> Config {
+pub(crate) fn mock_config(manager_addr: &str) -> Config {
     Config {
         paused: false,
         owner_addr: Addr::unchecked(ADMIN),
-        native_denom: NATIVE_DENOM.to_string(),
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
+        manager_addr: Addr::unchecked(manager_addr.to_string()),
     }
 }
-pub(crate) fn mock_update_config() -> UpdateConfig {
+pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
     UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
-        native_denom: Some(NATIVE_DENOM.to_string()),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+        manager_addr: Some(manager_addr.to_string()),
     }
 }
 
@@ -88,6 +88,49 @@ pub(crate) fn agent_contract() -> Box<dyn Contract<Empty>> {
     Box::new(contract)
 }
 
+pub(crate) fn croncat_manager_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_manager::contract::execute,
+        croncat_manager::contract::instantiate,
+        croncat_manager::contract::query,
+    )
+    .with_reply(croncat_manager::contract::reply);
+    Box::new(contract)
+}
+
+pub(crate) fn default_manager_instantiate_message() -> croncat_manager::msg::InstantiateMsg {
+    croncat_manager::msg::InstantiateMsg {
+        denom: NATIVE_DENOM.to_owned(),
+        croncat_factory_addr: "croncat_factory_addr".to_owned(),
+        croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
+        croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
+        owner_addr: None,
+        gas_price: None,
+        agent_nomination_duration: None,
+        treasury_addr: None,
+    }
+}
+
+pub(crate) fn init_croncat_manager_contract(
+    app: &mut App,
+    sender: Option<&str>,
+    owner: Option<String>,
+    funds: Option<&[Coin]>,
+) -> (u64, Addr) {
+    let manager_code_id = app.store_code(croncat_manager_contract());
+    let manager_contract_addr = app
+        .instantiate_contract(
+            manager_code_id,
+            Addr::unchecked(sender.unwrap_or(ADMIN)),
+            &default_manager_instantiate_message(),
+            funds.unwrap_or(&[]),
+            "manager",
+            owner,
+        )
+        .unwrap();
+
+    (manager_code_id, manager_contract_addr)
+}
 pub(crate) fn init_agents_contract(
     app: &mut App,
     sender: Option<&str>,
@@ -95,13 +138,13 @@ pub(crate) fn init_agents_contract(
     init_msg: Option<InstantiateMsg>,
     funds: Option<&[Coin]>,
 ) -> (u64, Addr) {
+    let (_,croncat_manager_addr)=init_croncat_manager_contract(app,sender,owner.clone(),funds.clone());
     let contract_code_id = app.store_code(agent_contract());
-
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,
-        native_denom: Some(NATIVE_DENOM.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: Some(2),
+        manager_addr: croncat_manager_addr.to_string(),
     });
     let contract_addr = app
         .instantiate_contract(
