@@ -33,14 +33,33 @@ pub struct TasksInstantiateMsg {
 }
 
 #[cw_serde]
+pub struct UpdateConfigMsg {
+    pub paused: Option<bool>,
+    pub owner_addr: Option<String>,
+    pub croncat_factory_addr: Option<String>,
+    pub croncat_manager_key: Option<(String, [u8; 2])>,
+    pub croncat_agents_key: Option<(String, [u8; 2])>,
+    pub slot_granularity_time: Option<u64>,
+    pub gas_base_fee: Option<u64>,
+    pub gas_action_fee: Option<u64>,
+    pub gas_query_fee: Option<u64>,
+    pub gas_limit: Option<u64>,
+}
+
+#[cw_serde]
 pub enum TasksExecuteMsg {
+    UpdateConfig(UpdateConfigMsg),
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
     /// the task is no longer executed, any additional funds will be returned to task owner.
-    CreateTask { task: Box<TaskRequest> },
+    CreateTask {
+        task: Box<TaskRequest>,
+    },
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
-    RemoveTask { task_hash: String },
+    RemoveTask {
+        task_hash: String,
+    },
     // Methods for other internal contracts
     /// Remove task, used by the manager if task reached it's stop condition
     RemoveTaskByManager(TasksRemoveTaskByManager),

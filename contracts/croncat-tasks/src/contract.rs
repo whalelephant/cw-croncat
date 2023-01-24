@@ -6,6 +6,7 @@ use cosmwasm_std::{
 use croncat_sdk_core::internal_messages::agents::AgentNewTask;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
+use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest, TaskResponse,
 };
@@ -90,6 +91,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
+        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, msg),
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, *task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
@@ -100,6 +102,46 @@ pub fn execute(
             execute_reschedule_task(deps, env, info, reschedule_msg)
         }
     }
+}
+
+fn execute_update_config(deps: DepsMut, msg: UpdateConfigMsg) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    // Destruct so we won't forget to update if if new fields added
+    let UpdateConfigMsg {
+        paused,
+        owner_addr,
+        croncat_factory_addr,
+        croncat_manager_key,
+        croncat_agents_key,
+        slot_granularity_time,
+        gas_base_fee,
+        gas_action_fee,
+        gas_query_fee,
+        gas_limit,
+    } = msg;
+
+    let new_config = Config {
+        paused: paused.unwrap_or(config.paused),
+        owner_addr: owner_addr
+            .map(|human| deps.api.addr_validate(&human))
+            .transpose()?
+            .unwrap_or(config.owner_addr),
+        croncat_factory_addr: croncat_factory_addr
+            .map(|human| deps.api.addr_validate(&human))
+            .transpose()?
+            .unwrap_or(config.croncat_factory_addr),
+        chain_name: config.chain_name,
+        croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
+        croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
+        slot_granularity_time: slot_granularity_time.unwrap_or(config.slot_granularity_time),
+        gas_base_fee: gas_base_fee.unwrap_or(config.gas_base_fee),
+        gas_action_fee: gas_action_fee.unwrap_or(config.gas_action_fee),
+        gas_query_fee: gas_query_fee.unwrap_or(config.gas_query_fee),
+        gas_limit: gas_limit.unwrap_or(config.gas_limit),
+    };
+
+    CONFIG.save(deps.storage, &new_config)?;
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn execute_reschedule_task(
