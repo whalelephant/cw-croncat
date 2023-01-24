@@ -1,3 +1,4 @@
+use std::fmt;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Timestamp, Uint128};
 
@@ -11,6 +12,16 @@ pub enum AgentStatus {
 
     // More tasks are available, agent must checkin to become active
     Nominated,
+}
+
+impl fmt::Display for AgentStatus {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AgentStatus::Active => write!(f, "active"),
+            AgentStatus::Pending => write!(f, "pending"),
+            AgentStatus::Nominated => write!(f, "nominated"),
+        }
+    }
 }
 
 #[cw_serde]
@@ -42,9 +53,9 @@ pub struct AgentStats {
 
 #[cw_serde]
 pub struct Config {
+    pub manager_addr: Addr,
     pub owner_addr: Addr,
     pub paused: bool,
-    pub native_denom: String,
     /// Agent management
     /// The minimum number of tasks per agent
     /// Example: 10
