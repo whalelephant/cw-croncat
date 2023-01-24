@@ -74,7 +74,7 @@ fn test_contract_initialize_fail_cases() {
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_string()),
-        native_denom: Some(NATIVE_DENOM.to_string()),
+        native_denom: None,
         agent_nomination_duration: None,
     };
     let error: ContractError = app
@@ -90,7 +90,7 @@ fn test_contract_initialize_fail_cases() {
         .downcast()
         .unwrap();
 
-    assert_eq!(error, ContractError::InvalidNativeDenom { denom: None });
+    assert_eq!(error, ContractError::InvalidNativeDenom);
 }
 //RegisterAgent
 #[test]
@@ -216,11 +216,13 @@ fn test_update_agent_is_successfull() {
     );
 }
 
+//UpdateAgent tests
 #[test]
 fn test_update_agent_fails() {
     let mut app = default_app();
     let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
 
+    //Check contract fails when agent does not exist
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -272,4 +274,42 @@ fn test_update_agent_fails() {
         .unwrap();
 
     assert_eq!(error, ContractError::ContractPaused);
+}
+
+//UpdateAgent tests
+#[test]
+fn test_agent_check_in_successfull() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::RegisterAgent {
+            payable_account_id: Some(ANYONE.to_string()),
+            cost: 1,
+        },
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+
+    let agent_response: AgentResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr,
+            &QueryMsg::GetAgent {
+                account_id: ADMIN.to_string(),
+                total_tasks: 10,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(agent_response.status, AgentStatus::Active);
 }

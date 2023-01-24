@@ -3,7 +3,7 @@ use std::ops::Div;
 
 use crate::balancer::Balancer;
 use crate::error::ContractError;
-use crate::msg::*;
+use crate::msg::{self, *};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cw2::set_contract_version;
 
@@ -34,11 +34,6 @@ pub fn instantiate(
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
 
-    if msg.native_denom.is_none() {
-        return Err(ContractError::InvalidNativeDenom {
-            denom: msg.native_denom,
-        });
-    }
     let config = &Config {
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: msg
@@ -46,7 +41,7 @@ pub fn instantiate(
             .unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr: valid_owner_addr,
         paused: false,
-        native_denom: msg.native_denom.expect("Invalid native_denom"), //TODO: Remove native denom from agents
+        native_denom: msg.native_denom.ok_or(ContractError::InvalidNativeDenom)?, //TODO: Remove native denom from agents
     };
     CONFIG.save(deps.storage, config)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector

@@ -209,6 +209,7 @@ AGENTS_CODE_ID=$($BINARY tx wasm store /croncat_agents$WASM_POSTFIX.wasm --from 
 echo "${Cyan}AGENTS_CODE_ID :" $AGENTS_CODE_ID "${NoColor}"
 
 #Croncat
+echo $OWNER_ADDR
 INIT='{"owner_addr":"'$OWNER_ADDR'","native_denom":"'$STAKE'"}'
 $BINARY tx wasm instantiate $AGENTS_CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
 

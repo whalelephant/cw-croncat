@@ -8,4 +8,3 @@ repository = "https://github.com/CronCats/cw-croncat"
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
-croncat-sdk-core = { workspace = true }

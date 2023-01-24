@@ -37,7 +37,7 @@ pub enum ContractError {
     Unauthorized,
 
     #[error("Invalid native denom")]
-    InvalidNativeDenom { denom: Option<String> },
+    InvalidNativeDenom,
 
     #[error("No active agents in active agent list")]
     NoActiveAgents,
