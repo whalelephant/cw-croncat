@@ -30,8 +30,6 @@ enum RemoveTaskByManager {
     RemoveTaskByManager(TasksRemoveTaskByManager),
 }
 
-
-
 #[cw_serde]
 pub struct TasksRescheduleTask {
     pub task_hash: Vec<u8>,
