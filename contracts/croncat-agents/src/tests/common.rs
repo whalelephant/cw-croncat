@@ -83,13 +83,12 @@ pub(crate) fn agent_contract() -> Box<dyn Contract<Empty>> {
 pub(crate) fn init_agents_contract(
     app: &mut App,
     sender: Option<&str>,
-    owner:Option<String>,
+    owner: Option<String>,
     init_msg: Option<InstantiateMsg>,
-    funds:Option<&[Coin]>
+    funds: Option<&[Coin]>,
 ) -> (u64, Addr) {
     let contract_code_id = app.store_code(agent_contract());
-    
-    
+
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,
         native_denom: Some(NATIVE_DENOM.to_string()),
