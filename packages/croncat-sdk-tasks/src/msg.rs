@@ -37,14 +37,10 @@ pub enum TasksExecuteMsg {
     /// Allows any user or contract to pay for future txns based on a specific schedule
     /// contract, function id & other settings. When the task runs out of balance
     /// the task is no longer executed, any additional funds will be returned to task owner.
-    CreateTask {
-        task: TaskRequest,
-    },
+    CreateTask { task: Box<TaskRequest> },
 
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
-    RemoveTask {
-        task_hash: String,
-    },
+    RemoveTask { task_hash: String },
     // Methods for other internal contracts
     /// Remove task, used by the manager if task reached it's stop condition
     RemoveTaskByManager(TasksRemoveTaskByManager),

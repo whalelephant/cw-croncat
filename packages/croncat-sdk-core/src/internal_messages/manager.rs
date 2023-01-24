@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg, Coin};
+use cosmwasm_std::{to_binary, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
 
 use crate::types::AmountForOneTask;
 
@@ -47,7 +47,11 @@ impl ManagerCreateTaskBalance {
     }
 
     /// creates a cosmos_msg sending this struct to the named contract
-    pub fn into_cosmos_msg<T: Into<String>>(self, contract_addr: T, funds: Vec<Coin>) -> StdResult<CosmosMsg> {
+    pub fn into_cosmos_msg<T: Into<String>>(
+        self,
+        contract_addr: T,
+        funds: Vec<Coin>,
+    ) -> StdResult<CosmosMsg> {
         let msg = self.into_binary()?;
         let execute = WasmMsg::Execute {
             contract_addr: contract_addr.into(),

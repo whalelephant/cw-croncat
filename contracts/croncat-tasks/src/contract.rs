@@ -90,7 +90,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, task),
+        ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, *task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
         ExecuteMsg::RemoveTaskByManager(remove_task_msg) => {
