@@ -12,3 +12,7 @@
 This repo is in early develop stage - use at your own risk!
 
 [![codecov](https://codecov.io/gh/CronCats/cw-croncat/branch/beta/split-0.0.0/graph/badge.svg?token=JU1C4RK7X4)](https://codecov.io/gh/CronCats/cw-croncat)
+
+## Deployment
+
+Please see [the deploy instructions](./DEPLOY.md).
