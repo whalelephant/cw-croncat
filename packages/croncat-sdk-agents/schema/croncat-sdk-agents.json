@@ -1,0 +1,541 @@
+{
+  "contract_name": "croncat-sdk-agents",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "required": [
+      "manager_addr"
+    ],
+    "properties": {
+      "agent_nomination_duration": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "manager_addr": {
+        "type": "string"
+      },
+      "min_tasks_per_agent": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0.0
+      },
+      "owner_addr": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "additionalProperties": false
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "register_agent"
+        ],
+        "properties": {
+          "register_agent": {
+            "type": "object",
+            "required": [
+              "cost"
+            ],
+            "properties": {
+              "cost": {
+                "type": "integer",
+                "format": "uint128",
+                "minimum": 0.0
+              },
+              "payable_account_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "update_agent"
+        ],
+        "properties": {
+          "update_agent": {
+            "type": "object",
+            "required": [
+              "payable_account_id"
+            ],
+            "properties": {
+              "payable_account_id": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "check_in_agent"
+        ],
+        "properties": {
+          "check_in_agent": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "unregister_agent"
+        ],
+        "properties": {
+          "unregister_agent": {
+            "type": "object",
+            "properties": {
+              "from_behind": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "on_task_created"
+        ],
+        "properties": {
+          "on_task_created": {
+            "type": "object",
+            "required": [
+              "task_hash",
+              "total_tasks"
+            ],
+            "properties": {
+              "task_hash": {
+                "type": "string"
+              },
+              "total_tasks": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "update_config"
+        ],
+        "properties": {
+          "update_config": {
+            "type": "object",
+            "required": [
+              "config"
+            ],
+            "properties": {
+              "config": {
+                "$ref": "#/definitions/UpdateConfig"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "UpdateConfig": {
+        "type": "object",
+        "properties": {
+          "agent_nomination_duration": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint16",
+            "minimum": 0.0
+          },
+          "manager_addr": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_tasks_per_agent": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "owner_addr": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "paused": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "get_agent"
+        ],
+        "properties": {
+          "get_agent": {
+            "type": "object",
+            "required": [
+              "account_id",
+              "total_tasks"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "string"
+              },
+              "total_tasks": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "get_agent_ids"
+        ],
+        "properties": {
+          "get_agent_ids": {
+            "type": "object",
+            "properties": {
+              "skip": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "take": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "get_agent_tasks"
+        ],
+        "properties": {
+          "get_agent_tasks": {
+            "type": "object",
+            "required": [
+              "account_id",
+              "slots"
+            ],
+            "properties": {
+              "account_id": {
+                "type": "string"
+              },
+              "slots": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "format": "uint64",
+                    "minimum": 0.0
+                  },
+                  {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "format": "uint64",
+                    "minimum": 0.0
+                  }
+                ],
+                "maxItems": 2,
+                "minItems": 2
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ]
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "config": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Config",
+      "type": "object",
+      "required": [
+        "agent_nomination_duration",
+        "manager_addr",
+        "min_tasks_per_agent",
+        "owner_addr",
+        "paused"
+      ],
+      "properties": {
+        "agent_nomination_duration": {
+          "description": "The duration a prospective agent has to nominate themselves. When a task is created such that a new agent can join, The agent at the zeroth index of the pending agent queue has this time to nominate The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue) Value is in seconds",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
+        "manager_addr": {
+          "$ref": "#/definitions/Addr"
+        },
+        "min_tasks_per_agent": {
+          "description": "Agent management The minimum number of tasks per agent Example: 10 Explanation: For every 1 agent, 10 tasks per slot are available. NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block. NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.",
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "owner_addr": {
+          "$ref": "#/definitions/Addr"
+        },
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        }
+      }
+    },
+    "get_agent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_AgentResponse",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AgentResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "AgentResponse": {
+          "type": "object",
+          "required": [
+            "balance",
+            "last_executed_slot",
+            "payable_account_id",
+            "register_start",
+            "status",
+            "total_tasks_executed"
+          ],
+          "properties": {
+            "balance": {
+              "$ref": "#/definitions/Uint128"
+            },
+            "last_executed_slot": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            },
+            "payable_account_id": {
+              "$ref": "#/definitions/Addr"
+            },
+            "register_start": {
+              "$ref": "#/definitions/Timestamp"
+            },
+            "status": {
+              "$ref": "#/definitions/AgentStatus"
+            },
+            "total_tasks_executed": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          },
+          "additionalProperties": false
+        },
+        "AgentStatus": {
+          "type": "string",
+          "enum": [
+            "active",
+            "pending",
+            "nominated"
+          ]
+        },
+        "Timestamp": {
+          "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Uint64"
+            }
+          ]
+        },
+        "Uint128": {
+          "description": "A thin wrapper around u128 that is using strings for JSON encoding/decoding, such that the full u128 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u128` to get the value out:\n\n``` # use cosmwasm_std::Uint128; let a = Uint128::from(123u128); assert_eq!(a.u128(), 123);\n\nlet b = Uint128::from(42u64); assert_eq!(b.u128(), 42);\n\nlet c = Uint128::from(70u32); assert_eq!(c.u128(), 70); ```",
+          "type": "string"
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    },
+    "get_agent_ids": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_GetAgentIdsResponse",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GetAgentIdsResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        },
+        "GetAgentIdsResponse": {
+          "type": "object",
+          "required": [
+            "active",
+            "pending"
+          ],
+          "properties": {
+            "active": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Addr"
+              }
+            },
+            "pending": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Addr"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "get_agent_tasks": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Nullable_AgentTaskResponse",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AgentTaskResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "definitions": {
+        "AgentTaskResponse": {
+          "type": "object",
+          "required": [
+            "num_block_tasks",
+            "num_cron_tasks"
+          ],
+          "properties": {
+            "num_block_tasks": {
+              "$ref": "#/definitions/Uint64"
+            },
+            "num_cron_tasks": {
+              "$ref": "#/definitions/Uint64"
+            }
+          },
+          "additionalProperties": false
+        },
+        "Uint64": {
+          "description": "A thin wrapper around u64 that is using strings for JSON encoding/decoding, such that the full u64 range can be used for clients that convert JSON numbers to floats, like JavaScript and jq.\n\n# Examples\n\nUse `from` to create instances of this and `u64` to get the value out:\n\n``` # use cosmwasm_std::Uint64; let a = Uint64::from(42u64); assert_eq!(a.u64(), 42);\n\nlet b = Uint64::from(70u32); assert_eq!(b.u64(), 70); ```",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -28,7 +28,9 @@ pub enum ExecuteMsg {
         task_hash: String,
         total_tasks: u64,
     },
-    UpdateConfig(Box<UpdateConfig>),
+    UpdateConfig {
+        config: UpdateConfig,
+    },
 }
 
 #[cw_serde]
