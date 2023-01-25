@@ -133,14 +133,15 @@ const start = async () => {
                 "changelog_url": "https://example.com/lucky",
                 "schema": "https://croncat-schema.example.com/version-0-1",
                 "msg": Buffer.from(JSON.stringify({
-                    manager_addr: "todo: leftoff"
-                })),
-                "contract_name": "croncat-manager--version-0-1"
+                    manager_addr: managerAddress
+                })).toString('base64'),
+                "contract_name": "croncat-agents--version-0-1"
             }
         }
     }
 
-    const instAgentRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, executeGas)
+    const instAgentRes = await cwClient.execute(userAddress, factoryAddress, agentDeployMsg, executeGas)
+    // console.log('instAgentRes logs', util.inspect(instAgentRes.logs, false, null, true))
     const agentAddress: string = instAgentRes.logs[0].events[1].attributes[0].value
 
     // Show all
