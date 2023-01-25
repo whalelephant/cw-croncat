@@ -1,5 +1,5 @@
 pub use croncat_sdk_agents::msg::{
-    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
-    ConfigData,
+    AgentResponse, AgentTaskResponse, ConfigData, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg,
+    QueryMsg,
 };
 pub use croncat_sdk_agents::types::{Agent, AgentStats, AgentStatus, Config};
