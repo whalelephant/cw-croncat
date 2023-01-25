@@ -1,6 +1,7 @@
 use crate::types::AgentStatus;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
+use crate::types::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
