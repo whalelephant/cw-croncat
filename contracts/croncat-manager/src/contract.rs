@@ -1,14 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, Uint128,
+    coin, to_binary, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
+    Uint128,
 };
-use croncat_sdk_core::internal_messages::manager::ManagerCreateTaskBalance;
+use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
 use cw2::set_contract_version;
 
 use crate::balances::{
-    execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
+    add_user_cw20, execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
     execute_refill_task_cw20, execute_user_withdraw, query_users_balances, sub_user_cw20,
 };
 use crate::error::ContractError;
@@ -110,8 +111,49 @@ pub fn execute(
         }
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
-        // TODO: make method ONLY for tasks contract to create task_hash's balance!
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
+        ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
+    }
+}
+
+fn execute_remove_task(
+    deps: DepsMut,
+    info: MessageInfo,
+    msg: ManagerRemoveTask,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    check_if_sender_is_tasks(&deps.querier, &config, &info.sender)?;
+
+    let task_balance = TASKS_BALANCES.load(deps.storage, &msg.task_hash)?;
+    let mut coins_transfer = vec![];
+    if task_balance.native_balance > Uint128::zero() {
+        coins_transfer.push(coin(
+            task_balance.native_balance.u128(),
+            config.native_denom,
+        ))
+    }
+
+    if let Some(ibc) = task_balance.ibc_balance {
+        if ibc.amount > Uint128::zero() {
+            coins_transfer.push(ibc);
+        }
+    }
+
+    if let Some(cw20) = task_balance.cw20_balance {
+        // Back to the temp balance
+        add_user_cw20(deps.storage, &msg.sender, &cw20)?;
+    }
+    TASKS_BALANCES.remove(deps.storage, &msg.task_hash);
+
+    let res = Response::new().add_attribute("action", "remove_task");
+    if !coins_transfer.is_empty() {
+        let bank_send = BankMsg::Send {
+            to_address: msg.sender.into_string(),
+            amount: coins_transfer,
+        };
+        Ok(res.add_message(bank_send))
+    } else {
+        Ok(res)
     }
 }
 

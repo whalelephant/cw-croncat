@@ -185,7 +185,10 @@ fn execute_reschedule_task(
             }
         } else {
             remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
-            remove_task = Some(ManagerRemoveTask { task_hash });
+            remove_task = Some(ManagerRemoveTask {
+                sender: info.sender,
+                task_hash,
+            });
         }
         (next_id, slot_kind)
     } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, &task_hash)? {
@@ -203,7 +206,10 @@ fn execute_reschedule_task(
             }
         } else {
             remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
-            remove_task = Some(ManagerRemoveTask { task_hash });
+            remove_task = Some(ManagerRemoveTask {
+                sender: info.sender,
+                task_hash,
+            });
         }
         (next_id, slot_kind)
     } else {
@@ -262,6 +268,7 @@ fn execute_remove_task(
     }
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let remove_task_msg = ManagerRemoveTask {
+        sender: info.sender,
         task_hash: task_hash.into_bytes(),
     }
     .into_cosmos_msg(manager_addr)?;
@@ -399,6 +406,9 @@ fn execute_create_task(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::TasksTotal {} => {
+            to_binary(&cosmwasm_std::Uint64::from(TASKS_TOTAL.load(deps.storage)?))
+        }
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
         QueryMsg::TasksWithQueries { from_index, limit } => {
             to_binary(&query_tasks_with_queries(deps, from_index, limit)?)

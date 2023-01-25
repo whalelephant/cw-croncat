@@ -6,6 +6,7 @@ use crate::types::AmountForOneTask;
 
 #[cw_serde]
 pub struct ManagerRemoveTask {
+    pub sender: Addr,
     pub task_hash: Vec<u8>,
 }
 

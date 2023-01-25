@@ -1,6 +1,6 @@
 use crate::types::{Config, GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use croncat_sdk_core::internal_messages::manager::ManagerCreateTaskBalance;
+use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use cw20::{Cw20Coin, Cw20CoinVerified};
 
 #[cw_serde]
@@ -55,6 +55,8 @@ pub enum ManagerExecuteMsg {
 
     /// Create task's balance, called by the tasks contract
     CreateTaskBalance(ManagerCreateTaskBalance),
+    /// Remove task's balance, called by the tasks contract
+    RemoveTask(ManagerRemoveTask),
 }
 
 #[cw_serde]

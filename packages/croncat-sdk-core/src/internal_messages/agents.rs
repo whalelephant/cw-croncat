@@ -2,12 +2,14 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg};
 
 #[cw_serde]
-pub struct AgentNewTask {}
+pub struct AgentOnTaskCreated {
+    pub total_tasks: u64,
+}
 
-impl AgentNewTask {
+impl AgentOnTaskCreated {
     /// serializes the message
     pub fn into_binary(self) -> StdResult<Binary> {
-        let msg = NewTaskMsg::NewTask(self);
+        let msg = NewTaskMsg::OnTaskCreated(self);
         to_binary(&msg)
     }
 
@@ -25,5 +27,5 @@ impl AgentNewTask {
 
 #[cw_serde]
 enum NewTaskMsg {
-    NewTask(AgentNewTask),
+    OnTaskCreated(AgentOnTaskCreated),
 }

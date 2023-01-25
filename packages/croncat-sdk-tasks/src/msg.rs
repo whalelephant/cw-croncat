@@ -72,6 +72,8 @@ pub enum TasksExecuteMsg {
 pub enum TasksQueryMsg {
     #[returns(crate::types::Config)]
     Config {},
+    #[returns(cosmwasm_std::Uint64)]
+    TasksTotal {},
     /// Get list of active tasks, without queries
     #[returns(Vec<crate::types::TaskResponse>)]
     Tasks {
