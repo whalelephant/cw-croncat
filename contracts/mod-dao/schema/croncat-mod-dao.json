@@ -1,0 +1,277 @@
+{
+  "contract_name": "croncat-mod-dao",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "additionalProperties": false
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "type": "string",
+    "enum": []
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "proposal_status_matches"
+        ],
+        "properties": {
+          "proposal_status_matches": {
+            "$ref": "#/definitions/ProposalStatusMatches"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "has_passed_proposals"
+        ],
+        "properties": {
+          "has_passed_proposals": {
+            "type": "object",
+            "required": [
+              "dao_address"
+            ],
+            "properties": {
+              "dao_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "has_passed_proposal_with_migration"
+        ],
+        "properties": {
+          "has_passed_proposal_with_migration": {
+            "type": "object",
+            "required": [
+              "dao_address"
+            ],
+            "properties": {
+              "dao_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "has_proposals_gt_id"
+        ],
+        "properties": {
+          "has_proposals_gt_id": {
+            "type": "object",
+            "required": [
+              "dao_address",
+              "value"
+            ],
+            "properties": {
+              "dao_address": {
+                "type": "string"
+              },
+              "value": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "ProposalStatusMatches": {
+        "type": "object",
+        "required": [
+          "dao_address",
+          "proposal_id",
+          "status"
+        ],
+        "properties": {
+          "dao_address": {
+            "type": "string"
+          },
+          "proposal_id": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "status": {
+            "$ref": "#/definitions/Status"
+          }
+        }
+      },
+      "Status": {
+        "oneOf": [
+          {
+            "description": "The proposal is open for voting.",
+            "type": "string",
+            "enum": [
+              "open"
+            ]
+          },
+          {
+            "description": "The proposal has been rejected.",
+            "type": "string",
+            "enum": [
+              "rejected"
+            ]
+          },
+          {
+            "description": "The proposal has been passed but has not been executed.",
+            "type": "string",
+            "enum": [
+              "passed"
+            ]
+          },
+          {
+            "description": "The proposal has been passed and executed.",
+            "type": "string",
+            "enum": [
+              "executed"
+            ]
+          },
+          {
+            "description": "The proposal has failed or expired and has been closed. A proposal deposit refund has been issued if applicable.",
+            "type": "string",
+            "enum": [
+              "closed"
+            ]
+          },
+          {
+            "description": "The proposal has failed during execution",
+            "type": "string",
+            "enum": [
+              "execution_failed"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "has_passed_proposal_with_migration": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
+    "has_passed_proposals": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
+    "has_proposals_gt_id": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
+    "proposal_status_matches": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
