@@ -56,7 +56,7 @@ const start = async () => {
     const managerId = uploadManagerRes.codeId
 
     let base64ManagerInst = Buffer.from(JSON.stringify({
-        "denom": "stake",
+        "denom": "ujunox",
         "croncat_factory_addr": factoryAddress,
         "croncat_tasks_key": [
             "t",

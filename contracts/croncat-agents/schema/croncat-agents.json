@@ -1,5 +1,5 @@
 {
-  "contract_name": "croncat-sdk-agents",
+  "contract_name": "croncat-agents",
   "contract_version": "0.1.0",
   "idl_version": "1.0.0",
   "instantiate": {
@@ -20,6 +20,14 @@
       },
       "manager_addr": {
         "type": "string"
+      },
+      "min_coin_for_agent_registration": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0.0
       },
       "min_tasks_per_agent": {
         "type": [
@@ -50,15 +58,7 @@
         "properties": {
           "register_agent": {
             "type": "object",
-            "required": [
-              "cost"
-            ],
             "properties": {
-              "cost": {
-                "type": "integer",
-                "format": "uint128",
-                "minimum": 0.0
-              },
               "payable_account_id": {
                 "type": [
                   "string",
@@ -193,6 +193,14 @@
               "null"
             ]
           },
+          "min_coins_for_agent_registration": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint64",
+            "minimum": 0.0
+          },
           "min_tasks_per_agent": {
             "type": [
               "integer",
@@ -289,35 +297,27 @@
           "get_agent_tasks": {
             "type": "object",
             "required": [
-              "account_id",
-              "slots"
+              "account_id"
             ],
             "properties": {
               "account_id": {
                 "type": "string"
               },
-              "slots": {
-                "type": "array",
-                "items": [
-                  {
-                    "type": [
-                      "integer",
-                      "null"
-                    ],
-                    "format": "uint64",
-                    "minimum": 0.0
-                  },
-                  {
-                    "type": [
-                      "integer",
-                      "null"
-                    ],
-                    "format": "uint64",
-                    "minimum": 0.0
-                  }
+              "block_slots": {
+                "type": [
+                  "integer",
+                  "null"
                 ],
-                "maxItems": 2,
-                "minItems": 2
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "cron_slots": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
               }
             },
             "additionalProperties": false
@@ -350,6 +350,7 @@
       "required": [
         "agent_nomination_duration",
         "manager_addr",
+        "min_coins_for_agent_registration",
         "min_tasks_per_agent",
         "owner_addr",
         "paused"
@@ -363,6 +364,11 @@
         },
         "manager_addr": {
           "$ref": "#/definitions/Addr"
+        },
+        "min_coins_for_agent_registration": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
         },
         "min_tasks_per_agent": {
           "description": "Agent management The minimum number of tasks per agent Example: 10 Explanation: For every 1 agent, 10 tasks per slot are available. NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block. NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.",

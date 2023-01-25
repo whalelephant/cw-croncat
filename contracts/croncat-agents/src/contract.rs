@@ -6,10 +6,7 @@ use crate::error::ContractError;
 use crate::msg::*;
 use cw2::set_contract_version;
 
-use crate::state::{
-    AGENTS, AGENTS_ACTIVE, AGENTS_PENDING, AGENT_NOMINATION_BEGIN_TIME, AGENT_STATS,
-    AGENT_TASK_DISTRIBUTOR, CONFIG, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
-};
+use crate::state::*;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -54,6 +51,9 @@ pub fn instantiate(
             .unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr: valid_owner_addr,
         paused: false,
+        min_coins_for_agent_registration: msg
+            .min_coin_for_agent_registration
+            .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
     CONFIG.save(deps.storage, config)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
@@ -73,9 +73,16 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             total_tasks,
         } => to_binary(&query_get_agent(deps, env, account_id, total_tasks)?),
         QueryMsg::GetAgentIds { skip, take } => to_binary(&query_get_agent_ids(deps, skip, take)?),
-        QueryMsg::GetAgentTasks { account_id, slots } => {
-            to_binary(&query_get_agent_tasks(deps, env, account_id, slots)?)
-        }
+        QueryMsg::GetAgentTasks {
+            account_id,
+            block_slots,
+            cron_slots,
+        } => to_binary(&query_get_agent_tasks(
+            deps,
+            env,
+            account_id,
+            (block_slots, cron_slots),
+        )?),
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
     }
 }
@@ -88,10 +95,9 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::RegisterAgent {
-            payable_account_id,
-            cost,
-        } => register_agent(deps, info, env, payable_account_id, cost),
+        ExecuteMsg::RegisterAgent { payable_account_id } => {
+            register_agent(deps, info, env, payable_account_id)
+        }
         ExecuteMsg::UpdateAgent { payable_account_id } => {
             update_agent(deps, info, env, payable_account_id)
         }
@@ -194,7 +200,6 @@ fn register_agent(
     info: MessageInfo,
     env: Env,
     payable_account_id: Option<String>,
-    cost: u128,
 ) -> Result<Response, ContractError> {
     if !info.funds.is_empty() {
         return Err(ContractError::NoFundsShouldBeAttached);
@@ -217,7 +222,10 @@ fn register_agent(
 
     if !has_coins(
         &agent_wallet_balances,
-        &Coin::new(cost, manager_config.native_denom),
+        &Coin::new(
+            c.min_coins_for_agent_registration.into(),
+            manager_config.native_denom,
+        ),
     ) || agent_wallet_balances.is_empty()
     {
         return Err(ContractError::InsufficientFunds);
@@ -454,6 +462,7 @@ pub fn execute_update_config(
             manager_addr,
             min_tasks_per_agent,
             agent_nomination_duration,
+            min_coins_for_agent_registration,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -474,6 +483,8 @@ pub fn execute_update_config(
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agent_nomination_duration: agent_nomination_duration
                 .unwrap_or(config.agent_nomination_duration),
+            min_coins_for_agent_registration: min_coins_for_agent_registration
+                .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         };
         Ok(new_config)
     })?;

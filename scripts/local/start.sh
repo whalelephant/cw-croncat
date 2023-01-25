@@ -31,7 +31,7 @@ IMAGE_NAME="juno-node-1"
 DIR_NAME_SNAKE=$(echo $DIR_NAME | tr '-' '_')
 STAKE_TOKEN=ujunox
 STAKE=${STAKE_TOKEN:-ustake}
-TXFLAG="--gas-prices 0.075$STAKE --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
+TXFLAG="--gas-prices 0.025ujunox --gas auto --gas-adjustment 1.3 -y -b block --chain-id $CHAIN_ID --node $RPC"
 RECREATE_ARTIFACTS=0
 RECREATE_CONTAINERS=0
 
@@ -50,7 +50,7 @@ White='\033[0;37m'  # White
 cd $SC_PATH
 
 usage() {
-    printf '%s\n' "Usage: ./scripts/local/simple-payroll.sh -w -c"
+    printf '%s\n' "Usage: ./scripts/local/start.sh -w -c"
 }
 flags() {
     while test $# -gt 0; do
@@ -104,7 +104,8 @@ if [ $RECREATE_ARTIFACTS == 1 ]; then
         docker run --rm -v "$(pwd)":/code \
             --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
             --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-            cosmwasm/rust-optimizer$PLATFORM:0.12.11
+            --platform linux/amd64 \
+            cosmwasm/workspace-optimizer:0.12.10
     fi
     # #Download basic implementation of a cw20
     # curl -o artifacts/cw20_base.wasm -LO "https://github.com/CosmWasm/cw-plus/releases/download/v0.13.4/cw20_base.wasm"
@@ -176,47 +177,47 @@ echo "${Cyan}Agent :" $AGENT_ADDR "${NoColor}"
 #$BINARY gentx validator 15000000STAKE --chain-id $CHAIN_ID
 #$BINARY collect-gentxs
 
-echo "${Yellow}Sending funds to users...${NoColor}"
+# echo "${Yellow}Sending funds to users...${NoColor}"
 
-$BINARY tx bank send $VALIDATOR_ADDR $ALICE_ADDR "1$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
-$BINARY tx bank send $VALIDATOR_ADDR $BOB_ADDR "1$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
-$BINARY tx bank send $VALIDATOR_ADDR $OWNER_ADDR "60000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
-$BINARY tx bank send $VALIDATOR_ADDR $AGENT_ADDR "2000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
-$BINARY tx bank send $VALIDATOR_ADDR $USER_ADDR "40000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
+# $BINARY tx bank send $VALIDATOR_ADDR $ALICE_ADDR "1$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
+# $BINARY tx bank send $VALIDATOR_ADDR $BOB_ADDR "1$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
+# $BINARY tx bank send $VALIDATOR_ADDR $OWNER_ADDR "60000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
+# $BINARY tx bank send $VALIDATOR_ADDR $AGENT_ADDR "2000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
+# $BINARY tx bank send $VALIDATOR_ADDR $USER_ADDR "40000000$STAKE" --from validator --yes --broadcast-mode block --sign-mode direct --chain-id $CHAIN_ID
 
-sleep 2
-echo "${Cyan}Funds sent...${NoColor}"
+# sleep 2
+# echo "${Cyan}Funds sent...${NoColor}"
 
-ALICE_BALANCE=$($BINARY q bank balances $($BINARY keys show alice --address))
-echo "${Green}Alice Balance :" $ALICE_BALANCE "${NoColor}"
-BOB_BALANCE=$($BINARY q bank balances $($BINARY keys show bob --address))
-echo "${Green}Bob Balance :" $BOB_BALANCE "${NoColor}"
-OWNER_BALANCE=$($BINARY q bank balances $($BINARY keys show owner --address))
-echo "${Green}Owner Balance :" $OWNER_BALANCE "${NoColor}"
-AGENT_BALANCE=$($BINARY q bank balances $($BINARY keys show agent --address))
-echo "${Green}Agent Balance :" $AGENT_BALANCE "${NoColor}"
-USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address))
-echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
+# ALICE_BALANCE=$($BINARY q bank balances $($BINARY keys show alice --address))
+# echo "${Green}Alice Balance :" $ALICE_BALANCE "${NoColor}"
+# BOB_BALANCE=$($BINARY q bank balances $($BINARY keys show bob --address))
+# echo "${Green}Bob Balance :" $BOB_BALANCE "${NoColor}"
+# OWNER_BALANCE=$($BINARY q bank balances $($BINARY keys show owner --address))
+# echo "${Green}Owner Balance :" $OWNER_BALANCE "${NoColor}"
+# AGENT_BALANCE=$($BINARY q bank balances $($BINARY keys show agent --address))
+# echo "${Green}Agent Balance :" $AGENT_BALANCE "${NoColor}"
+# USER_BALANCE=$($BINARY q bank balances $($BINARY keys show user --address))
+# echo "${Green}User Balance :" $USER_BALANCE "${NoColor}"
 
 #---------------------------------------------------------------------------
 
-cd $SC_PATH
+# cd $SC_PATH
 
-echo $AGENTS_WASM
+# echo $AGENTS_WASM
 
-echo "${Yellow}Instantiating smart contracts...${NoColor}"
-AGENTS_CODE_ID=$($BINARY tx wasm store /croncat_agents$WASM_POSTFIX.wasm --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
-echo "${Cyan}AGENTS_CODE_ID :" $AGENTS_CODE_ID "${NoColor}"
+# echo "${Yellow}Instantiating smart contracts...${NoColor}"
+# AGENTS_CODE_ID=$($BINARY tx wasm store /croncat_agents$WASM_POSTFIX.wasm --from validator $TXFLAG --output json | jq -r '.logs[0].events[-1].attributes[0].value')
+# echo "${Cyan}AGENTS_CODE_ID :" $AGENTS_CODE_ID "${NoColor}"
 
-#Croncat
-echo $OWNER_ADDR
-INIT='{"owner_addr":"'$OWNER_ADDR'","native_denom":"'$STAKE'"}'
-$BINARY tx wasm instantiate $AGENTS_CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
+# #Croncat
+# echo $OWNER_ADDR
+# INIT='{"owner_addr":"'$OWNER_ADDR'","native_denom":"'$STAKE'"}'
+# $BINARY tx wasm instantiate $AGENTS_CODE_ID "$INIT" --from owner --label "croncat" $TXFLAG -y --no-admin
 
-# get smart contract address
-AGENTS_CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $AGENTS_CODE_ID --output json | jq -r '.contracts[-1]')
-echo "${Cyan}AGENTS_CONTRACT_ADDRESS :" $AGENTS_CONTRACT_ADDRESS "${NoColor}"
-echo "${Cyan}Instantiating smart contracts done!${NoColor}"
+# # get smart contract address
+# AGENTS_CONTRACT_ADDRESS=$($BINARY query wasm list-contract-by-code $AGENTS_CODE_ID --output json | jq -r '.contracts[-1]')
+# echo "${Cyan}AGENTS_CONTRACT_ADDRESS :" $AGENTS_CONTRACT_ADDRESS "${NoColor}"
+# echo "${Cyan}Instantiating smart contracts done!${NoColor}"
 
 #Display all data
 echo "${Cyan}"

@@ -16,6 +16,7 @@ fn test_contract_initialize_is_successfull() {
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         manager_addr: croncat_manager_addr.to_string(),
+        min_coin_for_agent_registration: None,
     };
     let contract_addr = app
         .instantiate_contract(
@@ -39,6 +40,7 @@ fn test_contract_initialize_is_successfull() {
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         manager_addr: croncat_manager_addr.to_string(),
+        min_coin_for_agent_registration: None,
     };
 
     let contract_addr = app
@@ -68,6 +70,7 @@ fn test_contract_initialize_fail_cases() {
         owner_addr: Some(ADMIN.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
+        min_coin_for_agent_registration: None,
     };
     let error: ContractError = app
         .instantiate_contract(
@@ -99,7 +102,6 @@ fn test_register_agent_is_successfull() {
         contract_addr.clone(),
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(ANYONE.to_string()),
-            cost: 1,
         },
         &[],
     )
@@ -131,7 +133,6 @@ fn test_register_agent_fails() {
             contract_addr.clone(),
             &ExecuteMsg::RegisterAgent {
                 payable_account_id: Some(ANYONE.to_string()),
-                cost: 1,
             },
             &[Coin {
                 denom: NATIVE_DENOM.to_string(),
@@ -163,7 +164,6 @@ fn test_register_agent_fails() {
             contract_addr.clone(),
             &ExecuteMsg::RegisterAgent {
                 payable_account_id: Some(ANYONE.to_string()),
-                cost: 1,
             },
             &[],
         )
@@ -183,7 +183,6 @@ fn test_update_agent_is_successfull() {
         contract_addr.clone(),
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(ANYONE.to_string()),
-            cost: 1,
         },
         &[],
     )
@@ -228,7 +227,6 @@ fn test_update_agent_fails() {
         contract_addr.clone(),
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(ANYONE.to_string()),
-            cost: 1,
         },
         &[],
     )
@@ -870,7 +868,6 @@ fn register_agent(
         contract_addr.clone(),
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(beneficiary.to_string()),
-            cost: 1,
         },
         &[],
     )

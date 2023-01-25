@@ -70,4 +70,6 @@ pub struct Config {
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
     pub agent_nomination_duration: u16,
+
+    pub min_coins_for_agent_registration:u64,
 }

@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use croncat_sdk_agents::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use croncat_agents::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {

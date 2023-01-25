@@ -1,5 +1,5 @@
 use crate::msg::*;
-use crate::state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION};
+use crate::state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION};
 use cosmwasm_std::{coins, Addr, Empty};
 use cosmwasm_std::{BlockInfo, Coin};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
@@ -29,6 +29,7 @@ pub(crate) fn mock_config(manager_addr: &str) -> Config {
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
         manager_addr: Addr::unchecked(manager_addr.to_string()),
+        min_coins_for_agent_registration:DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
     }
 }
 pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
@@ -38,6 +39,7 @@ pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
         manager_addr: Some(manager_addr.to_string()),
+        min_coins_for_agent_registration:None,
     }
 }
 
@@ -130,6 +132,7 @@ pub(crate) fn init_agents_contract(
         agent_nomination_duration: None,
         min_tasks_per_agent: Some(2),
         manager_addr: croncat_manager_addr.to_string(),
+        min_coin_for_agent_registration:None
     });
     let contract_addr = app
         .instantiate_contract(

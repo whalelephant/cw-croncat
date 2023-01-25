@@ -8,13 +8,13 @@ pub struct InstantiateMsg {
     pub owner_addr: Option<String>,
     pub agent_nomination_duration: Option<u16>,
     pub min_tasks_per_agent: Option<u64>,
+    pub min_coin_for_agent_registration:Option<u64>
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
     RegisterAgent {
         payable_account_id: Option<String>,
-        cost: u128,
     },
     UpdateAgent {
         payable_account_id: String,
@@ -49,7 +49,8 @@ pub enum QueryMsg {
     #[returns[Option<AgentTaskResponse>]]
     GetAgentTasks {
         account_id: String,
-        slots: (Option<u64>, Option<u64>),
+        block_slots: Option<u64>,
+        cron_slots:Option<u64>,
     },
     #[returns[Config]]
     Config {},
@@ -84,4 +85,5 @@ pub struct UpdateConfig {
     pub manager_addr: Option<String>,
     pub min_tasks_per_agent: Option<u64>,
     pub agent_nomination_duration: Option<u16>,
+    pub min_coins_for_agent_registration: Option<u64>,
 }
