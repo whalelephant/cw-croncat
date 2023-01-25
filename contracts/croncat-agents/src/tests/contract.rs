@@ -480,6 +480,211 @@ fn test_get_agent_status() {
         "New agent should have nominated status"
     );
 }
+#[test]
+fn test_last_unregistered_active_agent_promotes_first_pending() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+
+    // Register agents
+    register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
+
+    // Check if one is active and rest is pending
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT1)],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Unregister agent
+    let unreg_msg = ExecuteMsg::UnregisterAgent { from_behind: None };
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &unreg_msg,
+        &[],
+    )
+    .unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![],
+            pending: vec![
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Check if agent nominated
+    let agent_res: AgentResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgent {
+                account_id: AGENT2.to_owned(),
+                total_tasks: 0,
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_res.status, AgentStatus::Nominated);
+
+    // Check in
+    app.execute_contract(
+        Addr::unchecked(AGENT2),
+        contract_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT2)],
+            pending: vec![Addr::unchecked(AGENT3), Addr::unchecked(AGENT4)]
+        }
+    );
+}
+// This test requires tasks contract
+// #[test]
+// fn test_query_get_agent_tasks() {
+//     let mut app = default_app();
+//     let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+//     let mut total_tasks = 0;
+
+//     let block_info = app.block_info();
+
+//     // Register AGENT1, who immediately becomes active
+//     register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY);
+//     // Add five tasks total
+//     // Three of them are block-based
+//     add_block_task_exec(
+//         &mut app,
+//         &contract_addr,
+//         PARTICIPANT0,
+//         block_info.height + 6,
+//     );
+//     add_block_task_exec(
+//         &mut app,
+//         &contract_addr,
+//         PARTICIPANT1,
+//         block_info.height + 66,
+//     );
+//     add_block_task_exec(
+//         &mut app,
+//         &contract_addr,
+//         PARTICIPANT2,
+//         block_info.height + 67,
+//     );
+//     // add_block_task_exec(&mut app, &contract_addr, PARTICIPANT3, block_info.height + 131);
+//     // Two tasks use Cron instead of Block (for task interval)
+//     add_cron_task_exec(&mut app, &contract_addr, PARTICIPANT4, 6); // 3 minutes
+//     add_cron_task_exec(&mut app, &contract_addr, PARTICIPANT5, 53); // 53 minutes
+//     let num_tasks = get_task_total(&app, &contract_addr);
+//     assert_eq!(num_tasks, 5);
+
+//     // Now the task ratio is 1:2 (one agent per two tasks)
+//     // Register two agents, the first one succeeding
+//     register_agent_exec(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY);
+//     assert!(check_in_exec(&mut app, &contract_addr, AGENT2).is_ok());
+//     // This next agent should fail because there's no enough tasks yet
+//     // Later, we'll have this agent try to nominate themselves before their time
+//     register_agent_exec(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY);
+//     let failed_check_in = check_in_exec(&mut app, &contract_addr, AGENT3);
+//     assert_eq!(
+//         ContractError::CustomError {
+//             val: "Not accepting new agents".to_string()
+//         },
+//         failed_check_in.unwrap_err().downcast().unwrap()
+//     );
+
+//     let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &contract_addr);
+//     assert_eq!(2, num_active_agents);
+//     assert_eq!(1, num_pending_agents);
+
+//     // Fast forward time a little
+//     app.update_block(|block| {
+//         let height = 666;
+//         block.time = block.time.plus_seconds(6 * height); // ~6 sec block time
+//         block.height = block.height + height;
+//     });
+
+//     // What happens when the only active agent queries to see if there's work for them
+//     // calls:
+//     // fn query_get_agent_tasks
+//     let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
+//         account_id: AGENT1.to_string(),
+//     };
+//     let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
+//         .wrap()
+//         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+//     assert!(
+//         query_task_res.is_ok(),
+//         "Did not successfully find the newly added task"
+//     );
+//     msg_agent_tasks = QueryMsg::GetAgentTasks {
+//         account_id: AGENT2.to_string(),
+//     };
+//     query_task_res = app
+//         .wrap()
+//         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+//     assert!(query_task_res.is_ok());
+//     // Should fail for random user not in the active queue
+//     msg_agent_tasks = QueryMsg::GetAgentTasks {
+//         // rando account
+//         account_id: "juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz".to_string(),
+//     };
+//     query_task_res = app
+//         .wrap()
+//         .query_wasm_smart(contract_addr.clone(), &msg_agent_tasks);
+//     assert_eq!(
+//         query_task_res.unwrap_err(),
+//         cosmwasm_std::StdError::GenericErr {
+//             msg: "Querier contract error: Generic error: Agent is not in the list of active agents"
+//                 .to_string()
+//         }
+//         .into()
+//     );
+// }
 
 fn register_agent(
     app: &mut App,
@@ -559,3 +764,36 @@ fn on_task_created(
     )
     .expect("Error sending task created event")
 }
+
+// fn add_block_task(
+//     app: &mut App,
+//     contract_addr: &Addr,
+//     sender: &str,
+//     block_num: u64,
+// ) -> AppResponse {
+//     let validator = String::from("you");
+//     let amount = coin(3, NATIVE_DENOM);
+//     let stake = StakingMsg::Delegate { validator, amount };
+//     let msg: CosmosMsg = stake.clone().into();
+//     let send_funds = coins(500_000, NATIVE_DENOM);
+//     app.execute_contract(
+//         Addr::unchecked(sender),
+//         contract_addr.clone(),
+//         &ExecuteMsg::CreateTask {
+//             task: TaskRequest {
+//                 interval: Interval::Block(block_num),
+//                 boundary: None,
+//                 stop_on_fail: false,
+//                 actions: vec![Action {
+//                     msg,
+//                     gas_limit: Some(150_000),
+//                 }],
+//                 queries: None,
+//                 transforms: None,
+//                 cw20_coins: vec![],
+//             },
+//         },
+//         send_funds.as_ref(),
+//     )
+//     .expect("Error adding task")
+// }

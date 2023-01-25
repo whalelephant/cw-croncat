@@ -1,17 +1,6 @@
-use std::ops::Add;
-
 use crate::msg::*;
-use crate::state::CONFIG;
-use crate::{
-    contract::instantiate,
-    error::ContractError,
-    state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION},
-};
-use cosmwasm_std::{
-    coins,
-    testing::{mock_env, mock_info},
-    Addr, DepsMut, Empty, Response,
-};
+use crate::state::{DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION};
+use cosmwasm_std::{coins, Addr, Empty};
 use cosmwasm_std::{BlockInfo, Coin};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -31,12 +20,7 @@ pub const PARTICIPANT0: &str = "cosmos1055rfv3fv0zxsp8h3x88mctnm7x9mlgmf4m4d6";
 pub const PARTICIPANT1: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
 pub const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
-pub const PARTICIPANT4: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-pub const PARTICIPANT5: &str = "cosmos1k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
-pub const PARTICIPANT6: &str = "cosmos14a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
-pub const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
 pub const NATIVE_DENOM: &str = "atom";
-pub const TWO_MINUTES: u64 = 120_000_000_000;
 
 pub(crate) fn mock_config(manager_addr: &str) -> Config {
     Config {

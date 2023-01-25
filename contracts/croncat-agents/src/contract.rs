@@ -400,10 +400,10 @@ fn unregister_agent(
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
-        active_agents.remove(index);
-        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
         //Notify the balancer agent has been removed, to rebalance itself
         AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(deps.storage, agent_id)?;
+        active_agents.remove(index);
+        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
