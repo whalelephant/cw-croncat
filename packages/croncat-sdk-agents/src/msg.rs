@@ -1,4 +1,4 @@
-use crate::types::{AgentStatus, Config};
+use crate::types::AgentStatus;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
 

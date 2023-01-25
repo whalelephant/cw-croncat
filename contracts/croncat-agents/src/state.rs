@@ -2,6 +2,7 @@ use crate::distributor::AgentTaskDistributor;
 use crate::msg::*;
 use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::{Deque, Item, Map};
+use croncat_sdk_agents::types::Config;
 
 /// Contract config, just the owner address for now, preferably dao
 pub const CONFIG: Item<Config> = Item::new("agents_config");
