@@ -166,7 +166,7 @@
             ],
             "properties": {
               "config": {
-                "$ref": "#/definitions/ConfigData"
+                "$ref": "#/definitions/UpdateConfig"
               }
             },
             "additionalProperties": false
@@ -176,7 +176,7 @@
       }
     ],
     "definitions": {
-      "ConfigData": {
+      "UpdateConfig": {
         "type": "object",
         "properties": {
           "agent_nomination_duration": {

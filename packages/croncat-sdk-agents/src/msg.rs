@@ -29,7 +29,7 @@ pub enum ExecuteMsg {
         total_tasks: u64,
     },
     UpdateConfig {
-        config: ConfigData,
+        config: UpdateConfig,
     },
 }
 
@@ -78,7 +78,7 @@ pub struct AgentTaskResponse {
 }
 
 #[cw_serde]
-pub struct ConfigData {
+pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
     pub manager_addr: Option<String>,

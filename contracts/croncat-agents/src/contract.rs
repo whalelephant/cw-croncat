@@ -16,7 +16,9 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Storage, Uint128,
 };
-use croncat_sdk_agents::msg::{AgentResponse, AgentTaskResponse, ConfigData, GetAgentIdsResponse};
+use croncat_sdk_agents::msg::{
+    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+};
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -442,11 +444,11 @@ fn unregister_agent(
 pub fn execute_update_config(
     deps: DepsMut,
     info: MessageInfo,
-    msg: ConfigData,
+    msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
     let new_config = CONFIG.update(deps.storage, |config| {
         // Deconstruct, so we don't miss any fields
-        let ConfigData {
+        let UpdateConfig {
             owner_addr,
             paused,
             manager_addr,
