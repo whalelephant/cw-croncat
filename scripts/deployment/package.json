@@ -1,0 +1,30 @@
+{
+  "name": "croncat-factory-deployment",
+  "version": "0.1.0",
+  "description": "Deploy CronCat smart contracts using the factory architecture. Uses CosmJS",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "go": "tsc && node build/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "smart-contract",
+    "CronCat",
+    "interchain",
+    "cosmos",
+    "juno",
+    "CosmJS",
+    "typescript"
+  ],
+  "author": "Mike Purvis",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.29.5",
+    "@cosmjs/proto-signing": "^0.29.5",
+    "@cosmjs/stargate": "^0.29.5",
+    "@cosmjs/tendermint-rpc": "^0.29.5",
+    "dotenv": "^16.0.3"
+  }
+}
