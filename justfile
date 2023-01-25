@@ -4,3 +4,7 @@ optimize:
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.12.10
+
+schema:
+	./scripts/schema.sh
+	
