@@ -66,7 +66,7 @@ pub(crate) fn validate_msg_calculate_usage(
     let mut amount_for_one_task = AmountForOneTask {
         gas: config.gas_base_fee,
         cw20: None,
-        coin: None,
+        coin: [None, None],
     };
 
     for action in task.actions.iter() {
@@ -124,11 +124,13 @@ pub(crate) fn validate_msg_calculate_usage(
                 // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
                 // which is however much was passed in, like 1000000ujunox below:
                 // junod tx wasm execute … … --amount 1000000ujunox
-                if amount.len() != 1
-                    || amount[0].amount.is_zero()
-                    || amount_for_one_task.add_coin(amount[0].clone())
-                {
+                if amount.len() > 2 {
                     return Err(ContractError::InvalidAction {});
+                }
+                for coin in amount {
+                    if coin.amount.is_zero() || amount_for_one_task.add_coin(amount[0].clone())? {
+                        return Err(ContractError::InvalidAction {});
+                    }
                 }
             }
             // Disallow unknown messages
@@ -232,6 +234,7 @@ pub(crate) fn get_manager_addr(
         .ok_or(ContractError::InvalidKey {})
 }
 
+#[cfg(feature = "todo")]
 pub(crate) fn get_agents_addr(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,

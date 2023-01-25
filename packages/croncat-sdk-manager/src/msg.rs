@@ -1,5 +1,6 @@
 use crate::types::{Config, GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use croncat_sdk_core::internal_messages::manager::ManagerCreateTaskBalance;
 use cw20::{Cw20Coin, Cw20CoinVerified};
 
 #[cw_serde]
@@ -16,12 +17,6 @@ pub struct ManagerInstantiateMsg {
     pub owner_addr: Option<String>,
     /// Gas prices that expected to be used by the agent
     pub gas_price: Option<GasPrice>,
-    /// The duration a prospective agent has to nominate themselves.
-    /// When a task is created such that a new agent can join,
-    /// The agent at the zeroth index of the pending agent queue has this time to nominate
-    /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
-    /// Value is in seconds
-    pub agent_nomination_duration: Option<u16>,
 
     /// Contract's treasury.
     /// Fees from tasks will go to this address, if set or to the owner address otherwise
@@ -57,6 +52,9 @@ pub enum ManagerExecuteMsg {
     },
     /// Kick inactive agents
     Tick {},
+
+    /// Create task's balance, called by the tasks contract
+    CreateTaskBalance(ManagerCreateTaskBalance),
 }
 
 #[cw_serde]

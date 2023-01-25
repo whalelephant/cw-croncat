@@ -1,5 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Binary, Coin, CosmosMsg, StdResult, WasmMsg};
+use cw20::Cw20CoinVerified;
 
 use crate::types::AmountForOneTask;
 
@@ -33,9 +34,13 @@ enum RemoveTaskMsg {
     RemoveTask(ManagerRemoveTask),
 }
 
+// Note: sender and cw20 validated on the tasks contract
 #[cw_serde]
 pub struct ManagerCreateTaskBalance {
+    pub sender: Addr,
     pub task_hash: Vec<u8>,
+    pub recurring: bool,
+    pub cw20: Option<Cw20CoinVerified>,
     pub amount_for_one_task: AmountForOneTask,
 }
 

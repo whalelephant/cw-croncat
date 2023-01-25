@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, Coin, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
@@ -59,8 +59,6 @@ pub struct TaskRequest {
     pub native: Uint128,
     /// How much of cw20 coin is attached to this task
     pub cw20: Option<Cw20Coin>,
-    /// How much of native coin is attached to this task
-    pub ibc: Option<Coin>,
 }
 
 /// Defines the spacing of execution

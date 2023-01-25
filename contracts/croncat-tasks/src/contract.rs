@@ -3,7 +3,6 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
 };
-use croncat_sdk_core::internal_messages::agents::AgentNewTask;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
@@ -11,11 +10,12 @@ use croncat_sdk_tasks::types::{
     Config, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest, TaskResponse,
 };
 use cw2::{query_contract_info, set_contract_version};
+use cw20::Cw20CoinVerified;
 use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::helpers::{
-    check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task_with_queries,
+    check_if_sender_is_manager, get_manager_addr, remove_task_with_queries,
     remove_task_without_queries, validate_boundary, validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -293,10 +293,19 @@ fn execute_create_task(
     if amount_for_one_task.gas > config.gas_limit {
         return Err(ContractError::InvalidGas {});
     }
+    let cw20 = task
+        .cw20
+        .map(|human| {
+            StdResult::Ok(Cw20CoinVerified {
+                address: deps.api.addr_validate(&human.address)?,
+                amount: human.amount,
+            })
+        })
+        .transpose()?;
 
     let version = query_contract_info(&deps.querier, env.contract.address.as_str())?.version;
     let item = Task {
-        owner_addr,
+        owner_addr: owner_addr.clone(),
         interval: task.interval,
         boundary,
         stop_on_fail: task.stop_on_fail,
@@ -316,6 +325,7 @@ fn execute_create_task(
         return Err(ContractError::TaskEnded {});
     }
 
+    let recurring = item.recurring();
     let with_queries = item.with_queries();
     if with_queries {
         match slot_kind {
@@ -357,14 +367,24 @@ fn execute_create_task(
         }
     }
 
+    let mut messages = vec![];
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let manager_create_task_balance_msg = ManagerCreateTaskBalance {
+        sender: owner_addr,
         task_hash: hash.as_bytes().to_owned(),
+        recurring,
+        cw20,
         amount_for_one_task,
     }
     .into_cosmos_msg(manager_addr, info.funds)?;
-    let agent_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_new_task_msg = AgentNewTask {}.into_cosmos_msg(agent_addr)?;
+    messages.push(manager_create_task_balance_msg);
+
+    #[cfg(feature = "todo")]
+    {
+        let agent_addr = get_agents_addr(&deps.querier, &config)?;
+        let agent_new_task_msg = AgentNewTask {}.into_cosmos_msg(agent_addr)?;
+        messages.push(manager_create_task_balance_msg);
+    }
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
@@ -372,8 +392,7 @@ fn execute_create_task(
         .add_attribute("slot_kind", slot_kind.to_string())
         .add_attribute("task_hash", hash)
         .add_attribute("with_queries", with_queries.to_string())
-        .add_message(agent_new_task_msg)
-        .add_message(manager_create_task_balance_msg))
+        .add_messages(messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

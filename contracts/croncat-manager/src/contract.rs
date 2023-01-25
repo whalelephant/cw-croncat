@@ -3,22 +3,26 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult, Uint128,
 };
-use croncat_sdk_manager::types::UpdateConfig;
+use croncat_sdk_core::internal_messages::manager::ManagerCreateTaskBalance;
+use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
 use cw2::set_contract_version;
 
 use crate::balances::{
     execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
-    execute_refill_task_cw20, execute_user_withdraw, query_users_balances,
+    execute_refill_task_cw20, execute_user_withdraw, query_users_balances, sub_user_cw20,
 };
 use crate::error::ContractError;
-use crate::helpers::check_ready_for_execution;
+use crate::helpers::{
+    attached_natives, calculate_required_natives, check_if_sender_is_tasks,
+    check_ready_for_execution, gas_with_fees,
+};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, TREASURY_BALANCE};
+use crate::state::{Config, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub(crate) const DEFAULT_NOMINATION_DURATION: u16 = 360;
+pub(crate) const DEFAULT_FEE: u64 = 5;
 
 /// Instantiate
 /// First contract method before it runs on the chains
@@ -41,7 +45,6 @@ pub fn instantiate(
         croncat_agents_key,
         owner_addr,
         gas_price,
-        agent_nomination_duration,
         treasury_addr,
     } = msg;
 
@@ -59,13 +62,11 @@ pub fn instantiate(
     let config = Config {
         paused: false,
         owner_addr,
-        min_tasks_per_agent: 3,
-        agents_eject_threshold: 600,
-        agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
         croncat_factory_addr: deps.api.addr_validate(&croncat_factory_addr)?,
         croncat_tasks_key,
         croncat_agents_key,
-        agent_fee: 5,
+        agent_fee: DEFAULT_FEE,
+        treasury_fee: DEFAULT_FEE,
         gas_price,
         cw20_whitelist: vec![],
         native_denom: denom,
@@ -110,6 +111,7 @@ pub fn execute(
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         // TODO: make method ONLY for tasks contract to create task_hash's balance!
+        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
     }
 }
 
@@ -157,9 +159,8 @@ pub fn execute_update_config(
             owner_addr,
             paused,
             agent_fee,
+            treasury_fee,
             gas_price,
-            min_tasks_per_agent,
-            agents_eject_threshold,
             croncat_tasks_key,
             croncat_agents_key,
             treasury_addr,
@@ -187,13 +188,11 @@ pub fn execute_update_config(
         let new_config = Config {
             paused: paused.unwrap_or(config.paused),
             owner_addr,
-            min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
-            agents_eject_threshold: agents_eject_threshold.unwrap_or(config.agents_eject_threshold),
-            agent_nomination_duration: config.agent_nomination_duration,
             croncat_factory_addr: config.croncat_factory_addr,
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
             agent_fee: agent_fee.unwrap_or(config.agent_fee),
+            treasury_fee: treasury_fee.unwrap_or(config.treasury_fee),
             gas_price,
             cw20_whitelist: config.cw20_whitelist,
             native_denom: config.native_denom,
@@ -249,6 +248,46 @@ pub fn execute_tick(
     //     attributes.push(Attribute::new("lifecycle", "tick_failure"))
     // }
     Ok(Response::new().add_attribute("action", "tick"))
+}
+
+fn execute_create_task_balance(
+    deps: DepsMut,
+    info: MessageInfo,
+    msg: ManagerCreateTaskBalance,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    check_if_sender_is_tasks(&deps.querier, &config, &info.sender)?;
+    let (native, ibc) = attached_natives(&config.native_denom, info.funds)?;
+    let cw20 = msg.cw20;
+    if let Some(attached_cw20) = &cw20 {
+        sub_user_cw20(deps.storage, &msg.sender, attached_cw20)?;
+    }
+    let tasks_balance = TaskBalance {
+        native_balance: native,
+        cw20_balance: cw20,
+        ibc_balance: ibc,
+    };
+    // Let's check if task has enough attached balance
+    {
+        let gas_with_fees = gas_with_fees(
+            msg.amount_for_one_task.gas,
+            config.agent_fee + config.treasury_fee,
+        )?;
+        let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+
+        let (native_for_sends_required, ibc_required) =
+            calculate_required_natives(msg.amount_for_one_task.coin, &config.native_denom)?;
+        tasks_balance.verify_enough_attached(
+            Uint128::from(native_for_gas_required) + native_for_sends_required,
+            msg.amount_for_one_task.cw20,
+            ibc_required,
+            msg.recurring,
+            &config.native_denom,
+        )?;
+    }
+    TASKS_BALANCES.save(deps.storage, &msg.task_hash, &tasks_balance)?;
+
+    Ok(Response::new().add_attribute("action", "create_task_balance"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

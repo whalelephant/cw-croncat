@@ -262,6 +262,8 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-factory",
+ "croncat-sdk-core",
  "croncat-sdk-manager",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
@@ -342,6 +344,7 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-sdk-core",
  "cw20 0.16.0",
  "thiserror",
 ]

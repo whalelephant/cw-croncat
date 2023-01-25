@@ -1,13 +1,12 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Coin, StdResult};
 use cw20::Cw20CoinVerified;
 
 #[cw_serde]
-#[derive(Default)]
 pub struct AmountForOneTask {
     pub gas: u64,
     pub cw20: Option<Cw20CoinVerified>,
-    pub coin: Option<Coin>,
+    pub coin: [Option<Coin>; 2],
 }
 
 impl AmountForOneTask {
@@ -19,16 +18,34 @@ impl AmountForOneTask {
     }
 
     #[must_use]
-    pub fn add_coin(&mut self, coin: Coin) -> bool {
-        if let Some(coin_inner) = &mut self.coin {
-            if coin_inner.denom != coin.denom {
-                return false;
+    pub fn add_coin(&mut self, coin: Coin) -> StdResult<bool> {
+        match &mut self.coin {
+            [None, None] => {
+                self.coin[0] = Some(coin);
+                Ok(true)
             }
-            coin_inner.amount += coin.amount;
-        } else {
-            self.coin = Some(coin);
+            [Some(c1), None] => {
+                if c1.denom == coin.denom {
+                    c1.amount = c1.amount.checked_add(coin.amount)?;
+                } else {
+                    self.coin[1] = Some(coin);
+                }
+                Ok(true)
+            }
+            [Some(c1), Some(c2)] => {
+                if c1.denom == coin.denom {
+                    c1.amount = c1.amount.checked_add(coin.amount)?;
+
+                    Ok(true)
+                } else if c2.denom == coin.denom {
+                    c2.amount = c2.amount.checked_add(coin.amount)?;
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+            [None, Some(_)] => unreachable!(),
         }
-        true
     }
 
     #[must_use]
