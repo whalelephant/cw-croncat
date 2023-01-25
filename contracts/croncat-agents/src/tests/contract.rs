@@ -584,6 +584,179 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
         }
     );
 }
+#[test]
+fn removing_agent_from_any_side_is_working() {
+    let mut app = default_app();
+    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+
+    // Register agents
+    register_agent(&mut app, &contract_addr, AGENT0, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &contract_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![
+                Addr::unchecked(AGENT1),
+                Addr::unchecked(AGENT2),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Unregister agent from the front
+    app.execute_contract(
+        Addr::unchecked(AGENT2),
+        contract_addr.clone(),
+        &ExecuteMsg::UnregisterAgent { from_behind: None },
+        &[],
+    )
+    .unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![
+                Addr::unchecked(AGENT1),
+                Addr::unchecked(AGENT3),
+                Addr::unchecked(AGENT4)
+            ]
+        }
+    );
+
+    // Unregister agent from the behind
+    app.execute_contract(
+        Addr::unchecked(AGENT3),
+        contract_addr.clone(),
+        &ExecuteMsg::UnregisterAgent {
+            from_behind: Some(true),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![Addr::unchecked(AGENT1), Addr::unchecked(AGENT4)]
+        }
+    );
+
+    // Should work even if it's first person in the queue
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &ExecuteMsg::UnregisterAgent {
+            from_behind: Some(false),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![Addr::unchecked(AGENT4)]
+        }
+    );
+
+    // return one agent
+    register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![Addr::unchecked(AGENT4), Addr::unchecked(AGENT1)]
+        }
+    );
+    // Or the last
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        contract_addr.clone(),
+        &ExecuteMsg::UnregisterAgent {
+            from_behind: Some(true),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let agent_ids: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                skip: None,
+                take: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        agent_ids,
+        GetAgentIdsResponse {
+            active: vec![Addr::unchecked(AGENT0)],
+            pending: vec![Addr::unchecked(AGENT4)]
+        }
+    );
+}
+
 // This test requires tasks contract
 // #[test]
 // fn test_query_get_agent_tasks() {
