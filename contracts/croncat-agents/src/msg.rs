@@ -1,11 +1,5 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-
-#[cw_serde]
-pub struct InstantiateMsg {}
-
-#[cw_serde]
-pub enum ExecuteMsg {}
-
-#[cw_serde]
-#[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub use croncat_sdk_agents::msg::{
+    AgentResponse, AgentTaskResponse, ExecuteMsg, GetAgentIdsResponse, InstantiateMsg, QueryMsg,
+    UpdateConfig,
+};
+pub use croncat_sdk_agents::types::{Agent, AgentStats, AgentStatus};
