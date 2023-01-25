@@ -259,8 +259,15 @@ dependencies = [
 name = "croncat-manager"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-sdk-manager",
+ "cw-multi-test",
+ "cw-storage-plus 0.16.0",
+ "cw2 1.0.1",
+ "cw20 0.16.0",
+ "cw20-base 0.16.0",
  "thiserror",
 ]
 
@@ -313,10 +320,6 @@ name = "croncat-sdk-agents"
 version = "0.1.0"
 
 [[package]]
-name = "croncat-sdk-config"
-version = "0.1.0"
-
-[[package]]
 name = "croncat-sdk-core"
 version = "0.1.0"
 dependencies = [
@@ -331,6 +334,16 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+]
+
+[[package]]
+name = "croncat-sdk-manager"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw20 0.16.0",
+ "thiserror",
 ]
 
 [[package]]
@@ -429,6 +442,21 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 0.16.0",
  "cw-utils 0.16.0",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "cw-controllers"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91440ce8ec4f0642798bc8c8cb6b9b53c1926c6dadaf0eed267a5145cd529071"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.0.1",
+ "cw-utils 1.0.1",
  "schemars",
  "serde",
  "thiserror",
@@ -824,29 +852,29 @@ dependencies = [
 
 [[package]]
 name = "cw4"
-version = "0.16.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86a93c2764ddb44038b948d9a9a8aadc9f92f5ef3e61249af2fad16091e43412"
+checksum = "2c236e0bae02ce97e89235a681dd0e07d099524b369f1ef908d704db3e6b049b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-storage-plus 0.16.0",
+ "cw-storage-plus 1.0.1",
  "schemars",
  "serde",
 ]
 
 [[package]]
 name = "cw4-group"
-version = "0.16.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dba1d15bff40b97bde05f36a0d44ac3369a085a4bda6c4673e33a9359513fdd2"
+checksum = "f12cb74c646062a2568e7fbb1db3ce0a264c64e669c2ff30cc105c84ba6477eb"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "cw-controllers 0.16.0",
- "cw-storage-plus 0.16.0",
- "cw-utils 0.16.0",
- "cw2 0.16.0",
+ "cw-controllers 1.0.1",
+ "cw-storage-plus 1.0.1",
+ "cw-utils 1.0.1",
+ "cw2 1.0.1",
  "cw4",
  "schemars",
  "serde",
