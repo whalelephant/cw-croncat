@@ -71,5 +71,5 @@ pub struct Config {
     /// Value is in seconds
     pub agent_nomination_duration: u16,
 
-    pub min_coins_for_agent_registration:u64,
+    pub min_coins_for_agent_registration: u64,
 }

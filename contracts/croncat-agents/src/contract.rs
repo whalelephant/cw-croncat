@@ -220,15 +220,18 @@ fn register_agent(
         .querier
         .query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
 
+    let agents_needs_coin = Coin::new(
+        c.min_coins_for_agent_registration.into(),
+        format!("{}{}", "u", manager_config.native_denom)
+    );
     if !has_coins(
         &agent_wallet_balances,
-        &Coin::new(
-            c.min_coins_for_agent_registration.into(),
-            manager_config.native_denom,
-        ),
+        &agents_needs_coin,
     ) || agent_wallet_balances.is_empty()
     {
-        return Err(ContractError::InsufficientFunds);
+        return Err(ContractError::InsufficientFunds {
+            amount_needed: agents_needs_coin
+        });
     }
 
     let payable_id = if let Some(addr) = payable_account_id {
