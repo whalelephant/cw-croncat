@@ -152,7 +152,7 @@ fn test_register_agent_fails() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::UpdateConfig(Box::new(config)),
+        &ExecuteMsg::UpdateConfig { config },
         &[],
     )
     .unwrap();
@@ -256,7 +256,7 @@ fn test_update_agent_fails() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::UpdateConfig(Box::new(config)),
+        &ExecuteMsg::UpdateConfig { config },
         &[],
     )
     .unwrap();

@@ -31,7 +31,7 @@ serde = { version = "1.0" }
 cosmwasm-std = { version = "1.1.9" }
 serde-cw-value = "0.7.0"
 thiserror = { version = "1.0" }
-cosmwasm-schema = { version = "1.1.9" }
+cosmwasm-schema = { version = "1.1" }
 rusty-hook = "0.11.2"
 #For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
@@ -46,7 +46,6 @@ sha2 = { version = "0.10.6", default-features = false }
 serde-json-wasm = { version = "0.5.0" }
 cw-utils = "0.16.0"
 cw721 = "0.16.0"
-
 # DAO contracts
 dao-voting = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts.git" }
 dao-proposal-single = { version = "2.0.0-beta", git = "https://github.com/DA0-DA0/dao-contracts" }
@@ -62,7 +61,6 @@ base64 = "0.13.0"
 serde_json = { version = "1.0" }
 anyhow = "1"
 cw721-base = "0.16.0"
-
 croncat-agents = { path = "./contracts/croncat-agents" }
 croncat-manager = { path = "./contracts/croncat-manager" }
 croncat-tasks = { path = "./contracts/croncat-tasks" }
@@ -70,7 +68,6 @@ croncat-mod-balances = { path = "./contracts/mod-balances" }
 croncat-mod-dao = { path = "./contracts/mod-dao" }
 croncat-mod-generic = { path = "./contracts/mod-generic" }
 croncat-mod-nft = { path = "./contracts/mod-nft" }
-
 croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
 croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
 croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }

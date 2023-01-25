@@ -31,8 +31,8 @@ pub(crate) fn mock_config(manager_addr: &str) -> Config {
         manager_addr: Addr::unchecked(manager_addr.to_string()),
     }
 }
-pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
-    UpdateConfig {
+pub(crate) fn mock_update_config(manager_addr: &str) -> ConfigData {
+    ConfigData {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),

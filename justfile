@@ -23,9 +23,19 @@ deploy-local-reset:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
 	./scripts/local/deploy.sh -w  -c #  wasm update & container update
+
 optimize:
 	docker run --rm -v "$(pwd)":/code \
 		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.12.10
+
+gen-schema:
+	chmod +x ./scripts/schema.sh
+	./scripts/schema.sh
+
+gen-typescript:
+	yarn --cwd ./typescript install --frozen-lockfile
+	yarn --cwd ./typescript build
+	yarn --cwd ./typescript codegen
