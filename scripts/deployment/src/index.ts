@@ -4,7 +4,7 @@ import {HttpBatchClient, Tendermint34Client, TxResponse} from "@cosmjs/tendermin
 import {QueryClient} from "@cosmjs/stargate";
 import {fromHex} from "@cosmjs/encoding";
 import {config} from "dotenv"
-import {GasPrice, StdFee} from "@cosmjs/stargate"
+import {GasPrice, StdFee, calculateFee} from "@cosmjs/stargate"
 import * as fs from "fs"
 import * as util from "util"
 config({ path: '.env' })
@@ -12,22 +12,28 @@ config({ path: '.env' })
 const seedPhrase: string = process.env.SEED_PHRASE
 const prefix: string = process.env.PREFIX
 const endpoint: string = process.env.RPC_ENDPOINT
-
+const denom: string = process.env.DENOM
+const defaultGasPrice = GasPrice.fromString(`0.025u${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
+
+// Gas vals
+const uploadGas = calculateFee(2_300_000, defaultGasPrice)
+const instantiateGas = calculateFee(700_000, defaultGasPrice)
+const executeGas = calculateFee(555_000, defaultGasPrice)
 
 const start = async () => {
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, { prefix })
     const userAddress = (await signerWallet.getAccounts())[0].address
     console.log('userAddress', userAddress)
-    const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: GasPrice.fromString("0.025stake")})
+    const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice})
 
     const factoryWasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
-    let uploadFactoryRes = await cwClient.upload(userAddress, factoryWasm, "auto")
+    let uploadFactoryRes = await cwClient.upload(userAddress, factoryWasm, uploadGas)
 
     // Ensure transaction succeeded
     const httpBatchClient = new HttpBatchClient(endpoint, {
-        batchSizeLimit: 3,
-        dispatchInterval: 3000
+        batchSizeLimit: 2,
+        dispatchInterval: 500
     })
     const tmClient = await Tendermint34Client.create(httpBatchClient)
     // Keep the line below, as we'll use it later
@@ -44,7 +50,7 @@ const start = async () => {
     // Now instantiate the factory
     const factoryId = uploadFactoryRes.codeId
     // We pass it empty '{}' parameters meaning it will make the owner the sender
-    const factoryInst = await cwClient.instantiate(userAddress, factoryId, {}, 'CronCat-factory-alpha', 600_000)
+    const factoryInst = await cwClient.instantiate(userAddress, factoryId, {}, 'CronCat-factory-alpha', instantiateGas)
 
     const factoryAddress = factoryInst.contractAddress
 
@@ -52,11 +58,11 @@ const start = async () => {
 
     // deploy manager contract (from our sender)
     const managerWasm = fs.readFileSync(`${artifactsRoot}/croncat_manager.wasm`)
-    const uploadManagerRes = await cwClient.upload(userAddress, managerWasm, "auto")
+    const uploadManagerRes = await cwClient.upload(userAddress, managerWasm, uploadGas)
     const managerId = uploadManagerRes.codeId
 
     let base64ManagerInst = Buffer.from(JSON.stringify({
-        "denom": "stake",
+        "denom": denom,
         "croncat_factory_addr": factoryAddress,
         "croncat_tasks_key": [
             "t",
@@ -94,7 +100,7 @@ const start = async () => {
         }
     }
 
-    const instManagerRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, "auto")
+    const instManagerRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, executeGas)
     // console.log('instManagerRes', instManagerRes)
     // console.log('instManagerRes logs', util.inspect(instManagerRes.logs, false, null, true))
 
@@ -105,7 +111,7 @@ const start = async () => {
 
     // deploy agent contract (from our sender)
     const agentWasm = fs.readFileSync(`${artifactsRoot}/croncat_agents.wasm`)
-    const uploadAgentRes = await cwClient.upload(userAddress, agentWasm, "auto")
+    const uploadAgentRes = await cwClient.upload(userAddress, agentWasm, uploadGas)
     const agentId = uploadAgentRes.codeId
 
     let base64AgentInst = Buffer.from(JSON.stringify({
@@ -134,7 +140,7 @@ const start = async () => {
         }
     }
 
-    const instAgentRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, "auto")
+    const instAgentRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, executeGas)
     const agentAddress: string = instAgentRes.logs[0].events[1].attributes[0].value
 
     // Show all
