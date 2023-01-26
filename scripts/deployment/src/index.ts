@@ -7,7 +7,11 @@ import { config } from "dotenv"
 import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
 import * as util from "util"
+import { FactoryClient } from './factory';
+import { ManagerClient } from './manager';
+import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
+import { ModulesClient } from './modules';
 config({ path: '.env' })
 // Get values from the environment variables located in the .env file
 const seedPhrase: string = process.env.SEED_PHRASE
@@ -18,23 +22,18 @@ const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
 // Gas vals
-const uploadGas = calculateFee(2_300_000, defaultGasPrice)
-const instantiateGas = calculateFee(700_000, defaultGasPrice)
+const uploadGas = calculateFee(4_000_000, defaultGasPrice)
 const executeGas = calculateFee(555_000, defaultGasPrice)
 
 const prettified_out=(o:object)=>{
     console.info(JSON.stringify(o, null, '\t'));
 }
 const start = async () => {
+    console.info(`🤖 Starting Deployment 🤖`)
 
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, { prefix })
     const userAddress = (await signerWallet.getAccounts())[0].address
-
-
     const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-
-    const factoryWasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
-    let uploadFactoryRes = await cwClient.upload(userAddress, factoryWasm, uploadGas)
 
     // Ensure transaction succeeded
     const httpBatchClient = new HttpBatchClient(endpoint, {
@@ -43,90 +42,46 @@ const start = async () => {
     })
     const tmClient = await Tendermint34Client.create(httpBatchClient)
     // Keep the line below, as we'll use it later
-    const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
+    // const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
 
-    const hash = Buffer.from(fromHex(uploadFactoryRes.transactionHash))
-    let txInfo = await tmClient.tx({ hash })
+    // Factory
+    var factoryClient = new FactoryClient(cwClient);
+    var [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot, userAddress, uploadGas, executeGas);
+    console.info(`🏭 Factory Done`)
 
-    if (txInfo.result.code !== 0) {
-        console.error('Transaction failed, got code', txInfo.result.code, hash)
-        return
-    }
+    // Manager
+    var managerClient = new ManagerClient(cwClient);
+    var [managerId, managerAddress] = await managerClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
+    console.info(`🏗️  Manager Done`)
 
-    // Now instantiate the factory
-    const factoryId = uploadFactoryRes.codeId
-    // We pass it empty '{}' parameters meaning it will make the owner the sender
-    const factoryInst = await cwClient.instantiate(userAddress, factoryId, {}, 'CronCat-factory-alpha', instantiateGas)
-
-    const factoryAddress = factoryInst.contractAddress
-
-    // Manager contract
-
-    // deploy manager contract (from our sender)
-    const managerWasm = fs.readFileSync(`${artifactsRoot}/croncat_manager.wasm`)
-    const uploadManagerRes = await cwClient.upload(userAddress, managerWasm, uploadGas)
-    const managerId = uploadManagerRes.codeId
-
-    let base64ManagerInst = Buffer.from(JSON.stringify({
-        "denom": denom,
-        "croncat_factory_addr": factoryAddress,
-        "croncat_tasks_key": [
-            "t",
-            [
-                0,
-                1
-            ]
-        ],
-        "croncat_agents_key": [
-            "a",
-            [
-                0,
-                1
-            ]
-        ]
-    })).toString('base64')
-
-    // instantiate manager contract (from the factory)
-    const managerDeployMsg = {
-        "deploy": {
-            "kind": "manager",
-            "module_instantiate_info": {
-                "code_id": managerId,
-                "version": [
-                    0,
-                    1
-                ],
-                "commit_id": "8e08b808465c42235f961423fcf9e4792ce02462",
-                "checksum": "abc123",
-                "changelog_url": "https://example.com/lucky",
-                "schema": "https://croncat-schema.example.com/version-0-1",
-                "msg": base64ManagerInst,
-                "contract_name": "croncat-manager--version-0-1"
-            }
-        }
-    }
-
-    const instManagerRes = await cwClient.execute(userAddress, factoryAddress, managerDeployMsg, executeGas)
-    // console.log('instManagerRes', instManagerRes)
-    // console.log('instManagerRes logs', util.inspect(instManagerRes.logs, false, null, true))
-
-    // Boy do I hate indexing like this, folks
-    let managerAddress: string = instManagerRes.logs[0].events[1].attributes[0].value
-
-    //Agents
+    // Agents
     var agentClient = new AgentClient(cwClient);
     var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, uploadGas, executeGas);
+    console.info(`🏗️  Agents Done`)
+
+    // Tasks
+    var taskClient = new TaskClient(cwClient);
+    var [taskContractCodeId, taskContractAddr] = await taskClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
+    console.info(`🏗️  Tasks Done`)
+
+    // Modules
+    var modulesClient = new ModulesClient(cwClient);
+    var modules = await modulesClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
+    console.info(`🏗️  Modules Done`)
 
     // Show all
-    console.info('------ ------ ------')
-    console.info(`factory\t code ID ${factoryId},\t address ${factoryAddress}`)
-    console.info(`manager\t code ID ${managerId},\t address ${managerAddress}`)
+    const output = [
+        { name: 'factory', code_id: factoryId, address: factoryAddress },
+        { name: 'manager', code_id: managerId, address: managerAddress },
+        { name: 'agent', code_id: agentContractCodeId, address: agentContractAddr },
+        { name: 'tasks', code_id: taskContractCodeId, address: taskContractAddr },
+        ...modules,
+    ]
+    console.table(output)
 
-    console.info(`agent\t code ID ${agentContractCodeId},\t address ${agentContractAddr}`)
+    // Store this output, for use in agent & website envs
+    await fs.writeFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, JSON.stringify(output))
 
-    console.info('Registering agent...')
-    let regResult = await agentClient.registerAgent(userAddress, agentContractAddr, executeGas);
-    prettified_out(regResult);
     process.exit()
 }
 
