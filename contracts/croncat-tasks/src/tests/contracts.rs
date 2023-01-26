@@ -29,3 +29,12 @@ pub(crate) fn croncat_manager_contract() -> Box<dyn Contract<Empty>> {
     .with_reply(croncat_manager::contract::reply);
     Box::new(contract)
 }
+
+pub(crate) fn croncat_agents_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_agents::contract::execute,
+        croncat_agents::contract::instantiate,
+        croncat_agents::contract::query,
+    );
+    Box::new(contract)
+}

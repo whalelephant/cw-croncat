@@ -75,6 +75,9 @@ pub enum ManagerQueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    /// Get task balance
+    #[returns(Option<crate::types::TaskBalance>)]
+    TaskBalance { task_hash: String },
 }
 
 #[cw_serde]

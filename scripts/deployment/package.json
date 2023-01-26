@@ -4,9 +4,11 @@
   "description": "Deploy CronCat smart contracts using the factory architecture. Uses CosmJS",
   "main": "build/index.js",
   "scripts": {
+    "postinstall": "cp .env.template .env",
     "build": "tsc",
     "start": "node build/index.js",
     "go": "tsc && node build/index.js",
+    "e2e": "tsc && node build/e2e.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -26,6 +28,7 @@
     "@cosmjs/stargate": "^0.29.5",
     "@cosmjs/tendermint-rpc": "^0.29.5",
     "dotenv": "^16.0.3",
+    "toml": "^3.0.0",
     "typescript": "^4.9.4"
   }
 }
