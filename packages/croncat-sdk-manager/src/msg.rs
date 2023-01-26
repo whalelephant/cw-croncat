@@ -1,12 +1,7 @@
 use crate::types::{GasPrice, UpdateConfig};
-#[allow(unused_imports)]
-use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use cw20::Cw20Coin;
-#[allow(unused_imports)]
-use cw20::Cw20CoinVerified;
-
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
@@ -68,13 +63,13 @@ pub enum ManagerExecuteMsg {
 #[derive(QueryResponses)]
 pub enum ManagerQueryMsg {
     /// Gets current croncat config
-    #[returns(Config)]
+    #[returns(crate::types::Config)]
     Config {},
     /// Gets manager available balances
     #[returns(cosmwasm_std::Uint128)]
     TreasuryBalance {},
     /// Gets Cw20 balances of the given wallet address
-    #[returns(Vec<Cw20CoinVerified>)]
+    #[returns(Vec<cw20::Cw20CoinVerified>)]
     UsersBalances {
         wallet: String,
         from_index: Option<u64>,

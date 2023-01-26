@@ -1,6 +1,4 @@
 use crate::types::AgentStatus;
-#[allow(unused_imports)]
-use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
@@ -44,7 +42,7 @@ pub enum QueryMsg {
         block_slots: Option<u64>,
         cron_slots: Option<u64>,
     },
-    #[returns[Config]]
+    #[returns[crate::types::Config]]
     Config {},
 }
 
