@@ -24,8 +24,7 @@ jobs:
       - name: Run unit tests
         uses: actions-rs/cargo@v1
         with:
-          command: unit-test
-          args: --locked
+          command: test
         env:
           RUST_BACKTRACE: 1
 

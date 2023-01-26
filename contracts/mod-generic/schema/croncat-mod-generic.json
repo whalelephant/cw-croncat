@@ -1,0 +1,145 @@
+{
+  "contract_name": "croncat-mod-generic",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "additionalProperties": false
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "type": "string",
+    "enum": []
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "type": "object",
+        "required": [
+          "generic_query"
+        ],
+        "properties": {
+          "generic_query": {
+            "$ref": "#/definitions/GenericQuery"
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "Binary": {
+        "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+        "type": "string"
+      },
+      "GenericQuery": {
+        "type": "object",
+        "required": [
+          "contract_addr",
+          "msg",
+          "ordering",
+          "path_to_value",
+          "value"
+        ],
+        "properties": {
+          "contract_addr": {
+            "type": "string"
+          },
+          "msg": {
+            "$ref": "#/definitions/Binary"
+          },
+          "ordering": {
+            "$ref": "#/definitions/ValueOrdering"
+          },
+          "path_to_value": {
+            "$ref": "#/definitions/PathToValue"
+          },
+          "value": {
+            "$ref": "#/definitions/Binary"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PathToValue": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/ValueIndex"
+        }
+      },
+      "ValueIndex": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "index"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "ValueOrdering": {
+        "type": "string",
+        "enum": [
+          "unit_above",
+          "unit_above_equal",
+          "unit_below",
+          "unit_below_equal",
+          "equal",
+          "not_equal"
+        ]
+      }
+    }
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "generic_query": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

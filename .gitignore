@@ -18,6 +18,7 @@
 **/node_modules
 
 **/artifacts
+
 .lock
 .yarn-error.log
 

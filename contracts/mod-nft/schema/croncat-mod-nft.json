@@ -1,0 +1,138 @@
+{
+  "contract_name": "croncat-mod-nft",
+  "contract_version": "0.1.0",
+  "idl_version": "1.0.0",
+  "instantiate": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "InstantiateMsg",
+    "type": "object",
+    "additionalProperties": false
+  },
+  "execute": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "ExecuteMsg",
+    "type": "string",
+    "enum": []
+  },
+  "query": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "QueryMsg",
+    "oneOf": [
+      {
+        "description": "Check if `address` is the owner of the token",
+        "type": "object",
+        "required": [
+          "owner_of_nft"
+        ],
+        "properties": {
+          "owner_of_nft": {
+            "$ref": "#/definitions/OwnerOfNft"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Check if `address` owns any tokens on `nft_address` contract",
+        "type": "object",
+        "required": [
+          "addr_has_nft"
+        ],
+        "properties": {
+          "addr_has_nft": {
+            "type": "object",
+            "required": [
+              "address",
+              "nft_address"
+            ],
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "nft_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    ],
+    "definitions": {
+      "OwnerOfNft": {
+        "type": "object",
+        "required": [
+          "address",
+          "nft_address",
+          "token_id"
+        ],
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "nft_address": {
+            "type": "string"
+          },
+          "token_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "migrate": null,
+  "sudo": null,
+  "responses": {
+    "addr_has_nft": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
+    "owner_of_nft": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
