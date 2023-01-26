@@ -13,7 +13,7 @@ build:
 deploy:
 	#!/bin/bash
 	chmod +x ./scripts/testnet/deploy.sh
-	./scripts/testnet/deploy.sh -w # only wasm uodate
+	./scripts/testnet/deploy.sh -w # only wasm update
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
@@ -32,7 +32,6 @@ optimize:
 		cosmwasm/workspace-optimizer:0.12.10
 
 gen-schema:
-	chmod +x ./scripts/schema.sh
 	./scripts/schema.sh
 
 gen-typescript:

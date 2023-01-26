@@ -1,5 +1,5 @@
 [package]
-name = "mod-dao"
+name = "croncat-mod-dao"
 version = "0.1.0"
 authors = []
 edition = "2021"
