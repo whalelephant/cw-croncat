@@ -4,6 +4,7 @@
   "description": "Deploy CronCat smart contracts using the factory architecture. Uses CosmJS",
   "main": "build/index.js",
   "scripts": {
+    "postinstall": "cp .env.template .env",
     "build": "tsc",
     "start": "node build/index.js",
     "go": "tsc && node build/index.js",
