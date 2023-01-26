@@ -35,7 +35,7 @@ mod instantiate_tests {
             min_tasks_per_agent: 3,
             agents_eject_threshold: 600,
             agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
-            croncat_factory_addr: Addr::unchecked("x"),
+            croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
             croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
             croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
             agent_fee: 5,
