@@ -1,12 +1,11 @@
 [package]
 name = "croncat-sdk-core"
 version = "0.1.0"
-authors = []
+authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
 
 [dependencies]
-cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
-thiserror = { workspace = true }
+cosmwasm-std = { worskpace = true }
 cw20 = { workspace = true }

@@ -3,7 +3,7 @@ use croncat_sdk_manager::types::{Config, UpdateConfig};
 use cw20::Cw20CoinVerified;
 
 use crate::{
-    contract::DEFAULT_NOMINATION_DURATION,
+    contract::DEFAULT_FEE,
     msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg},
     tests::{
         helpers::query_manager_balances,
@@ -32,20 +32,18 @@ mod instantiate_tests {
         let expected_config = Config {
             paused: false,
             owner_addr: Addr::unchecked(ADMIN),
-            min_tasks_per_agent: 3,
-            agents_eject_threshold: 600,
-            agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
             croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
             croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
             croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
-            agent_fee: 5,
+            agent_fee: DEFAULT_FEE,
+            treasury_fee: DEFAULT_FEE,
             gas_price: Default::default(),
             cw20_whitelist: vec![],
             native_denom: DENOM.to_owned(),
             limit: 100,
             treasury_addr: None,
         };
-        assert_eq!(config, expected_config)
+        assert_eq!(config, expected_config);
     }
 
     #[test]
@@ -62,7 +60,6 @@ mod instantiate_tests {
                 denominator: 20,
                 gas_adjustment_numerator: 30,
             }),
-            agent_nomination_duration: Some(20),
             treasury_addr: Some(AGENT2.to_owned()),
         };
         let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
@@ -81,13 +78,11 @@ mod instantiate_tests {
         let expected_config = Config {
             paused: false,
             owner_addr: Addr::unchecked(ANYONE),
-            min_tasks_per_agent: 3,
-            agents_eject_threshold: 600,
-            agent_nomination_duration: 20,
             croncat_factory_addr: Addr::unchecked(AGENT0),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
-            agent_fee: 5,
+            agent_fee: DEFAULT_FEE,
+            treasury_fee: DEFAULT_FEE,
             gas_price: GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -181,13 +176,12 @@ fn update_config() {
         owner_addr: Some("new_owner".to_string()),
         paused: Some(true),
         agent_fee: Some(0),
+        treasury_fee: Some(0),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,
             gas_adjustment_numerator: 777,
         }),
-        min_tasks_per_agent: Some(1),
-        agents_eject_threshold: Some(3),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -204,13 +198,11 @@ fn update_config() {
     let expected_config = Config {
         paused: true,
         owner_addr: Addr::unchecked("new_owner"),
-        min_tasks_per_agent: 1,
-        agents_eject_threshold: 3,
-        agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
         croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
         croncat_tasks_key: ("new_key_tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("new_key_agents".to_owned(), [0, 1]),
         agent_fee: 0,
+        treasury_fee: 0,
         gas_price: GasPrice {
             numerator: 555,
             denominator: 666,
@@ -228,9 +220,8 @@ fn update_config() {
         owner_addr: None,
         paused: None,
         agent_fee: None,
+        treasury_fee: None,
         gas_price: None,
-        min_tasks_per_agent: None,
-        agents_eject_threshold: None,
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
@@ -269,13 +260,12 @@ fn invalid_updates_config() {
         owner_addr: Some("new_owner".to_string()),
         paused: Some(true),
         agent_fee: Some(0),
+        treasury_fee: Some(2),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,
             gas_adjustment_numerator: 777,
         }),
-        min_tasks_per_agent: Some(1),
-        agents_eject_threshold: Some(3),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -298,13 +288,12 @@ fn invalid_updates_config() {
         owner_addr: Some("new_owner".to_string()),
         paused: Some(true),
         agent_fee: Some(0),
+        treasury_fee: Some(2),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 0,
             gas_adjustment_numerator: 777,
         }),
-        min_tasks_per_agent: Some(1),
-        agents_eject_threshold: Some(3),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
@@ -326,13 +315,12 @@ fn invalid_updates_config() {
         owner_addr: Some("New_owner".to_string()),
         paused: Some(true),
         agent_fee: Some(0),
+        treasury_fee: Some(2),
         gas_price: Some(GasPrice {
             numerator: 555,
             denominator: 666,
             gas_adjustment_numerator: 777,
         }),
-        min_tasks_per_agent: Some(1),
-        agents_eject_threshold: Some(3),
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),

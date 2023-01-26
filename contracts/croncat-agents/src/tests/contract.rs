@@ -1,6 +1,7 @@
 use crate::error::ContractError;
 use crate::msg::*;
 use croncat_sdk_agents::types::Config;
+use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use cw_multi_test::{App, AppResponse, Executor};
 
 use crate::tests::common::*;
@@ -921,16 +922,13 @@ fn on_task_created(
     app: &mut App,
     contract_addr: &Addr,
     agent: &str,
-    task_hash: &str,
+    _task_hash: &str,
     total_tasks: u64,
 ) -> AppResponse {
     app.execute_contract(
         Addr::unchecked(agent),
         contract_addr.clone(),
-        &ExecuteMsg::OnTaskCreated {
-            task_hash: task_hash.to_string(),
-            total_tasks,
-        },
+        &ExecuteMsg::OnTaskCreated(AgentOnTaskCreated { total_tasks }),
         &[],
     )
     .expect("Error sending task created event")

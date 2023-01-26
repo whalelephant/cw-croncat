@@ -2,6 +2,7 @@ use crate::types::AgentStatus;
 use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
+use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -19,7 +20,7 @@ pub enum ExecuteMsg {
     CheckInAgent {},
     UnregisterAgent { from_behind: Option<bool> },
     //Task contract will send message when task is created
-    OnTaskCreated { task_hash: String, total_tasks: u64 },
+    OnTaskCreated(AgentOnTaskCreated),
     UpdateConfig { config: UpdateConfig },
 }
 
