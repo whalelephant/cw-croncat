@@ -90,6 +90,38 @@ const start = async () => {
 		console.info(`Agents Status ERROR`, e)
 	}
 
+	// Create 2 tasks
+	try {
+		const task = {
+			"actions": [
+				{
+					"msg": {
+						"wasm": {
+							"execute": {
+								"contract_addr": versions.manager.contract_addr,
+								"msg": Buffer.from(JSON.stringify({ "tick": {} })).toString('base64'),
+								"funds": []
+							}
+						}
+					},
+					"gas_limit": 75000
+				}
+			],
+			"boundary": null,
+			"cw20": [],
+			"interval": {
+				"block": 10
+			},
+			"stop_on_fail": true,
+			"queries": null,
+			"transforms": null
+		}
+		const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task);
+		console.info(`Task 1 Create SUCCESS`, t1)
+	} catch (e) {
+		console.info(`Task 1 Create ERROR`, e)
+	}
+
 	process.exit()
 }
 

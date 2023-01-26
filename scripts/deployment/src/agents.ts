@@ -42,7 +42,7 @@ export class AgentClient {
     }
 
     async status(sender: string, contractAddr: string): Promise<any> {
-        const q = { get_agent: { account_id: sender, total_tasks: 1 } };
+        const q = { get_agent: { account_id: sender } };
         const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
         return response;
     }
