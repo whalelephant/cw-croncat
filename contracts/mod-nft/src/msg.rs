@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use mod_sdk::types::QueryResponse;
 
 use crate::types::OwnerOfNft;
 

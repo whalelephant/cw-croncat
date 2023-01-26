@@ -19,7 +19,7 @@ pub enum ContractError {
     AgentNotActive,
 
     #[error("Insufficient funds. Needing {amount_needed:?}")]
-    InsufficientFunds { amount_needed: Coin},
+    InsufficientFunds { amount_needed: Coin },
 
     #[error("Contract is in paused state")]
     ContractPaused,

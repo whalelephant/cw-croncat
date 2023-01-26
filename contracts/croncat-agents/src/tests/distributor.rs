@@ -1,4 +1,4 @@
-use crate::msg::*;
+use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::distributor::{AgentTaskDistributor, RoundRobinAgentTaskDistributor};

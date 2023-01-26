@@ -222,15 +222,11 @@ fn register_agent(
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),
-        format!("{}{}", "u", manager_config.native_denom)
+        manager_config.native_denom,
     );
-    if !has_coins(
-        &agent_wallet_balances,
-        &agents_needs_coin,
-    ) || agent_wallet_balances.is_empty()
-    {
+    if !has_coins(&agent_wallet_balances, &agents_needs_coin) || agent_wallet_balances.is_empty() {
         return Err(ContractError::InsufficientFunds {
-            amount_needed: agents_needs_coin
+            amount_needed: agents_needs_coin,
         });
     }
 

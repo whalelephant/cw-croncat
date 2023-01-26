@@ -1,6 +1,6 @@
-use crate::types::{GasPrice, UpdateConfig};
+use crate::types::{Config, GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cw20::Cw20Coin;
+use cw20::{Cw20Coin, Cw20CoinVerified};
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {

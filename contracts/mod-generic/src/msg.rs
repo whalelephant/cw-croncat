@@ -1,6 +1,6 @@
-use cosmwasm_schema::{cw_serde, QueryResponses};
-
 use crate::types::GenericQuery;
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use mod_sdk::types::QueryResponse;
 
 #[cw_serde]
 pub struct InstantiateMsg {}

@@ -1,5 +1,6 @@
 use crate::error::ContractError;
 use crate::msg::*;
+use croncat_sdk_agents::types::Config;
 use cw_multi_test::{App, AppResponse, Executor};
 
 use crate::tests::common::*;

@@ -1,7 +1,7 @@
 use crate::types::AgentStatus;
+use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
-use crate::types::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -9,29 +9,18 @@ pub struct InstantiateMsg {
     pub owner_addr: Option<String>,
     pub agent_nomination_duration: Option<u16>,
     pub min_tasks_per_agent: Option<u64>,
-    pub min_coin_for_agent_registration:Option<u64>
+    pub min_coin_for_agent_registration: Option<u64>,
 }
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    RegisterAgent {
-        payable_account_id: Option<String>,
-    },
-    UpdateAgent {
-        payable_account_id: String,
-    },
+    RegisterAgent { payable_account_id: Option<String> },
+    UpdateAgent { payable_account_id: String },
     CheckInAgent {},
-    UnregisterAgent {
-        from_behind: Option<bool>,
-    },
+    UnregisterAgent { from_behind: Option<bool> },
     //Task contract will send message when task is created
-    OnTaskCreated {
-        task_hash: String,
-        total_tasks: u64,
-    },
-    UpdateConfig {
-        config: UpdateConfig,
-    },
+    OnTaskCreated { task_hash: String, total_tasks: u64 },
+    UpdateConfig { config: UpdateConfig },
 }
 
 #[cw_serde]
@@ -51,7 +40,7 @@ pub enum QueryMsg {
     GetAgentTasks {
         account_id: String,
         block_slots: Option<u64>,
-        cron_slots:Option<u64>,
+        cron_slots: Option<u64>,
     },
     #[returns[Config]]
     Config {},
