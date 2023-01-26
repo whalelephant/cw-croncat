@@ -76,8 +76,7 @@ impl TaskBalance {
         } else {
             Uint128::new(1)
         };
-
-        if native_required * multiplier < self.native_balance {
+        if self.native_balance < native_required * multiplier {
             return Err(SdkError::NotEnoughNative {
                 denom: native_denom.to_owned(),
                 lack: native_required * multiplier - self.native_balance,
@@ -91,7 +90,7 @@ impl TaskBalance {
                         lack: req.amount * multiplier,
                     });
                 }
-                if req.amount * multiplier < attached.amount {
+                if attached.amount < req.amount * multiplier {
                     return Err(SdkError::NotEnoughCw20 {
                         addr: req.address.into_string(),
                         lack: req.amount * multiplier - attached.amount,
@@ -115,7 +114,7 @@ impl TaskBalance {
                         lack: req.amount * multiplier,
                     });
                 }
-                if req.amount * multiplier < attached.amount {
+                if attached.amount < req.amount * multiplier {
                     return Err(SdkError::NotEnoughNative {
                         denom: req.denom,
                         lack: req.amount * multiplier - attached.amount,
