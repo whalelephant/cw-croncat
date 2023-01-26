@@ -47,11 +47,18 @@ const start = async () => {
 
 	// Classes
 	const factoryClient = new FactoryClient(cwClient, queryClient);
+	const managerClient = new ManagerClient(cwClient);
+	const agentClient = new AgentClient(cwClient);
+	const taskClient = new TaskClient(cwClient);
+	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
-	// Pre-logic Checks
-	// - get versions from factory
-	// - get contract names from factory
-	const allVersions = await factoryClient.getLatestContracts(contracts.factory.address)
+	// Pre-logic: get latest versions from factory
+	const allVersions: any[] = await factoryClient.getLatestContracts(contracts.factory.address)
+	const versions: any = {}
+	allVersions.forEach((v: any) => {
+		// create a map instead of array
+		versions[v.contract_name] = v.metadata
+	})
 	console.log('factory allVersions', allVersions);
 
 	// TODO: Logic:
