@@ -1,7 +1,12 @@
-use crate::types::{Config, GasPrice, UpdateConfig};
+use crate::types::{GasPrice, UpdateConfig};
+#[allow(unused_imports)]
+use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
-use cw20::{Cw20Coin, Cw20CoinVerified};
+use cw20::Cw20Coin;
+#[allow(unused_imports)]
+use cw20::Cw20CoinVerified;
+
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {

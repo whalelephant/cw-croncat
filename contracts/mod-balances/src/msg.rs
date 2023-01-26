@@ -1,5 +1,6 @@
 use crate::types::HasBalanceComparator;
 use cosmwasm_schema::{cw_serde, QueryResponses};
+#[allow(unused_imports)]
 use mod_sdk::types::QueryResponse;
 
 #[cw_serde]
