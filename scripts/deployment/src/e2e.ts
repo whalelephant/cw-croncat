@@ -48,7 +48,7 @@ const start = async () => {
 	// Classes
 	const factoryClient = new FactoryClient(cwClient, queryClient);
 	const managerClient = new ManagerClient(cwClient);
-	const agentClient = new AgentClient(cwClient);
+	const agentClient = new AgentClient(cwClient, queryClient);
 	const taskClient = new TaskClient(cwClient);
 	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
@@ -59,7 +59,7 @@ const start = async () => {
 		// create a map instead of array
 		versions[v.contract_name] = v.metadata
 	})
-	console.log('factory allVersions', allVersions);
+	// console.log('factory allVersions', allVersions);
 
 	// TODO: Logic:
 	// 1. register agent
@@ -74,10 +74,21 @@ const start = async () => {
 	// 10. withdraw agent balance
 	// 11. unregister
 
-	// // Agents
-	// var agentClient = new AgentClient(cwClient);
-	// // var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, uploadGas, executeGas);
-	// // console.info(`🏗️  Agents Done`)
+
+	// Register & check status
+	try {
+		const r = await agentClient.register(userAddress, versions.agents.contract_addr, executeGas);
+		console.info(`Agents Register SUCCESS`, r)
+	} catch (e) {
+		console.info(`Agents Register ERROR`, e)
+	}
+	try {
+		const as = await agentClient.status(userAddress, versions.agents.contract_addr);
+		console.info(`Agents Status`, as.status)
+		if (as.status !== 'active') process.exit(1)
+	} catch (e) {
+		console.info(`Agents Status ERROR`, e)
+	}
 
 	process.exit()
 }

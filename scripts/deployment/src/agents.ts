@@ -1,12 +1,15 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { QueryClient } from "@cosmjs/stargate";
 import { StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 
 export class AgentClient {
     client: SigningCosmWasmClient;
+    querier: any;
 
-    constructor(client: SigningCosmWasmClient) {
+    constructor(client: SigningCosmWasmClient, querier?: QueryClient) {
         this.client = client;
+        this.querier = querier;
     }
 
     async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
@@ -36,6 +39,12 @@ export class AgentClient {
         const address: string = instAgentRes.logs[0].events[1].attributes[0].value
 
         return [codeId, address];
+    }
+
+    async status(sender: string, contractAddr: string): Promise<any> {
+        const q = { get_agent: { account_id: sender, total_tasks: 1 } };
+        const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+        return response;
     }
 
     async register(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {

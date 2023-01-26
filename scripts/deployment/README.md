@@ -17,6 +17,9 @@ cd scripts/deployment
 npm i
 # Deploys all the things, reporting contract addresses
 npm run go
+
+# you will see a pretty table printed if successful.
+# Go to /artifacts and look for "chain-id_deployed_contracts.json"
 ```
 
 ## Make it go
