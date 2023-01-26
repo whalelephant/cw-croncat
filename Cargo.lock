@@ -242,6 +242,7 @@ dependencies = [
  "croncat-sdk-core",
  "croncat-sdk-manager",
  "croncat-sdk-tasks",
+ "croncat-tasks",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw2 1.0.1",

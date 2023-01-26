@@ -54,6 +54,7 @@ pub struct AgentStats {
 #[cw_serde]
 pub struct Config {
     pub manager_addr: Addr,
+    pub tasks_addr: Addr,
     pub owner_addr: Addr,
     pub paused: bool,
     /// Agent management
