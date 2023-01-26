@@ -130,8 +130,6 @@ const start = async () => {
     process.exit()
 }
 
-
-
 // Start deployment
 (() => start())()
 
