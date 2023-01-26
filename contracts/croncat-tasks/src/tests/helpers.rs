@@ -89,7 +89,7 @@ pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Add
 }
 
 pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
-    let code_id = app.store_code(contracts::croncat_tasks_contract());
+    let code_id = app.store_code(contracts::croncat_manager_contract());
     let msg = croncat_manager::msg::InstantiateMsg {
         denom: DENOM.to_owned(),
         croncat_factory_addr: factory_addr.to_string(),
@@ -126,6 +126,48 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
             factory_addr,
             &croncat_factory::msg::QueryMsg::LatestContract {
                 contract_name: "manager".to_owned(),
+            },
+        )
+        .unwrap();
+    metadata.unwrap().contract_addr
+}
+
+pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr, manager_addr: String) -> Addr {
+    let code_id = app.store_code(contracts::croncat_agents_contract());
+    let msg = croncat_agents::msg::InstantiateMsg {
+        manager_addr,
+        owner_addr: None,
+        agent_nomination_duration: None,
+        min_tasks_per_agent: None,
+        min_coin_for_agent_registration: None,
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "agents".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "agents".to_owned(),
             },
         )
         .unwrap();

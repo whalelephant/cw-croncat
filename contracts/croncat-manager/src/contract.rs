@@ -316,7 +316,6 @@ fn execute_create_task_balance(
             config.agent_fee + config.treasury_fee,
         )?;
         let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
-
         let (native_for_sends_required, ibc_required) =
             calculate_required_natives(msg.amount_for_one_task.coin, &config.native_denom)?;
         tasks_balance.verify_enough_attached(
@@ -342,6 +341,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             from_index,
             limit,
         } => to_binary(&query_users_balances(deps, wallet, from_index, limit)?),
+        QueryMsg::TaskBalance { task_hash } => {
+            to_binary(&TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?)
+        }
     }
 }
 

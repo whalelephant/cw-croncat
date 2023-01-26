@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
@@ -55,8 +55,6 @@ pub struct TaskRequest {
     pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Option<Vec<Transform>>,
 
-    /// How much coins of this chain attach
-    pub native: Uint128,
     /// How much of cw20 coin is attached to this task
     pub cw20: Option<Cw20Coin>,
 }
