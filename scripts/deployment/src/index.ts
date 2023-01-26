@@ -22,6 +22,9 @@ const uploadGas = calculateFee(2_300_000, defaultGasPrice)
 const instantiateGas = calculateFee(700_000, defaultGasPrice)
 const executeGas = calculateFee(555_000, defaultGasPrice)
 
+const prettified_out=(o:object)=>{
+    console.info(JSON.stringify(o, null, '\t'));
+}
 const start = async () => {
 
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, { prefix })
@@ -123,9 +126,11 @@ const start = async () => {
 
     console.info('Registering agent...')
     let regResult = await agentClient.registerAgent(userAddress, agentContractAddr, executeGas);
-    console.info(JSON.stringify(regResult, null, '\t'));
+    prettified_out(regResult);
     process.exit()
 }
+
+
 
 // Start deployment
 (() => start())()
