@@ -1,6 +1,5 @@
 use crate::types::HasBalanceComparator;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use mod_sdk::types::QueryResponse;
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -12,15 +11,15 @@ pub enum ExecuteMsg {}
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Get native `address` balance with specific `denom`
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     GetBalance { address: String, denom: String },
     /// Get cw20 balance by specific cw20 contract address
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     GetCw20Balance {
         cw20_contract: String,
         address: String,
     },
     /// Compare balance of `address` (native or cw20) with `required_balance`
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     HasBalanceComparator(HasBalanceComparator),
 }
