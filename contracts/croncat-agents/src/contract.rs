@@ -4,6 +4,7 @@ use std::ops::Div;
 use crate::distributor::*;
 use crate::error::ContractError;
 use crate::msg::*;
+use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use cw2::set_contract_version;
 
 use crate::state::*;
@@ -17,7 +18,7 @@ use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
-use croncat_sdk_core::msg::ManagerQueryMsg;
+use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
@@ -105,10 +106,7 @@ pub fn execute(
             unregister_agent(deps, &info.sender, from_behind)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
-        ExecuteMsg::OnTaskCreated {
-            task_hash,
-            total_tasks,
-        } => on_task_created(env, deps, task_hash, total_tasks),
+        ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
     }
 }
@@ -591,14 +589,16 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
 fn on_task_created(
     env: Env,
     deps: DepsMut,
-    task_hash: String,
-    total_tasks: u64,
+    on_task_created: AgentOnTaskCreated,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let num_agents_to_accept =
-        agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
+    let num_agents_to_accept = agents_to_let_in(
+        &min_tasks_per_agent,
+        &num_active_agents,
+        &on_task_created.total_tasks,
+    );
 
     // If we should allow a new agent to take over
     if num_agents_to_accept != 0 {
@@ -610,8 +610,6 @@ fn on_task_created(
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }
     }
-    let response = Response::new()
-        .add_attribute("method", "on_task_created")
-        .add_attribute("task_hash", task_hash);
+    let response = Response::new().add_attribute("method", "on_task_created");
     Ok(response)
 }

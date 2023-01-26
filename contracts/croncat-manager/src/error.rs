@@ -1,10 +1,14 @@
 use cosmwasm_std::StdError;
+use croncat_sdk_manager::SdkError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("{0}")]
+    Sdk(#[from] SdkError),
 
     #[error("No coin balance found")]
     EmptyBalance {},
@@ -26,4 +30,11 @@ pub enum ContractError {
 
     #[error("Unknown task hash")]
     NoTaskHash {},
+
+    #[error("Invalid version key, please update it")]
+    InvalidKey {},
+
+    // Note: this should never happen unless agent_fee + treasury_fee got compromised
+    #[error("Invalid gas calculation")]
+    InvalidGasCalculation {},
 }

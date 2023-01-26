@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Uint128};
 use cw20::Cw20CoinVerified;
 
-use crate::error::CoreError;
+use crate::error::SdkError;
 
 use self::gas_price_defaults::{
     GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT,
@@ -30,16 +30,16 @@ impl GasPrice {
         self.denominator != 0 && self.numerator != 0 && self.gas_adjustment_numerator != 0
     }
 
-    pub fn calculate(&self, gas_amount: u64) -> Result<u128, CoreError> {
+    pub fn calculate(&self, gas_amount: u64) -> Result<u128, SdkError> {
         let gas_adjusted = gas_amount
             .checked_mul(self.gas_adjustment_numerator)
             .and_then(|g| g.checked_div(self.denominator))
-            .ok_or(CoreError::InvalidGas {})?;
+            .ok_or(SdkError::InvalidGas {})?;
 
         let price = gas_adjusted
             .checked_mul(self.numerator)
             .and_then(|g| g.checked_div(self.denominator))
-            .ok_or(CoreError::InvalidGas {})?;
+            .ok_or(SdkError::InvalidGas {})?;
 
         Ok(price as u128)
     }
@@ -59,7 +59,80 @@ impl Default for GasPrice {
 pub struct TaskBalance {
     pub native_balance: Uint128,
     pub cw20_balance: Option<Cw20CoinVerified>,
-    pub ibc_coin: Option<Coin>,
+    pub ibc_balance: Option<Coin>,
+}
+
+impl TaskBalance {
+    pub fn verify_enough_attached(
+        &self,
+        native_required: Uint128,
+        cw20_required: Option<Cw20CoinVerified>,
+        ibc_required: Option<Coin>,
+        recurring: bool,
+        native_denom: &str,
+    ) -> Result<(), SdkError> {
+        let multiplier = if recurring {
+            Uint128::new(2)
+        } else {
+            Uint128::new(1)
+        };
+
+        if native_required * multiplier < self.native_balance {
+            return Err(SdkError::NotEnoughNative {
+                denom: native_denom.to_owned(),
+                lack: native_required * multiplier - self.native_balance,
+            });
+        }
+        match (cw20_required, &self.cw20_balance) {
+            (Some(req), Some(attached)) => {
+                if req.address != attached.address {
+                    return Err(SdkError::NotEnoughCw20 {
+                        addr: req.address.into_string(),
+                        lack: req.amount * multiplier,
+                    });
+                }
+                if req.amount * multiplier < attached.amount {
+                    return Err(SdkError::NotEnoughCw20 {
+                        addr: req.address.into_string(),
+                        lack: req.amount * multiplier - attached.amount,
+                    });
+                }
+            }
+            (Some(req), None) => {
+                return Err(SdkError::NotEnoughCw20 {
+                    addr: req.address.into_string(),
+                    lack: req.amount * multiplier,
+                })
+            }
+            // Note: we are Ok if user decided to attach "needless" cw20
+            (None, Some(_)) | (None, None) => (),
+        }
+        match (ibc_required, &self.ibc_balance) {
+            (Some(req), Some(attached)) => {
+                if req.denom != attached.denom {
+                    return Err(SdkError::NotEnoughNative {
+                        denom: req.denom,
+                        lack: req.amount * multiplier,
+                    });
+                }
+                if req.amount * multiplier < attached.amount {
+                    return Err(SdkError::NotEnoughNative {
+                        denom: req.denom,
+                        lack: req.amount * multiplier - attached.amount,
+                    });
+                }
+            }
+            (Some(req), None) => {
+                return Err(SdkError::NotEnoughNative {
+                    denom: req.denom,
+                    lack: req.amount * multiplier,
+                })
+            }
+            // Note: we are Ok if user decided to attach "needless" cw20
+            (None, Some(_)) | (None, None) => (),
+        }
+        Ok(())
+    }
 }
 
 #[cw_serde]
@@ -67,22 +140,6 @@ pub struct Config {
     // Runtime
     pub paused: bool,
     pub owner_addr: Addr,
-
-    /// Agent management
-    /// The minimum number of tasks per agent
-    /// Example: 10
-    /// Explanation: For every 1 agent, 10 tasks per slot are available.
-    /// NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
-    /// NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
-    pub min_tasks_per_agent: u64,
-    // How many slots an agent can miss before being removed from the active queue
-    pub agents_eject_threshold: u64,
-    /// The duration a prospective agent has to nominate themselves.
-    /// When a task is created such that a new agent can join,
-    /// The agent at the zeroth index of the pending agent queue has this time to nominate
-    /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
-    /// Value is in seconds
-    pub agent_nomination_duration: u16,
 
     /// Address of the croncat_factory
     pub croncat_factory_addr: Addr,
@@ -94,6 +151,7 @@ pub struct Config {
 
     // Economics
     pub agent_fee: u64,
+    pub treasury_fee: u64,
     pub gas_price: GasPrice,
 
     // Treasury
@@ -110,9 +168,8 @@ pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
     pub agent_fee: Option<u64>,
+    pub treasury_fee: Option<u64>,
     pub gas_price: Option<GasPrice>,
-    pub min_tasks_per_agent: Option<u64>,
-    pub agents_eject_threshold: Option<u64>,
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
     pub treasury_addr: Option<String>,
@@ -120,7 +177,7 @@ pub struct UpdateConfig {
 
 #[cfg(test)]
 mod test {
-    use crate::CoreError;
+    use crate::SdkError;
 
     use super::GasPrice;
 
@@ -201,6 +258,6 @@ mod test {
         let gas_price_wrapper = GasPrice::default();
 
         let err = gas_price_wrapper.calculate(u64::MAX).unwrap_err();
-        assert!(matches!(err, CoreError::InvalidGas {}));
+        assert!(matches!(err, SdkError::InvalidGas {}));
     }
 }

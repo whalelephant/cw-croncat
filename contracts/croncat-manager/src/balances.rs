@@ -238,13 +238,13 @@ pub fn execute_refill_native_balance(
             task_balances.native_balance += coin.amount
         } else {
             let mut ibc = task_balances
-                .ibc_coin
+                .ibc_balance
                 .ok_or(ContractError::TooManyCoins {})?;
             if ibc.denom != coin.denom {
                 return Err(ContractError::TooManyCoins {});
             }
             ibc.amount += coin.amount;
-            task_balances.ibc_coin = Some(ibc);
+            task_balances.ibc_balance = Some(ibc);
         }
     }
     TASKS_BALANCES.save(deps.storage, task_hash.as_bytes(), &task_balances)?;

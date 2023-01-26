@@ -38,7 +38,7 @@ rusty-hook = "0.11.2"
 cw20 = { version = "0.16.0" }
 cw-multi-test = { version = "0.16.0" }
 cw20-base = { version = "0.16.0", features = ["library"] }
-cw-storage-plus = "0.16.0"
+cw-storage-plus = "1.0.1"
 cron_schedule = "0.2.3"
 cw2 = "1.0.1"
 hex = { version = "0.4", default-features = false }
@@ -64,6 +64,7 @@ cw721-base = "0.16.0"
 croncat-agents = { path = "./contracts/croncat-agents" }
 croncat-manager = { path = "./contracts/croncat-manager" }
 croncat-tasks = { path = "./contracts/croncat-tasks" }
+croncat-factory = { path = "./contracts/croncat-factory" }
 croncat-mod-balances = { path = "./contracts/mod-balances" }
 croncat-mod-dao = { path = "./contracts/mod-dao" }
 croncat-mod-generic = { path = "./contracts/mod-generic" }
