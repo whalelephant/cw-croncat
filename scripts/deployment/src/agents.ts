@@ -38,14 +38,26 @@ export class AgentClient {
         return [codeId, address];
     }
 
-    async registerAgent(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+    async register(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
         const msg = { register_agent: { payable_account_id: sender } };
         const response = await this.client.execute(sender, contractAddr, msg, gas);
         return response;
     }
 
-    async unregisterAgent(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+    async update(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+        const msg = { update_agent: { payable_account_id: sender } };
+        const response = await this.client.execute(sender, contractAddr, msg, gas);
+        return response;
+    }
+
+    async unregister(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
         const msg = { unregister_agent: {} };
+        const response = await this.client.execute(sender, contractAddr, msg, gas);
+        return response;
+    }
+
+    async checkIn(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+        const msg = { check_in_agent: {} };
         const response = await this.client.execute(sender, contractAddr, msg, gas);
         return response;
     }

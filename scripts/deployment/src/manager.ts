@@ -46,4 +46,34 @@ export class ManagerClient {
 
 		return [codeId, address];
 	}
+
+	async proxyCall(sender: string, contractAddr: string, gas: StdFee, task_hash?: any): Promise<ExecuteResult> {
+		const msg = { proxy_call: { task_hash } };
+		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		return response;
+	}
+
+	async tick(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+		const msg = { tick: {} };
+		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		return response;
+	}
+
+	async ownerWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+		const msg = { owner_withdraw: {} };
+		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		return response;
+	}
+
+	async userWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+		const msg = { user_withdraw: {} };
+		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		return response;
+	}
+
+	async refillTaskBalance(sender: string, contractAddr: string, gas: StdFee, task_hash: any, funds: string): Promise<ExecuteResult> {
+		const msg = { refill_task_balance: { task_hash } };
+		const response = await this.client.execute(sender, contractAddr, msg, gas, funds);
+		return response;
+	}
 }

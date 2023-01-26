@@ -50,4 +50,16 @@ export class TaskClient {
 
     return [codeId, address];
   }
+
+  async create(sender: string, contractAddr: string, gas: StdFee, task: any): Promise<ExecuteResult> {
+    const msg = { create_task: { task } };
+    const response = await this.client.execute(sender, contractAddr, msg, gas);
+    return response;
+  }
+
+  async remove(sender: string, contractAddr: string, gas: StdFee, task_hash: any): Promise<ExecuteResult> {
+    const msg = { remove_task: { task_hash } };
+    const response = await this.client.execute(sender, contractAddr, msg, gas);
+    return response;
+  }
 }
