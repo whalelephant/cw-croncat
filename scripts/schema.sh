@@ -1,3 +1,5 @@
+#!/bin/bash
+
 START_DIR=$(pwd)
 
 cd "$START_DIR/contracts/mod-balances"
