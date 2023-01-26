@@ -33,8 +33,8 @@ pub enum QueryMsg {
     },
     #[returns[Option<GetAgentIdsResponse>]]
     GetAgentIds {
-        skip: Option<u64>,
-        take: Option<u64>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
     },
     #[returns[Option<AgentTaskResponse>]]
     GetAgentTasks {

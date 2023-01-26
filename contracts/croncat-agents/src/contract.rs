@@ -17,8 +17,6 @@ use croncat_sdk_agents::msg::{
 };
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
-use croncat_sdk_manager::msg::ManagerQueryMsg;
-use croncat_sdk_manager::types::Config as ManagerConfig;
 use cw2::set_contract_version;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
@@ -76,7 +74,7 @@ pub fn instantiate(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, env, account_id)?),
-        QueryMsg::GetAgentIds { skip, take } => to_binary(&query_get_agent_ids(deps, skip, take)?),
+        QueryMsg::GetAgentIds { from_index, limit } => to_binary(&query_get_agent_ids(deps, from_index, limit)?),
         QueryMsg::GetAgentTasks {
             account_id,
             block_slots,
@@ -149,19 +147,19 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
 /// Get a list of agent addresses
 fn query_get_agent_ids(
     deps: Deps,
-    skip: Option<u64>,
-    take: Option<u64>,
+    from_index: Option<u64>,
+    limit: Option<u64>,
 ) -> StdResult<GetAgentIdsResponse> {
     let active_loaded: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     let active = active_loaded
         .into_iter()
-        .skip(skip.unwrap_or(0) as usize)
-        .take(take.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(0) as usize)
+        .take(limit.unwrap_or(u64::MAX) as usize)
         .collect();
     let pending: Vec<Addr> = AGENTS_PENDING
         .iter(deps.storage)?
-        .skip(skip.unwrap_or(0) as usize)
-        .take(take.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(0) as usize)
+        .take(limit.unwrap_or(u64::MAX) as usize)
         .collect::<StdResult<Vec<Addr>>>()?;
 
     Ok(GetAgentIdsResponse { active, pending })
@@ -214,12 +212,8 @@ fn register_agent(
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
-    let manager_config = query_manager_config(deps.as_ref(), c.manager_addr.to_string())?;
-
     // Get the denom from the manager contract
-    let manager_config: ManagerConfig = deps
-        .querier
-        .query_wasm_smart(c.manager_addr, &ManagerQueryMsg::Config {})?;
+    let manager_config = query_manager_config(deps.as_ref(), c.manager_addr.to_string())?;
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),

@@ -166,18 +166,32 @@ pub(crate) fn init_croncat_tasks_contract(
 
     (tasks_code_id, tasks_contract_addr)
 }
-
+pub(crate) fn init_contracts(app:&mut App,sender: Option<&str>) -> (u64, Addr,Addr,Addr) {
+    
+    let (_, croncat_manager_addr) =
+        init_croncat_manager_contract(&mut app, sender, Some(ADMIN.to_string()), None);
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(&mut app, sender, Some(ADMIN.to_string()), None);
+    let (code_id, contract_addr) = init_agents_contract(
+        &mut app,
+        None,
+        None,
+        croncat_manager_addr,
+        croncat_tasks_addr,
+        None,
+        None,
+    );
+    (code_id, contract_addr,croncat_manager_addr,croncat_tasks_addr)
+}
 pub(crate) fn init_agents_contract(
     app: &mut App,
     sender: Option<&str>,
     owner: Option<String>,
+    croncat_manager_addr: Addr,
+    croncat_tasks_addr: Addr,
     init_msg: Option<InstantiateMsg>,
     funds: Option<&[Coin]>,
 ) -> (u64, Addr) {
-    let (_, croncat_manager_addr) =
-        init_croncat_manager_contract(app, sender, owner.clone(), funds.clone());
-    let (_, croncat_tasks_addr) =
-        init_croncat_tasks_contract(app, sender, owner.clone(), funds.clone());
     let contract_code_id = app.store_code(agent_contract());
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,

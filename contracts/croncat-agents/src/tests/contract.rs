@@ -2,10 +2,11 @@ use crate::error::ContractError;
 use crate::msg::*;
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
+use croncat_sdk_tasks::types::{Boundary, Interval};
 use cw_multi_test::{App, AppResponse, Executor};
 
 use crate::tests::common::*;
-use cosmwasm_std::{Addr, Coin, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128, Uint64};
 
 #[test]
 fn test_contract_initialize_is_successfull() {
@@ -13,11 +14,14 @@ fn test_contract_initialize_is_successfull() {
     let contract_code_id = app.store_code(agent_contract());
     let (_, croncat_manager_addr) =
         init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         manager_addr: croncat_manager_addr.to_string(),
+        tasks_addr: croncat_tasks_addr.to_string(),
         min_coin_for_agent_registration: None,
     };
     let contract_addr = app
@@ -42,6 +46,7 @@ fn test_contract_initialize_is_successfull() {
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         manager_addr: croncat_manager_addr.to_string(),
+        tasks_addr: croncat_tasks_addr.to_string(),
         min_coin_for_agent_registration: None,
     };
 
@@ -69,6 +74,7 @@ fn test_contract_initialize_fail_cases() {
 
     let init_msg = InstantiateMsg {
         manager_addr: String::new(),
+        tasks_addr: String::new(),
         owner_addr: Some(ADMIN.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -98,7 +104,7 @@ fn test_contract_initialize_fail_cases() {
 #[test]
 fn test_register_agent_is_successfull() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -115,7 +121,6 @@ fn test_register_agent_is_successfull() {
             contract_addr,
             &QueryMsg::GetAgent {
                 account_id: ADMIN.to_string(),
-                total_tasks: 10,
             },
         )
         .unwrap();
@@ -128,7 +133,7 @@ fn test_register_agent_is_successfull() {
 #[test]
 fn test_register_agent_fails() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
     let error: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
@@ -148,9 +153,11 @@ fn test_register_agent_fails() {
 
     let (_, croncat_manager_addr) =
         init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
 
     //Check contract is paused and failing
-    let mut config = mock_update_config(croncat_manager_addr.to_string().as_str());
+    let mut config = mock_update_config(croncat_manager_addr.as_str(), croncat_tasks_addr.as_str());
     config.paused = Some(true);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -178,8 +185,7 @@ fn test_register_agent_fails() {
 #[test]
 fn test_update_agent_is_successfull() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
-
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -206,7 +212,6 @@ fn test_update_agent_is_successfull() {
             contract_addr,
             &QueryMsg::GetAgent {
                 account_id: ADMIN.to_string(),
-                total_tasks: 10,
             },
         )
         .unwrap();
@@ -221,8 +226,7 @@ fn test_update_agent_is_successfull() {
 #[test]
 fn test_update_agent_fails() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
-
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
     //Check contract fails when agent does not exist
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -250,8 +254,13 @@ fn test_update_agent_fails() {
     assert_eq!(error, ContractError::AgentNotRegistered);
     let (_, croncat_manager_addr) =
         init_croncat_manager_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(&mut app, Some(ADMIN), Some(ADMIN.to_string()), Some(&[]));
     //Check contract is paused and failing
-    let mut config = mock_update_config(croncat_manager_addr.to_string().as_str());
+    let mut config = mock_update_config(
+        croncat_manager_addr.to_string().as_str(),
+        croncat_tasks_addr.to_string().as_str(),
+    );
     config.paused = Some(true);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -281,13 +290,12 @@ fn test_update_agent_fails() {
 #[test]
 fn test_agent_check_in_successfull() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
 
     register_agent(&mut app, &contract_addr, ANYONE, PARTICIPANT0).unwrap();
     register_agent(&mut app, &contract_addr, ADMIN, PARTICIPANT0).unwrap();
     app.update_block(|block| add_seconds_to_block(block, 500));
-    on_task_created(&mut app, &contract_addr, ADMIN, "task1", 4);
-
+    create_block_task(&mut app, croncat_tasks_addr, ADMIN);
     check_in_agent(&mut app, &contract_addr, ADMIN).unwrap();
 
     let agent_response: AgentResponse = app
@@ -296,7 +304,6 @@ fn test_agent_check_in_successfull() {
             contract_addr,
             &QueryMsg::GetAgent {
                 account_id: ADMIN.to_string(),
-                total_tasks: 10,
             },
         )
         .unwrap();
@@ -306,15 +313,14 @@ fn test_agent_check_in_successfull() {
 #[test]
 fn accept_nomination_agent() {
     let mut app = default_app();
-    let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
-    let mut total_tasks = 0;
+    let (_, contract_addr,croncat_manager_add,croncat_tasks_addr) = init_contracts(&mut app,None);
 
     // Register AGENT1, who immediately becomes active
     register_agent(&mut app, &contract_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
 
-    on_task_created(&mut app, &contract_addr, PARTICIPANT0, "task0", total_tasks);
-    total_tasks += 1;
+    create_block_task(&mut app, croncat_tasks_addr, ADMIN).unwrap();
 
+    let total_tasks=get_total_tasks(&mut app,&contract_addr).unwrap();
     assert_eq!(total_tasks, 1);
 
     // Register two agents
@@ -325,25 +331,21 @@ fn accept_nomination_agent() {
     assert_eq!(1, num_active_agents);
     assert_eq!(2, agent_ids_res.pending.len());
 
-    on_task_created(&mut app, &contract_addr, PARTICIPANT1, "task1", total_tasks);
-    total_tasks += 1;
-    on_task_created(&mut app, &contract_addr, PARTICIPANT2, "task2", total_tasks);
-    total_tasks += 1;
-    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task3", total_tasks);
-    total_tasks += 1;
+    create_block_task(&mut app, croncat_tasks_addr, ADMIN).unwrap();
+    create_block_task(&mut app, croncat_tasks_addr, ADMIN).unwrap();
+    create_block_task(&mut app, croncat_tasks_addr, ADMIN).unwrap();
 
-    assert_eq!(total_tasks, 4);
 
     // Fast forward time a little
     app.update_block(|block| add_seconds_to_block(block, 19));
     app.update_block(|block| increment_block_height(block, None));
 
-    let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+    let mut agent_status = get_agent_status(&mut app, &contract_addr, AGENT3)
         .unwrap()
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT2, total_tasks)
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT2)
         .unwrap()
         .unwrap()
         .status;
@@ -385,18 +387,18 @@ fn accept_nomination_agent() {
         error_msg.downcast().unwrap()
     );
 
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3)
         .unwrap()
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
 
     println!("start");
-    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task4", total_tasks);
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task4");
     total_tasks += 1;
-    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task5", total_tasks);
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task5");
     total_tasks += 1;
-    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task6", total_tasks);
+    on_task_created(&mut app, &contract_addr, PARTICIPANT3, "task6");
     total_tasks += 1;
 
     // Add another agent, since there's now the need
@@ -406,12 +408,12 @@ fn accept_nomination_agent() {
     app.update_block(|block| add_seconds_to_block(block, 420));
 
     // Now that enough time has passed, both agents should see they're nominated
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3, total_tasks)
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT3)
         .unwrap()
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
-    agent_status = get_agent_status(&mut app, &contract_addr, AGENT4, total_tasks)
+    agent_status = get_agent_status(&mut app, &contract_addr, AGENT4)
         .unwrap()
         .unwrap()
         .status;
@@ -437,9 +439,8 @@ fn accept_nomination_agent() {
 fn test_get_agent_status() {
     let mut app = default_app();
     let (_, contract_addr) = init_agents_contract(&mut app, None, None, None, None);
-    let mut total_tasks = 0;
 
-    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1, 0).unwrap();
+    let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1).unwrap();
     assert_eq!(None, agent_status_res);
 
     // Register AGENT1, who immediately becomes active
@@ -552,7 +553,6 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
             contract_addr.clone(),
             &QueryMsg::GetAgent {
                 account_id: AGENT2.to_owned(),
-                total_tasks: 0,
             },
         )
         .unwrap();
@@ -892,19 +892,26 @@ fn get_agent_status(
     app: &mut App,
     contract_addr: &Addr,
     agent: &str,
-    total_tasks: u64,
 ) -> Result<Option<AgentResponse>, anyhow::Error> {
     let agent_info: Option<AgentResponse> = app.wrap().query_wasm_smart(
         &contract_addr.clone(),
         &QueryMsg::GetAgent {
             account_id: agent.to_string(),
-            total_tasks,
         },
     )?;
 
     return Ok(agent_info);
 }
+fn get_total_tasks(
+    app: &mut App,
+    contract_addr: &Addr) -> Result<u64, anyhow::Error> {
+    let total_tasks: Uint64 = app.wrap().query_wasm_smart(
+        &contract_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksQueryMsg::TasksTotal {},
+    )?;
 
+    return Ok(total_tasks.u64());
+}
 fn check_in_agent(
     app: &mut App,
     contract_addr: &Addr,
@@ -918,20 +925,29 @@ fn check_in_agent(
     )
 }
 
-fn on_task_created(
+fn create_block_task(
     app: &mut App,
-    contract_addr: &Addr,
-    agent: &str,
-    _task_hash: &str,
-    total_tasks: u64,
-) -> AppResponse {
+    tasks_addr: Addr,
+    sender: &str,
+) -> Result<AppResponse, anyhow::Error> {
+    let request = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Block(10),
+        boundary: None,
+        stop_on_fail: false,
+        actions: Vec::new(),
+        queries: None,
+        transforms: None,
+        native: Uint128::new(1),
+        cw20: None,
+    };
     app.execute_contract(
-        Addr::unchecked(agent),
-        contract_addr.clone(),
-        &ExecuteMsg::OnTaskCreated(AgentOnTaskCreated { total_tasks }),
+        Addr::unchecked(sender),
+        tasks_addr,
+        &croncat_tasks::msg::ExecuteMsg::CreateTask {
+            task: Box::new(request),
+        },
         &[],
     )
-    .expect("Error sending task created event")
 }
 
 // fn add_block_task(
