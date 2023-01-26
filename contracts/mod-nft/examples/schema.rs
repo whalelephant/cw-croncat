@@ -1,5 +1,5 @@
 use cosmwasm_schema::write_api;
-use croncat_mod_nft::msg::{InstantiateMsg, QueryMsg, ExecuteMsg};
+use croncat_mod_nft::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {
