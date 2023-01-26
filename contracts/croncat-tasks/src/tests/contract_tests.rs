@@ -1,11 +1,18 @@
-use cosmwasm_std::{Addr, StdError};
-use croncat_sdk_tasks::types::Config;
+use cosmwasm_std::{coin, coins, from_binary, Addr, BankMsg, StdError, Uint64};
+use croncat_sdk_core::types::AmountForOneTask;
+use croncat_sdk_tasks::types::{
+    Action, Boundary, BoundaryValidated, Config, CroncatQuery, Interval, TaskRequest, TaskResponse,
+};
 use cw_multi_test::Executor;
+use cw_storage_plus::KeyDeserialize;
+use cw_utils::parse_execute_response_data;
 
 use super::{
     contracts,
-    helpers::{default_app, default_instantiate_msg, init_factory, init_manager, init_tasks},
-    ADMIN,
+    helpers::{
+        default_app, default_instantiate_msg, init_agents, init_factory, init_manager, init_tasks,
+    },
+    ADMIN, DENOM,
 };
 use crate::{
     contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_LIMIT, GAS_QUERY_FEE, SLOT_GRANULARITY_TIME},
@@ -113,4 +120,97 @@ mod instantiate_tests {
             ))
         );
     }
+}
+
+#[test]
+fn create_task_without_query() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string());
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(50_000),
+    };
+
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(5, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    assert!(task_hash.starts_with("atom:"));
+    let tasks: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Tasks {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(task, tasks[0]);
+    let expected_task_response = TaskResponse {
+        task_hash,
+        owner_addr: Addr::unchecked(ANYONE),
+        interval: Interval::Once,
+        boundary: Boundary::Height {
+            start: Some(app.block_info().height.into()),
+            end: Some((app.block_info().height + 10).into()),
+        },
+        stop_on_fail: false,
+        amount_for_one_task: AmountForOneTask {
+            gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
+            cw20: None,
+            coin: [Some(coin(5, DENOM)), None],
+        },
+        actions: vec![action],
+        queries: None,
+        transforms: vec![],
+        version: "0.1.0".to_owned(),
+    };
+    assert_eq!(task, expected_task_response);
+
+    let total_tasks: Uint64 = app
+        .wrap()
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
+        .unwrap();
+    assert_eq!(total_tasks, Uint64::new(1));
+
+    // let manager_task_balance = app.wrap().query_wasm_smart(manager_addr, croncat_manager::msg::QueryMsg)
 }

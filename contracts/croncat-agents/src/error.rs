@@ -41,4 +41,7 @@ pub enum ContractError {
 
     #[error("Invalid CronCat manager address")]
     InvalidCroncatManagerAddress { addr: String },
+
+    #[error("Invalid CronCat tasks contract address")]
+    InvalidTasksContractAddress { addr: String },
 }

@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::msg::*;
 use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
@@ -26,17 +28,18 @@ pub const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
 pub const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
 pub const NATIVE_DENOM: &str = "uatom";
 
-pub(crate) fn mock_config(manager_addr: &str) -> Config {
+pub(crate) fn mock_config(manager_addr: &str, tasks_addr: &str) -> Config {
     Config {
         paused: false,
         owner_addr: Addr::unchecked(ADMIN),
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
-        manager_addr: Addr::unchecked(manager_addr.to_string()),
+        manager_addr: Addr::unchecked(manager_addr),
         min_coins_for_agent_registration: DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+        tasks_addr: Addr::unchecked(tasks_addr),
     }
 }
-pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
+pub(crate) fn mock_update_config(manager_addr: &str, tasks_addr: &str) -> UpdateConfig {
     UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
@@ -44,6 +47,7 @@ pub(crate) fn mock_update_config(manager_addr: &str) -> UpdateConfig {
         agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
         manager_addr: Some(manager_addr.to_string()),
         min_coins_for_agent_registration: None,
+        tasks_addr: Some(tasks_addr.to_string()),
     }
 }
 
@@ -100,7 +104,6 @@ pub(crate) fn default_manager_instantiate_message() -> croncat_manager::msg::Ins
         treasury_addr: None,
     }
 }
-
 pub(crate) fn init_croncat_manager_contract(
     app: &mut App,
     sender: Option<&str>,
@@ -121,6 +124,49 @@ pub(crate) fn init_croncat_manager_contract(
 
     (manager_code_id, manager_contract_addr)
 }
+
+pub(crate) fn croncat_tasks_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_tasks::contract::execute,
+        croncat_tasks::contract::instantiate,
+        croncat_tasks::contract::query,
+    );
+    Box::new(contract)
+}
+pub(crate) fn default_croncat_tasks_instantiate_msg() -> croncat_tasks::msg::InstantiateMsg {
+    croncat_tasks::msg::InstantiateMsg {
+        chain_name: "atom".to_owned(),
+        owner_addr: None,
+        croncat_manager_key: ("manager".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
+        slot_granularity_time: None,
+        gas_base_fee: None,
+        gas_action_fee: None,
+        gas_query_fee: None,
+        gas_limit: None,
+    }
+}
+pub(crate) fn init_croncat_tasks_contract(
+    app: &mut App,
+    sender: Option<&str>,
+    owner: Option<String>,
+    funds: Option<&[Coin]>,
+) -> (u64, Addr) {
+    let tasks_code_id = app.store_code(croncat_tasks_contract());
+    let tasks_contract_addr = app
+        .instantiate_contract(
+            tasks_code_id,
+            Addr::unchecked(sender.unwrap_or(ADMIN)),
+            &default_croncat_tasks_instantiate_msg(),
+            funds.unwrap_or(&[]),
+            "manager",
+            owner,
+        )
+        .unwrap();
+
+    (tasks_code_id, tasks_contract_addr)
+}
+
 pub(crate) fn init_agents_contract(
     app: &mut App,
     sender: Option<&str>,
@@ -130,12 +176,15 @@ pub(crate) fn init_agents_contract(
 ) -> (u64, Addr) {
     let (_, croncat_manager_addr) =
         init_croncat_manager_contract(app, sender, owner.clone(), funds.clone());
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(app, sender, owner.clone(), funds.clone());
     let contract_code_id = app.store_code(agent_contract());
     let init_msg = init_msg.unwrap_or(InstantiateMsg {
         owner_addr: owner,
         agent_nomination_duration: None,
         min_tasks_per_agent: Some(2),
         manager_addr: croncat_manager_addr.to_string(),
+        tasks_addr: croncat_tasks_addr.to_string(),
         min_coin_for_agent_registration: None,
     });
     let contract_addr = app

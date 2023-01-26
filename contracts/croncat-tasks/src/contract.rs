@@ -383,7 +383,7 @@ fn execute_create_task(
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentOnTaskCreated {
-        total_tasks: TASKS_TOTAL.load(deps.storage)?,
+        task_hash:hash.clone()
     }
     .into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
@@ -401,9 +401,9 @@ fn execute_create_task(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
-        QueryMsg::TasksTotal {} => {
-            to_binary(&cosmwasm_std::Uint64::from(TASKS_TOTAL.load(deps.storage)?))
-        }
+        QueryMsg::TasksTotal {} => to_binary(&cosmwasm_std::Uint64::from(
+            TASKS_TOTAL.load(deps.storage)? + TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
+        )),
         QueryMsg::TasksWithQueriesTotal {} => to_binary(&cosmwasm_std::Uint64::from(
             TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
         )),

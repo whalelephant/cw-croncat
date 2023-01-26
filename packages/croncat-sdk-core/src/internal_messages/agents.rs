@@ -3,7 +3,7 @@ use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg};
 
 #[cw_serde]
 pub struct AgentOnTaskCreated {
-    pub total_tasks: u64,
+    pub task_hash: String,
 }
 
 impl AgentOnTaskCreated {

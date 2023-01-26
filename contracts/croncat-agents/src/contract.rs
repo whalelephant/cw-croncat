@@ -3,10 +3,8 @@ use std::ops::Div;
 
 use crate::distributor::*;
 use crate::error::ContractError;
+use crate::external::*;
 use crate::msg::*;
-use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
-use cw2::set_contract_version;
-
 use crate::state::*;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
@@ -18,8 +16,10 @@ use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
+use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
+use cw2::set_contract_version;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -36,6 +36,11 @@ pub fn instantiate(
             addr: msg.manager_addr,
         }
     })?;
+    let tasks_addr = deps.api.addr_validate(&msg.tasks_addr).map_err(|_| {
+        ContractError::InvalidTasksContractAddress {
+            addr: msg.tasks_addr,
+        }
+    })?;
     let valid_owner_addr = msg
         .owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -47,6 +52,7 @@ pub fn instantiate(
             .min_tasks_per_agent
             .unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
         manager_addr,
+        tasks_addr,
         agent_nomination_duration: msg
             .agent_nomination_duration
             .unwrap_or(DEFAULT_NOMINATION_DURATION),
@@ -69,10 +75,7 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetAgent {
-            account_id,
-            total_tasks,
-        } => to_binary(&query_get_agent(deps, env, account_id, total_tasks)?),
+        QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, env, account_id)?),
         QueryMsg::GetAgentIds { skip, take } => to_binary(&query_get_agent_ids(deps, skip, take)?),
         QueryMsg::GetAgentTasks {
             account_id,
@@ -111,12 +114,7 @@ pub fn execute(
     }
 }
 
-fn query_get_agent(
-    deps: Deps,
-    env: Env,
-    account_id: String,
-    total_tasks: u64,
-) -> StdResult<Option<AgentResponse>> {
+fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option<AgentResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let agent = AGENTS.may_load(deps.storage, &account_id)?;
     let a = if let Some(a) = agent {
@@ -125,6 +123,9 @@ fn query_get_agent(
         return Ok(None);
     };
 
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    let total_tasks=query_total_tasks(deps, config.tasks_addr.to_string())?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -212,6 +213,8 @@ fn register_agent(
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
+
+    let manager_config = query_manager_config(deps.as_ref(), c.manager_addr.to_string())?;
 
     // Get the denom from the manager contract
     let manager_config: ManagerConfig = deps
@@ -457,6 +460,7 @@ pub fn execute_update_config(
             owner_addr,
             paused,
             manager_addr,
+            tasks_addr,
             min_tasks_per_agent,
             agent_nomination_duration,
             min_coins_for_agent_registration,
@@ -474,6 +478,9 @@ pub fn execute_update_config(
         let new_config = Config {
             manager_addr: Addr::unchecked(
                 manager_addr.unwrap_or_else(|| config.manager_addr.to_string()),
+            ),
+            tasks_addr: Addr::unchecked(
+                tasks_addr.unwrap_or_else(|| config.tasks_addr.to_string()),
             ),
             paused: paused.unwrap_or(config.paused),
             owner_addr,
@@ -496,7 +503,7 @@ fn get_agent_status(
     storage: &dyn Storage,
     env: Env,
     account_id: &Addr,
-    total_tasks: u64,
+    total_tasks: u64
 ) -> Result<AgentStatus, ContractError> {
     let c: Config = CONFIG.load(storage)?;
     let active = AGENTS_ACTIVE.load(storage)?;
@@ -589,16 +596,14 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
 fn on_task_created(
     env: Env,
     deps: DepsMut,
-    on_task_created: AgentOnTaskCreated,
+    _: AgentOnTaskCreated,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let num_agents_to_accept = agents_to_let_in(
-        &min_tasks_per_agent,
-        &num_active_agents,
-        &on_task_created.total_tasks,
-    );
+    let total_tasks = query_total_tasks(deps.as_ref(), config.tasks_addr.to_string())?;
+    let num_agents_to_accept =
+        agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
 
     // If we should allow a new agent to take over
     if num_agents_to_accept != 0 {

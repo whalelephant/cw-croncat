@@ -1,13 +1,13 @@
 use crate::types::AgentStatus;
-use crate::types::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub manager_addr: String,
     pub owner_addr: Option<String>,
+    pub manager_addr: String,
+    pub tasks_addr: String,
     pub agent_nomination_duration: Option<u16>,
     pub min_tasks_per_agent: Option<u64>,
     pub min_coin_for_agent_registration: Option<u64>,
@@ -30,7 +30,6 @@ pub enum QueryMsg {
     #[returns[Option<AgentResponse>]]
     GetAgent {
         account_id: String,
-        total_tasks: u64,
     },
     #[returns[Option<GetAgentIdsResponse>]]
     GetAgentIds {
@@ -43,7 +42,7 @@ pub enum QueryMsg {
         block_slots: Option<u64>,
         cron_slots: Option<u64>,
     },
-    #[returns[Config]]
+    #[returns[crate::types::Config]]
     Config {},
 }
 
@@ -74,6 +73,7 @@ pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
     pub manager_addr: Option<String>,
+    pub tasks_addr: Option<String>,
     pub min_tasks_per_agent: Option<u64>,
     pub agent_nomination_duration: Option<u16>,
     pub min_coins_for_agent_registration: Option<u64>,
