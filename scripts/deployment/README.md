@@ -15,6 +15,13 @@ just optimize
 ```bash
 cd scripts/deployment
 npm i
-npm run build
-npm start
+# Deploys all the things, reporting contract addresses
+npm run go
+```
+
+## Make it go
+
+```bash
+# runs full scope of contexts for end to end testing
+npm run e2e
 ```

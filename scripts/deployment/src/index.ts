@@ -7,6 +7,7 @@ import { config } from "dotenv"
 import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
 import * as util from "util"
+import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
 import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
@@ -22,7 +23,6 @@ const artifactsRoot = `${process.cwd()}/../../artifacts`
 
 // Gas vals
 const uploadGas = calculateFee(4_000_000, defaultGasPrice)
-const instantiateGas = calculateFee(700_000, defaultGasPrice)
 const executeGas = calculateFee(555_000, defaultGasPrice)
 
 const prettified_out=(o:object)=>{
@@ -34,10 +34,6 @@ const start = async () => {
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, { prefix })
     const userAddress = (await signerWallet.getAccounts())[0].address
     const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-    const factoryWasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
-
-    let uploadFactoryRes = await cwClient.upload(userAddress, factoryWasm, uploadGas)
-    console.info(`🏭 Factory Done`)
 
     // Ensure transaction succeeded
     const httpBatchClient = new HttpBatchClient(endpoint, {
@@ -48,19 +44,10 @@ const start = async () => {
     // Keep the line below, as we'll use it later
     // const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
 
-    const hash = Buffer.from(fromHex(uploadFactoryRes.transactionHash))
-    let txInfo = await tmClient.tx({ hash })
-
-    if (txInfo.result.code !== 0) {
-        console.error('Transaction failed, got code', txInfo.result.code, hash)
-        return
-    }
-
-    // Now instantiate the factory
-    const factoryId = uploadFactoryRes.codeId
-    // We pass it empty '{}' parameters meaning it will make the owner the sender
-    const factoryInst = await cwClient.instantiate(userAddress, factoryId, {}, 'CronCat-factory-alpha', instantiateGas)
-    const factoryAddress = factoryInst.contractAddress
+    // Factory
+    var factoryClient = new FactoryClient(cwClient);
+    var [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot, userAddress, uploadGas, executeGas);
+    console.info(`🏭 Factory Done`)
 
     // Manager
     var managerClient = new ManagerClient(cwClient);
@@ -83,15 +70,17 @@ const start = async () => {
     console.info(`🏗️  Modules Done`)
 
     // Show all
-    console.table([
+    const output = [
         { name: 'factory', code_id: factoryId, address: factoryAddress },
         { name: 'manager', code_id: managerId, address: managerAddress },
         { name: 'agent', code_id: agentContractCodeId, address: agentContractAddr },
         { name: 'tasks', code_id: taskContractCodeId, address: taskContractAddr },
         ...modules,
-    ])
+    ]
+    console.table(output)
 
-    // Would be cool to store this output, for use in agent & website envs
+    // Store this output, for use in agent & website envs
+    await fs.writeFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, JSON.stringify(output))
 
     process.exit()
 }
