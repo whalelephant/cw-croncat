@@ -357,6 +357,7 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-sdk-core",
  "serde",
  "thiserror",
 ]

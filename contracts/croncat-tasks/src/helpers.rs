@@ -234,7 +234,6 @@ pub(crate) fn get_manager_addr(
         .ok_or(ContractError::InvalidKey {})
 }
 
-#[cfg(feature = "todo")]
 pub(crate) fn get_agents_addr(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
