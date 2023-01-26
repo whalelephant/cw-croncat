@@ -15,7 +15,7 @@ pub struct ManagerInstantiateMsg {
     pub croncat_agents_key: (String, [u8; 2]),
     /// Address of the contract owner, defaults to the sender
     pub owner_id: Option<String>,
-    /// Gas needed to cover [ExecuteMsg::ProxyCall] without any action
+    /// Gas needed to cover ExecuteMsg::ProxyCall without any action
     pub gas_base_fee: Option<Uint64>,
     /// Gas needed to cover single non-wasm task's Action
     pub gas_action_fee: Option<Uint64>,
