@@ -49,7 +49,7 @@ pub(crate) fn validate_boundary(
     }?;
 
     if let Some(end) = boundary_validated.end {
-        if end >= boundary_validated.start {
+        if boundary_validated.start >= end {
             return Err(ContractError::InvalidBoundary {});
         }
     }
@@ -128,7 +128,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {
-                    if coin.amount.is_zero() || amount_for_one_task.add_coin(amount[0].clone())? {
+                    if coin.amount.is_zero() || !amount_for_one_task.add_coin(amount[0].clone())? {
                         return Err(ContractError::InvalidAction {});
                     }
                 }

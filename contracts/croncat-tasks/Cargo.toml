@@ -30,5 +30,7 @@ croncat-sdk-core = { workspace = true }
 cw-multi-test = { workspace = true }
 croncat-factory = { workspace = true }
 croncat-manager = { workspace = true }
+croncat-agents = { workspace = true }
 croncat-sdk-factory = { workspace = true }
 anyhow = { workspace = true }
+cw-utils = { workspace = true }
