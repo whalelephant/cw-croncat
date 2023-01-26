@@ -7,7 +7,8 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
-    Config, SlotHashesResponse, SlotIdsResponse, SlotType, Task, TaskRequest, TaskResponse,
+    Config, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task,
+    TaskRequest, TaskResponse,
 };
 use cw2::{query_contract_info, set_contract_version};
 use cw20::Cw20CoinVerified;
@@ -44,7 +45,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let InstantiateMsg {
-        croncat_factory_addr,
         chain_name,
         owner_addr,
         croncat_manager_key,
@@ -59,15 +59,11 @@ pub fn instantiate(
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
         .unwrap_or(info.sender.clone());
-    let croncat_factory_addr = croncat_factory_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or(info.sender);
     let config = Config {
         paused: false,
         chain_name,
         owner_addr,
-        croncat_factory_addr,
+        croncat_factory_addr: info.sender,
         croncat_manager_key,
         croncat_agents_key,
         slot_granularity_time: slot_granularity_time.unwrap_or(SLOT_GRANULARITY_TIME),
@@ -409,6 +405,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TasksTotal {} => {
             to_binary(&cosmwasm_std::Uint64::from(TASKS_TOTAL.load(deps.storage)?))
         }
+        QueryMsg::TasksWithQueriesTotal {} => to_binary(&cosmwasm_std::Uint64::from(
+            TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
+        )),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
         QueryMsg::TasksWithQueries { from_index, limit } => {
             to_binary(&query_tasks_with_queries(deps, from_index, limit)?)
@@ -424,7 +423,69 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotIds { from_index, limit } => {
             to_binary(&query_slot_ids(deps, from_index, limit)?)
         }
+        QueryMsg::SlotTasksTotal { offset } => {
+            to_binary(&query_slot_tasks_total(deps, env, offset)?)
+        }
         QueryMsg::GetCurrentTask {} => to_binary(&query_get_current_task(deps, env)?),
+    }
+}
+
+fn query_slot_tasks_total(
+    deps: Deps,
+    env: Env,
+    offset: Option<u64>,
+) -> StdResult<SlotTasksTotalResponse> {
+    if let Some(off) = offset {
+        let config = CONFIG.load(deps.storage)?;
+        let block_tasks = BLOCK_SLOTS
+            .may_load(deps.storage, env.block.height + off)?
+            .unwrap_or_default()
+            .len() as u64;
+
+        let current_block_ts = env.block.time.nanos();
+        let current_block_slot =
+            current_block_ts.saturating_sub(current_block_ts % config.slot_granularity_time);
+        let cron_tasks = TIME_SLOTS
+            .may_load(
+                deps.storage,
+                current_block_slot + config.slot_granularity_time * off,
+            )?
+            .unwrap_or_default()
+            .len() as u64;
+        Ok(SlotTasksTotalResponse {
+            block_tasks,
+            cron_tasks,
+        })
+    } else {
+        let block_slots: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
+            .range(
+                deps.storage,
+                None,
+                Some(Bound::inclusive(env.block.height)),
+                Order::Ascending,
+            )
+            .collect::<StdResult<_>>()?;
+
+        let block_tasks = block_slots
+            .iter()
+            .fold(0, |acc, (_, hashes)| acc + hashes.len()) as u64;
+
+        let time_slot: Vec<(u64, Vec<Vec<u8>>)> = TIME_SLOTS
+            .range(
+                deps.storage,
+                None,
+                Some(Bound::inclusive(env.block.time.nanos())),
+                Order::Ascending,
+            )
+            .collect::<StdResult<_>>()?;
+
+        let cron_tasks = time_slot
+            .iter()
+            .fold(0, |acc, (_, hashes)| acc + hashes.len()) as u64;
+        Ok(SlotTasksTotalResponse {
+            block_tasks,
+            cron_tasks,
+        })
     }
 }
 

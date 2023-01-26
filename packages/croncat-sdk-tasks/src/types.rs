@@ -281,6 +281,12 @@ pub struct CroncatQuery {
 }
 
 #[cw_serde]
+pub struct SlotTasksTotalResponse {
+    pub block_tasks: u64,
+    pub cron_tasks: u64,
+}
+
+#[cw_serde]
 pub struct TaskResponse {
     pub task_hash: String,
 

@@ -29,4 +29,6 @@ croncat-sdk-core = { workspace = true }
 [dev-dependencies]
 cw-multi-test = { workspace = true }
 croncat-factory = { workspace = true }
+croncat-manager = { workspace = true }
 croncat-sdk-factory = { workspace = true }
+anyhow = { workspace = true }

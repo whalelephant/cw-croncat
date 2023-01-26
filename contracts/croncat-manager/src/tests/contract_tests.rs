@@ -3,6 +3,7 @@ use croncat_sdk_manager::types::{Config, UpdateConfig};
 use cw20::Cw20CoinVerified;
 
 use crate::{
+    contract::DEFAULT_FEE,
     msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg},
     tests::{
         helpers::query_manager_balances,
@@ -18,8 +19,6 @@ use cw_multi_test::{BankSudo, Executor};
 use super::helpers::{init_cw20, query_users_manager};
 
 mod instantiate_tests {
-    use crate::contract::DEFAULT_FEE;
-
     use super::*;
 
     #[test]
@@ -44,7 +43,7 @@ mod instantiate_tests {
             limit: 100,
             treasury_addr: None,
         };
-        assert_eq!(config, expected_config)
+        assert_eq!(config, expected_config);
     }
 
     #[test]

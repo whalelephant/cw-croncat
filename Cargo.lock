@@ -367,9 +367,11 @@ dependencies = [
 name = "croncat-tasks"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
  "croncat-factory",
+ "croncat-manager",
  "croncat-sdk-core",
  "croncat-sdk-factory",
  "croncat-sdk-tasks",

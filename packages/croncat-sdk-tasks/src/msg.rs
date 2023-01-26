@@ -5,9 +5,6 @@ use crate::types::TaskRequest;
 
 #[cw_serde]
 pub struct TasksInstantiateMsg {
-    /// Address of the factory contract
-    pub croncat_factory_addr: Option<String>,
-
     /// Chain name to add prefix to the task_hash
     pub chain_name: String,
 
@@ -72,8 +69,12 @@ pub enum TasksExecuteMsg {
 pub enum TasksQueryMsg {
     #[returns(crate::types::Config)]
     Config {},
+    /// Get the total amount of non-query tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
+    /// Get the total amount of tasks with queries
+    #[returns(cosmwasm_std::Uint64)]
+    TasksWithQueriesTotal {},
     /// Get list of active tasks, without queries
     #[returns(Vec<crate::types::TaskResponse>)]
     Tasks {
@@ -108,6 +109,8 @@ pub enum TasksQueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    #[returns(crate::types::SlotTasksTotalResponse)]
+    SlotTasksTotal { offset: Option<u64> },
     /// Get next task to be done
     #[returns(Option<crate::types::TaskResponse>)]
     GetCurrentTask {},

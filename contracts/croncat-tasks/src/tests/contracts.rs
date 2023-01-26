@@ -19,3 +19,13 @@ pub(crate) fn croncat_factory_contract() -> Box<dyn Contract<Empty>> {
     .with_reply(croncat_factory::contract::reply);
     Box::new(contract)
 }
+
+pub(crate) fn croncat_manager_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_manager::contract::execute,
+        croncat_manager::contract::instantiate,
+        croncat_manager::contract::query,
+    )
+    .with_reply(croncat_manager::contract::reply);
+    Box::new(contract)
+}

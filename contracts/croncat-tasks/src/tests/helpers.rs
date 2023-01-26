@@ -4,8 +4,9 @@ use super::{
     PARTICIPANT6, VERY_RICH,
 };
 use crate::msg::InstantiateMsg;
+
 use cosmwasm_std::{coins, to_binary, Addr};
-use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
+use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Executor};
 
 pub(crate) fn default_app() -> App {
@@ -74,26 +75,69 @@ pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Add
         &[],
     )
     .unwrap();
-    let addr = app
-        .instantiate_contract(
-            code_id,
-            Addr::unchecked(ADMIN),
-            msg,
-            &[],
-            "croncat_tasks",
-            None,
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "tasks".to_owned(),
+            },
         )
         .unwrap();
-    addr
+    metadata.unwrap().contract_addr
+}
+
+pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
+    let code_id = app.store_code(contracts::croncat_tasks_contract());
+    let msg = croncat_manager::msg::InstantiateMsg {
+        denom: DENOM.to_owned(),
+        croncat_factory_addr: factory_addr.to_string(),
+        croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
+        owner_addr: None,
+        gas_price: None,
+        treasury_addr: None,
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "manager".to_owned(),
+            },
+        )
+        .unwrap();
+    metadata.unwrap().contract_addr
 }
 
 pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
     InstantiateMsg {
-        croncat_factory_addr: None,
         chain_name: "atom".to_owned(),
         owner_addr: None,
-        croncat_manager_key: ("manager".to_owned(), [0, 0]),
-        croncat_agents_key: ("agents".to_owned(), [0, 0]),
+        croncat_manager_key: ("manager".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
         slot_granularity_time: None,
         gas_base_fee: None,
         gas_action_fee: None,
