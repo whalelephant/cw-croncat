@@ -15,9 +15,9 @@ jobs:
 
       - name:                   Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --workspace --timeout 120 --out Xml
+          cargo +nightly tarpaulin --verbose --workspace --out Xml --exclude-files bk/*
   
       - name:                   Upload to codecov.io
-        uses:                   codecov/codecov-action@v2
+        uses:                   codecov/codecov-action@v3
         with:
           fail_ci_if_error:     true
