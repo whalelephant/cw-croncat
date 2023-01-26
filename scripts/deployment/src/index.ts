@@ -1,19 +1,20 @@
-import {setupWasmExtension, SigningCosmWasmClient} from '@cosmjs/cosmwasm-stargate'
-import {DirectSecp256k1HdWallet} from "@cosmjs/proto-signing"
-import {HttpBatchClient, Tendermint34Client, TxResponse} from "@cosmjs/tendermint-rpc"
-import {QueryClient} from "@cosmjs/stargate";
-import {fromHex} from "@cosmjs/encoding";
-import {config} from "dotenv"
-import {GasPrice, StdFee, calculateFee} from "@cosmjs/stargate"
+import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
+import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
+import { QueryClient } from "@cosmjs/stargate";
+import { fromHex } from "@cosmjs/encoding";
+import { config } from "dotenv"
+import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
 import * as util from "util"
+import { AgentClient } from './agents';
 config({ path: '.env' })
 // Get values from the environment variables located in the .env file
 const seedPhrase: string = process.env.SEED_PHRASE
 const prefix: string = process.env.PREFIX
 const endpoint: string = process.env.RPC_ENDPOINT
 const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025u${denom}`)
+const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
 // Gas vals
@@ -22,10 +23,12 @@ const instantiateGas = calculateFee(700_000, defaultGasPrice)
 const executeGas = calculateFee(555_000, defaultGasPrice)
 
 const start = async () => {
+
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, { prefix })
     const userAddress = (await signerWallet.getAccounts())[0].address
-    console.log('userAddress', userAddress)
-    const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice})
+
+
+    const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
 
     const factoryWasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
     let uploadFactoryRes = await cwClient.upload(userAddress, factoryWasm, uploadGas)
@@ -40,7 +43,7 @@ const start = async () => {
     const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
 
     const hash = Buffer.from(fromHex(uploadFactoryRes.transactionHash))
-    let txInfo = await tmClient.tx({hash})
+    let txInfo = await tmClient.tx({ hash })
 
     if (txInfo.result.code !== 0) {
         console.error('Transaction failed, got code', txInfo.result.code, hash)
@@ -107,51 +110,25 @@ const start = async () => {
     // Boy do I hate indexing like this, folks
     let managerAddress: string = instManagerRes.logs[0].events[1].attributes[0].value
 
-    // Agent contract
-
-    // deploy agent contract (from our sender)
-    const agentWasm = fs.readFileSync(`${artifactsRoot}/croncat_agents.wasm`)
-    const uploadAgentRes = await cwClient.upload(userAddress, agentWasm, uploadGas)
-    const agentId = uploadAgentRes.codeId
-
-    let base64AgentInst = Buffer.from(JSON.stringify({
-        manager_addr: managerAddress
-    })).toString('base64')
-
-    // instantiate manager contract (from the factory)
-    const agentDeployMsg = {
-        "deploy": {
-            "kind": "agents",
-            "module_instantiate_info": {
-                "code_id": agentId,
-                "version": [
-                    0,
-                    1
-                ],
-                "commit_id": "8e08b808465c42235f961423fcf9e4792ce02462",
-                "checksum": "abc123",
-                "changelog_url": "https://example.com/lucky",
-                "schema": "https://croncat-schema.example.com/version-0-1",
-                "msg": Buffer.from(JSON.stringify({
-                    manager_addr: managerAddress
-                })).toString('base64'),
-                "contract_name": "croncat-agents--version-0-1"
-            }
-        }
-    }
-
-    const instAgentRes = await cwClient.execute(userAddress, factoryAddress, agentDeployMsg, executeGas)
-    // console.log('instAgentRes logs', util.inspect(instAgentRes.logs, false, null, true))
-    const agentAddress: string = instAgentRes.logs[0].events[1].attributes[0].value
+    //Agents
+    var agentClient = new AgentClient(cwClient);
+    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, uploadGas, executeGas);
 
     // Show all
     console.info('------ ------ ------')
     console.info(`factory\t code ID ${factoryId},\t address ${factoryAddress}`)
     console.info(`manager\t code ID ${managerId},\t address ${managerAddress}`)
-    console.info(`agent\t code ID ${agentId},\t address ${agentAddress}`)
 
+    console.info(`agent\t code ID ${agentContractCodeId},\t address ${agentContractAddr}`)
+
+    console.info('Registering agent...')
+    let regResult = await agentClient.registerAgent(userAddress, agentContractAddr, executeGas);
+    console.info(JSON.stringify(regResult, null, '\t'));
     process.exit()
 }
 
 // Start deployment
 (() => start())()
+
+
+
