@@ -1,5 +1,4 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use mod_sdk::types::QueryResponse;
 
 use crate::types::OwnerOfNft;
 
@@ -13,11 +12,11 @@ pub enum ExecuteMsg {}
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Check if `address` is the owner of the token
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     OwnerOfNft(OwnerOfNft),
 
     /// Check if `address` owns any tokens on `nft_address` contract
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     AddrHasNft {
         address: String,
         nft_address: String,

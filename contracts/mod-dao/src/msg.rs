@@ -1,5 +1,4 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use mod_sdk::types::QueryResponse;
 
 use crate::types::ProposalStatusMatches;
 
@@ -13,18 +12,18 @@ pub enum ExecuteMsg {}
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     // Query proposal status and compare it to pre-defined status
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     ProposalStatusMatches(ProposalStatusMatches),
 
-    // Query proposals and check if there're any passed proposals
-    #[returns(QueryResponse)]
+    // Query proposals and check if there are any passed proposals
+    #[returns(mod_sdk::types::QueryResponse)]
     HasPassedProposals { dao_address: String },
 
-    // Query proposals and check if there're any passed proposals with Wasm::Migration message
-    #[returns(QueryResponse)]
+    // Query proposals and check if there are any passed proposals with Wasm::Migration message
+    #[returns(mod_sdk::types::QueryResponse)]
     HasPassedProposalWithMigration { dao_address: String },
 
     // Check if the last proposal id is greater than specified value
-    #[returns(QueryResponse)]
+    #[returns(mod_sdk::types::QueryResponse)]
     HasProposalsGtId { dao_address: String, value: u64 },
 }
