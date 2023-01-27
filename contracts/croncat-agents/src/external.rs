@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdResult, Uint64, StdError};
+use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint64};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -27,13 +27,13 @@ pub fn query_total_tasks(deps: Deps, config: &Config) -> StdResult<u64> {
     Ok(total_tasks.u64())
 }
 
-pub(crate) fn check_if_sender_is_manager(
+pub(crate) fn assert_caller_is_tasks_contract(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
     sender: &Addr,
 ) -> StdResult<()> {
-    let manager_addr = query_manager_addr(deps_queries, config)?;
-    if manager_addr != *sender {
+    let addr = query_tasks_addr(deps_queries, config)?;
+    if addr != *sender {
         return Err(cosmwasm_std::StdError::GenericErr {
             msg: ContractError::Unauthorized {}.to_string(),
         });
@@ -50,7 +50,7 @@ pub(crate) fn query_manager_addr(
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
-            (&manager_name, version),
+            (manager_name, version),
         )?
         .ok_or(cosmwasm_std::StdError::GenericErr {
             msg: ContractError::InvalidVersionKey {}.to_string(),
@@ -66,9 +66,9 @@ pub(crate) fn query_tasks_addr(
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
-            (&agents_name, version),
+            (agents_name, version),
         )?
-        .ok_or(StdError::generic_err(
+        .ok_or_else(|| StdError::generic_err(
             ContractError::InvalidVersionKey {}.to_string(),
         ))
 }

@@ -41,7 +41,7 @@ pub fn instantiate(
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or(info.sender.clone());
+        .unwrap_or_else(|| info.sender.clone());
 
     let config = &Config {
         min_tasks_per_agent: min_tasks_per_agent.unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
@@ -54,6 +54,7 @@ pub fn instantiate(
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
+
     CONFIG.save(deps.storage, config)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -103,7 +104,7 @@ pub fn execute(
             unregister_agent(deps, &info.sender, from_behind)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
-        ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, msg),
+        ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
     }
 }
@@ -585,9 +586,12 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
 fn on_task_created(
     env: Env,
     deps: DepsMut,
+    info: MessageInfo,
     _: AgentOnTaskCreated,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
+    assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
+
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
     let total_tasks = query_total_tasks(deps.as_ref(), &config)?;

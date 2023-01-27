@@ -30,7 +30,7 @@ pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
 pub const NATIVE_DENOM: &str = "uatom";
-pub (crate)struct TestScope {
+pub(crate) struct TestScope {
     pub croncat_factory_addr: Addr,
     pub croncat_agents_addr: Addr,
     pub croncat_agents_code_id: Option<u64>,
@@ -218,18 +218,13 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     let (_, croncat_factory_addr) = init_croncat_factory(app);
     let (_, croncat_manager_addr) =
         init_croncat_manager_contract(app, None, None, croncat_factory_addr.as_str());
-    let (_, croncat_tasks_addr) = init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
-    let (croncat_agents_code_id, croncat_agents_addr) = init_agents_contract(
-        app,
-        None,
-        None,
-        croncat_factory_addr.as_str().clone(),
-        croncat_manager_addr.as_str().clone(),
-        croncat_tasks_addr.as_str().clone(),
-    );
+    let (_, croncat_tasks_addr) =
+        init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
+    let (croncat_agents_code_id, croncat_agents_addr) =
+        init_agents_contract(app, None, None, croncat_factory_addr.as_str().clone());
     TestScope {
         croncat_factory_addr,
-        croncat_agents_code_id:Some(croncat_agents_code_id),
+        croncat_agents_code_id: Some(croncat_agents_code_id),
         croncat_agents_addr,
         croncat_manager_addr,
         croncat_tasks_addr,
@@ -241,13 +236,11 @@ pub(crate) fn init_agents_contract(
     sender: Option<&str>,
     owner: Option<String>,
     factory_addr: &str,
-    manager_addr: &str,
-    tasks_addr: &str,
 ) -> (u64, Addr) {
     let code_id = app.store_code(croncat_agents_contract());
     let msg = InstantiateMsg {
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
-        croncat_tasks_key: ("agents".to_owned(), [0, 1]),
+        croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         owner_addr: Some(owner.unwrap_or(ADMIN.to_string())),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,

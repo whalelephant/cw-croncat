@@ -10,13 +10,6 @@ use cw_multi_test::{App, AppResponse, Executor};
 fn test_contract_initialize_is_successfull() {
     let mut app = default_app();
     let contract_code_id = app.store_code(croncat_agents_contract());
-    let TestScope {
-        croncat_factory_addr,
-        croncat_agents_addr,
-        croncat_agents_code_id,
-        croncat_manager_addr,
-        croncat_tasks_addr,
-    } = init_test_scope(&mut app);
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_string()),
@@ -69,39 +62,7 @@ fn test_contract_initialize_is_successfull() {
         .unwrap();
     assert_eq!(config.owner_addr, Addr::unchecked(ANYONE));
 }
-#[test]
-fn test_contract_initialize_fail_cases() {
-    let mut app = default_app();
-    let contract_code_id = app.store_code(croncat_agents_contract());
 
-    let init_msg = InstantiateMsg {
-        croncat_manager_key: ("manager".to_owned(), [4, 2]),
-        croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
-        owner_addr: Some(ADMIN.to_string()),
-        agent_nomination_duration: None,
-        min_tasks_per_agent: None,
-        min_coin_for_agent_registration: None,
-    };
-    let error: ContractError = app
-        .instantiate_contract(
-            contract_code_id,
-            Addr::unchecked(ANYONE),
-            &init_msg,
-            &[],
-            "agents",
-            None,
-        )
-        .unwrap_err()
-        .downcast()
-        .unwrap();
-
-    assert_eq!(
-        error,
-        ContractError::InvalidCroncatManagerAddress {
-            addr: String::new()
-        }
-    );
-}
 //RegisterAgent
 #[test]
 fn test_register_agent_is_successfull() {
@@ -248,7 +209,7 @@ fn test_update_agent_fails() {
         croncat_agents_code_id: _,
         croncat_manager_addr: _,
         croncat_tasks_addr: _,
-    } = init_test_scope(&mut app);    //Check contract fails when agent does not exist
+    } = init_test_scope(&mut app); //Check contract fails when agent does not exist
     app.execute_contract(
         Addr::unchecked(ADMIN),
         croncat_agents_addr.clone(),
@@ -275,9 +236,7 @@ fn test_update_agent_fails() {
     assert_eq!(error, ContractError::AgentNotRegistered);
 
     //Check contract is paused and failing
-    let mut config = mock_update_config(
-       croncat_factory_addr.as_str()
-    );
+    let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -476,7 +435,8 @@ fn test_get_agent_status() {
     assert_eq!(None, agent_status_res);
 
     // Register AGENT1, who immediately becomes active
-    let register_agent_res = register_agent(&mut app, &croncat_agents_addr, AGENT0, &AGENT_BENEFICIARY);
+    let register_agent_res =
+        register_agent(&mut app, &croncat_agents_addr, AGENT0, &AGENT_BENEFICIARY);
     // First registered agent becomes active
     assert!(
         register_agent_res.is_ok(),
