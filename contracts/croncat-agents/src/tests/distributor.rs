@@ -87,7 +87,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
         cosmwasm_std::testing::MockQuerier,
     > = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let mut config = mock_config(String::new().as_str(), String::new().as_str());
+    let mut config = mock_config(String::new().as_str());
 
     let cases: &[(
         (Option<u64>, Option<u64>),
