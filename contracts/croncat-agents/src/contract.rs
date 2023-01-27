@@ -72,16 +72,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentIds { from_index, limit } => {
             to_binary(&query_get_agent_ids(deps, from_index, limit)?)
         }
-        QueryMsg::GetAgentTasks {
-            account_id,
-            block_slots,
-            cron_slots,
-        } => to_binary(&query_get_agent_tasks(
-            deps,
-            env,
-            account_id,
-            (block_slots, cron_slots),
-        )?),
+        QueryMsg::GetAgentTasks { account_id } => {
+            to_binary(&query_get_agent_tasks(deps, env, account_id)?)
+        }
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
     }
 }
@@ -165,8 +158,7 @@ fn query_get_agent_ids(
 fn query_get_agent_tasks(
     deps: Deps,
     env: Env,
-    account_id: String,
-    slots: (Option<u64>, Option<u64>), //block_slots,cron_slots
+    account_id: String, //block_slots,cron_slots
 ) -> StdResult<Option<AgentTaskResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
@@ -175,12 +167,19 @@ fn query_get_agent_tasks(
             msg: "Agent is not active!".to_owned(),
         });
     }
+    let config: Config = CONFIG.load(deps.storage)?;
 
-    if slots == (None, None) {
+    let (block_slots, cron_slots) = query_tasks_slots(deps, &config)?;
+    if block_slots == 0 && cron_slots == 0 {
         return Ok(None);
     }
     AGENT_TASK_DISTRIBUTOR
-        .get_agent_tasks(&deps, &env, account_id, slots)
+        .get_agent_tasks(
+            &deps,
+            &env,
+            account_id,
+            (Some(block_slots), Some(cron_slots)),
+        )
         .map_err(|err| StdError::generic_err(err.to_string()))
 }
 

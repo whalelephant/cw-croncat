@@ -2,6 +2,7 @@ use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint6
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
+use croncat_sdk_tasks::types::SlotTasksTotalResponse;
 
 use crate::error::ContractError;
 use croncat_factory::state::CONTRACT_ADDRS;
@@ -69,4 +70,15 @@ pub(crate) fn query_tasks_addr(
             (agents_name, version),
         )?
         .ok_or_else(|| StdError::generic_err(ContractError::InvalidVersionKey {}.to_string()))
+}
+
+pub fn query_tasks_slots(deps: Deps, config: &Config) -> StdResult<(u64, u64)> {
+    let croncat_tasks_addr = query_tasks_addr(&deps.querier, config)?;
+    // Get the denom from the manager contract
+    let response: SlotTasksTotalResponse = deps.querier.query_wasm_smart(
+        croncat_tasks_addr,
+        &TasksQueryMsg::SlotTasksTotal { offset: None },
+    )?;
+
+    Ok((response.block_tasks, response.cron_tasks))
 }

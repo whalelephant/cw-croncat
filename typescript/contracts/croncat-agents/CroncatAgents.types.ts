@@ -58,8 +58,6 @@ export type QueryMsg = {
 } | {
   get_agent_tasks: {
     account_id: string;
-    block_slots?: number | null;
-    cron_slots?: number | null;
   };
 } | {
   config: {};
