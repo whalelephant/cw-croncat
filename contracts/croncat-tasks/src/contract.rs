@@ -383,7 +383,7 @@ fn execute_create_task(
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentOnTaskCreated {
-        task_hash:hash.clone()
+        task_hash: hash.clone(),
     }
     .into_cosmos_msg(agent_addr)?;
     Ok(Response::new()

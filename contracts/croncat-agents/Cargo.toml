@@ -21,7 +21,6 @@ croncat-sdk-agents = { workspace = true }
 croncat-sdk-tasks = { workspace = true }
 croncat-sdk-core = { workspace = true }
 croncat-sdk-manager = { workspace = true }
-
 cw-storage-plus = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
@@ -31,4 +30,4 @@ cw2 = { workspace = true }
 cw-multi-test = { workspace = true }
 anyhow = { workspace = true }
 croncat-manager = { workspace = true }
-croncat-tasks={workspace=true}
+croncat-tasks = { workspace = true }

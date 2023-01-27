@@ -74,7 +74,9 @@ pub fn instantiate(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, env, account_id)?),
-        QueryMsg::GetAgentIds { from_index, limit } => to_binary(&query_get_agent_ids(deps, from_index, limit)?),
+        QueryMsg::GetAgentIds { from_index, limit } => {
+            to_binary(&query_get_agent_ids(deps, from_index, limit)?)
+        }
         QueryMsg::GetAgentTasks {
             account_id,
             block_slots,
@@ -123,7 +125,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
 
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let total_tasks=query_total_tasks(deps, config.tasks_addr.to_string())?;
+    let total_tasks = query_total_tasks(deps, config.tasks_addr.to_string())?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -497,7 +499,7 @@ fn get_agent_status(
     storage: &dyn Storage,
     env: Env,
     account_id: &Addr,
-    total_tasks: u64
+    total_tasks: u64,
 ) -> Result<AgentStatus, ContractError> {
     let c: Config = CONFIG.load(storage)?;
     let active = AGENTS_ACTIVE.load(storage)?;

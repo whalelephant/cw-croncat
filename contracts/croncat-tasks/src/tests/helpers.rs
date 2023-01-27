@@ -132,11 +132,12 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     metadata.unwrap().contract_addr
 }
 
-pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr, manager_addr: String) -> Addr {
+pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr, manager_addr: String,tasks_addr:String) -> Addr {
     let code_id = app.store_code(contracts::croncat_agents_contract());
     let msg = croncat_agents::msg::InstantiateMsg {
         manager_addr,
         owner_addr: None,
+        tasks_addr,
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,

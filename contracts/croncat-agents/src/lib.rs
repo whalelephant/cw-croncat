@@ -3,8 +3,8 @@
 pub mod contract;
 pub mod distributor;
 pub mod error;
+mod external;
 pub mod msg;
 pub mod state;
 #[cfg(test)]
 mod tests;
-mod external;

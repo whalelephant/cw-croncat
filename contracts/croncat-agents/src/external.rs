@@ -1,6 +1,6 @@
 use cosmwasm_std::{Deps, StdResult, Uint64};
-use croncat_sdk_manager::types::Config as ManagerConfig;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
+use croncat_sdk_manager::types::Config as ManagerConfig;
 
 use croncat_sdk_tasks::msg::TasksQueryMsg;
 

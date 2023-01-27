@@ -1,4 +1,3 @@
-use std::ops::Add;
 
 use crate::msg::*;
 use crate::state::{
@@ -166,22 +165,26 @@ pub(crate) fn init_croncat_tasks_contract(
 
     (tasks_code_id, tasks_contract_addr)
 }
-pub(crate) fn init_contracts(app:&mut App,sender: Option<&str>) -> (u64, Addr,Addr,Addr) {
-    
+pub(crate) fn init_contracts(app: &mut App, sender: Option<&str>) -> (u64, Addr, Addr, Addr) {
     let (_, croncat_manager_addr) =
-        init_croncat_manager_contract(&mut app, sender, Some(ADMIN.to_string()), None);
+        init_croncat_manager_contract(app, sender, Some(ADMIN.to_string()), None);
     let (_, croncat_tasks_addr) =
-        init_croncat_tasks_contract(&mut app, sender, Some(ADMIN.to_string()), None);
+        init_croncat_tasks_contract(app, sender, Some(ADMIN.to_string()), None);
     let (code_id, contract_addr) = init_agents_contract(
-        &mut app,
+        app,
         None,
         None,
-        croncat_manager_addr,
-        croncat_tasks_addr,
+        croncat_manager_addr.clone(),
+        croncat_tasks_addr.clone(),
         None,
         None,
     );
-    (code_id, contract_addr,croncat_manager_addr,croncat_tasks_addr)
+    (
+        code_id,
+        contract_addr,
+        croncat_manager_addr,
+        croncat_tasks_addr,
+    )
 }
 pub(crate) fn init_agents_contract(
     app: &mut App,

@@ -28,9 +28,7 @@ pub enum ExecuteMsg {
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     #[returns[Option<AgentResponse>]]
-    GetAgent {
-        account_id: String,
-    },
+    GetAgent { account_id: String },
     #[returns[Option<GetAgentIdsResponse>]]
     GetAgentIds {
         from_index: Option<u64>,
