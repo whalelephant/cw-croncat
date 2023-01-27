@@ -1,5 +1,5 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { Coin, coins, parseCoins, StdFee } from "@cosmjs/stargate";
+import { Coin, StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 import { getGitHash, getChecksums } from './utils'
