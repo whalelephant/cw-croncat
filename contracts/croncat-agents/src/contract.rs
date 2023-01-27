@@ -158,7 +158,7 @@ fn query_get_agent_ids(
 fn query_get_agent_tasks(
     deps: Deps,
     env: Env,
-    account_id: String, //block_slots,cron_slots
+    account_id: String,
 ) -> StdResult<Option<AgentTaskResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
