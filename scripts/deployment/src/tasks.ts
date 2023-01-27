@@ -1,5 +1,5 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { StdFee } from "@cosmjs/stargate";
+import { Coin, StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 import { getGitHash, getChecksums } from './utils'
@@ -33,8 +33,8 @@ export class TaskClient {
           "schema": "",
           "msg": Buffer.from(JSON.stringify({
             chain_name: prefix || 'juno',
-            croncat_manager_key: ['manager', [0, 0]],
-            croncat_agents_key: ['agents', [0, 0]],
+            croncat_manager_key: ['manager', [0, 1]],
+            croncat_agents_key: ['agents', [0, 1]],
             // owner_addr: '',
             // croncat_manager_key: '',
             // croncat_agents_key: '',
@@ -54,9 +54,9 @@ export class TaskClient {
     return [codeId, address];
   }
 
-  async create(sender: string, contractAddr: string, gas: StdFee, task: any): Promise<ExecuteResult> {
+  async create(sender: string, contractAddr: string, gas: StdFee, task: any, funds: Coin[]): Promise<ExecuteResult> {
     const msg = { create_task: { task } };
-    const response = await this.client.execute(sender, contractAddr, msg, gas);
+    const response = await this.client.execute(sender, contractAddr, msg, gas, undefined, funds);
     return response;
   }
 
