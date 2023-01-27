@@ -1,13 +1,13 @@
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Binary, StdError, Timestamp, Uint128, Uint64, WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, Binary, StdError, Uint128, Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::TaskBalance;
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, Config, CroncatQuery, Interval, SlotHashesResponse, SlotIdsResponse,
-        SlotTasksTotalResponse, TaskRequest, TaskResponse, Transform,
+        Action, Boundary, Config, CroncatQuery, Interval, SlotTasksTotalResponse, TaskRequest,
+        TaskResponse, Transform,
     },
 };
 use cw_multi_test::{BankSudo, Executor};
@@ -136,12 +136,7 @@ fn create_task_without_query() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(
-        &mut app,
-        &factory_addr,
-        manager_addr.to_string(),
-        tasks_addr.to_string(),
-    );
+    let _ = init_agents(&mut app, &factory_addr);
 
     let action1 = Action {
         msg: BankMsg::Send {
@@ -309,8 +304,8 @@ fn create_task_without_query() {
     let task = TaskRequest {
         interval: Interval::Immediate,
         boundary: Some(Boundary::Time {
-            start: Some((app.block_info().time).into()),
-            end: Some((app.block_info().time.plus_nanos(100)).into()),
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(100)),
         }),
         stop_on_fail: false,
         actions: vec![action.clone()],
@@ -325,7 +320,7 @@ fn create_task_without_query() {
             &ExecuteMsg::CreateTask {
                 task: Box::new(task),
             },
-            &vec![coin(60000, DENOM), coin(10, "test_coins")],
+            &[coin(60000, DENOM), coin(10, "test_coins")],
         )
         .unwrap();
 
@@ -362,8 +357,8 @@ fn create_task_without_query() {
         owner_addr: Addr::unchecked(ANYONE),
         interval: Interval::Immediate,
         boundary: Boundary::Time {
-            start: Some((app.block_info().time).into()),
-            end: Some((app.block_info().time.plus_nanos(100)).into()),
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(100)),
         },
         stop_on_fail: false,
         amount_for_one_task: AmountForOneTask {
@@ -431,8 +426,8 @@ fn create_task_without_query() {
         }),
     );
 
-    let manager_balance = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
-    let tasks_balance = app.wrap().query_all_balances(tasks_addr.clone()).unwrap();
+    let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
+    let tasks_balance = app.wrap().query_all_balances(tasks_addr).unwrap();
     assert_eq!(
         manager_balance,
         vec![coin(30000 + 60000, DENOM), coin(10, "test_coins")]
@@ -448,7 +443,7 @@ fn create_task_with_wasm() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string());
+    let _ = init_agents(&mut app, &factory_addr);
 
     let action = Action {
         msg: WasmMsg::Execute {
@@ -467,7 +462,7 @@ fn create_task_with_wasm() {
             end: Some((app.block_info().height + 10).into()),
         }),
         stop_on_fail: false,
-        actions: vec![action.clone()],
+        actions: vec![action],
         queries: None,
         transforms: None,
         cw20: None,
@@ -487,7 +482,7 @@ fn create_task_with_wasm() {
     // check total tasks
     let total_tasks: Uint64 = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
+        .query_wasm_smart(tasks_addr, &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(1));
 
@@ -495,7 +490,7 @@ fn create_task_with_wasm() {
     let manager_task_balance: Option<TaskBalance> = app
         .wrap()
         .query_wasm_smart(
-            manager_addr.clone(),
+            manager_addr,
             &croncat_manager::msg::QueryMsg::TaskBalance { task_hash },
         )
         .unwrap();
@@ -517,7 +512,7 @@ fn create_tasks_with_queries_and_transforms() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string());
+    let _ = init_agents(&mut app, &factory_addr);
 
     let action = Action {
         msg: BankMsg::Send {
@@ -604,7 +599,7 @@ fn create_tasks_with_queries_and_transforms() {
         },
         actions: vec![action],
         queries: Some(queries),
-        transforms: transforms,
+        transforms,
         version: "0.1.0".to_owned(),
     };
     assert_eq!(task, expected_block_task_response);
@@ -662,8 +657,8 @@ fn create_tasks_with_queries_and_transforms() {
         }
     );
 
-    let manager_balance = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
-    let tasks_balance = app.wrap().query_all_balances(tasks_addr.clone()).unwrap();
+    let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
+    let tasks_balance = app.wrap().query_all_balances(tasks_addr).unwrap();
     assert_eq!(manager_balance, vec![coin(50000, DENOM)]);
     assert_eq!(tasks_balance, vec![]);
 }
@@ -676,7 +671,7 @@ fn remove_tasks() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string());
+    let _ = init_agents(&mut app, &factory_addr);
 
     // Create one block and one cron with queries and then remove one by one
     let task = TaskRequest {
@@ -763,8 +758,8 @@ fn remove_tasks() {
     let task = TaskRequest {
         interval: Interval::Once,
         boundary: Some(Boundary::Time {
-            start: Some((app.block_info().time).into()),
-            end: Some((app.block_info().time.plus_nanos(1000)).into()),
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(1000)),
         }),
         stop_on_fail: false,
         actions: vec![Action {
@@ -879,7 +874,7 @@ fn remove_tasks() {
         .query_wasm_smart(
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_block_with_queries.clone(),
+                task_hash: task_hash_block_with_queries,
             },
         )
         .unwrap();
@@ -910,7 +905,7 @@ fn remove_tasks() {
     assert!(TIME_MAP_QUERIES
         .query(
             &app.wrap(),
-            tasks_addr.clone(),
+            tasks_addr,
             task_hash_cron_with_queries.as_bytes(),
         )
         .unwrap()
@@ -921,14 +916,14 @@ fn remove_tasks() {
         .query_wasm_smart(
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries.clone(),
+                task_hash: task_hash_cron_with_queries,
             },
         )
         .unwrap();
     assert!(manager_task_balance.is_none());
 
     // Check all balances moved from manager contract
-    let manager_balance = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
     assert!(manager_balance.is_empty());
 }
 
@@ -1000,7 +995,7 @@ fn update_cfg() {
 
     let not_updated_config: Config = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::Config {})
+        .query_wasm_smart(tasks_addr, &QueryMsg::Config {})
         .unwrap();
     assert_eq!(not_updated_config, expected_config);
 }

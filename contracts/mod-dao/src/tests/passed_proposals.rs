@@ -104,13 +104,8 @@ fn test_single_check_passed_proposals() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract,
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     // Create 100 new proposals
@@ -289,13 +284,8 @@ fn test_multiple_check_passed_proposals() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract,
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     // Create 100 new proposals

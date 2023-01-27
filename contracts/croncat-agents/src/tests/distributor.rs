@@ -46,7 +46,7 @@ fn assert_balancer_tasks(
             task_distributor
                 .on_task_completed(
                     &mut deps.storage,
-                    &env,
+                    env,
                     &Addr::unchecked(f.0),
                     SlotType::Block,
                 )
@@ -56,7 +56,7 @@ fn assert_balancer_tasks(
             task_distributor
                 .on_task_completed(
                     &mut deps.storage,
-                    &env,
+                    env,
                     &Addr::unchecked(f.0),
                     SlotType::Cron,
                 )
@@ -279,15 +279,15 @@ fn test_on_task_completed() {
     let agent0_addr = &Addr::unchecked(AGENT0);
     for _ in 0..5 {
         task_distributor
-            .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Block)
+            .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Block)
             .unwrap();
     }
 
     task_distributor
-        .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Cron)
+        .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Cron)
         .unwrap();
 
-    let stats = AGENT_STATS.load(&mut deps.storage, &agent0_addr).unwrap();
+    let stats = AGENT_STATS.load(&deps.storage, agent0_addr).unwrap();
     assert_eq!(stats.completed_block_tasks, 5);
     assert_eq!(stats.completed_cron_tasks, 1);
 }
@@ -318,18 +318,18 @@ fn test_on_agent_unregister() {
     let agent1_addr = &Addr::unchecked(AGENT1);
 
     task_distributor
-        .on_task_completed(&mut deps.storage, &env, &agent0_addr, SlotType::Block)
+        .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Block)
         .unwrap();
     task_distributor
-        .on_task_completed(&mut deps.storage, &env, &agent1_addr, SlotType::Block)
+        .on_task_completed(&mut deps.storage, &env, agent1_addr, SlotType::Block)
         .unwrap();
 
     task_distributor
-        .on_agent_unregistered(&mut deps.storage, &agent1_addr)
+        .on_agent_unregistered(&mut deps.storage, agent1_addr)
         .unwrap();
 
-    let stats0 = AGENT_STATS.load(&mut deps.storage, &agent0_addr);
-    let stats1 = AGENT_STATS.load(&mut deps.storage, &agent1_addr);
+    let stats0 = AGENT_STATS.load(&deps.storage, agent0_addr);
+    let stats1 = AGENT_STATS.load(&deps.storage, agent1_addr);
 
     assert!(stats0.is_ok());
     assert!(stats1.is_err());

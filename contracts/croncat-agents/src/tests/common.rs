@@ -78,7 +78,7 @@ pub(crate) fn default_app() -> App {
             (500_000, AGENT6.to_string()),
         ];
         for (amt, address) in accounts {
-            let coin = coins(amt, format!("{}", NATIVE_DENOM));
+            let coin = coins(amt, NATIVE_DENOM);
             router
                 .bank
                 .init_balance(storage, &Addr::unchecked(address), coin)
@@ -117,7 +117,7 @@ pub(crate) fn init_croncat_manager_contract(
         denom: NATIVE_DENOM.to_owned(),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(owner.unwrap_or(ADMIN.to_string())),
+        owner_addr: Some(owner.unwrap_or_else(|| ADMIN.to_string())),
         gas_price: None,
         treasury_addr: None,
     };
@@ -223,7 +223,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     let (_, croncat_tasks_addr) =
         init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
     let (croncat_agents_code_id, croncat_agents_addr) =
-        init_agents_contract(app, None, None, croncat_factory_addr.as_str().clone());
+        init_agents_contract(app, None, None, croncat_factory_addr.as_str());
     TestScope {
         croncat_factory_addr,
         croncat_agents_code_id: Some(croncat_agents_code_id),
@@ -243,7 +243,7 @@ pub(crate) fn init_agents_contract(
     let msg = InstantiateMsg {
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-        owner_addr: Some(owner.unwrap_or(ADMIN.to_string())),
+        owner_addr: Some(owner.unwrap_or_else(|| ADMIN.to_string())),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,

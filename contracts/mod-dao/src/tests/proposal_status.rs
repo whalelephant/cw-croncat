@@ -109,13 +109,8 @@ fn test_dao_single_proposal_ready() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract,
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     app.execute_contract(
@@ -315,13 +310,8 @@ fn test_dao_multiple_proposal_ready() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract,
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     app.execute_contract(
