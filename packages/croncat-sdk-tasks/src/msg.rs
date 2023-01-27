@@ -69,7 +69,7 @@ pub enum TasksExecuteMsg {
 pub enum TasksQueryMsg {
     #[returns(crate::types::Config)]
     Config {},
-    /// Get the total amount of non-query tasks
+    /// Get the total amount of tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
     /// Get the total amount of tasks with queries

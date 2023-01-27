@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper,
-    StdResult, Storage, WasmMsg,
+    Addr, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper, StdResult,
+    Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
     AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
@@ -69,8 +69,7 @@ pub(crate) fn check_for_self_calls(
     // If it one of the our contracts it should be a manager
     if contract_addr == tasks_addr || contract_addr == agents_addr {
         return Err(ContractError::InvalidAction {});
-    }
-    else if contract_addr == manager_addr {
+    } else if contract_addr == manager_addr {
         // Check if caller is manager owner
         if sender != manager_owner_addr {
             return Err(ContractError::InvalidAction {});

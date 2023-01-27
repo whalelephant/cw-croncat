@@ -41,7 +41,6 @@ pub fn instantiate(
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
         denom,
-        croncat_factory_addr,
         croncat_tasks_key,
         croncat_agents_key,
         owner_addr,
@@ -58,12 +57,12 @@ pub fn instantiate(
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or(info.sender);
+        .unwrap_or(info.sender.clone());
 
     let config = Config {
         paused: false,
         owner_addr,
-        croncat_factory_addr: deps.api.addr_validate(&croncat_factory_addr)?,
+        croncat_factory_addr: info.sender,
         croncat_tasks_key,
         croncat_agents_key,
         agent_fee: DEFAULT_FEE,

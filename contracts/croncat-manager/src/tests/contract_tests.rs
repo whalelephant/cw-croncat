@@ -51,7 +51,6 @@ mod instantiate_tests {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
-            croncat_factory_addr: AGENT0.to_owned(),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
@@ -136,22 +135,6 @@ mod instantiate_tests {
             ))
         );
 
-        // Bad cw_rules_addr
-        let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            croncat_factory_addr: "BAD_INPUT".to_owned(),
-            ..default_instantiate_message()
-        };
-
-        let error: ContractError = init_manager(&mut app, instantiate_msg, &[])
-            .unwrap_err()
-            .downcast()
-            .unwrap();
-        assert_eq!(
-            error,
-            ContractError::Std(StdError::generic_err(
-                "Invalid input: address not normalized"
-            ))
-        );
     }
 }
 
