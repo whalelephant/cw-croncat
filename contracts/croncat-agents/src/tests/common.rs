@@ -30,27 +30,35 @@ pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
 pub const NATIVE_DENOM: &str = "uatom";
-
-pub(crate) fn mock_config(manager_addr: &str, tasks_addr: &str) -> Config {
+pub (crate)struct TestScope {
+    pub croncat_factory_addr: Addr,
+    pub croncat_agents_addr: Addr,
+    pub croncat_agents_code_id: Option<u64>,
+    pub croncat_manager_addr: Addr,
+    pub croncat_tasks_addr: Addr,
+}
+pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
     Config {
         paused: false,
         owner_addr: Addr::unchecked(ADMIN),
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
-        manager_addr: Addr::unchecked(manager_addr),
+        croncat_factory_addr: Addr::unchecked(croncat_factory_addr.to_owned()),
+        croncat_manager_key: ("manager".to_owned(), [4, 2]),
+        croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coins_for_agent_registration: DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-        tasks_addr: Addr::unchecked(tasks_addr),
     }
 }
-pub(crate) fn mock_update_config(manager_addr: &str, tasks_addr: &str) -> UpdateConfig {
+pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
     UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
-        manager_addr: Some(manager_addr.to_string()),
+        croncat_factory_addr: Some(croncat_factory_addr.to_owned()),
+        croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
+        croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,
-        tasks_addr: Some(tasks_addr.to_string()),
     }
 }
 
@@ -207,25 +215,26 @@ pub(crate) fn init_croncat_tasks_contract(
     (code_id, metadata.unwrap().contract_addr)
 }
 
-pub(crate) fn init_contracts(app: &mut App) -> (u64, Addr, Addr, Addr) {
-    let (_, factory_addr) = init_croncat_factory(app);
+pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
+    let (_, croncat_factory_addr) = init_croncat_factory(app);
     let (_, croncat_manager_addr) =
-        init_croncat_manager_contract(app, None, None, factory_addr.as_str());
-    let (_, croncat_tasks_addr) = init_croncat_tasks_contract(app, None, None, &factory_addr);
-    let (code_id, contract_addr) = init_agents_contract(
+        init_croncat_manager_contract(app, None, None, croncat_factory_addr.as_str());
+    let (_, croncat_tasks_addr) = init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
+    let (croncat_agents_code_id, croncat_agents_addr) = init_agents_contract(
         app,
         None,
         None,
-        factory_addr.as_str().clone(),
+        croncat_factory_addr.as_str().clone(),
         croncat_manager_addr.as_str().clone(),
         croncat_tasks_addr.as_str().clone(),
     );
-    (
-        code_id,
-        contract_addr,
+    TestScope {
+        croncat_factory_addr,
+        croncat_agents_code_id:Some(croncat_agents_code_id),
+        croncat_agents_addr,
         croncat_manager_addr,
         croncat_tasks_addr,
-    )
+    }
 }
 
 pub(crate) fn init_agents_contract(
@@ -238,9 +247,9 @@ pub(crate) fn init_agents_contract(
 ) -> (u64, Addr) {
     let code_id = app.store_code(croncat_agents_contract());
     let msg = InstantiateMsg {
-        manager_addr: manager_addr.to_owned(),
+        croncat_manager_key: ("manager".to_owned(), [0, 1]),
+        croncat_tasks_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(owner.unwrap_or(ADMIN.to_string())),
-        tasks_addr: tasks_addr.to_owned(),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
