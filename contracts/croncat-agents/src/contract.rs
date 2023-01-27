@@ -29,35 +29,29 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let manager_addr = deps.api.addr_validate(&msg.manager_addr).map_err(|_| {
-        ContractError::InvalidCroncatManagerAddress {
-            addr: msg.manager_addr,
-        }
-    })?;
-    let tasks_addr = deps.api.addr_validate(&msg.tasks_addr).map_err(|_| {
-        ContractError::InvalidTasksContractAddress {
-            addr: msg.tasks_addr,
-        }
-    })?;
-    let valid_owner_addr = msg
-        .owner_addr
+    let InstantiateMsg {
+        owner_addr,
+        croncat_manager_key,
+        croncat_tasks_key,
+        agent_nomination_duration,
+        min_tasks_per_agent,
+        min_coin_for_agent_registration,
+    } = msg;
+
+    let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+        .unwrap_or(info.sender.clone());
 
     let config = &Config {
-        min_tasks_per_agent: msg
-            .min_tasks_per_agent
-            .unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
-        manager_addr,
-        tasks_addr,
-        agent_nomination_duration: msg
-            .agent_nomination_duration
-            .unwrap_or(DEFAULT_NOMINATION_DURATION),
-        owner_addr: valid_owner_addr,
+        min_tasks_per_agent: min_tasks_per_agent.unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
+        croncat_factory_addr: info.sender,
+        croncat_manager_key,
+        croncat_tasks_key,
+        agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
+        owner_addr,
         paused: false,
-        min_coins_for_agent_registration: msg
-            .min_coin_for_agent_registration
+        min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
     CONFIG.save(deps.storage, config)?;
@@ -125,7 +119,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
 
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let total_tasks = query_total_tasks(deps, config.tasks_addr.to_string())?;
+    let total_tasks = query_total_tasks(deps, &config)?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -215,7 +209,7 @@ fn register_agent(
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
     // Get the denom from the manager contract
-    let manager_config = query_manager_config(deps.as_ref(), c.manager_addr.to_string())?;
+    let manager_config = query_manager_config(deps.as_ref(), &c)?;
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),
@@ -455,8 +449,9 @@ pub fn execute_update_config(
         let UpdateConfig {
             owner_addr,
             paused,
-            manager_addr,
-            tasks_addr,
+            croncat_factory_addr,
+            croncat_manager_key,
+            croncat_tasks_key,
             min_tasks_per_agent,
             agent_nomination_duration,
             min_coins_for_agent_registration,
@@ -466,20 +461,18 @@ pub fn execute_update_config(
             return Err(ContractError::Unauthorized {});
         }
 
-        let owner_addr = owner_addr
-            .map(|human| deps.api.addr_validate(&human))
-            .transpose()?
-            .unwrap_or(config.owner_addr);
-
         let new_config = Config {
-            manager_addr: Addr::unchecked(
-                manager_addr.unwrap_or_else(|| config.manager_addr.to_string()),
-            ),
-            tasks_addr: Addr::unchecked(
-                tasks_addr.unwrap_or_else(|| config.tasks_addr.to_string()),
-            ),
+            owner_addr: owner_addr
+                .map(|human| deps.api.addr_validate(&human))
+                .transpose()?
+                .unwrap_or(config.owner_addr),
+            croncat_factory_addr: croncat_factory_addr
+                .map(|human| deps.api.addr_validate(&human))
+                .transpose()?
+                .unwrap_or(config.croncat_factory_addr),
+            croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
+            croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             paused: paused.unwrap_or(config.paused),
-            owner_addr,
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agent_nomination_duration: agent_nomination_duration
                 .unwrap_or(config.agent_nomination_duration),
@@ -597,7 +590,7 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let total_tasks = query_total_tasks(deps.as_ref(), config.tasks_addr.to_string())?;
+    let total_tasks = query_total_tasks(deps.as_ref(), &config)?;
     let num_agents_to_accept =
         agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
 
