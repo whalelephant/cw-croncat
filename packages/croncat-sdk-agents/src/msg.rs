@@ -6,8 +6,11 @@ use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 #[cw_serde]
 pub struct InstantiateMsg {
     pub owner_addr: Option<String>,
-    pub manager_addr: String,
-    pub tasks_addr: String,
+    /// Name of the key for raw querying Manager address from the factory
+    pub croncat_manager_key: (String, [u8; 2]),
+    /// Name of the key for raw querying Tasks address from the factory
+    pub croncat_tasks_key: (String, [u8; 2]),
+
     pub agent_nomination_duration: Option<u16>,
     pub min_tasks_per_agent: Option<u64>,
     pub min_coin_for_agent_registration: Option<u64>,
@@ -70,8 +73,13 @@ pub struct AgentTaskResponse {
 pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
-    pub manager_addr: Option<String>,
-    pub tasks_addr: Option<String>,
+    /// Address of the factory contract
+    pub croncat_factory_addr: Option<String>,
+    /// Name of the key for raw querying Manager address from the factory
+    pub croncat_manager_key: Option<(String, [u8; 2])>,
+    /// Name of the key for raw querying Tasks address from the factory
+    pub croncat_tasks_key: Option<(String, [u8; 2])>,
+
     pub min_tasks_per_agent: Option<u64>,
     pub agent_nomination_duration: Option<u16>,
     pub min_coins_for_agent_registration: Option<u64>,

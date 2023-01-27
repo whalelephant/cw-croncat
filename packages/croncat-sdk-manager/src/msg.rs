@@ -7,8 +7,6 @@ use cw20::Cw20Coin;
 pub struct ManagerInstantiateMsg {
     /// The native denominator of current chain
     pub denom: String,
-    /// Address of the factory contract
-    pub croncat_factory_addr: String,
     /// Name of the key for raw querying Tasks address from the factory
     pub croncat_tasks_key: (String, [u8; 2]),
     /// Name of the key for raw querying Agents address from the factory

@@ -81,7 +81,6 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
 pub(crate) fn default_instantiate_message() -> InstantiateMsg {
     InstantiateMsg {
         denom: DENOM.to_owned(),
-        croncat_factory_addr: "croncat_factory_addr".to_owned(),
         croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
         croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
         owner_addr: None,

@@ -1,7 +1,8 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { StdFee } from "@cosmjs/stargate";
+import { Coin, StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
+import { getGitHash, getChecksums } from './utils'
 config({ path: '.env' })
 const prefix: string = process.env.PREFIX
 
@@ -16,6 +17,8 @@ export class TaskClient {
     const wasm = fs.readFileSync(`${artifactsRoot}/croncat_tasks.wasm`)
     const uploadRes = await this.client.upload(sender, wasm, uploadGas)
     const codeId = uploadRes.codeId
+    const checksums = await getChecksums()
+    const githash = await getGitHash()
 
     // instantiate manager contract (from the factory)
     const deployMsg = {
@@ -24,14 +27,14 @@ export class TaskClient {
         "module_instantiate_info": {
           "code_id": codeId,
           "version": [0, 1],
-          "commit_id": "8e08b808465c42235f961423fcf9e4792ce02462",
-          "checksum": "665267d0076b69a971b24eeddce447dbc7e5b280c8997ca52f493d4ed569c284",
+          "commit_id": githash,
+          "checksum": checksums.tasks,
           "changelog_url": "https://github.com/croncats",
           "schema": "",
           "msg": Buffer.from(JSON.stringify({
             chain_name: prefix || 'juno',
-            croncat_manager_key: ['manager', [0, 0]],
-            croncat_agents_key: ['agents', [0, 0]],
+            croncat_manager_key: ['manager', [0, 1]],
+            croncat_agents_key: ['agents', [0, 1]],
             // owner_addr: '',
             // croncat_manager_key: '',
             // croncat_agents_key: '',
@@ -51,9 +54,9 @@ export class TaskClient {
     return [codeId, address];
   }
 
-  async create(sender: string, contractAddr: string, gas: StdFee, task: any): Promise<ExecuteResult> {
+  async create(sender: string, contractAddr: string, gas: StdFee, task: any, funds: Coin[]): Promise<ExecuteResult> {
     const msg = { create_task: { task } };
-    const response = await this.client.execute(sender, contractAddr, msg, gas);
+    const response = await this.client.execute(sender, contractAddr, msg, gas, undefined, funds);
     return response;
   }
 

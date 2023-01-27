@@ -1,3 +1,5 @@
+test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accounts.json | tr '\n' ' '`)
+
 set export
 lint:
 	cargo fmt --all && cargo clippy -- -D warnings
@@ -18,6 +20,22 @@ deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
 	./scripts/local/deploy.sh -w # only wasm update
+
+juno-local:
+	docker kill cosmwasm || true
+	docker volume rm -f junod_data
+	docker run --rm -d --name cosmwasm \
+		-e PASSWORD=xxxxxxxxx \
+		-e STAKE_TOKEN=ujunox \
+		-e GAS_LIMIT=100000000 \
+		-e MAX_BYTES=22020096 \
+		-e UNSAFE_CORS=true \
+		-p 1317:1317 \
+		-p 26656:26656 \
+		-p 26657:26657 \
+		-p 9090:9090 \
+		--mount type=volume,source=junod_data,target=/root \
+		ghcr.io/cosmoscontracts/juno:v11.0.3 /opt/setup_and_run.sh {{test_addrs}}
 
 deploy-local-reset:
 	#!/bin/bash

@@ -292,8 +292,13 @@ fn execute_create_task(
         return Err(ContractError::InvalidInterval {});
     }
 
-    let amount_for_one_task =
-        validate_msg_calculate_usage(deps.api, &task, &env.contract.address, &owner_addr, &config)?;
+    let amount_for_one_task = validate_msg_calculate_usage(
+        deps.as_ref(),
+        &task,
+        &env.contract.address,
+        &owner_addr,
+        &config,
+    )?;
     if amount_for_one_task.gas > config.gas_limit {
         return Err(ContractError::InvalidGas {});
     }

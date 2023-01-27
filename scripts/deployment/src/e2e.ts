@@ -1,5 +1,5 @@
 import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
+import { coins, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
 import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
 import { QueryClient } from "@cosmjs/stargate";
 import { fromHex } from "@cosmjs/encoding";
@@ -88,6 +88,38 @@ const start = async () => {
 		if (as.status !== 'active') process.exit(1)
 	} catch (e) {
 		console.info(`Agents Status ERROR`, e)
+	}
+
+	// Create 2 tasks
+	try {
+		const task = {
+			"actions": [
+				{
+					"msg": {
+						"wasm": {
+							"execute": {
+								"contract_addr": versions.manager.contract_addr,
+								"msg": Buffer.from(JSON.stringify({ "tick": {} })).toString('base64'),
+								"funds": []
+							}
+						}
+					},
+					"gas_limit": 75000
+				}
+			],
+			"boundary": null,
+			"cw20": null,
+			"interval": {
+				"block": 10
+			},
+			"stop_on_fail": true,
+			"queries": null,
+			"transforms": null
+		}
+		const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task, coins(60_000, denom));
+		console.info(`Task 1 Create SUCCESS`, t1)
+	} catch (e) {
+		console.info(`Task 1 Create ERROR`, e)
 	}
 
 	process.exit()

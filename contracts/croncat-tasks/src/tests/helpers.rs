@@ -5,7 +5,7 @@ use super::{
 };
 use crate::msg::InstantiateMsg;
 
-use cosmwasm_std::{coins, to_binary, Addr};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Executor};
 
@@ -92,10 +92,9 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_manager_contract());
     let msg = croncat_manager::msg::InstantiateMsg {
         denom: DENOM.to_owned(),
-        croncat_factory_addr: factory_addr.to_string(),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: None,
+        owner_addr: Some(ADMIN.to_owned()),
         gas_price: None,
         treasury_addr: None,
     };
@@ -132,7 +131,12 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     metadata.unwrap().contract_addr
 }
 
-pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr, manager_addr: String,tasks_addr:String) -> Addr {
+pub(crate) fn init_agents(
+    app: &mut App,
+    factory_addr: &Addr,
+    manager_addr: String,
+    tasks_addr: String,
+) -> Addr {
     let code_id = app.store_code(contracts::croncat_agents_contract());
     let msg = croncat_agents::msg::InstantiateMsg {
         manager_addr,
@@ -187,4 +191,9 @@ pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
         gas_query_fee: None,
         gas_limit: None,
     }
+}
+
+pub fn add_little_time(block: &mut BlockInfo) {
+    block.time = block.time.plus_seconds(19);
+    block.height += 1;
 }

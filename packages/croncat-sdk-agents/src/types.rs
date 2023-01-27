@@ -53,8 +53,13 @@ pub struct AgentStats {
 
 #[cw_serde]
 pub struct Config {
-    pub manager_addr: Addr,
-    pub tasks_addr: Addr,
+    /// Address of the factory contract
+    pub croncat_factory_addr: Addr,
+    /// Name of the key for raw querying Manager address from the factory
+    pub croncat_manager_key: (String, [u8; 2]),
+    /// Name of the key for raw querying Tasks address from the factory
+    pub croncat_tasks_key: (String, [u8; 2]),
+
     pub owner_addr: Addr,
     pub paused: bool,
     /// Agent management

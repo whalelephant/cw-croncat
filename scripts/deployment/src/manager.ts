@@ -3,6 +3,7 @@ import { StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 config({ path: '.env' })
+import { getGitHash, getChecksums } from './utils'
 const denom: string = process.env.DENOM
 
 export class ManagerClient {
@@ -16,12 +17,14 @@ export class ManagerClient {
 		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_manager.wasm`)
 		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
 		const codeId = uploadRes.codeId
+		const checksums = await getChecksums()
+		const githash = await getGitHash()
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"denom": denom,
-			"croncat_factory_addr": factoryAddress,
-			"croncat_tasks_key": ["tasks", [0, 0]],
-			"croncat_agents_key": ["agents", [0, 0]]
+			"owner_addr": sender,
+			"croncat_tasks_key": ["tasks", [0, 1]],
+			"croncat_agents_key": ["agents", [0, 1]]
 		})).toString('base64')
 
 		// instantiate manager contract (from the factory)
@@ -31,8 +34,8 @@ export class ManagerClient {
 				"module_instantiate_info": {
 					"code_id": codeId,
 					"version": [0, 1],
-					"commit_id": "6ffbf4aa3617f978a07b594adf8013f19a936331",
-					"checksum": "df0d27c5de3011a2e3f9789b1ac9c2b984923762dfcce45f1cda4f42a12e0525",
+					"commit_id": githash,
+					"checksum": checksums.manager,
 					"changelog_url": "https://github.com/croncats",
 					"schema": "",
 					"msg": base64ManagerInst,
