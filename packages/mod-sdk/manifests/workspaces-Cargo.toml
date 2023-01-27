@@ -1,0 +1,11 @@
+[package]
+name = "mod-sdk"
+version = "0.1.0"
+authors = []
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+
+[dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+thiserror = { workspace = true }

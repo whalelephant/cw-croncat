@@ -1,0 +1,13 @@
+[package]
+name = "croncat-sdk-agents"
+version = "0.1.0"
+authors = []
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+
+[dependencies]
+cosmwasm-std = { workspace = true }
+cosmwasm-schema = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror = { workspace = true }
+croncat-sdk-core = { workspace = true }

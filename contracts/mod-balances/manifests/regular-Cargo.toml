@@ -1,0 +1,27 @@
+[package]
+name = "croncat-mod-balances"
+version = "0.1.0"
+authors = []
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-std = { version = "1.1.9" }
+cosmwasm-schema = { version = "=1.1.9" }
+cw2 = "1.0.1"
+cw20 = { version = "0.16.0" }
+mod-sdk = { path = "../../packages/mod-sdk" }
+
+[dev-dependencies]
+cw20-base = { version = "0.16.0", features = ["library"] }
+cw-multi-test = { version = "0.16.0" }
+cw-utils = "0.16.0"

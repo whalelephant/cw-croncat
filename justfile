@@ -38,3 +38,11 @@ gen-typescript:
 	yarn --cwd ./typescript install --frozen-lockfile
 	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
+
+cbuild:
+    @echo 'Changing manifest symlinks to use versioning / relative paths:'
+    {{justfile_directory()}}/scripts/set-manifests-regular.sh
+    @echo 'Building CronCat contracts:'
+    {{justfile_directory()}}/scripts/cargo-build.sh
+    @echo 'Changing manifest symlinks to point to Cargo workspaces:'
+    {{justfile_directory()}}/scripts/set-manifests-workspaces.sh

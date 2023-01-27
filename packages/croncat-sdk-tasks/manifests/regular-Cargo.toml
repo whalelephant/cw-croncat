@@ -1,0 +1,16 @@
+[package]
+name = "croncat-sdk-tasks"
+version = "0.1.0"
+authors = ["foo"]
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+
+[dependencies]
+cosmwasm-std = { version = "1.1.9" }
+cosmwasm-schema = { version = "=1.1.9" }
+cw20 = { version = "0.16.0" }
+cron_schedule = "0.2.3"
+croncat-mod-generic = { path = "../../contracts/mod-generic", features = ["library"] }
+croncat-sdk-core = { path = "../croncat-sdk-core" }
+hex = { version = "0.4", default-features = false }
+sha2 = { version = "0.10.6", default-features = false }

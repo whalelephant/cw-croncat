@@ -1,0 +1,33 @@
+[package]
+name = "croncat-agents"
+version = "0.1.0"
+authors = []
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = []
+
+[dependencies]
+cosmwasm-std = { version = "1.1.9" }
+cosmwasm-schema = { version = "=1.1.9" }
+croncat-sdk-agents = { path = "../../packages/croncat-sdk-agents" }
+croncat-sdk-tasks = { path = "../../packages/croncat-sdk-tasks" }
+croncat-sdk-core = { path = "../../packages/croncat-sdk-core" }
+croncat-sdk-manager = { path = "../../packages/croncat-sdk-manager" }
+thiserror = { version = "1.0" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+cw-storage-plus = "1.0.1"
+cw2 = "1.0.1"
+
+[dev-dependencies]
+cw-multi-test = { version = "0.16.0", features = ["staking"] }
+anyhow = "1.0"
+croncat-manager = { path = "../croncat-manager" }
+croncat-tasks = { path = "../croncat-tasks" }
