@@ -180,6 +180,15 @@ pub(crate) fn validate_msg_calculate_usage(
             }
         }
     }
+
+    if let Some(queries) = &task.queries {
+        if !amount_for_one_task.add_gas(
+            queries.len() as u64 * config.gas_query_fee,
+            config.gas_limit,
+        ) {
+            return Err(ContractError::InvalidAction {});
+        }
+    }
     Ok(amount_for_one_task)
 }
 

@@ -5,7 +5,7 @@ use super::{
 };
 use crate::msg::InstantiateMsg;
 
-use cosmwasm_std::{coins, to_binary, Addr};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Executor};
 
@@ -185,4 +185,9 @@ pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
         gas_query_fee: None,
         gas_limit: None,
     }
+}
+
+pub fn add_little_time(block: &mut BlockInfo) {
+    block.time = block.time.plus_seconds(19);
+    block.height += 1;
 }
