@@ -12,7 +12,7 @@ export class AgentClient {
         this.querier = querier;
     }
 
-    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
+    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, tasksAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
         const wasm = fs.readFileSync(`${artifactsRoot}/croncat_agents.wasm`)
         const uploadRes = await this.client.upload(sender, wasm, uploadGas)
         const codeId = uploadRes.codeId
@@ -29,7 +29,8 @@ export class AgentClient {
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        manager_addr: managerAddress
+                        manager_addr: managerAddress,
+                        tasks_addr: tasksAddress
                     })).toString('base64'),
                     "contract_name": "agents"
                 }
@@ -42,7 +43,7 @@ export class AgentClient {
     }
 
     async status(sender: string, contractAddr: string): Promise<any> {
-        const q = { get_agent: { account_id: sender, total_tasks: 1 } };
+        const q = { get_agent: { account_id: sender } };
         const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
         return response;
     }

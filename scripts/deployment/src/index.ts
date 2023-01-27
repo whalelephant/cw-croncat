@@ -54,15 +54,15 @@ const start = async () => {
     var [managerId, managerAddress] = await managerClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
     console.info(`🏗️  Manager Done`)
 
-    // Agents
-    var agentClient = new AgentClient(cwClient);
-    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, uploadGas, executeGas);
-    console.info(`🏗️  Agents Done`)
-
     // Tasks
     var taskClient = new TaskClient(cwClient);
     var [taskContractCodeId, taskContractAddr] = await taskClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
     console.info(`🏗️  Tasks Done`)
+
+    // Agents
+    var agentClient = new AgentClient(cwClient);
+    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, taskContractAddr, uploadGas, executeGas);
+    console.info(`🏗️  Agents Done`)
 
     // Modules
     var modulesClient = new ModulesClient(cwClient);
