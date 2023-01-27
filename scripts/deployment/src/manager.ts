@@ -22,7 +22,6 @@ export class ManagerClient {
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"denom": denom,
-			"croncat_factory_addr": factoryAddress,
 			"croncat_tasks_key": ["tasks", [0, 0]],
 			"croncat_agents_key": ["agents", [0, 0]]
 		})).toString('base64')
