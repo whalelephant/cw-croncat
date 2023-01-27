@@ -31,4 +31,5 @@ cw-multi-test = { workspace = true }
 anyhow = { workspace = true }
 croncat-manager = { workspace = true }
 croncat-tasks = { workspace = true }
-croncat_factory = { workspace = true }
+croncat-factory = { workspace = true }
+croncat-sdk-factory={workspace=true}
