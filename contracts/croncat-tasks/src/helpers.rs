@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Addr, Api, BankMsg, BlockInfo, CosmosMsg, Empty, Order, QuerierWrapper, StdResult, Storage,
-    WasmMsg,
+    Addr, Api, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper,
+    StdResult, Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
     AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
@@ -56,8 +56,39 @@ pub(crate) fn validate_boundary(
     Ok(boundary_validated)
 }
 
+/// Check for calls of our contracts
+pub(crate) fn check_for_self_calls(
+    tasks_addr: &Addr,
+    manager_addr: &Addr,
+    agents_addr: &Addr,
+    manager_owner_addr: &Addr,
+    sender: &Addr,
+    contract_addr: &String,
+    msg: &Binary,
+) -> Result<(), ContractError> {
+    // If it one of the our contracts it should be a manager
+    if contract_addr == tasks_addr || contract_addr == agents_addr {
+        return Err(ContractError::InvalidAction {});
+    }
+    else if contract_addr == manager_addr {
+        // Check if caller is manager owner
+        if sender != manager_owner_addr {
+            return Err(ContractError::InvalidAction {});
+        } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
+            // Check if it's tick
+            if !matches!(msg, croncat_sdk_manager::msg::ManagerExecuteMsg::Tick {}) {
+                return Err(ContractError::InvalidAction {});
+            }
+            // Other messages not allowed
+        } else {
+            return Err(ContractError::InvalidAction {});
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_msg_calculate_usage(
-    api: &dyn Api,
+    deps: Deps,
     task: &TaskRequest,
     self_addr: &Addr,
     sender: &Addr,
@@ -68,6 +99,14 @@ pub(crate) fn validate_msg_calculate_usage(
         cw20: None,
         coin: [None, None],
     };
+
+    let manager_addr = get_manager_addr(&deps.querier, config)?;
+    let agents_addr = get_agents_addr(&deps.querier, config)?;
+
+    let manager_conf: croncat_sdk_manager::types::Config = deps.querier.query_wasm_smart(
+        &manager_addr,
+        &croncat_sdk_manager::msg::ManagerQueryMsg::Config {},
+    )?;
 
     for action in task.actions.iter() {
         if !amount_for_one_task.add_gas(
@@ -82,20 +121,23 @@ pub(crate) fn validate_msg_calculate_usage(
                 funds: _,
                 msg,
             }) => {
-                // TODO: Is there any way sender can be "self" creating a malicious task?
-                // cannot be THIS contract id, unless predecessor is owner of THIS contract
-                // TODO(buckram): probably should make it check manager address as well
-                if contract_addr == self_addr && *sender != config.owner_addr {
-                    return Err(ContractError::InvalidAction {});
-                }
                 if action.gas_limit.is_none() {
                     return Err(ContractError::NoGasLimit {});
                 }
+                check_for_self_calls(
+                    self_addr,
+                    &manager_addr,
+                    &agents_addr,
+                    &manager_conf.owner_addr,
+                    sender,
+                    contract_addr,
+                    msg,
+                )?;
                 if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                     match cw20_msg {
                         Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
                             if !amount_for_one_task.add_cw20(Cw20CoinVerified {
-                                address: api.addr_validate(contract_addr)?,
+                                address: deps.api.addr_validate(contract_addr)?,
                                 amount,
                             }) {
                                 return Err(ContractError::InvalidAction {});
@@ -103,7 +145,7 @@ pub(crate) fn validate_msg_calculate_usage(
                         }
                         Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
                             if !amount_for_one_task.add_cw20(Cw20CoinVerified {
-                                address: api.addr_validate(contract_addr)?,
+                                address: deps.api.addr_validate(contract_addr)?,
                                 amount,
                             }) {
                                 return Err(ContractError::InvalidAction {});

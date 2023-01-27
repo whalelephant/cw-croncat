@@ -405,7 +405,7 @@ fn create_task_with_wasm() {
     };
     let res = app
         .execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(ADMIN),
             tasks_addr.clone(),
             &ExecuteMsg::CreateTask {
                 task: Box::new(task),
