@@ -56,3 +56,7 @@ gen-typescript:
 	yarn --cwd ./typescript install --frozen-lockfile
 	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
+
+schema: gen-schema gen-typescript
+
+all: lint build test schema

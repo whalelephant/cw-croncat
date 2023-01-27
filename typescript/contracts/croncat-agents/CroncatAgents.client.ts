@@ -22,13 +22,9 @@ export interface CroncatAgentsReadOnlyInterface {
     limit?: number;
   }) => Promise<NullableGetAgentIdsResponse>;
   getAgentTasks: ({
-    accountId,
-    blockSlots,
-    cronSlots
+    accountId
   }: {
     accountId: string;
-    blockSlots?: number;
-    cronSlots?: number;
   }) => Promise<NullableAgentTaskResponse>;
   config: () => Promise<Config>;
 }
@@ -71,19 +67,13 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     });
   };
   getAgentTasks = async ({
-    accountId,
-    blockSlots,
-    cronSlots
+    accountId
   }: {
     accountId: string;
-    blockSlots?: number;
-    cronSlots?: number;
   }): Promise<NullableAgentTaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_tasks: {
-        account_id: accountId,
-        block_slots: blockSlots,
-        cron_slots: cronSlots
+        account_id: accountId
       }
     });
   };

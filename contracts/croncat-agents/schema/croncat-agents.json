@@ -382,22 +382,6 @@
             "properties": {
               "account_id": {
                 "type": "string"
-              },
-              "block_slots": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "uint64",
-                "minimum": 0.0
-              },
-              "cron_slots": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "uint64",
-                "minimum": 0.0
               }
             },
             "additionalProperties": false
