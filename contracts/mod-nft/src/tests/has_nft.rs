@@ -75,7 +75,7 @@ fn test_has_nft() -> StdResult<()> {
         address: ANYONE.to_string(),
         nft_address: contract_addr.to_string(),
     };
-    let err: StdResult<QueryResponse> = app.wrap().query_wasm_smart(contract_addr.clone(), &msg);
+    let err: StdResult<QueryResponse> = app.wrap().query_wasm_smart(contract_addr, &msg);
     assert!(err.is_err());
 
     Ok(())
