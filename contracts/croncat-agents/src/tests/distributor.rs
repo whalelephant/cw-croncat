@@ -89,6 +89,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
     let env = mock_env();
     let mut config = mock_config(String::new().as_str());
 
+    #[allow(clippy::type_complexity)]
     let cases: &[(
         (Option<u64>, Option<u64>),
         &[(&str, u64, u64)],
