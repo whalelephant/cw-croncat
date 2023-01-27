@@ -34,13 +34,13 @@ fn mock_app() -> App {
             (6_000_000, ADMIN_CW721.to_string()),
             (1_000_000, ANYONE.to_string()),
         ];
-        for (amt, address) in accounts.iter() {
+        for (amt, address) in accounts.into_iter() {
             router
                 .bank
                 .init_balance(
                     storage,
                     &Addr::unchecked(address),
-                    vec![coin(amt.clone(), NATIVE_DENOM.to_string())],
+                    vec![coin(amt, NATIVE_DENOM.to_string())],
                 )
                 .unwrap();
         }

@@ -63,7 +63,7 @@ const start = async () => {
 
     // Agents
     var agentClient = new AgentClient(cwClient);
-    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, managerAddress, taskContractAddr, uploadGas, executeGas);
+    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
     console.info(`🏗️  Agents Done`)
 
     // Modules

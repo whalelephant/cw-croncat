@@ -27,7 +27,7 @@ pub(crate) fn get_tasks_addr(
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
-            (&tasks_name, version),
+            (tasks_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
 }

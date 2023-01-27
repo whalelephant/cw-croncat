@@ -57,7 +57,7 @@ pub fn instantiate(
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or(info.sender.clone());
+        .unwrap_or_else(|| info.sender.clone());
 
     let config = Config {
         paused: false,

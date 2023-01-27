@@ -104,13 +104,8 @@ fn test_single_check_passed_proposals() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     // Create 100 new proposals
@@ -196,7 +191,7 @@ fn test_single_check_passed_proposals() {
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
@@ -289,13 +284,8 @@ fn test_multiple_check_passed_proposals() {
         amount: Uint128::new(2000),
         msg: to_binary(&cw20_stake::msg::ReceiveMsg::Stake {}).unwrap(),
     };
-    app.execute_contract(
-        Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(CREATOR_ADDR), token_contract, &msg, &[])
+        .unwrap();
     app.update_block(next_block);
 
     // Create 100 new proposals
@@ -394,7 +384,7 @@ fn test_multiple_check_passed_proposals() {
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },

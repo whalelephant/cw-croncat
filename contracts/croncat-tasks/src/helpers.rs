@@ -279,7 +279,7 @@ pub(crate) fn get_manager_addr(
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
-            (&manager_name, version),
+            (manager_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
 }
@@ -293,7 +293,7 @@ pub(crate) fn get_agents_addr(
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
-            (&agents_name, version),
+            (agents_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
 }

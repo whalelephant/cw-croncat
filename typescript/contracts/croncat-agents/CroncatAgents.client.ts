@@ -6,22 +6,20 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, UpdateConfig, QueryMsg, Addr, Config, Nullable_AgentResponse, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, Nullable_GetAgentIdsResponse, GetAgentIdsResponse, Nullable_AgentTaskResponse, AgentTaskResponse } from "./CroncatAgents.types";
+import { InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, UpdateConfig, QueryMsg, Addr, Config, Nullable_AgentResponse, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, Nullable_GetAgentIdsResponse, GetAgentIdsResponse, Nullable_AgentTaskResponse, AgentTaskResponse } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
-    accountId,
-    totalTasks
+    accountId
   }: {
     accountId: string;
-    totalTasks: number;
   }) => Promise<NullableAgentResponse>;
   getAgentIds: ({
-    skip,
-    take
+    fromIndex,
+    limit
   }: {
-    skip?: number;
-    take?: number;
+    fromIndex?: number;
+    limit?: number;
   }) => Promise<NullableGetAgentIdsResponse>;
   getAgentTasks: ({
     accountId,
@@ -48,30 +46,27 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
   }
 
   getAgent = async ({
-    accountId,
-    totalTasks
+    accountId
   }: {
     accountId: string;
-    totalTasks: number;
   }): Promise<NullableAgentResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent: {
-        account_id: accountId,
-        total_tasks: totalTasks
+        account_id: accountId
       }
     });
   };
   getAgentIds = async ({
-    skip,
-    take
+    fromIndex,
+    limit
   }: {
-    skip?: number;
-    take?: number;
+    fromIndex?: number;
+    limit?: number;
   }): Promise<NullableGetAgentIdsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_ids: {
-        skip,
-        take
+        from_index: fromIndex,
+        limit
       }
     });
   };
@@ -118,11 +113,9 @@ export interface CroncatAgentsInterface extends CroncatAgentsReadOnlyInterface {
     fromBehind?: boolean;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   onTaskCreated: ({
-    taskHash,
-    totalTasks
+    taskHash
   }: {
     taskHash: string;
-    totalTasks: number;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   updateConfig: ({
     config
@@ -187,16 +180,13 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
     }, fee, memo, funds);
   };
   onTaskCreated = async ({
-    taskHash,
-    totalTasks
+    taskHash
   }: {
     taskHash: string;
-    totalTasks: number;
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       on_task_created: {
-        task_hash: taskHash,
-        total_tasks: totalTasks
+        task_hash: taskHash
       }
     }, fee, memo, funds);
   };

@@ -8,7 +8,7 @@ use crate::{
     tests::{
         helpers::query_manager_balances,
         helpers::{default_app, default_instantiate_message, init_manager, query_manager_config},
-        ADMIN, AGENT0, AGENT1, AGENT2, ANYONE, DENOM,
+        ADMIN, AGENT1, AGENT2, ANYONE, DENOM,
     },
     ContractError,
 };
@@ -349,7 +349,7 @@ fn cw20_receive() {
     assert_eq!(
         wallet_balances,
         vec![Cw20CoinVerified {
-            address: cw20_addr.clone(),
+            address: cw20_addr,
             amount: Uint128::new(555),
         }]
     );
@@ -497,7 +497,7 @@ fn failed_users_withdraws() {
     // refill balances
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        cw20_addr.clone(),
+        cw20_addr,
         &cw20::Cw20ExecuteMsg::Send {
             contract: manager_addr.to_string(),
             amount: Uint128::new(1000),
@@ -512,7 +512,7 @@ fn failed_users_withdraws() {
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
-            manager_addr.clone(),
+            manager_addr,
             &ExecuteMsg::UserWithdraw { limit: None },
             &[],
         )
@@ -545,7 +545,7 @@ fn withdraw_balances() {
     let cw20_addr = init_cw20(&mut app);
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        cw20_addr.clone(),
+        cw20_addr,
         &cw20::Cw20ExecuteMsg::Send {
             contract: manager_addr.to_string(),
             amount: Uint128::new(1000),
@@ -559,7 +559,7 @@ fn withdraw_balances() {
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            manager_addr.clone(),
+            manager_addr,
             &ExecuteMsg::OwnerWithdraw {},
             &[],
         )
@@ -594,7 +594,7 @@ fn failed_move_balances() {
     let cw20_addr = init_cw20(&mut app);
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        cw20_addr.clone(),
+        cw20_addr,
         &cw20::Cw20ExecuteMsg::Send {
             contract: manager_addr.to_string(),
             amount: Uint128::new(1000),
@@ -608,7 +608,7 @@ fn failed_move_balances() {
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
-            manager_addr.clone(),
+            manager_addr,
             &ExecuteMsg::OwnerWithdraw {},
             &[],
         )

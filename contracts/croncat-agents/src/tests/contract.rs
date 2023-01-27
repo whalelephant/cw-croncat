@@ -141,7 +141,7 @@ fn test_register_agent_fails() {
     let error: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            croncat_agents_addr.clone(),
+            croncat_agents_addr,
             &ExecuteMsg::RegisterAgent {
                 payable_account_id: Some(ANYONE.to_string()),
             },
@@ -249,7 +249,7 @@ fn test_update_agent_fails() {
     let error: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            croncat_agents_addr.clone(),
+            croncat_agents_addr,
             &ExecuteMsg::UpdateAgent {
                 payable_account_id: ADMIN.to_string(),
             },
@@ -307,7 +307,7 @@ fn accept_nomination_agent() {
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
     // Register AGENT1, who immediately becomes active
-    register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
 
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
 
@@ -315,8 +315,8 @@ fn accept_nomination_agent() {
     assert_eq!(total_tasks, 1);
 
     // Register two agents
-    register_agent(&mut app, &croncat_agents_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
 
     let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &croncat_agents_addr);
     assert_eq!(1, num_active_agents);
@@ -388,7 +388,7 @@ fn accept_nomination_agent() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT7).unwrap();
 
     // Add another agent, since there's now the need
-    register_agent(&mut app, &croncat_agents_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT4, AGENT_BENEFICIARY).unwrap();
     // Fast forward time past the duration of the first pending agent,
     // allowing the second to nominate themselves
     app.update_block(|block| add_seconds_to_block(block, 420));
@@ -436,7 +436,7 @@ fn test_get_agent_status() {
 
     // Register AGENT1, who immediately becomes active
     let register_agent_res =
-        register_agent(&mut app, &croncat_agents_addr, AGENT0, &AGENT_BENEFICIARY);
+        register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY);
     // First registered agent becomes active
     assert!(
         register_agent_res.is_ok(),
@@ -488,10 +488,10 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
         croncat_tasks_addr: _,
     } = init_test_scope(&mut app);
     // Register agents
-    register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT4, AGENT_BENEFICIARY).unwrap();
 
     // Check if one is active and rest is pending
     let agent_ids: GetAgentIdsResponse = app
@@ -596,11 +596,11 @@ fn removing_agent_from_any_side_is_working() {
         croncat_tasks_addr: _,
     } = init_test_scope(&mut app);
     // Register agents
-    register_agent(&mut app, &croncat_agents_addr, AGENT0, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT2, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT3, &AGENT_BENEFICIARY).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, AGENT4, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT4, AGENT_BENEFICIARY).unwrap();
 
     let agent_ids: GetAgentIdsResponse = app
         .wrap()
@@ -715,7 +715,7 @@ fn removing_agent_from_any_side_is_working() {
     );
 
     // return one agent
-    register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
     let agent_ids: GetAgentIdsResponse = app
         .wrap()
         .query_wasm_smart(
@@ -900,21 +900,21 @@ fn get_agent_status(
     agent: &str,
 ) -> Result<Option<AgentResponse>, anyhow::Error> {
     let agent_info: Option<AgentResponse> = app.wrap().query_wasm_smart(
-        &croncat_agents_addr.clone(),
+        croncat_agents_addr,
         &QueryMsg::GetAgent {
             account_id: agent.to_string(),
         },
     )?;
 
-    return Ok(agent_info);
+    Ok(agent_info)
 }
 fn get_total_tasks(app: &mut App, croncat_agents_addr: &Addr) -> Result<u64, anyhow::Error> {
     let total_tasks: Uint64 = app.wrap().query_wasm_smart(
-        &croncat_agents_addr.clone(),
+        croncat_agents_addr,
         &croncat_sdk_tasks::msg::TasksQueryMsg::TasksTotal {},
     )?;
 
-    return Ok(total_tasks.u64());
+    Ok(total_tasks.u64())
 }
 fn check_in_agent(
     app: &mut App,

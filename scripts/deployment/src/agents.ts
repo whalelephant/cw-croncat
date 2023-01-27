@@ -13,7 +13,7 @@ export class AgentClient {
         this.querier = querier;
     }
 
-    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, tasksAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
+    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
         const wasm = fs.readFileSync(`${artifactsRoot}/croncat_agents.wasm`)
         const uploadRes = await this.client.upload(sender, wasm, uploadGas)
         const codeId = uploadRes.codeId
@@ -32,7 +32,7 @@ export class AgentClient {
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        owner_addr: managerAddress,
+                        owner_addr: factoryAddress,
                         croncat_manager_key: ['manager', [0, 1]],
                         croncat_tasks_key: ['tasks', [0, 1]]
                     })).toString('base64'),
