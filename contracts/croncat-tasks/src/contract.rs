@@ -59,7 +59,7 @@ pub fn instantiate(
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
-        .unwrap_or(info.sender.clone());
+        .unwrap_or_else(|| info.sender.clone());
     let config = Config {
         paused: false,
         chain_name,
@@ -526,7 +526,7 @@ fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse
             let task = tasks_map().load(deps.storage, &task_hash)?;
             Ok(Some(task.into_response(&config.chain_name)))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 }

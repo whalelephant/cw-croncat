@@ -44,7 +44,7 @@ fn test_dao_single_proposals_with_migration() {
     };
     let max_voting_period = Duration::Height(6);
     let instantiate_govmod = dao_proposal_single::msg::InstantiateMsg {
-        threshold: threshold.clone(),
+        threshold,
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
@@ -108,7 +108,7 @@ fn test_dao_single_proposals_with_migration() {
     };
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
+        token_contract,
         &msg,
         &[],
     )
@@ -297,7 +297,7 @@ fn test_dao_single_proposals_with_migration() {
     let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },
@@ -334,7 +334,7 @@ fn test_dao_multiple_proposals_with_migration() {
     };
     let max_voting_period = cw_utils::Duration::Height(6);
     let instantiate_govmod = dao_proposal_multiple::msg::InstantiateMsg {
-        voting_strategy: voting_strategy.clone(),
+        voting_strategy,
         max_voting_period,
         min_voting_period: None,
         only_members_execute: false,
@@ -398,7 +398,7 @@ fn test_dao_multiple_proposals_with_migration() {
     };
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
+        token_contract,
         &msg,
         &[],
     )
@@ -677,7 +677,7 @@ fn test_dao_multiple_proposals_with_migration() {
     let res: QueryResponse = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposalWithMigration {
                 dao_address: govmod_single.to_string(),
             },

@@ -106,7 +106,7 @@ fn test_single_check_passed_proposals() {
     };
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
+        token_contract,
         &msg,
         &[],
     )
@@ -196,7 +196,7 @@ fn test_single_check_passed_proposals() {
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
@@ -291,7 +291,7 @@ fn test_multiple_check_passed_proposals() {
     };
     app.execute_contract(
         Addr::unchecked(CREATOR_ADDR),
-        token_contract.clone(),
+        token_contract,
         &msg,
         &[],
     )
@@ -394,7 +394,7 @@ fn test_multiple_check_passed_proposals() {
     let res: QueryResponse<Binary> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::HasPassedProposals {
                 dao_address: govmod_single.to_string(),
             },
