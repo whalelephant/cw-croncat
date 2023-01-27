@@ -3,6 +3,9 @@
 
 # Let's not worry about refactoring this until after the security audit
 
+# Move the project-level Cargo.toml because it sometimes confuses it
+mv Cargo.toml quiet-Cargo.toml
+
 export RUSTFLAGS='-C link-arg=-s'
 ## Contracts
 cd contracts || exit
@@ -26,6 +29,9 @@ cd ../mod-dao || exit
 ln -sF manifests/regular-Cargo.toml Cargo.toml
 ## Mod Generic
 cd ../mod-generic || exit
+ln -sF manifests/regular-Cargo.toml Cargo.toml
+## Mod NFT
+cd ../mod-nft || exit
 ln -sF manifests/regular-Cargo.toml Cargo.toml
 
 ## Packages

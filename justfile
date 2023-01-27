@@ -64,3 +64,8 @@ cbuild:
     {{justfile_directory()}}/scripts/cargo-build.sh
     @echo 'Changing manifest symlinks to point to Cargo workspaces:'
     {{justfile_directory()}}/scripts/set-manifests-workspaces.sh
+
+cdeploy:
+    #!/bin/bash
+    cd {{justfile_directory()}}/scripts/deployment
+    npm run go-regular

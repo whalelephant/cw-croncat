@@ -35,7 +35,7 @@ export class ManagerClient {
 					"code_id": codeId,
 					"version": [0, 1],
 					"commit_id": githash,
-					"checksum": checksums.manager,
+					"checksum": "nosleeptilsecurityaudit",
 					"changelog_url": "https://github.com/croncats",
 					"schema": "",
 					"msg": base64ManagerInst,

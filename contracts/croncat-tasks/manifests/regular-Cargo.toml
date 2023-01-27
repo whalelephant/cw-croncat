@@ -26,6 +26,7 @@ croncat-factory = { path = "../croncat-factory", features = ["library"] }
 croncat-mod-generic = { path = "../mod-generic", features = ["library"]}
 croncat-sdk-core = { path = "../../packages/croncat-sdk-core"}
 croncat-sdk-tasks = { path = "../../packages/croncat-sdk-tasks" }
+croncat-sdk-manager = { path = "../../packages/croncat-sdk-manager" }
 sha2 = { version = "0.10.6", default-features = false }
 hex = { version = "0.4", default-features = false }
 serde = { version = "1.0" }

@@ -250,6 +250,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "croncat-sdk-manager"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "croncat-sdk-core",
+ "cw20",
+ "thiserror",
+]
+
+[[package]]
 name = "croncat-sdk-tasks"
 version = "0.1.0"
 dependencies = [
@@ -273,6 +284,7 @@ dependencies = [
  "croncat-factory",
  "croncat-mod-generic",
  "croncat-sdk-core",
+ "croncat-sdk-manager",
  "croncat-sdk-tasks",
  "cw-storage-plus 1.0.1",
  "cw2 1.0.1",

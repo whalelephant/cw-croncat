@@ -21,6 +21,7 @@ croncat-sdk-agents = { path = "../../packages/croncat-sdk-agents" }
 croncat-sdk-tasks = { path = "../../packages/croncat-sdk-tasks" }
 croncat-sdk-core = { path = "../../packages/croncat-sdk-core" }
 croncat-sdk-manager = { path = "../../packages/croncat-sdk-manager" }
+croncat-factory = { path = "../croncat-factory", features = ["library"]  }
 thiserror = { version = "1.0" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 cw-storage-plus = "1.0.1"

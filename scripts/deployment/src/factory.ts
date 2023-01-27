@@ -23,13 +23,15 @@ export class FactoryClient {
 		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
 		const codeId = uploadRes.codeId
 
-    // get the version from cargo
-    const crateToml = fs.readFileSync(`${artifactsRoot}/../Cargo.toml`, 'utf8')
-    const data = toml.parse(crateToml)
+        // get the version from cargo
+        let projectTomlPath = `${artifactsRoot}/../Cargo.toml`
+        if (process.env.REGULAR === 'yes') projectTomlPath = `${artifactsRoot}/../../Cargo.toml`
+        let crateToml = fs.readFileSync(projectTomlPath, 'utf8')
+        const data = toml.parse(crateToml)
 
-    // instantiate
-    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${data.workspace.package.version}`, instantiateGas)
-    const address = factoryInst.contractAddress
+        // instantiate
+        const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${data.workspace.package.version}`, instantiateGas)
+        const address = factoryInst.contractAddress
 
 		return [codeId, address];
 	}

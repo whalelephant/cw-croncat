@@ -18,8 +18,10 @@ const seedPhrase: string = process.env.SEED_PHRASE
 const prefix: string = process.env.PREFIX
 const endpoint: string = process.env.RPC_ENDPOINT
 const denom: string = process.env.DENOM
+const regular: string = process.env.REGULAR
 const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
-const artifactsRoot = `${process.cwd()}/../../artifacts`
+let artifactsRoot = `${process.cwd()}/../../artifacts`
+if (regular === 'yes') artifactsRoot = `${process.cwd()}/../../artifacts/cargo-builds`
 
 // Gas vals
 const uploadGas = calculateFee(4_000_000, defaultGasPrice)

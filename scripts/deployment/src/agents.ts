@@ -28,12 +28,13 @@ export class AgentClient {
                     "code_id": codeId,
                     "version": [0, 1],
                     "commit_id": githash,
-                    "checksum": checksums.agents,
+                    "checksum": "nosleeptilsecurityaudit",
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        manager_addr: managerAddress,
-                        tasks_addr: tasksAddress
+                        owner_addr: managerAddress,
+                        croncat_manager_key: ['manager', [0, 1]],
+                        croncat_tasks_key: ['tasks', [0, 1]]
                     })).toString('base64'),
                     "contract_name": "agents"
                 }

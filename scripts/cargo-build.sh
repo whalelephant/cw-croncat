@@ -34,6 +34,10 @@ cp target/wasm32-unknown-unknown/release/*.wasm ../../artifacts/cargo-builds
 cd ../mod-generic || exit
 cargo build --release --target wasm32-unknown-unknown
 cp target/wasm32-unknown-unknown/release/*.wasm ../../artifacts/cargo-builds
+## Mod NFT
+cd ../mod-nft || exit
+cargo build --release --target wasm32-unknown-unknown
+cp target/wasm32-unknown-unknown/release/*.wasm ../../artifacts/cargo-builds
 
 ### Packages
 #cd ../../packages || exit

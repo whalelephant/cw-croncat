@@ -28,7 +28,7 @@ export class TaskClient {
           "code_id": codeId,
           "version": [0, 1],
           "commit_id": githash,
-          "checksum": checksums.tasks,
+          "checksum": "nosleeptilsecurityaudit",
           "changelog_url": "https://github.com/croncats",
           "schema": "",
           "msg": Buffer.from(JSON.stringify({
