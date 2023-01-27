@@ -3,9 +3,12 @@ use cosmwasm_std::{
 };
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::TaskBalance;
-use croncat_sdk_tasks::types::{
-    Action, Boundary, Config, CroncatQuery, Interval, SlotHashesResponse, SlotIdsResponse,
-    SlotTasksTotalResponse, TaskRequest, TaskResponse, Transform,
+use croncat_sdk_tasks::{
+    msg::UpdateConfigMsg,
+    types::{
+        Action, Boundary, Config, CroncatQuery, Interval, SlotHashesResponse, SlotIdsResponse,
+        SlotTasksTotalResponse, TaskRequest, TaskResponse, Transform,
+    },
 };
 use cw_multi_test::{BankSudo, Executor};
 use cw_storage_plus::KeyDeserialize;
@@ -20,7 +23,7 @@ use super::{
 use crate::{
     contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_LIMIT, GAS_QUERY_FEE, SLOT_GRANULARITY_TIME},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL},
+    state::{BLOCK_MAP_QUERIES, TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES},
     tests::{helpers::add_little_time, ANYONE},
     ContractError,
 };
@@ -54,7 +57,6 @@ mod instantiate_tests {
         };
 
         assert_eq!(config, expected_config);
-        // let manager_addr = init_manager(&mut app, &factory_addr);
     }
 
     #[test]
@@ -659,4 +661,341 @@ fn create_tasks_with_queries_and_transforms() {
     let tasks_balance = app.wrap().query_all_balances(tasks_addr.clone()).unwrap();
     assert_eq!(manager_balance, vec![coin(50000, DENOM)]);
     assert_eq!(tasks_balance, vec![]);
+}
+
+#[test]
+fn remove_tasks() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string());
+
+    // Create one block and one cron with queries and then remove one by one
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                query_mod_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+            },
+            CroncatQuery {
+                query_mod_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_block_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    // Scheduled exactly for block
+    let min_block_scheduled = BLOCK_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_block_with_queries.as_bytes(),
+        )
+        .unwrap();
+    assert_eq!(min_block_scheduled, Some(app.block_info().height + 1));
+    assert!(TIME_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_block_with_queries.as_bytes(),
+        )
+        .unwrap()
+        .is_none());
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Time {
+            start: Some((app.block_info().time).into()),
+            end: Some((app.block_info().time.plus_nanos(1000)).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                query_mod_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+            },
+            CroncatQuery {
+                query_mod_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Scheduled exactly for cron
+    let min_cron_scheduled = TIME_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_cron_with_queries.as_bytes(),
+        )
+        .unwrap();
+    assert!(min_cron_scheduled.is_some());
+    assert!(BLOCK_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_cron_with_queries.as_bytes(),
+        )
+        .unwrap()
+        .is_none());
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    // remove block task
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::RemoveTask {
+            task_hash: task_hash_block_with_queries.clone(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Task {
+                task_hash: task_hash_block_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    assert!(BLOCK_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_block_with_queries.as_bytes(),
+        )
+        .unwrap()
+        .is_none());
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // remove cron task
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::RemoveTask {
+            task_hash: task_hash_cron_with_queries.clone(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Task {
+                task_hash: task_hash_cron_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    assert!(TIME_MAP_QUERIES
+        .query(
+            &app.wrap(),
+            tasks_addr.clone(),
+            task_hash_cron_with_queries.as_bytes(),
+        )
+        .unwrap()
+        .is_none());
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_with_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // Check all balances moved from manager contract
+    let manager_balance = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    assert!(manager_balance.is_empty());
+}
+
+#[test]
+fn update_cfg() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: Some(true),
+            owner_addr: Some(ANYONE.to_owned()),
+            croncat_factory_addr: Some("fixed_croncat_factory_addr".to_owned()),
+            croncat_manager_key: Some(("manager2".to_owned(), [2, 2])),
+            croncat_agents_key: Some(("agents2".to_owned(), [2, 2])),
+            slot_granularity_time: Some(54),
+            gas_base_fee: Some(1),
+            gas_action_fee: Some(2),
+            gas_query_fee: Some(3),
+            gas_limit: Some(4),
+        }),
+        &[],
+    )
+    .unwrap();
+    let config: Config = app
+        .wrap()
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    let expected_config = Config {
+        paused: true,
+        owner_addr: Addr::unchecked(ANYONE),
+        croncat_factory_addr: Addr::unchecked("fixed_croncat_factory_addr"),
+        chain_name: "atom".to_owned(),
+        croncat_manager_key: ("manager2".to_owned(), [2, 2]),
+        croncat_agents_key: ("agents2".to_owned(), [2, 2]),
+        slot_granularity_time: 54,
+        gas_base_fee: 1,
+        gas_action_fee: 2,
+        gas_query_fee: 3,
+        gas_limit: 4,
+    };
+
+    assert_eq!(config, expected_config);
+
+    // None's shouldn't impact any of the fields
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: None,
+            owner_addr: None,
+            croncat_factory_addr: None,
+            croncat_manager_key: None,
+            croncat_agents_key: None,
+            slot_granularity_time: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
+            gas_query_fee: None,
+            gas_limit: None,
+        }),
+        &[],
+    )
+    .unwrap();
+
+    let not_updated_config: Config = app
+        .wrap()
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(not_updated_config, expected_config);
 }

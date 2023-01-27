@@ -32,7 +32,7 @@ mod instantiate_tests {
         let expected_config = Config {
             paused: false,
             owner_addr: Addr::unchecked(ADMIN),
-            croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
+            croncat_factory_addr: Addr::unchecked(ADMIN),
             croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
             croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
             agent_fee: DEFAULT_FEE,
@@ -77,7 +77,7 @@ mod instantiate_tests {
         let expected_config = Config {
             paused: false,
             owner_addr: Addr::unchecked(ANYONE),
-            croncat_factory_addr: Addr::unchecked(AGENT0),
+            croncat_factory_addr: Addr::unchecked(ADMIN),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             agent_fee: DEFAULT_FEE,
@@ -134,7 +134,6 @@ mod instantiate_tests {
                 "Invalid input: address not normalized"
             ))
         );
-
     }
 }
 
@@ -181,7 +180,7 @@ fn update_config() {
     let expected_config = Config {
         paused: true,
         owner_addr: Addr::unchecked("new_owner"),
-        croncat_factory_addr: Addr::unchecked("croncat_factory_addr"),
+        croncat_factory_addr: Addr::unchecked(ADMIN),
         croncat_tasks_key: ("new_key_tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("new_key_agents".to_owned(), [0, 1]),
         agent_fee: 0,
