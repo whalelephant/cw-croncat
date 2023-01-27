@@ -4,10 +4,10 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-import * as _6 from "./CroncatAgents.types";
-import * as _7 from "./CroncatAgents.client";
+import * as _10 from "./CroncatTasks.types";
+import * as _11 from "./CroncatTasks.client";
 export namespace contracts {
-  export const CroncatAgents = { ..._6,
-    ..._7
+  export const CroncatTasks = { ..._10,
+    ..._11
   };
 }

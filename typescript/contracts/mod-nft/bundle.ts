@@ -4,10 +4,10 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-import * as _6 from "./CroncatAgents.types";
-import * as _7 from "./CroncatAgents.client";
+import * as _2 from "./ModNft.types";
+import * as _3 from "./ModNft.client";
 export namespace contracts {
-  export const CroncatAgents = { ..._6,
-    ..._7
+  export const ModNft = { ..._2,
+    ..._3
   };
 }

@@ -7,7 +7,8 @@
     "title": "InstantiateMsg",
     "type": "object",
     "required": [
-      "manager_addr"
+      "croncat_manager_key",
+      "croncat_tasks_key"
     ],
     "properties": {
       "agent_nomination_duration": {
@@ -18,8 +19,47 @@
         "format": "uint16",
         "minimum": 0.0
       },
-      "manager_addr": {
-        "type": "string"
+      "croncat_manager_key": {
+        "description": "Name of the key for raw querying Manager address from the factory",
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "maxItems": 2,
+            "minItems": 2
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
+      },
+      "croncat_tasks_key": {
+        "description": "Name of the key for raw querying Tasks address from the factory",
+        "type": "array",
+        "items": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            },
+            "maxItems": 2,
+            "minItems": 2
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2
       },
       "min_coin_for_agent_registration": {
         "type": [
@@ -133,22 +173,7 @@
         ],
         "properties": {
           "on_task_created": {
-            "type": "object",
-            "required": [
-              "task_hash",
-              "total_tasks"
-            ],
-            "properties": {
-              "task_hash": {
-                "type": "string"
-              },
-              "total_tasks": {
-                "type": "integer",
-                "format": "uint64",
-                "minimum": 0.0
-              }
-            },
-            "additionalProperties": false
+            "$ref": "#/definitions/AgentOnTaskCreated"
           }
         },
         "additionalProperties": false
@@ -176,6 +201,18 @@
       }
     ],
     "definitions": {
+      "AgentOnTaskCreated": {
+        "type": "object",
+        "required": [
+          "task_hash"
+        ],
+        "properties": {
+          "task_hash": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateConfig": {
         "type": "object",
         "properties": {
@@ -187,11 +224,60 @@
             "format": "uint16",
             "minimum": 0.0
           },
-          "manager_addr": {
+          "croncat_factory_addr": {
+            "description": "Address of the factory contract",
             "type": [
               "string",
               "null"
             ]
+          },
+          "croncat_manager_key": {
+            "description": "Name of the key for raw querying Manager address from the factory",
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "uint8",
+                  "minimum": 0.0
+                },
+                "maxItems": 2,
+                "minItems": 2
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
+          },
+          "croncat_tasks_key": {
+            "description": "Name of the key for raw querying Tasks address from the factory",
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "uint8",
+                  "minimum": 0.0
+                },
+                "maxItems": 2,
+                "minItems": 2
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2
           },
           "min_coins_for_agent_registration": {
             "type": [
@@ -239,17 +325,11 @@
           "get_agent": {
             "type": "object",
             "required": [
-              "account_id",
-              "total_tasks"
+              "account_id"
             ],
             "properties": {
               "account_id": {
                 "type": "string"
-              },
-              "total_tasks": {
-                "type": "integer",
-                "format": "uint64",
-                "minimum": 0.0
               }
             },
             "additionalProperties": false
@@ -266,7 +346,7 @@
           "get_agent_ids": {
             "type": "object",
             "properties": {
-              "skip": {
+              "from_index": {
                 "type": [
                   "integer",
                   "null"
@@ -274,7 +354,7 @@
                 "format": "uint64",
                 "minimum": 0.0
               },
-              "take": {
+              "limit": {
                 "type": [
                   "integer",
                   "null"
@@ -349,7 +429,9 @@
       "type": "object",
       "required": [
         "agent_nomination_duration",
-        "manager_addr",
+        "croncat_factory_addr",
+        "croncat_manager_key",
+        "croncat_tasks_key",
         "min_coins_for_agent_registration",
         "min_tasks_per_agent",
         "owner_addr",
@@ -362,8 +444,55 @@
           "format": "uint16",
           "minimum": 0.0
         },
-        "manager_addr": {
-          "$ref": "#/definitions/Addr"
+        "croncat_factory_addr": {
+          "description": "Address of the factory contract",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            }
+          ]
+        },
+        "croncat_manager_key": {
+          "description": "Name of the key for raw querying Manager address from the factory",
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint8",
+                "minimum": 0.0
+              },
+              "maxItems": 2,
+              "minItems": 2
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
+        },
+        "croncat_tasks_key": {
+          "description": "Name of the key for raw querying Tasks address from the factory",
+          "type": "array",
+          "items": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "uint8",
+                "minimum": 0.0
+              },
+              "maxItems": 2,
+              "minItems": 2
+            }
+          ],
+          "maxItems": 2,
+          "minItems": 2
         },
         "min_coins_for_agent_registration": {
           "type": "integer",

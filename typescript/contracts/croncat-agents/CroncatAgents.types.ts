@@ -6,7 +6,8 @@
 
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
-  manager_addr: string;
+  croncat_manager_key: [string, [number, number]];
+  croncat_tasks_key: [string, [number, number]];
   min_coin_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -26,18 +27,20 @@ export type ExecuteMsg = {
     from_behind?: boolean | null;
   };
 } | {
-  on_task_created: {
-    task_hash: string;
-    total_tasks: number;
-  };
+  on_task_created: AgentOnTaskCreated;
 } | {
   update_config: {
     config: UpdateConfig;
   };
 };
+export interface AgentOnTaskCreated {
+  task_hash: string;
+}
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
-  manager_addr?: string | null;
+  croncat_factory_addr?: string | null;
+  croncat_manager_key?: [string, [number, number]] | null;
+  croncat_tasks_key?: [string, [number, number]] | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -46,12 +49,11 @@ export interface UpdateConfig {
 export type QueryMsg = {
   get_agent: {
     account_id: string;
-    total_tasks: number;
   };
 } | {
   get_agent_ids: {
-    skip?: number | null;
-    take?: number | null;
+    from_index?: number | null;
+    limit?: number | null;
   };
 } | {
   get_agent_tasks: {
@@ -65,7 +67,9 @@ export type QueryMsg = {
 export type Addr = string;
 export interface Config {
   agent_nomination_duration: number;
-  manager_addr: Addr;
+  croncat_factory_addr: Addr;
+  croncat_manager_key: [string, [number, number]];
+  croncat_tasks_key: [string, [number, number]];
   min_coins_for_agent_registration: number;
   min_tasks_per_agent: number;
   owner_addr: Addr;
