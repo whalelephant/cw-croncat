@@ -128,7 +128,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {
-                    if coin.amount.is_zero() || !amount_for_one_task.add_coin(amount[0].clone())? {
+                    if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
                         return Err(ContractError::InvalidAction {});
                     }
                 }
