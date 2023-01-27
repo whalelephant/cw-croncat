@@ -300,10 +300,10 @@ fn test_agent_check_in_successfull() {
 fn accept_nomination_agent() {
     let mut app = default_app();
     let TestScope {
-        croncat_factory_addr,
+        croncat_factory_addr: _,
         croncat_agents_addr,
-        croncat_agents_code_id,
-        croncat_manager_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
     // Register AGENT1, who immediately becomes active
@@ -425,10 +425,10 @@ fn accept_nomination_agent() {
 fn test_get_agent_status() {
     let mut app = default_app();
     let TestScope {
-        croncat_factory_addr,
+        croncat_factory_addr: _,
         croncat_agents_addr,
-        croncat_agents_code_id,
-        croncat_manager_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
     let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
@@ -481,11 +481,11 @@ fn test_get_agent_status() {
 fn test_last_unregistered_active_agent_promotes_first_pending() {
     let mut app = default_app();
     let TestScope {
-        croncat_factory_addr,
+        croncat_factory_addr: _,
         croncat_agents_addr,
-        croncat_agents_code_id,
-        croncat_manager_addr,
-        croncat_tasks_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr: _,
     } = init_test_scope(&mut app);
     // Register agents
     register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY).unwrap();
@@ -589,11 +589,11 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
 fn removing_agent_from_any_side_is_working() {
     let mut app = default_app();
     let TestScope {
-        croncat_factory_addr,
+        croncat_factory_addr: _,
         croncat_agents_addr,
-        croncat_agents_code_id,
-        croncat_manager_addr,
-        croncat_tasks_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr: _,
     } = init_test_scope(&mut app);
     // Register agents
     register_agent(&mut app, &croncat_agents_addr, AGENT0, &AGENT_BENEFICIARY).unwrap();

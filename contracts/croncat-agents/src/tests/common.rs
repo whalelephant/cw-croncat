@@ -30,6 +30,8 @@ pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
 pub const NATIVE_DENOM: &str = "uatom";
+
+#[allow(dead_code)]
 pub(crate) struct TestScope {
     pub croncat_factory_addr: Addr,
     pub croncat_agents_addr: Addr,

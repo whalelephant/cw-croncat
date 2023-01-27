@@ -68,7 +68,5 @@ pub(crate) fn query_tasks_addr(
             config.croncat_factory_addr.clone(),
             (agents_name, version),
         )?
-        .ok_or_else(|| StdError::generic_err(
-            ContractError::InvalidVersionKey {}.to_string(),
-        ))
+        .ok_or_else(|| StdError::generic_err(ContractError::InvalidVersionKey {}.to_string()))
 }
