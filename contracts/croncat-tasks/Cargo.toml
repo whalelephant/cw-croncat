@@ -25,6 +25,7 @@ cw2 = { workspace = true }
 
 croncat-factory = { workspace = true, features = ["library"] }
 croncat-sdk-core = { workspace = true }
+croncat-sdk-manager = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

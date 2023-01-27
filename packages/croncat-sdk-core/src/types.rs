@@ -17,7 +17,6 @@ impl AmountForOneTask {
         self.gas <= limit
     }
 
-    #[must_use]
     pub fn add_coin(&mut self, coin: Coin) -> StdResult<bool> {
         match &mut self.coin {
             [None, None] => {

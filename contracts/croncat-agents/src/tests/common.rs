@@ -95,7 +95,6 @@ pub(crate) fn croncat_manager_contract() -> Box<dyn Contract<Empty>> {
 pub(crate) fn default_manager_instantiate_message() -> croncat_manager::msg::InstantiateMsg {
     croncat_manager::msg::InstantiateMsg {
         denom: NATIVE_DENOM.to_owned(),
-        croncat_factory_addr: "croncat_factory_addr".to_owned(),
         croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
         croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
         owner_addr: None,
