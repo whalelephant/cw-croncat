@@ -32,7 +32,6 @@ export class AgentClient {
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        "croncat_factory_addr": factoryAddress,
                         "croncat_manager_key": ["manager", [0, 0]],
                         "croncat_tasks_key": ["tasks", [0, 0]],
                     })).toString('base64'),
