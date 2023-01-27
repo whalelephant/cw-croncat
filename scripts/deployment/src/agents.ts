@@ -1,6 +1,7 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { QueryClient } from "@cosmjs/stargate";
 import { StdFee } from "@cosmjs/stargate";
+import { getGitHash, getChecksums } from './utils'
 import * as fs from "fs"
 
 export class AgentClient {
@@ -12,10 +13,12 @@ export class AgentClient {
         this.querier = querier;
     }
 
-    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
+    async deploy(artifactsRoot: string, sender: string, factoryAddress: string, managerAddress: string, tasksAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
         const wasm = fs.readFileSync(`${artifactsRoot}/croncat_agents.wasm`)
         const uploadRes = await this.client.upload(sender, wasm, uploadGas)
         const codeId = uploadRes.codeId
+        const githash = await getGitHash()
+        const checksums = await getChecksums()
 
         // instantiate manager contract (from the factory)
         const deployMsg = {
@@ -24,12 +27,13 @@ export class AgentClient {
                 "module_instantiate_info": {
                     "code_id": codeId,
                     "version": [0, 1],
-                    "commit_id": "6ffbf4aa3617f978a07b594adf8013f19a936331",
-                    "checksum": "8f19d75a7523605190654125e476c0bc14d1eb7ffa7524aa280221f52a244ccf",
+                    "commit_id": githash,
+                    "checksum": checksums.agents,
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        manager_addr: managerAddress
+                        manager_addr: managerAddress,
+                        tasks_addr: tasksAddress
                     })).toString('base64'),
                     "contract_name": "agents"
                 }
@@ -42,7 +46,7 @@ export class AgentClient {
     }
 
     async status(sender: string, contractAddr: string): Promise<any> {
-        const q = { get_agent: { account_id: sender, total_tasks: 1 } };
+        const q = { get_agent: { account_id: sender } };
         const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
         return response;
     }

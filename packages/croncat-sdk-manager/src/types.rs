@@ -143,9 +143,9 @@ pub struct Config {
     /// Address of the croncat_factory
     pub croncat_factory_addr: Addr,
 
-    /// Key to query address of the tasks and agents
+    /// Key to query address of the tasks
     pub croncat_tasks_key: (String, [u8; 2]),
-    /// Key to query address of the tasks and agents
+    /// Key to query address of the agents
     pub croncat_agents_key: (String, [u8; 2]),
 
     // Economics
