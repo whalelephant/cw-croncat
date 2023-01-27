@@ -133,7 +133,7 @@ fn test_register_agent_is_successfull() {
 #[test]
 fn test_register_agent_fails() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, _) =
         init_contracts(&mut app, None);
     let error: ContractError = app
         .execute_contract(
@@ -186,7 +186,7 @@ fn test_register_agent_fails() {
 #[test]
 fn test_update_agent_is_successfull() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, _) =
         init_contracts(&mut app, None);
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -228,7 +228,7 @@ fn test_update_agent_is_successfull() {
 #[test]
 fn test_update_agent_fails() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, _) =
         init_contracts(&mut app, None);
     //Check contract fails when agent does not exist
     app.execute_contract(
@@ -293,13 +293,13 @@ fn test_update_agent_fails() {
 #[test]
 fn test_agent_check_in_successfull() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, croncat_tasks_addr) =
         init_contracts(&mut app, None);
 
     register_agent(&mut app, &contract_addr, ANYONE, PARTICIPANT0).unwrap();
     register_agent(&mut app, &contract_addr, ADMIN, PARTICIPANT0).unwrap();
     app.update_block(|block| add_seconds_to_block(block, 500));
-    create_block_task(&mut app, croncat_tasks_addr.as_str(), ADMIN);
+    create_block_task(&mut app, croncat_tasks_addr.as_str(), ADMIN).unwrap();
     check_in_agent(&mut app, &contract_addr, ADMIN).unwrap();
 
     let agent_response: AgentResponse = app
@@ -317,7 +317,7 @@ fn test_agent_check_in_successfull() {
 #[test]
 fn accept_nomination_agent() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, croncat_tasks_addr) =
         init_contracts(&mut app, None);
 
     // Register AGENT1, who immediately becomes active
@@ -438,7 +438,7 @@ fn accept_nomination_agent() {
 #[test]
 fn test_get_agent_status() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, croncat_tasks_addr) =
         init_contracts(&mut app, None);
 
     let agent_status_res = get_agent_status(&mut app, &contract_addr, AGENT1).unwrap();
@@ -487,7 +487,7 @@ fn test_get_agent_status() {
 #[test]
 fn test_last_unregistered_active_agent_promotes_first_pending() {
     let mut app = default_app();
-    let (_, contract_addr, croncat_manager_addr, croncat_tasks_addr) =
+    let (_, contract_addr, _, _) =
         init_contracts(&mut app, None);
 
     // Register agents

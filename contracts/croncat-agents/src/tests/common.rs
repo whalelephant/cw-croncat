@@ -1,4 +1,3 @@
-
 use crate::msg::*;
 use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
@@ -23,8 +22,8 @@ pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT0: &str = "cosmos1055rfv3fv0zxsp8h3x88mctnm7x9mlgmf4m4d6";
 pub const PARTICIPANT1: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-pub const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
-pub const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
+// pub const PARTICIPANT2: &str = "cosmos1far5cqkvny7k9wq53aw0k42v3f76rcylzzv05n";
+// pub const PARTICIPANT3: &str = "cosmos1xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
 pub const NATIVE_DENOM: &str = "uatom";
 
 pub(crate) fn mock_config(manager_addr: &str, tasks_addr: &str) -> Config {
@@ -103,25 +102,103 @@ pub(crate) fn default_manager_instantiate_message() -> croncat_manager::msg::Ins
         treasury_addr: None,
     }
 }
+
 pub(crate) fn init_croncat_manager_contract(
+    app: &mut App,
+    factory_addr: &Addr,
+    sender: Option<&str>,
+    owner: Option<String>,
+) -> (u64, Addr) {
+    let code_id = app.store_code(contracts::croncat_manager_contract());
+    let msg = croncat_manager::msg::InstantiateMsg {
+        denom: DENOM.to_owned(),
+        croncat_factory_addr: factory_addr.to_string(),
+        croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
+        owner_addr: Addr::unchecked(owner.unwrap_or(ADMIN.to_string())),
+        gas_price: None,
+        treasury_addr: None,
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(sender.unwrap_or(ADMIN)),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "manager".to_owned(),
+            },
+        )
+        .unwrap();
+    (code_id, metadata.unwrap().contract_addr)
+}
+
+pub(crate) fn init_manager(
     app: &mut App,
     sender: Option<&str>,
     owner: Option<String>,
-    funds: Option<&[Coin]>,
-) -> (u64, Addr) {
-    let manager_code_id = app.store_code(croncat_manager_contract());
-    let manager_contract_addr = app
-        .instantiate_contract(
-            manager_code_id,
-            Addr::unchecked(sender.unwrap_or(ADMIN)),
-            &default_manager_instantiate_message(),
-            funds.unwrap_or(&[]),
-            "manager",
-            owner,
+    factory_addr: &Addr,
+) -> Addr {
+    let code_id = app.store_code(contracts::croncat_manager_contract());
+    let msg = croncat_manager::msg::InstantiateMsg {
+        denom: DENOM.to_owned(),
+        croncat_factory_addr: factory_addr.to_string(),
+        croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
+        owner_addr: Addr::unchecked(owner.unwrap_or(ADMIN.to_string())),
+        gas_price: None,
+        treasury_addr: None,
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(sender.unwrap_or(ADMIN)),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "manager".to_owned(),
+            },
         )
         .unwrap();
-
-    (manager_code_id, manager_contract_addr)
+    metadata.unwrap().contract_addr
 }
 
 pub(crate) fn croncat_tasks_contract() -> Box<dyn Contract<Empty>> {
@@ -145,39 +222,61 @@ pub(crate) fn default_croncat_tasks_instantiate_msg() -> croncat_tasks::msg::Ins
         gas_limit: None,
     }
 }
+
 pub(crate) fn init_croncat_tasks_contract(
     app: &mut App,
     sender: Option<&str>,
     owner: Option<String>,
-    funds: Option<&[Coin]>,
-) -> (u64, Addr) {
-    let tasks_code_id = app.store_code(croncat_tasks_contract());
-    let tasks_contract_addr = app
-        .instantiate_contract(
-            tasks_code_id,
-            Addr::unchecked(sender.unwrap_or(ADMIN)),
-            &default_croncat_tasks_instantiate_msg(),
-            funds.unwrap_or(&[]),
-            "manager",
-            owner,
+    msg: &InstantiateMsg,
+    factory_addr: &Addr,
+) -> Addr {
+    let code_id = app.store_code(contracts::croncat_tasks_contract());
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "tasks".to_owned(),
+            },
         )
         .unwrap();
-
-    (tasks_code_id, tasks_contract_addr)
+    metadata.unwrap().contract_addr
 }
-pub(crate) fn init_contracts(app: &mut App, sender: Option<&str>) -> (u64, Addr, Addr, Addr) {
+
+pub(crate) fn init_contracts(app: &mut App) -> (u64, Addr, Addr, Addr) {
+    let (_, factory_addr) = init_croncat_factory(app);
     let (_, croncat_manager_addr) =
-        init_croncat_manager_contract(app, sender, Some(ADMIN.to_string()), None);
+        init_croncat_manager_contract(app,factory_addr.as_str(),None, None);
     let (_, croncat_tasks_addr) =
-        init_croncat_tasks_contract(app, sender, Some(ADMIN.to_string()), None);
+        init_croncat_tasks_contract(app, None,);
     let (code_id, contract_addr) = init_agents_contract(
         app,
         None,
         None,
-        croncat_manager_addr.clone(),
-        croncat_tasks_addr.clone(),
-        None,
-        None,
+        factory_addr.as_str().clone(),
+        croncat_manager_addr.as_str().clone(),
+        croncat_tasks_addr.as_str().clone(),
     );
     (
         code_id,
@@ -186,36 +285,80 @@ pub(crate) fn init_contracts(app: &mut App, sender: Option<&str>) -> (u64, Addr,
         croncat_tasks_addr,
     )
 }
+
 pub(crate) fn init_agents_contract(
     app: &mut App,
     sender: Option<&str>,
     owner: Option<String>,
-    croncat_manager_addr: Addr,
-    croncat_tasks_addr: Addr,
-    init_msg: Option<InstantiateMsg>,
-    funds: Option<&[Coin]>,
+    factory_addr: &str,
+    manager_addr: &str,
+    tasks_addr: &str,
 ) -> (u64, Addr) {
-    let contract_code_id = app.store_code(agent_contract());
-    let init_msg = init_msg.unwrap_or(InstantiateMsg {
-        owner_addr: owner,
+    let code_id = app.store_code(contracts::croncat_agents_contract());
+    let msg = croncat_agents::msg::InstantiateMsg {
+        manager_addr,
+        owner_addr: owner.unwrap_or(ADMIN.to_string()),
+        tasks_addr,
         agent_nomination_duration: None,
-        min_tasks_per_agent: Some(2),
-        manager_addr: croncat_manager_addr.to_string(),
-        tasks_addr: croncat_tasks_addr.to_string(),
+        min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
-    });
-    let contract_addr = app
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "agents".to_owned(),
+    };
+    app.execute_contract(
+        sender.unwrap_or(Addr::unchecked(ADMIN)),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Tasks,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "agents".to_owned(),
+            },
+        )
+        .unwrap();
+    (code_id, metadata.unwrap().contract_addr)
+}
+
+//Factory
+pub(crate) fn init_croncat_factory(app: &mut App) -> (u64, Addr) {
+    let code_id = app.store_code(contracts::croncat_factory_contract());
+    let addr = app
         .instantiate_contract(
-            contract_code_id,
-            Addr::unchecked(sender.unwrap_or(ADMIN)),
-            &init_msg,
-            funds.unwrap_or(&[]),
-            "agents",
+            code_id,
+            Addr::unchecked(ADMIN),
+            &croncat_factory::msg::InstantiateMsg { owner_addr: None },
+            &[],
+            "croncat_factory",
             None,
         )
         .unwrap();
-
-    (contract_code_id, contract_addr)
+    (code_id, addr)
+}
+pub(crate) fn croncat_factory_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_factory::contract::execute,
+        croncat_factory::contract::instantiate,
+        croncat_factory::contract::query,
+    )
+    .with_reply(croncat_factory::contract::reply);
+    Box::new(contract)
 }
 
 pub(crate) fn add_seconds_to_block(block: &mut BlockInfo, seconds: u64) {
