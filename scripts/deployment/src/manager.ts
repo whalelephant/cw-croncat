@@ -22,9 +22,9 @@ export class ManagerClient {
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"denom": denom,
-			"croncat_factory_addr": factoryAddress,
-			"croncat_tasks_key": ["tasks", [0, 0]],
-			"croncat_agents_key": ["agents", [0, 0]]
+			"owner_addr": sender,
+			"croncat_tasks_key": ["tasks", [0, 1]],
+			"croncat_agents_key": ["agents", [0, 1]]
 		})).toString('base64')
 
 		// instantiate manager contract (from the factory)

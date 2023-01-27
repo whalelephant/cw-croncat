@@ -44,4 +44,7 @@ pub enum ContractError {
 
     #[error("Invalid CronCat tasks contract address")]
     InvalidTasksContractAddress { addr: String },
+
+    #[error("Invalid version key, please update version key before calling external contracts")]
+    InvalidVersionKey {},
 }

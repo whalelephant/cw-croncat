@@ -136,7 +136,12 @@ fn create_task_without_query() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr, manager_addr.to_string(),tasks_addr.to_string());
+    let _ = init_agents(
+        &mut app,
+        &factory_addr,
+        manager_addr.to_string(),
+        tasks_addr.to_string(),
+    );
 
     let action1 = Action {
         msg: BankMsg::Send {

@@ -1,5 +1,5 @@
 import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
+import { coins, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
 import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
 import { QueryClient } from "@cosmjs/stargate";
 import { fromHex } from "@cosmjs/encoding";
@@ -108,7 +108,7 @@ const start = async () => {
 				}
 			],
 			"boundary": null,
-			"cw20": [],
+			"cw20": null,
 			"interval": {
 				"block": 10
 			},
@@ -116,7 +116,7 @@ const start = async () => {
 			"queries": null,
 			"transforms": null
 		}
-		const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task);
+		const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task, coins(60_000, denom));
 		console.info(`Task 1 Create SUCCESS`, t1)
 	} catch (e) {
 		console.info(`Task 1 Create ERROR`, e)
