@@ -54,7 +54,6 @@ pub struct AgentResponse {
     pub status: AgentStatus,
     pub payable_account_id: Addr,
     pub balance: Uint128,
-    pub total_tasks_executed: u64,
     pub last_executed_slot: u64,
     pub register_start: Timestamp,
 }

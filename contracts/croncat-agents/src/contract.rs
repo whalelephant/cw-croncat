@@ -127,7 +127,6 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
         status: agent_status,
         payable_account_id: a.payable_account_id,
         balance: a.balance,
-        total_tasks_executed: stats.completed_block_tasks + stats.completed_cron_tasks,
         last_executed_slot: stats.last_executed_slot,
         register_start: a.register_start,
     };

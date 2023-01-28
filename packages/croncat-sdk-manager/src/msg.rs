@@ -55,6 +55,9 @@ pub enum ManagerExecuteMsg {
     CreateTaskBalance(ManagerCreateTaskBalance),
     /// Remove task's balance, called by the tasks contract
     RemoveTask(ManagerRemoveTask),
+
+    /// Withdraw agent rewards
+    WithdrawRewards {},
 }
 
 #[cw_serde]

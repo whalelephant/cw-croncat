@@ -14,8 +14,9 @@ use crate::balances::{
 };
 use crate::error::ContractError;
 use crate::helpers::{
-    attached_natives, calculate_required_natives, check_if_sender_is_tasks,
-    check_ready_for_execution, gas_with_fees,
+    assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
+    check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, gas_with_fees,
+    query_agent,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
@@ -112,8 +113,10 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
+        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info),
     }
 }
+
 
 fn execute_remove_task(
     deps: DepsMut,
@@ -350,4 +353,33 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> Result<Response, ContractError> {
     todo!();
     //Ok(Response::new())
+}
+
+/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+fn execute_withdraw_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+    //assert that caller is CronCat agents contract
+    assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
+
+    //Get an agent from agent contract
+    let agent = query_agent(&deps.querier, &config, info.sender.to_string())?;
+    
+    // This will send all token balances to Agent
+    let msg = create_bank_send_message(
+        &agent.payable_account_id,
+        &config.native_denom,
+        agent.balance.u128(),
+    )?;
+    let rewards = TREASURY_BALANCE.load(deps.storage)?;
+    rewards
+        .checked_sub(agent.balance)
+        .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
+    TREASURY_BALANCE.save(deps.storage, &rewards)?;
+    Ok(Response::new()
+        .add_submessage(msg)
+        .add_attribute("action", "withdraw_rewards")
+        .add_attribute("payment_account_id", &agent.payable_account_id)
+        .add_attribute("rewards", agent.balance))
 }

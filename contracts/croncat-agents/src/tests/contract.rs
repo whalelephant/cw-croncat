@@ -96,7 +96,6 @@ fn test_register_agent_is_successfull() {
         .unwrap();
 
     assert_eq!(agent_response.status, AgentStatus::Active);
-    assert_eq!(agent_response.total_tasks_executed, 0);
     assert_eq!(agent_response.balance, Uint128::new(0));
 }
 
