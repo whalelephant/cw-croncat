@@ -403,7 +403,6 @@ fn register_agent() {
             },
         )
         .unwrap();
-    println!("agent_infoagent_info {:?}", agent_info);
     assert_eq!(AgentStatus::Active, agent_info.status);
     assert_eq!(
         Addr::unchecked(AGENT_BENEFICIARY),

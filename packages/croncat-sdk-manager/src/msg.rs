@@ -2,6 +2,8 @@ use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+use croncat_sdk_core::internal_messages::agents::{WithdrawRewardsOnRemovalArgs};
+
 use cw20::Cw20Coin;
 
 #[cw_serde]
@@ -59,6 +61,9 @@ pub enum ManagerExecuteMsg {
 
     /// Withdraw agent rewards
     WithdrawRewards {},
+
+    /// Withdraw agent rewards on agent removal, this should be called only by agent contract
+    WithdrawRewardsOnRemoval(WithdrawRewardsOnRemovalArgs),
 }
 
 #[cw_serde]

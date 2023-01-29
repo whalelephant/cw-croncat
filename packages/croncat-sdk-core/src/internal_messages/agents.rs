@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg, Uint128};
 
 #[cw_serde]
 pub struct AgentOnTaskCreated {
@@ -28,4 +28,10 @@ impl AgentOnTaskCreated {
 #[cw_serde]
 enum NewTaskMsg {
     OnTaskCreated(AgentOnTaskCreated),
+}
+#[cw_serde]
+pub struct WithdrawRewardsOnRemovalArgs{
+    pub agent_id:String,
+    pub balance:Uint128,
+    pub payable_account_id:String,
 }

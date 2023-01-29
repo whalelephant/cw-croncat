@@ -396,6 +396,9 @@ fn unregister_agent(
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
+    let agent = AGENTS
+        .may_load(deps.storage, &agent_id)?
+        .ok_or(ContractError::AgentNotRegistered)?;
 
     AGENTS.remove(deps.storage, agent_id);
     // Remove from the list of active agents if the agent in this list
@@ -434,11 +437,16 @@ fn unregister_agent(
             }
         }
     }
+
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
         .add_submessage(croncat_manager_contract::create_withdraw_rewards_submsg(
             deps.as_ref(),
             &config,
+            WITHDRAW_REWARDS_SUB_MSG_REPLY_ID,
+            agent_id.as_str(),
+            agent.payable_account_id.to_string(),
+            agent.balance.u128(),
         )?)
         .add_attribute("method", "unregister_agent")
         .add_attribute("account_id", agent_id);
@@ -617,7 +625,7 @@ fn on_task_created(
     let response = Response::new().add_attribute("method", "on_task_created");
     Ok(response)
 }
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[entry_point]
 pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
         WITHDRAW_REWARDS_SUB_MSG_REPLY_ID => {

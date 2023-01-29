@@ -1,10 +1,12 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    coin, to_binary, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response, StdResult,
-    Uint128,
+    coin, to_binary, Addr, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Reply, Response,
+    StdResult, Uint128,
 };
+use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+
 use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
 use cw2::set_contract_version;
 
@@ -18,7 +20,7 @@ use crate::helpers::{
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, gas_with_fees,
     query_agent,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg,WithdrawRewardsCallback};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, WithdrawRewardsCallback};
 use crate::state::{Config, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
@@ -113,7 +115,10 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
-        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info),
+        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info, None),
+        ExecuteMsg::WithdrawRewardsOnRemoval(args) => {
+            execute_withdraw_rewards(deps, info, Some(args))
+        }
     }
 }
 
@@ -355,36 +360,49 @@ pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> Result<Response, Contrac
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn execute_withdraw_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+fn execute_withdraw_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    args: Option<WithdrawRewardsOnRemovalArgs>,
+) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
     check_ready_for_execution(&info, &config)?;
-
-    //Get an agent from agent contract
-    let agent = query_agent(&deps.querier, &config, info.sender.to_string())?;
+    let callback: WithdrawRewardsCallback;
+    if let Some(arg) = args {
+        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
+        callback = WithdrawRewardsCallback {
+            agent_id: arg.agent_id,
+            amount: arg.balance,
+            payable_account_id: arg.payable_account_id.to_string(),
+        };
+    } else {
+        let agent = query_agent(&deps.querier, &config, info.sender.to_string())?;
+        callback = WithdrawRewardsCallback {
+            agent_id: info.sender.to_string(),
+            amount: agent.balance,
+            payable_account_id: agent.payable_account_id.to_string(),
+        };
+    }
 
     // This will send all token balances to Agent
     let msg = create_bank_send_message(
-        &agent.payable_account_id,
+        &Addr::unchecked(callback.payable_account_id.clone()),
         &config.native_denom,
-        agent.balance.u128(),
+        callback.amount.u128(),
     )?;
 
     let rewards = TREASURY_BALANCE.load(deps.storage)?;
     rewards
-        .checked_sub(agent.balance)
+        .checked_sub(callback.amount)
         .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
+
     TREASURY_BALANCE.save(deps.storage, &rewards)?;
-   
 
     Ok(Response::new()
-        .set_data(to_binary(&WithdrawRewardsCallback {
-            agent_id: info.sender.to_string(),
-            amount: agent.balance,
-            payable_account_id: agent.payable_account_id.to_string(),
-        })?)
-        .add_message(msg)
+        //.set_data(to_binary(&callback)?)
+        //.add_message(msg)
         .add_attribute("action", "withdraw_rewards")
-        .add_attribute("payment_account_id", &agent.payable_account_id)
-        .add_attribute("rewards", agent.balance))
+        .add_attribute("payment_account_id", &callback.payable_account_id)
+        .add_attribute("rewards", callback.amount))
 }

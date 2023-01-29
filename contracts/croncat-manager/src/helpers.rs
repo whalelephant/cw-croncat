@@ -135,6 +135,7 @@ pub fn query_agent(
     agent_id: String,
 ) -> Result<AgentResponse, ContractError> {
     let addr = query_agent_addr(querier, config)?;
+    println!("contractId={:?}",addr.to_string());
     // Get the agent from the agent contract
     let response: AgentResponse = querier.query_wasm_smart(
         addr,

@@ -1,9 +1,9 @@
+use cosmwasm_std::{to_binary, SubMsg, WasmMsg};
 use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint64};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
 use croncat_sdk_tasks::types::SlotTasksTotalResponse;
-use cosmwasm_std::{to_binary, WasmMsg, SubMsg};
 
 use crate::error::ContractError;
 use crate::state::*;
@@ -61,6 +61,9 @@ pub mod croncat_tasks_contract {
     }
 }
 pub mod croncat_manager_contract {
+    use cosmwasm_std::Uint128;
+    use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+
     use super::*;
 
     pub fn query_manager_config(deps: Deps, config: &Config) -> StdResult<ManagerConfig> {
@@ -88,15 +91,31 @@ pub mod croncat_manager_contract {
             })
     }
 
-    pub fn create_withdraw_rewards_submsg(deps: Deps, config: &Config) -> StdResult<SubMsg> {
+    pub fn create_withdraw_rewards_submsg(
+        deps: Deps,
+        config: &Config,
+        reply_id:u64,
+        agent_id: &str,
+        payable_account_id:String,
+        balance:u128,
+    ) -> StdResult<SubMsg> {
         let addr = query_manager_addr(&deps.querier, config)?;
-        // Get the denom from the manager contract
-        let execute =SubMsg::reply_always(WasmMsg::Execute {
-            contract_addr: addr.into(),
-            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawRewards {})?,
-            funds: vec![],
-        },WITHDRAW_REWARDS_SUB_MSG_REPLY_ID);
-    
+        let args = WithdrawRewardsOnRemovalArgs {
+            agent_id: agent_id.to_owned(),
+            payable_account_id,
+            balance:Uint128::new(balance),
+        };
+        let execute = SubMsg::reply_always(
+            WasmMsg::Execute {
+                contract_addr: addr.into(),
+                msg: to_binary(
+                    &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawRewardsOnRemoval(args),
+                )?,
+                funds: vec![],
+            },
+            reply_id,
+        );
+
         Ok(execute)
     }
 }
