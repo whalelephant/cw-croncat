@@ -18,7 +18,7 @@ use crate::helpers::{
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, gas_with_fees,
     query_agent,
 };
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg,WithdrawRewardsCallback};
 use crate::state::{Config, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
@@ -116,7 +116,6 @@ pub fn execute(
         ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info),
     }
 }
-
 
 fn execute_remove_task(
     deps: DepsMut,
@@ -360,25 +359,31 @@ fn execute_withdraw_rewards(deps: DepsMut, info: MessageInfo) -> Result<Response
     let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
     check_ready_for_execution(&info, &config)?;
-    //assert that caller is CronCat agents contract
-    assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
 
     //Get an agent from agent contract
     let agent = query_agent(&deps.querier, &config, info.sender.to_string())?;
-    
+
     // This will send all token balances to Agent
     let msg = create_bank_send_message(
         &agent.payable_account_id,
         &config.native_denom,
         agent.balance.u128(),
     )?;
+
     let rewards = TREASURY_BALANCE.load(deps.storage)?;
     rewards
         .checked_sub(agent.balance)
         .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
     TREASURY_BALANCE.save(deps.storage, &rewards)?;
+   
+
     Ok(Response::new()
-        .add_submessage(msg)
+        .set_data(to_binary(&WithdrawRewardsCallback {
+            agent_id: info.sender.to_string(),
+            amount: agent.balance,
+            payable_account_id: agent.payable_account_id.to_string(),
+        })?)
+        .add_message(msg)
         .add_attribute("action", "withdraw_rewards")
         .add_attribute("payment_account_id", &agent.payable_account_id)
         .add_attribute("rewards", agent.balance))

@@ -224,6 +224,11 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
         init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
     let (croncat_agents_code_id, croncat_agents_addr) =
         init_agents_contract(app, None, None, croncat_factory_addr.as_str());
+
+    println!("croncat_agents_addr,:{0}",croncat_agents_addr);
+    println!("croncat_manager_addr:{0}",croncat_manager_addr);
+    println!("croncat_tasks_addr:{0}",croncat_tasks_addr);
+
     TestScope {
         croncat_factory_addr,
         croncat_agents_code_id: Some(croncat_agents_code_id),

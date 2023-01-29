@@ -1,5 +1,6 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Coin, Empty, MessageInfo, QuerierWrapper, StdError, StdResult, SubMsg, Uint128,
+    Addr, BankMsg, Coin, CosmosMsg, Empty, MessageInfo, QuerierWrapper, StdError, StdResult,
+     Uint128,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_manager::types::Config;
@@ -134,7 +135,7 @@ pub fn query_agent(
     agent_id: String,
 ) -> Result<AgentResponse, ContractError> {
     let addr = query_agent_addr(querier, config)?;
-    // Get the denom from the manager contract
+    // Get the agent from the agent contract
     let response: AgentResponse = querier.query_wasm_smart(
         addr,
         &croncat_sdk_agents::msg::QueryMsg::GetAgent {
@@ -149,15 +150,15 @@ pub(crate) fn create_bank_send_message(
     to: &Addr,
     denom: &str,
     amount: u128,
-) -> StdResult<SubMsg> {
+) -> StdResult<CosmosMsg> {
     let coin = Coin {
         denom: denom.to_owned(),
         amount: Uint128::from(amount),
     };
-    let msg = SubMsg::new(BankMsg::Send {
+    let msg = BankMsg::Send {
         to_address: to.into(),
         amount: vec![coin],
-    });
+    };
 
-    Ok(msg)
+    Ok(msg.into())
 }

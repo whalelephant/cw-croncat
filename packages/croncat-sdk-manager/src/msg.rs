@@ -1,5 +1,6 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Uint128;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use cw20::Cw20Coin;
 
@@ -85,4 +86,10 @@ pub enum ManagerQueryMsg {
 pub enum ManagerReceiveMsg {
     RefillTempBalance {},
     RefillTaskBalance { task_hash: String },
+}
+#[cw_serde]
+pub struct WithdrawRewardsCallback {
+    pub agent_id: String,
+    pub amount:Uint128,
+    pub payable_account_id:String,
 }

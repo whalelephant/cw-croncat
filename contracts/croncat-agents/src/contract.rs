@@ -1,6 +1,3 @@
-use std::cmp;
-use std::ops::Div;
-
 use crate::distributor::*;
 use crate::error::ContractError;
 use crate::external::*;
@@ -8,6 +5,8 @@ use crate::msg::*;
 use crate::state::*;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cosmwasm_std::from_binary;
+use cosmwasm_std::Reply;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Storage, Uint128,
@@ -18,6 +17,9 @@ use croncat_sdk_agents::msg::{
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use cw2::set_contract_version;
+use cw_utils::parse_reply_execute_data;
+use std::cmp;
+use std::ops::Div;
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -113,7 +115,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
 
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let total_tasks = query_total_tasks(deps, &config)?;
+    let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -168,7 +170,7 @@ fn query_get_agent_tasks(
     }
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let (block_slots, cron_slots) = query_tasks_slots(deps, &config)?;
+    let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
         return Ok(None);
     }
@@ -208,7 +210,7 @@ fn register_agent(
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
     // Get the denom from the manager contract
-    let manager_config = query_manager_config(deps.as_ref(), &c)?;
+    let manager_config = croncat_manager_contract::query_manager_config(deps.as_ref(), &c)?;
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),
@@ -393,6 +395,8 @@ fn unregister_agent(
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+
     AGENTS.remove(deps.storage, agent_id);
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
@@ -430,8 +434,12 @@ fn unregister_agent(
             }
         }
     }
-
     let responses = Response::new()
+        //Send withdraw rewards message to manager contract
+        .add_submessage(croncat_manager_contract::create_withdraw_rewards_submsg(
+            deps.as_ref(),
+            &config,
+        )?)
         .add_attribute("method", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
@@ -588,11 +596,11 @@ fn on_task_created(
     _: AgentOnTaskCreated,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
-    assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
+    croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let total_tasks = query_total_tasks(deps.as_ref(), &config)?;
+    let total_tasks = croncat_tasks_contract::query_total_tasks(deps.as_ref(), &config)?;
     let num_agents_to_accept =
         agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
 
@@ -608,4 +616,23 @@ fn on_task_created(
     }
     let response = Response::new().add_attribute("method", "on_task_created");
     Ok(response)
+}
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
+    match reply.id {
+        WITHDRAW_REWARDS_SUB_MSG_REPLY_ID => {
+            let res = parse_reply_execute_data(reply)
+                .map_err(|e| ContractError::Std(StdError::generic_err(e.to_string())))?;
+            let callback: croncat_sdk_manager::msg::WithdrawRewardsCallback = from_binary(
+                &res.data
+                    .ok_or(ContractError::InvalidExecuteCallbackData {})?,
+            )
+            .map_err(|_| ContractError::InvalidExecuteCallbackData {})?;
+
+            Ok(Response::default()
+                .add_attribute("agent_id", callback.agent_id)
+                .add_attribute("payable_account_id", callback.payable_account_id))
+        }
+        _ => Err(ContractError::UnrecognisedReplyId { reply_id: reply.id }),
+    }
 }

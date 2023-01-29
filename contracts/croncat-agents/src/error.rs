@@ -47,4 +47,13 @@ pub enum ContractError {
 
     #[error("Invalid version key, please update version key before calling external contracts")]
     InvalidVersionKey {},
+
+    #[error("Unrecognised reply_id")]
+    UnrecognisedReplyId {reply_id: u64 },
+
+    #[error("An unexpected error occurred")]
+    UnexpectedError {},
+
+    #[error("Invalid callback data when deserializing data from execution result")]
+    InvalidExecuteCallbackData {},
 }

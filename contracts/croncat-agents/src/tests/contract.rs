@@ -762,6 +762,28 @@ fn removing_agent_from_any_side_is_working() {
     );
 }
 
+#[test]
+fn test_should_fail_with_zero_rewards() {
+    let mut app = default_app();
+    let TestScope {
+        croncat_factory_addr: _,
+        croncat_agents_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr: _,
+    } = init_test_scope(&mut app);
+
+    // Register agents
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+
+    //No available rewards for withdraw
+    let err: ContractError = unregister_agent(&mut app, &croncat_agents_addr,AGENT0)
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err.to_string(),"");
+}
+
 // This test requires tasks contract
 // #[test]
 // fn test_query_get_agent_tasks() {
@@ -876,6 +898,18 @@ fn register_agent(
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(beneficiary.to_string()),
         },
+        &[],
+    )
+}
+fn unregister_agent(
+    app: &mut App,
+    croncat_agents_addr: &Addr,
+    agent: &str,
+) -> Result<AppResponse, anyhow::Error> {
+    app.execute_contract(
+        Addr::unchecked(agent),
+        croncat_agents_addr.clone(),
+        &ExecuteMsg::UnregisterAgent { from_behind: None },
         &[],
     )
 }

@@ -12,6 +12,7 @@ pub const AGENT_NOMINATION_BEGIN_TIME: Item<Option<Timestamp>> =
 pub(crate) const DEFAULT_NOMINATION_DURATION: u16 = 360;
 pub(crate) const DEFAULT_MIN_TASKS_PER_AGENT: u64 = 3;
 pub(crate) const DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION: u64 = 200_000;
+pub(crate) const WITHDRAW_REWARDS_SUB_MSG_REPLY_ID: u64 = 1;
 
 pub const AGENTS: Map<&Addr, Agent> = Map::new("agents");
 pub const AGENTS_ACTIVE: Item<Vec<Addr>> = Item::new("agents_active");
