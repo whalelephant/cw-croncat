@@ -112,7 +112,6 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     };
 
     let config: Config = CONFIG.load(deps.storage)?;
-
     let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
     let rewards =
         croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
