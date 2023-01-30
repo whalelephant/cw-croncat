@@ -32,6 +32,6 @@ enum NewTaskMsg {
 #[cw_serde]
 pub struct WithdrawRewardsOnRemovalArgs{
     pub agent_id:String,
-    pub balance:Uint128,
     pub payable_account_id:String,
+    pub balance:Uint128,
 }

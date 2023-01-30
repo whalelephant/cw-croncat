@@ -372,37 +372,48 @@ fn execute_withdraw_rewards(
     if let Some(arg) = args {
         assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
         callback = WithdrawRewardsCallback {
-            agent_id: arg.agent_id,
-            amount: arg.balance,
-            payable_account_id: arg.payable_account_id.to_string(),
-        };
+            agent_id: arg.agent_id.clone(),
+            balance: arg.balance,
+            payable_account_id: arg.payable_account_id,
+        }
     } else {
-        let agent = query_agent(&deps.querier, &config, info.sender.to_string())?;
+        let agent = query_agent(&deps.querier, &config, info.sender.to_string())?
+            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
+
         callback = WithdrawRewardsCallback {
             agent_id: info.sender.to_string(),
-            amount: agent.balance,
+            balance: agent.balance,
             payable_account_id: agent.payable_account_id.to_string(),
         };
-    }
 
-    // This will send all token balances to Agent
-    let msg = create_bank_send_message(
-        &Addr::unchecked(callback.payable_account_id.clone()),
-        &config.native_denom,
-        callback.amount.u128(),
-    )?;
+        if callback.balance.is_zero() {
+            return Err(ContractError::NoWithdrawRewardsAvailable {});
+        }
+    }
 
     let rewards = TREASURY_BALANCE.load(deps.storage)?;
     rewards
-        .checked_sub(callback.amount)
+        .checked_sub(callback.balance)
         .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
 
     TREASURY_BALANCE.save(deps.storage, &rewards)?;
 
+    let mut msgs = vec![];
+    // This will send all token balances to Agent
+    let msg = create_bank_send_message(
+        &Addr::unchecked(callback.payable_account_id.clone()),
+        &config.native_denom,
+        callback.balance.u128(),
+    )?;
+
+    if !callback.balance.is_zero() {
+        msgs.push(msg);
+    }
+
     Ok(Response::new()
-        //.set_data(to_binary(&callback)?)
-        //.add_message(msg)
+        .add_messages(msgs)
+        .set_data(to_binary(&callback)?)
         .add_attribute("action", "withdraw_rewards")
         .add_attribute("payment_account_id", &callback.payable_account_id)
-        .add_attribute("rewards", callback.amount))
+        .add_attribute("rewards", callback.balance))
 }

@@ -40,4 +40,7 @@ pub enum ContractError {
 
     #[error("No rewards available for withdraw")]
     NoWithdrawRewardsAvailable {},
+
+    #[error("No rewards owner agent found")]
+    NoRewardsOwnerAgentFound {},
 }

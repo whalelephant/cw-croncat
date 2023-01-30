@@ -92,11 +92,11 @@ pub fn execute(
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
-        ExecuteMsg::UpdateAgent { payable_account_id } => {
-            update_agent(deps, info, env, payable_account_id)
-        }
         ExecuteMsg::UnregisterAgent { from_behind } => {
             unregister_agent(deps, &info.sender, from_behind)
+        }
+        ExecuteMsg::UpdateAgent { payable_account_id } => {
+            update_agent(deps, info, env, payable_account_id)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
@@ -106,7 +106,9 @@ pub fn execute(
 
 fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option<AgentResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
+
     let agent = AGENTS.may_load(deps.storage, &account_id)?;
+
     let a = if let Some(a) = agent {
         a
     } else {
@@ -116,6 +118,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     let config: Config = CONFIG.load(deps.storage)?;
 
     let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
+
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -440,10 +443,9 @@ fn unregister_agent(
 
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
-        .add_submessage(croncat_manager_contract::create_withdraw_rewards_submsg(
+        .add_message(croncat_manager_contract::create_withdraw_rewards_submsg(
             deps.as_ref(),
             &config,
-            WITHDRAW_REWARDS_SUB_MSG_REPLY_ID,
             agent_id.as_str(),
             agent.payable_account_id.to_string(),
             agent.balance.u128(),
@@ -625,22 +627,4 @@ fn on_task_created(
     let response = Response::new().add_attribute("method", "on_task_created");
     Ok(response)
 }
-#[entry_point]
-pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
-    match reply.id {
-        WITHDRAW_REWARDS_SUB_MSG_REPLY_ID => {
-            let res = parse_reply_execute_data(reply)
-                .map_err(|e| ContractError::Std(StdError::generic_err(e.to_string())))?;
-            let callback: croncat_sdk_manager::msg::WithdrawRewardsCallback = from_binary(
-                &res.data
-                    .ok_or(ContractError::InvalidExecuteCallbackData {})?,
-            )
-            .map_err(|_| ContractError::InvalidExecuteCallbackData {})?;
 
-            Ok(Response::default()
-                .add_attribute("agent_id", callback.agent_id)
-                .add_attribute("payable_account_id", callback.payable_account_id))
-        }
-        _ => Err(ContractError::UnrecognisedReplyId { reply_id: reply.id }),
-    }
-}

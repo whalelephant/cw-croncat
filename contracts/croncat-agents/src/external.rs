@@ -61,7 +61,7 @@ pub mod croncat_tasks_contract {
     }
 }
 pub mod croncat_manager_contract {
-    use cosmwasm_std::Uint128;
+    use cosmwasm_std::{CosmosMsg, Uint128};
     use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 
     use super::*;
@@ -94,27 +94,23 @@ pub mod croncat_manager_contract {
     pub fn create_withdraw_rewards_submsg(
         deps: Deps,
         config: &Config,
-        reply_id:u64,
         agent_id: &str,
-        payable_account_id:String,
-        balance:u128,
-    ) -> StdResult<SubMsg> {
+        payable_account_id: String,
+        balance: u128,
+    ) -> StdResult<CosmosMsg> {
         let addr = query_manager_addr(&deps.querier, config)?;
         let args = WithdrawRewardsOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,
-            balance:Uint128::new(balance),
+            balance: Uint128::from(balance),
         };
-        let execute = SubMsg::reply_always(
-            WasmMsg::Execute {
-                contract_addr: addr.into(),
-                msg: to_binary(
-                    &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawRewardsOnRemoval(args),
-                )?,
-                funds: vec![],
-            },
-            reply_id,
-        );
+        let execute = CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr: addr.into(),
+            msg: to_binary(
+                &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawRewardsOnRemoval(args),
+            )?,
+            funds: vec![],
+        });
 
         Ok(execute)
     }

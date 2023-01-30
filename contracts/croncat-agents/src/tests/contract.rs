@@ -763,7 +763,7 @@ fn removing_agent_from_any_side_is_working() {
 }
 
 #[test]
-fn test_should_fail_with_zero_rewards() {
+fn test_withdraw_rewards_balances_on_unregister() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -775,15 +775,24 @@ fn test_should_fail_with_zero_rewards() {
 
     // Register agents
     register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+    let old_balance = app
+        .wrap()
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
+        .unwrap()
+        .amount
+        .u128();
+    unregister_agent(&mut app, &croncat_agents_addr, AGENT0).unwrap();
+    let new_balance = app
+        .wrap()
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
+        .unwrap()
+        .amount
+        .u128();
 
-    //No available rewards for withdraw
-    let err: ContractError = unregister_agent(&mut app, &croncat_agents_addr,AGENT0)
-        .unwrap_err()
-        .downcast()
-        .unwrap();
+    //Check balances are not changed, as we don't have any rewards to withdraw
+    assert_eq!(old_balance ,500000);
+    assert_eq!(new_balance ,500000);
 
-    println!("{:?}",err);
-    //assert_eq!(err.to_string(),"");
 }
 
 // This test requires tasks contract

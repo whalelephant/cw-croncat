@@ -133,17 +133,17 @@ pub fn query_agent(
     querier: &QuerierWrapper<Empty>,
     config: &Config,
     agent_id: String,
-) -> Result<AgentResponse, ContractError> {
+) -> Result<Option<AgentResponse>, ContractError> {
     let addr = query_agent_addr(querier, config)?;
-    println!("contractId={:?}",addr.to_string());
+
     // Get the agent from the agent contract
-    let response: AgentResponse = querier.query_wasm_smart(
+    let response: Option<AgentResponse> = querier.query_wasm_smart(
         addr,
         &croncat_sdk_agents::msg::QueryMsg::GetAgent {
             account_id: agent_id,
         },
     )?;
-
+    
     Ok(response)
 }
 
