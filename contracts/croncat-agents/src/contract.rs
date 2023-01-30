@@ -394,6 +394,9 @@ fn unregister_agent(
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
+    if config.paused {
+        return Err(ContractError::ContractPaused);
+    }
     let agent = AGENTS
         .may_load(deps.storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
