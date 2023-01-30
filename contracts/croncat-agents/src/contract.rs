@@ -101,7 +101,6 @@ pub fn execute(
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
-        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info),
     }
 }
 
@@ -618,23 +617,6 @@ fn on_task_created(
         }
     }
     let response = Response::new().add_attribute("action", "on_task_created");
-    Ok(response)
-}
-
-pub fn execute_withdraw_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.may_load(deps.storage)?.unwrap();
-    let (_, balance, msgs) =
-        withdraw_rewards(deps.storage, &deps.querier, &config, &info.sender, true)?;
-    let agent_id = info.sender.to_string();
-
-    let response = Response::new()
-        .add_attribute("action", "withdraw_rewards")
-        .add_attribute("agent_id", agent_id)
-        .add_attribute("balance", balance)
-        .add_messages(msgs);
     Ok(response)
 }
 
