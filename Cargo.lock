@@ -277,10 +277,13 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "croncat-factory",
+ "croncat-sdk-agents",
  "croncat-sdk-core",
  "croncat-sdk-manager",
+ "croncat-sdk-tasks",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
+ "cw-utils 0.16.0",
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
@@ -404,6 +407,7 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
+ "serde-json-wasm",
  "sha2 0.10.6",
 ]
 
@@ -426,6 +430,7 @@ dependencies = [
  "cw-utils 0.16.0",
  "cw2 1.0.1",
  "cw20 0.16.0",
+ "mod-sdk",
  "thiserror",
 ]
 

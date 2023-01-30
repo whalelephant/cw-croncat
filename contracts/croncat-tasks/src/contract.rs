@@ -18,7 +18,8 @@ use cw_storage_plus::Bound;
 use crate::error::ContractError;
 use crate::helpers::{
     check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task_with_queries,
-    remove_task_without_queries, validate_boundary, validate_msg_calculate_usage,
+    remove_task_without_queries, task_with_queries_ready, validate_boundary,
+    validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -430,7 +431,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotTasksTotal { offset } => {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
-        QueryMsg::GetCurrentTask {} => to_binary(&query_get_current_task(deps, env)?),
+        QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
+        QueryMsg::TaskWithTransforms { task_hash } => {
+            to_binary(&query_task_with_transforms(deps, env, task_hash)?)
+        }
     }
 }
 
@@ -495,7 +499,7 @@ fn query_slot_tasks_total(
 
 /// Get the slot with lowest height/timestamp
 /// NOTE: This prioritizes blocks over timestamps
-fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
+fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
     let config = CONFIG.load(deps.storage)?;
 
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
@@ -700,4 +704,45 @@ fn query_slot_ids(
         time_ids,
         block_ids,
     })
+}
+
+/// Query task with applied transforms,
+/// it will return None if
+/// 1 - task does not exist
+/// 2 - task is not ready
+/// 3 - any of the queries returned false as a result
+fn query_task_with_transforms(
+    deps: Deps,
+    env: Env,
+    task_hash: String,
+) -> StdResult<Option<TaskResponse>> {
+    let Some(mut task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
+        return Ok(None);
+    };
+    if !task_with_queries_ready(deps.storage, &env.block, &task, task_hash.as_bytes())? {
+        return Ok(None);
+    }
+    let mut query_responses = Vec::with_capacity(task.queries.len());
+    for query in task.queries.iter() {
+        let query_res: mod_sdk::types::QueryResponse = deps
+            .querier
+            .query_wasm_smart(query.query_mod_addr.clone(), &query.msg)?;
+        if !query_res.result {
+            return Ok(None);
+        }
+        query_responses.push(query_res.data);
+    }
+    task.replace_values(deps.api, &env.contract.address, query_responses)?;
+    Ok(Some(TaskResponse {
+        task_hash,
+        owner_addr: task.owner_addr,
+        interval: task.interval,
+        boundary: task.boundary.into(),
+        stop_on_fail: task.stop_on_fail,
+        amount_for_one_task: task.amount_for_one_task,
+        actions: task.actions,
+        queries: Some(task.queries),
+        transforms: task.transforms,
+        version: task.version,
+    }))
 }

@@ -2,13 +2,13 @@ use cosmwasm_std::{
     coins, from_binary, to_binary, Addr, BankMsg, Deps, DepsMut, MessageInfo, Order, Response,
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
-use croncat_sdk_manager::types::Config;
+use croncat_sdk_manager::types::{Config, GasPrice};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{
-    helpers::check_ready_for_execution,
+    helpers::{check_ready_for_execution, gas_fee},
     msg::ReceiveMsg,
-    state::{CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
+    state::{AGENT_REWARDS, CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
     ContractError,
 };
 
@@ -46,6 +46,32 @@ pub(crate) fn sub_user_cw20(
         TEMP_BALANCES_CW20.save(storage, (user_addr, &cw20.address), &new_bal)?;
     }
     Ok(new_bal)
+}
+
+pub(crate) fn add_fee_rewards(
+    storage: &mut dyn Storage,
+    gas: u64,
+    gas_price: &GasPrice,
+    agent_addr: &Addr,
+    agent_fee: u64,
+    treasury_fee: u64,
+) -> Result<(), ContractError> {
+    AGENT_REWARDS.update(
+        storage,
+        agent_addr,
+        |agent_balance| -> Result<_, ContractError> {
+            let gas_fee = gas_fee(gas, agent_fee)?;
+            let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+            Ok(agent_balance.unwrap_or_default() + amount)
+        },
+    )?;
+
+    TREASURY_BALANCE.update(storage, |balance| -> Result<_, ContractError> {
+        let gas_fee = gas_fee(gas, treasury_fee)?;
+        let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+        Ok(balance + amount)
+    })?;
+    Ok(())
 }
 
 // Contract methods

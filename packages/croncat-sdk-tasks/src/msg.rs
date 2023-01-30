@@ -113,5 +113,9 @@ pub enum TasksQueryMsg {
     SlotTasksTotal { offset: Option<u64> },
     /// Get next task to be done
     #[returns(Option<crate::types::TaskResponse>)]
-    GetCurrentTask {},
+    CurrentTask {},
+    /// Get task with transforms
+    /// To get original task query [`TasksQueryMsg::Task`] instead
+    #[returns(Option<crate::types::TaskResponse>)]
+    TaskWithTransforms { task_hash: String },
 }

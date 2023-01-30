@@ -250,7 +250,7 @@ fn create_task_without_query() {
     // Check it's next item
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
     assert!(current_slot.is_none());
     app.update_block(add_little_time);
@@ -270,7 +270,7 @@ fn create_task_without_query() {
     );
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
 
     assert_eq!(current_slot, Some(expected_block_task_response.clone()));
@@ -406,7 +406,7 @@ fn create_task_without_query() {
     // Check it prefers block over cron
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
     assert_eq!(current_slot, Some(expected_block_task_response));
 

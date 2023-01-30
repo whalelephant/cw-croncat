@@ -1,11 +1,14 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64};
+use cosmwasm_std::{
+    Addr, Api, Binary, CosmosMsg, Empty, Env, StdError, StdResult, Timestamp, Uint128, Uint64,
+    WasmMsg,
+};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
-use cw20::Cw20Coin;
+use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 
@@ -141,6 +144,22 @@ pub struct BoundaryValidated {
     pub is_block_boundary: bool,
 }
 
+impl From<BoundaryValidated> for Boundary {
+    fn from(value: BoundaryValidated) -> Self {
+        if value.is_block_boundary {
+            Boundary::Height {
+                start: Some(value.start.into()),
+                end: value.end.map(Into::into),
+            }
+        } else {
+            Boundary::Time {
+                start: Some(Timestamp::from_nanos(value.start)),
+                end: value.end.map(Timestamp::from_nanos),
+            }
+        }
+    }
+}
+
 #[cw_serde]
 pub struct Action<T = Empty> {
     /// Supported CosmosMsgs only!
@@ -238,17 +257,7 @@ impl Task {
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {
         let task_hash = self.to_hash(prefix);
-        let boundary = if self.boundary.is_block_boundary {
-            Boundary::Height {
-                start: Some(self.boundary.start.into()),
-                end: self.boundary.end.map(Into::into),
-            }
-        } else {
-            Boundary::Time {
-                start: Some(Timestamp::from_nanos(self.boundary.start)),
-                end: self.boundary.end.map(Timestamp::from_nanos),
-            }
-        };
+        let boundary = self.boundary.into();
 
         let queries = if !self.queries.is_empty() {
             Some(self.queries)
@@ -268,6 +277,98 @@ impl Task {
             transforms: self.transforms,
             version: self.version,
         }
+    }
+
+    /// Replace values to the result value from the rules
+    /// Recalculate cw20 usage if any replacements
+    pub fn replace_values(
+        &mut self,
+        api: &dyn Api,
+        cron_addr: &Addr,
+        construct_res_data: Vec<cosmwasm_std::Binary>,
+    ) -> StdResult<()> {
+        for transform in self.transforms.iter() {
+            let wasm_msg = self
+                .actions
+                .get_mut(transform.action_idx as usize)
+                .and_then(|action| {
+                    if let CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: _,
+                        msg,
+                        funds: _,
+                    }) = &mut action.msg
+                    {
+                        Some(msg)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| StdError::generic_err("Task is no longer valid"))?;
+            let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
+
+            let mut q_val = construct_res_data
+                .get(transform.query_idx as usize)
+                .ok_or_else(|| StdError::generic_err("Task is no longer valid"))
+                .and_then(cosmwasm_std::from_binary)?;
+            let replace_value = transform.query_response_path.find_value(&mut q_val)?;
+            let replaced_value = transform.action_path.find_value(&mut action_value)?;
+            *replaced_value = replace_value.clone();
+            *wasm_msg = Binary(
+                serde_json_wasm::to_vec(&action_value)
+                    .map_err(|e| StdError::generic_err(e.to_string()))?,
+            );
+        }
+        let cw20_amount_recalculated = self.recalculate_cw20_usage(api, cron_addr)?;
+        self.amount_for_one_task.cw20 = cw20_amount_recalculated;
+        Ok(())
+    }
+
+    fn recalculate_cw20_usage(
+        &self,
+        api: &dyn Api,
+        cron_addr: &Addr,
+    ) -> StdResult<Option<Cw20CoinVerified>> {
+        let Some(current_cw20) = &self.amount_for_one_task.cw20 else {
+            return Ok(None)
+        };
+        let actions = self.actions.iter();
+        let mut cw20_amount = Uint128::zero();
+        for action in actions {
+            if let CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr, msg, ..
+            }) = &action.msg
+            {
+                if cron_addr.as_str().eq(contract_addr) {
+                    return Err(StdError::generic_err("Task is no longer valid"));
+                }
+                let validated_addr = api.addr_validate(contract_addr)?;
+                if let Ok(cw20_msg) = cosmwasm_std::from_binary::<Cw20ExecuteMsg>(msg) {
+                    // Don't let change type of cw20
+                    if validated_addr != current_cw20.address {
+                        return Err(StdError::generic_err("Task is no longer valid"));
+                    }
+                    match cw20_msg {
+                        Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                            cw20_amount = cw20_amount
+                                .checked_add(amount)
+                                .map_err(StdError::overflow)?;
+                        }
+                        Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                            cw20_amount = cw20_amount
+                                .checked_add(amount)
+                                .map_err(StdError::overflow)?;
+                        }
+                        _ => {
+                            return Err(StdError::generic_err("Task is no longer valid"));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(Some(Cw20CoinVerified {
+            address: current_cw20.address.clone(),
+            amount: cw20_amount,
+        }))
     }
 }
 
