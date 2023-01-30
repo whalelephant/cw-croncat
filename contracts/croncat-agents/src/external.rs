@@ -1,13 +1,15 @@
-use cosmwasm_std::{to_binary, WasmMsg};
-use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint64};
+use crate::error::ContractError;
+use cosmwasm_std::{
+    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, Uint64,
+    WasmMsg,
+};
+use croncat_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_agents::types::Config;
+use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
-use croncat_sdk_tasks::types::SlotTasksTotalResponse;
-
-use crate::error::ContractError;
-use croncat_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_tasks::msg::TasksQueryMsg;
+use croncat_sdk_tasks::types::SlotTasksTotalResponse;
 pub mod croncat_tasks_contract {
     use super::*;
     pub fn query_total_tasks(deps: Deps, config: &Config) -> StdResult<u64> {
@@ -59,8 +61,6 @@ pub mod croncat_tasks_contract {
     }
 }
 pub mod croncat_manager_contract {
-    use cosmwasm_std::{CosmosMsg, Uint128};
-    use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 
     use super::*;
 
@@ -88,22 +88,7 @@ pub mod croncat_manager_contract {
                 msg: ContractError::InvalidVersionKey {}.to_string(),
             })
     }
-    pub fn query_agent_rewards(
-        querier: &QuerierWrapper<Empty>,
-        config: &Config,
-        agent_id: &str,
-    ) -> StdResult<Uint128> {
-        let addr = query_manager_addr(querier, config)?;
-        // Get the denom from the manager contract
-        let response: Uint128 = querier.query_wasm_smart(
-            addr,
-            &ManagerQueryMsg::AgentRewards {
-                agent_id: agent_id.to_owned(),
-            },
-        )?;
 
-        Ok(response)
-    }
     pub fn create_withdraw_rewards_submsg(
         querier: &QuerierWrapper<Empty>,
         config: &Config,
@@ -124,5 +109,21 @@ pub mod croncat_manager_contract {
         });
 
         Ok(execute)
+    }
+    pub fn query_agent_rewards(
+        querier: &QuerierWrapper<Empty>,
+        config: &Config,
+        agent_id: &str,
+    ) -> StdResult<Uint128> {
+        let addr = query_manager_addr(querier, config)?;
+        // Get the denom from the manager contract
+        let response: Uint128 = querier.query_wasm_smart(
+            addr,
+            &ManagerQueryMsg::AgentRewards {
+                agent_id: agent_id.to_owned(),
+            },
+        )?;
+
+        Ok(response)
     }
 }
