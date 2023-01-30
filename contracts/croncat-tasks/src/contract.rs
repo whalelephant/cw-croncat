@@ -34,7 +34,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub(crate) const GAS_BASE_FEE: u64 = 300_000;
 pub(crate) const GAS_ACTION_FEE: u64 = 130_000;
 pub(crate) const GAS_QUERY_FEE: u64 = 130_000; // Load query module(~61_000) and query after that(~65_000+)
-pub(crate) const GAS_LIMIT: u64 = 9_500_000; // 10M is default for juno, but let's make sure we have space for missed gas calculations
+pub(crate) const GAS_LIMIT: u64 = 3_000_000; // 10M is default for juno, but let's make sure we have space for block inclusivity guarantees
 pub(crate) const SLOT_GRANULARITY_TIME: u64 = 10_000_000_000; // 10 seconds
 
 #[cfg_attr(not(feature = "library"), entry_point)]
