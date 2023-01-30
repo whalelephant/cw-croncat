@@ -59,11 +59,8 @@ pub enum ManagerExecuteMsg {
     /// Remove task's balance, called by the tasks contract
     RemoveTask(ManagerRemoveTask),
 
-    /// Withdraw agent rewards
-    WithdrawRewards {},
-
     /// Withdraw agent rewards on agent removal, this should be called only by agent contract
-    WithdrawRewardsOnRemoval(WithdrawRewardsOnRemovalArgs),
+    WithdrawAgentRewards(Option<WithdrawRewardsOnRemovalArgs>),
 }
 
 #[cw_serde]

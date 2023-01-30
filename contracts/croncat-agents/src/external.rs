@@ -66,7 +66,7 @@ pub mod croncat_manager_contract {
 
     use super::*;
 
-    pub fn query_manager_config(deps: Deps, config: &Config) -> StdResult<ManagerConfig> {
+    pub fn query_manager_config(deps: &Deps, config: &Config) -> StdResult<ManagerConfig> {
         let manager_addr = query_manager_addr(&deps.querier, config)?;
         // Get the denom from the manager contract
         let manager_config: ManagerConfig = deps
@@ -92,13 +92,13 @@ pub mod croncat_manager_contract {
     }
 
     pub fn create_withdraw_rewards_submsg(
-        deps: Deps,
+        querier: &QuerierWrapper<Empty>,
         config: &Config,
         agent_id: &str,
         payable_account_id: String,
         balance: u128,
     ) -> StdResult<CosmosMsg> {
-        let addr = query_manager_addr(&deps.querier, config)?;
+        let addr = query_manager_addr(&querier, config)?;
         let args = WithdrawRewardsOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,
@@ -107,7 +107,7 @@ pub mod croncat_manager_contract {
         let execute = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addr.into(),
             msg: to_binary(
-                &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawRewardsOnRemoval(args),
+                &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawAgentRewards(Some(args)),
             )?,
             funds: vec![],
         });

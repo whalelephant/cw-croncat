@@ -25,6 +25,7 @@ pub enum ExecuteMsg {
     //Task contract will send message when task is created
     OnTaskCreated(AgentOnTaskCreated),
     UpdateConfig { config: UpdateConfig },
+    WithdrawRewards{},
 }
 
 #[cw_serde]

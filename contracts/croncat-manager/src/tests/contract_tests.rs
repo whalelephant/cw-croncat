@@ -631,7 +631,7 @@ fn test_should_fail_with_zero_rewards() {
         .execute_contract(
             Addr::unchecked(ANYONE),
             manager_addr,
-            &ExecuteMsg::WithdrawRewards  {},
+            &ExecuteMsg::WithdrawAgentRewards(None),
             &[],
         )
         .unwrap_err()

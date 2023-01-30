@@ -115,9 +115,8 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
-        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info, None),
-        ExecuteMsg::WithdrawRewardsOnRemoval(args) => {
-            execute_withdraw_rewards(deps, info, Some(args))
+        ExecuteMsg::WithdrawAgentRewards(args) => {
+            execute_withdraw_agent_rewards(deps, info, args)
         }
     }
 }
@@ -360,7 +359,7 @@ pub fn reply(_deps: DepsMut, _env: Env, _msg: Reply) -> Result<Response, Contrac
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn execute_withdraw_rewards(
+fn execute_withdraw_agent_rewards(
     deps: DepsMut,
     info: MessageInfo,
     args: Option<WithdrawRewardsOnRemovalArgs>,

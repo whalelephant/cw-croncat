@@ -5,8 +5,9 @@ use crate::msg::*;
 use crate::state::*;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::from_binary;
-use cosmwasm_std::Reply;
+use cosmwasm_std::CosmosMsg;
+use cosmwasm_std::Empty;
+use cosmwasm_std::QuerierWrapper;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
     StdResult, Storage, Uint128,
@@ -17,7 +18,6 @@ use croncat_sdk_agents::msg::{
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use cw2::set_contract_version;
-use cw_utils::parse_reply_execute_data;
 use std::cmp;
 use std::ops::Div;
 
@@ -101,6 +101,7 @@ pub fn execute(
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
+        ExecuteMsg::WithdrawRewards {} => execute_withdraw_rewards(deps, info),
     }
 }
 
@@ -213,7 +214,7 @@ fn register_agent(
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
     // Get the denom from the manager contract
-    let manager_config = croncat_manager_contract::query_manager_config(deps.as_ref(), &c)?;
+    let manager_config = croncat_manager_contract::query_manager_config(&deps.as_ref(), &c)?;
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),
@@ -263,7 +264,7 @@ fn register_agent(
     )?;
 
     Ok(Response::new()
-        .add_attribute("method", "register_agent")
+        .add_attribute("action", "register_agent")
         .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
         .add_attribute("register_start", agent.register_start.nanos().to_string())
         .add_attribute("payable_account_id", agent.payable_account_id))
@@ -298,7 +299,7 @@ fn update_agent(
     )?;
 
     Ok(Response::new()
-        .add_attribute("method", "update_agent")
+        .add_attribute("action", "update_agent")
         .add_attribute("payable_account_id", agent.payable_account_id))
 }
 
@@ -341,7 +342,7 @@ fn accept_nomination_agent(
             AGENTS_PENDING.pop_front(deps.storage)?;
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
             return Ok(Response::new()
-                .add_attribute("method", "accept_nomination_agent")
+                .add_attribute("action", "accept_nomination_agent")
                 .add_attribute("new_agent", info.sender.as_str()));
         } else {
             // No agents can join yet
@@ -385,7 +386,7 @@ fn accept_nomination_agent(
     };
     // Find difference
     Ok(Response::new()
-        .add_attribute("method", "accept_nomination_agent")
+        .add_attribute("action", "accept_nomination_agent")
         .add_attribute("new_agent", info.sender.as_str())
         .add_attribute("kicked_agents: ", format!("{kicked_agents:?}")))
 }
@@ -399,11 +400,7 @@ fn unregister_agent(
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
-    let agent = AGENTS
-        .may_load(deps.storage, &agent_id)?
-        .ok_or(ContractError::AgentNotRegistered)?;
 
-    AGENTS.remove(deps.storage, agent_id);
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
@@ -440,17 +437,13 @@ fn unregister_agent(
             }
         }
     }
+    let (_, _, msgs) = withdraw_rewards(deps.storage, &deps.querier, &config, agent_id, false)?;
+    AGENTS.remove(deps.storage, agent_id);
 
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
-        .add_message(croncat_manager_contract::create_withdraw_rewards_submsg(
-            deps.as_ref(),
-            &config,
-            agent_id.as_str(),
-            agent.payable_account_id.to_string(),
-            agent.balance.u128(),
-        )?)
-        .add_attribute("method", "unregister_agent")
+        .add_messages(msgs)
+        .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
     Ok(responses)
@@ -624,7 +617,56 @@ fn on_task_created(
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }
     }
-    let response = Response::new().add_attribute("method", "on_task_created");
+    let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
 
+pub fn execute_withdraw_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    let (_, balance, msgs) =
+        withdraw_rewards(deps.storage, &deps.querier, &config, &info.sender, true)?;
+    let agent_id = info.sender.to_string();
+
+    let response = Response::new()
+        .add_attribute("action", "withdraw_rewards")
+        .add_attribute("agent_id", agent_id)
+        .add_attribute("balance", balance)
+        .add_messages(msgs);
+    Ok(response)
+}
+
+pub(crate) fn withdraw_rewards(
+    storage: &mut dyn Storage,
+    querier: &QuerierWrapper<Empty>,
+    config: &Config,
+    agent_id: &Addr,
+    fail_on_zero_balance: bool,
+) -> Result<(Agent, Uint128, Vec<CosmosMsg>), ContractError> {
+    let mut agent = AGENTS
+        .may_load(storage, agent_id)?
+        .ok_or(ContractError::AgentNotRegistered {})?;
+
+    if agent.balance.is_zero() && fail_on_zero_balance {
+        return Err(ContractError::NoWithdrawRewardsAvailable {});
+    }
+    let balance = agent.balance;
+    agent.balance = Uint128::default();
+    AGENTS.save(storage, agent_id, &agent)?;
+
+    let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
+        querier,
+        config,
+        agent_id.as_str(),
+        agent.payable_account_id.to_string(),
+        balance.u128(),
+    )?;
+
+    Ok((
+        agent,
+        balance,
+        if balance.is_zero() { vec![] } else { vec![msg] },
+    ))
+}

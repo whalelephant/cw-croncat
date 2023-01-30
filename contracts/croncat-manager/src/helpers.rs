@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     Addr, BankMsg, Coin, CosmosMsg, Empty, MessageInfo, QuerierWrapper, StdError, StdResult,
-     Uint128,
+     Uint128, coin,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_manager::types::Config;
@@ -152,10 +152,7 @@ pub(crate) fn create_bank_send_message(
     denom: &str,
     amount: u128,
 ) -> StdResult<CosmosMsg> {
-    let coin = Coin {
-        denom: denom.to_owned(),
-        amount: Uint128::from(amount),
-    };
+    let coin = coin(amount, denom.to_owned());
     let msg = BankMsg::Send {
         to_address: to.into(),
         amount: vec![coin],
@@ -163,3 +160,4 @@ pub(crate) fn create_bank_send_message(
 
     Ok(msg.into())
 }
+

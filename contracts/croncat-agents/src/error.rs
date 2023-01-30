@@ -56,4 +56,7 @@ pub enum ContractError {
 
     #[error("Invalid callback data when deserializing data from execution result")]
     InvalidExecuteCallbackData {},
+
+    #[error("No rewards available for withdraw")]
+    NoWithdrawRewardsAvailable {},
 }
