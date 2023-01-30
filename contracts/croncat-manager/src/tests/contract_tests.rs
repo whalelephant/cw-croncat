@@ -637,5 +637,5 @@ fn test_should_fail_with_zero_rewards() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable  {});
+    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
 }

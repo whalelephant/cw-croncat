@@ -21,7 +21,7 @@ use crate::helpers::{
     query_agent,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, WithdrawRewardsCallback};
-use crate::state::{Config, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
+use crate::state::{Config, AGENT_REWARDS, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
 
 pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -115,9 +115,7 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
-        ExecuteMsg::WithdrawAgentRewards(args) => {
-            execute_withdraw_agent_rewards(deps, info, args)
-        }
+        ExecuteMsg::WithdrawAgentRewards(args) => execute_withdraw_agent_rewards(deps, info, args),
     }
 }
 
@@ -349,6 +347,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TaskBalance { task_hash } => {
             to_binary(&TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?)
         }
+        QueryMsg::AgentRewards { agent_id } => to_binary(
+            &AGENT_REWARDS
+                .may_load(deps.storage, &Addr::unchecked(agent_id))?
+                .unwrap_or_default(),
+        ),
     }
 }
 
@@ -396,6 +399,7 @@ fn execute_withdraw_agent_rewards(
         .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
 
     TREASURY_BALANCE.save(deps.storage, &rewards)?;
+    AGENT_REWARDS.remove(deps.storage, &Addr::unchecked(callback.agent_id.clone()));
 
     let mut msgs = vec![];
     // This will send all token balances to Agent

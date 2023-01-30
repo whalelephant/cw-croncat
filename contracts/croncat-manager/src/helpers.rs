@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Coin, CosmosMsg, Empty, MessageInfo, QuerierWrapper, StdError, StdResult,
-     Uint128, coin,
+    coin, Addr, BankMsg, Coin, CosmosMsg, Empty, MessageInfo, QuerierWrapper, StdError, StdResult,
+    Uint128,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_manager::types::Config;
@@ -143,7 +143,7 @@ pub fn query_agent(
             account_id: agent_id,
         },
     )?;
-    
+
     Ok(response)
 }
 
@@ -160,4 +160,3 @@ pub(crate) fn create_bank_send_message(
 
     Ok(msg.into())
 }
-

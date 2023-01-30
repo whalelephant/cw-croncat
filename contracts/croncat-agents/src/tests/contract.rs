@@ -790,9 +790,8 @@ fn test_withdraw_rewards_balances_on_unregister() {
         .u128();
 
     //Check balances are not changed, as we don't have any rewards to withdraw
-    assert_eq!(old_balance ,500000);
-    assert_eq!(new_balance ,500000);
-
+    assert_eq!(old_balance, 500000);
+    assert_eq!(new_balance, 500000);
 }
 
 // This test requires tasks contract

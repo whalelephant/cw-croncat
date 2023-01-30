@@ -119,7 +119,8 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     let config: Config = CONFIG.load(deps.storage)?;
 
     let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
-
+    let rewards =
+        croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -132,7 +133,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     let agent_response = AgentResponse {
         status: agent_status,
         payable_account_id: a.payable_account_id,
-        balance: a.balance,
+        balance: rewards,
         last_executed_slot: stats.last_executed_slot,
         register_start: a.register_start,
     };
@@ -254,7 +255,6 @@ fn register_agent(
                 None => {
                     Ok(Agent {
                         payable_account_id: payable_id,
-                        balance: Uint128::default(),
                         // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
                         register_start: env.block.time,
                     })
@@ -645,16 +645,15 @@ pub(crate) fn withdraw_rewards(
     agent_id: &Addr,
     fail_on_zero_balance: bool,
 ) -> Result<(Agent, Uint128, Vec<CosmosMsg>), ContractError> {
-    let mut agent = AGENTS
+    let agent = AGENTS
         .may_load(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
 
-    if agent.balance.is_zero() && fail_on_zero_balance {
+    let balance =
+        croncat_manager_contract::query_agent_rewards(querier, config, agent_id.as_str())?;
+    if balance.is_zero() && fail_on_zero_balance {
         return Err(ContractError::NoWithdrawRewardsAvailable {});
     }
-    let balance = agent.balance;
-    agent.balance = Uint128::default();
-    AGENTS.save(storage, agent_id, &agent)?;
 
     let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
         querier,

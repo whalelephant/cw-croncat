@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, SubMsg, WasmMsg};
+use cosmwasm_std::{to_binary, WasmMsg};
 use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint64};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
@@ -6,8 +6,6 @@ use croncat_sdk_manager::types::Config as ManagerConfig;
 use croncat_sdk_tasks::types::SlotTasksTotalResponse;
 
 use crate::error::ContractError;
-use crate::state::*;
-
 use croncat_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_tasks::msg::TasksQueryMsg;
 pub mod croncat_tasks_contract {
@@ -90,7 +88,22 @@ pub mod croncat_manager_contract {
                 msg: ContractError::InvalidVersionKey {}.to_string(),
             })
     }
+    pub fn query_agent_rewards(
+        querier: &QuerierWrapper<Empty>,
+        config: &Config,
+        agent_id: &str,
+    ) -> StdResult<Uint128> {
+        let addr = query_manager_addr(querier, config)?;
+        // Get the denom from the manager contract
+        let response: Uint128 = querier.query_wasm_smart(
+            addr,
+            &ManagerQueryMsg::AgentRewards {
+                agent_id: agent_id.to_owned(),
+            },
+        )?;
 
+        Ok(response)
+    }
     pub fn create_withdraw_rewards_submsg(
         querier: &QuerierWrapper<Empty>,
         config: &Config,
@@ -98,7 +111,7 @@ pub mod croncat_manager_contract {
         payable_account_id: String,
         balance: u128,
     ) -> StdResult<CosmosMsg> {
-        let addr = query_manager_addr(&querier, config)?;
+        let addr = query_manager_addr(querier, config)?;
         let args = WithdrawRewardsOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,

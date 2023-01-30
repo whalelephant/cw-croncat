@@ -3,8 +3,8 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
     DEFAULT_NOMINATION_DURATION,
 };
-use cosmwasm_std::{coins, to_binary, Addr, Empty, StdResult};
-use cosmwasm_std::{BalanceResponse, BankQuery, BlockInfo, Coin};
+use cosmwasm_std::BlockInfo;
+use cosmwasm_std::{coins, to_binary, Addr, Empty};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 

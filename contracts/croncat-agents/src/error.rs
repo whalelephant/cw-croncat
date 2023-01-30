@@ -49,7 +49,7 @@ pub enum ContractError {
     InvalidVersionKey {},
 
     #[error("Unrecognised reply_id")]
-    UnrecognisedReplyId {reply_id: u64 },
+    UnrecognisedReplyId { reply_id: u64 },
 
     #[error("An unexpected error occurred")]
     UnexpectedError {},
