@@ -109,13 +109,11 @@ pub mod croncat_manager_contract {
         config: &Config,
         agent_id: &str,
         payable_account_id: String,
-        balance: u128,
     ) -> StdResult<CosmosMsg> {
         let addr = query_manager_addr(querier, config)?;
         let args = WithdrawRewardsOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,
-            balance: Uint128::from(balance),
         };
         let execute = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addr.into(),

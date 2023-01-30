@@ -370,53 +370,50 @@ fn execute_withdraw_agent_rewards(
     let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
     check_ready_for_execution(&info, &config)?;
-    let callback: WithdrawRewardsCallback;
+
+    let agent_id: Addr;
+    let payable_account_id: Addr;
+    let mut fail_on_zero_balance = true;
+
     if let Some(arg) = args {
         assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
-        callback = WithdrawRewardsCallback {
-            agent_id: arg.agent_id.clone(),
-            balance: arg.balance,
-            payable_account_id: arg.payable_account_id,
-        }
+        agent_id = Addr::unchecked(arg.agent_id);
+        payable_account_id = Addr::unchecked(arg.payable_account_id);
+        fail_on_zero_balance = false;
     } else {
-        let agent = query_agent(&deps.querier, &config, info.sender.to_string())?
+        agent_id = info.sender;
+        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
             .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
-
-        callback = WithdrawRewardsCallback {
-            agent_id: info.sender.to_string(),
-            balance: agent.balance,
-            payable_account_id: agent.payable_account_id.to_string(),
-        };
-
-        if callback.balance.is_zero() {
-            return Err(ContractError::NoWithdrawRewardsAvailable {});
-        }
+        payable_account_id = agent.payable_account_id;
     }
+    let agent_rewards = AGENT_REWARDS
+        .may_load(deps.storage, &agent_id)?
+        .unwrap_or_default();
 
-    let rewards = TREASURY_BALANCE.load(deps.storage)?;
-    rewards
-        .checked_sub(callback.balance)
-        .map_err(|_| ContractError::NoWithdrawRewardsAvailable {})?;
-
-    TREASURY_BALANCE.save(deps.storage, &rewards)?;
-    AGENT_REWARDS.remove(deps.storage, &Addr::unchecked(callback.agent_id.clone()));
+    AGENT_REWARDS.remove(deps.storage, &agent_id);
 
     let mut msgs = vec![];
     // This will send all token balances to Agent
     let msg = create_bank_send_message(
-        &Addr::unchecked(callback.payable_account_id.clone()),
+        &payable_account_id,
         &config.native_denom,
-        callback.balance.u128(),
+        agent_rewards.u128(),
     )?;
 
-    if !callback.balance.is_zero() {
+    if !agent_rewards.is_zero() {
         msgs.push(msg);
+    } else if fail_on_zero_balance {
+        return Err(ContractError::NoWithdrawRewardsAvailable {});
     }
 
     Ok(Response::new()
         .add_messages(msgs)
-        .set_data(to_binary(&callback)?)
+        .set_data(to_binary(&WithdrawRewardsCallback {
+            agent_id: agent_id.to_string(),
+            rewards: agent_rewards,
+            payable_account_id: payable_account_id.to_string(),
+        })?)
         .add_attribute("action", "withdraw_rewards")
-        .add_attribute("payment_account_id", &callback.payable_account_id)
-        .add_attribute("rewards", callback.balance))
+        .add_attribute("payment_account_id", &payable_account_id)
+        .add_attribute("rewards", agent_rewards))
 }

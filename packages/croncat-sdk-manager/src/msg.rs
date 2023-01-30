@@ -95,6 +95,6 @@ pub enum ManagerReceiveMsg {
 #[cw_serde]
 pub struct WithdrawRewardsCallback {
     pub agent_id: String,
-    pub balance: Uint128,
+    pub rewards: Uint128,
     pub payable_account_id: String,
 }

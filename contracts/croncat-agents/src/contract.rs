@@ -4,13 +4,9 @@ use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-use cosmwasm_std::CosmosMsg;
-use cosmwasm_std::Empty;
-use cosmwasm_std::QuerierWrapper;
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Storage, Uint128,
+    entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, Storage,
 };
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
@@ -399,6 +395,9 @@ fn unregister_agent(
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
+    let agent = AGENTS
+        .may_load(deps.storage, agent_id)?
+        .ok_or(ContractError::AgentNotRegistered {})?;
 
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
@@ -436,12 +435,17 @@ fn unregister_agent(
             }
         }
     }
-    let (_, _, msgs) = withdraw_rewards(deps.storage, &deps.querier, &config, agent_id, false)?;
+    let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
+        &deps.querier,
+        &config,
+        agent_id.as_str(),
+        agent.payable_account_id.to_string(),
+    )?;
     AGENTS.remove(deps.storage, agent_id);
 
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
-        .add_messages(msgs)
+        .add_message(msg)
         .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
@@ -618,36 +622,4 @@ fn on_task_created(
     }
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
-}
-
-pub(crate) fn withdraw_rewards(
-    storage: &mut dyn Storage,
-    querier: &QuerierWrapper<Empty>,
-    config: &Config,
-    agent_id: &Addr,
-    fail_on_zero_balance: bool,
-) -> Result<(Agent, Uint128, Vec<CosmosMsg>), ContractError> {
-    let agent = AGENTS
-        .may_load(storage, agent_id)?
-        .ok_or(ContractError::AgentNotRegistered {})?;
-
-    let balance =
-        croncat_manager_contract::query_agent_rewards(querier, config, agent_id.as_str())?;
-    if balance.is_zero() && fail_on_zero_balance {
-        return Err(ContractError::NoWithdrawRewardsAvailable {});
-    }
-
-    let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
-        querier,
-        config,
-        agent_id.as_str(),
-        agent.payable_account_id.to_string(),
-        balance.u128(),
-    )?;
-
-    Ok((
-        agent,
-        balance,
-        if balance.is_zero() { vec![] } else { vec![msg] },
-    ))
 }
