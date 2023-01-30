@@ -1,7 +1,7 @@
 use cosmwasm_std::Uint128;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum SdkError {
     #[error("Invalid gas input")]
     InvalidGas {},

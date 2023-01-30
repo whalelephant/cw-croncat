@@ -45,6 +45,7 @@ Manager instantiate contract message:
 ```json
 {
   "denom": "stake",
+  "version":"0.1",
   "croncat_factory_addr": "", // We'll pass in CRONCAT_FACTORY_ADDR
   "croncat_tasks_key": [
     "t",
@@ -65,7 +66,7 @@ Manager instantiate contract message:
 
 We can turn this into base64 with:
 
-    CRONCAT_MANAGER_INST_MSG=$(echo '{"denom":"stake","croncat_factory_addr":"'$CRONCAT_FACTORY_ADDR'","croncat_tasks_key":["t",[0,1]],"croncat_agents_key":["a",[0,1]]}' | base64)
+    CRONCAT_MANAGER_INST_MSG=$(echo '{"denom":"stake","version":"0.1","croncat_factory_addr":"'$CRONCAT_FACTORY_ADDR'","croncat_tasks_key":["t",[0,1]],"croncat_agents_key":["a",[0,1]]}' | base64)
 
 ```json
 {
@@ -73,10 +74,7 @@ We can turn this into base64 with:
     "kind": "manager",
     "module_instantiate_info": {
       "code_id": 0, // We'll pass in CRONCAT_MANAGER_ID
-      "version": [
-        0,
-        1
-      ],
+      "version": [0, 1],
       "commit_id": "8e08b808465c42235f961423fcf9e4792ce02462",
       "checksum": "abc123",
       "changelog_url": "https://example.com/lucky",
@@ -108,7 +106,7 @@ One of the parameters will be a base64-encoded version of the instantiate messag
 
 To instantiate the agent contract, we'll use this:
 
-    CRONCAT_AGENT_INST_MSG=$(echo '{"manager_addr":"'$CRONCAT_MANAGER_ADDR'"}' | base64) 
+    CRONCAT_AGENT_INST_MSG=$(echo '{"manager_addr":"'$CRONCAT_MANAGER_ADDR'","version":"0.1"}' | base64) 
 
 **Note**: you may see the optional fields by looking for the `InstantiateMsg` in `packages/croncat-sdk-agents/src/msg.rs`
 
@@ -120,10 +118,7 @@ Back to the payload we're sending to the factory `deploy` method, let's take a l
     "kind": "agents",
     "module_instantiate_info": {
       "code_id": 0, // We'll pass in CRONCAT_AGENT_ID
-      "version": [
-        0,
-        1
-      ],
+      "version": [0, 1],
       "commit_id": "8e08b808465c42235f961423fcf9e4792ce02462",
       "checksum": "abc123",
       "changelog_url": "https://example.com/lucky",

@@ -1,7 +1,7 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { QueryClient } from "@cosmjs/stargate";
 import { StdFee } from "@cosmjs/stargate";
-import { getGitHash, getChecksums } from './utils'
+import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
 import * as fs from "fs"
 
 export class AgentClient {
@@ -20,18 +20,22 @@ export class AgentClient {
         const githash = await getGitHash()
         const checksums = await getChecksums()
 
+        // get the version from cargo
+        const version = await getContractVersionFromCargoToml('croncat-agents')
+
         // instantiate manager contract (from the factory)
         const deployMsg = {
             "deploy": {
                 "kind": "agents",
                 "module_instantiate_info": {
                     "code_id": codeId,
-                    "version": [0, 1],
+                    "version": version.split('.').slice(0, 2),
                     "commit_id": githash,
                     "checksum": checksums.agents,
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
+                        "version": version,
                         "croncat_manager_key": ["manager", [0, 0]],
                         "croncat_tasks_key": ["tasks", [0, 0]],
                     })).toString('base64'),

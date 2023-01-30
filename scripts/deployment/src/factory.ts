@@ -1,9 +1,9 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { QueryClient } from "@cosmjs/stargate";
 import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate";
-import toml from 'toml'
 import * as fs from "fs"
 import { config } from "dotenv"
+import { getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
 const denom: string = process.env.DENOM
 const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
@@ -24,11 +24,10 @@ export class FactoryClient {
 		const codeId = uploadRes.codeId
 
     // get the version from cargo
-    const crateToml = fs.readFileSync(`${artifactsRoot}/../Cargo.toml`, 'utf8')
-    const data = toml.parse(crateToml)
+    const version = await getContractVersionFromCargoToml('croncat-factory')
 
     // instantiate
-    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${data.workspace.package.version}`, instantiateGas)
+    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${version}`, instantiateGas)
     const address = factoryInst.contractAddress
 
 		return [codeId, address];

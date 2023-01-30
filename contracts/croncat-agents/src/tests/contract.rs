@@ -12,6 +12,7 @@ fn test_contract_initialize_is_successfull() {
     let contract_code_id = app.store_code(croncat_agents_contract());
 
     let init_msg = InstantiateMsg {
+        version: Some("0.1".to_owned()),
         owner_addr: Some(ADMIN.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -37,6 +38,7 @@ fn test_contract_initialize_is_successfull() {
     assert_eq!(config.owner_addr, Addr::unchecked(ADMIN));
 
     let init_msg = InstantiateMsg {
+        version: Some("0.1".to_owned()),
         owner_addr: Some(ANYONE.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
