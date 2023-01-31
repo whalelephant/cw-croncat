@@ -18,3 +18,4 @@ pub const AGENTS_ACTIVE: Item<Vec<Addr>> = Item::new("agents_active");
 pub const AGENTS_PENDING: Deque<Addr> = Deque::new("agents_pending");
 pub const AGENT_STATS: Map<&Addr, AgentStats> = Map::new("agent_stats");
 pub const AGENT_TASK_DISTRIBUTOR: AgentTaskDistributor = AgentTaskDistributor::new();
+pub const DEFAULT_AGENTS_EVECT_THRESHOLD:u64=600;
