@@ -7,8 +7,6 @@
     "postinstall": "cp .env.template .env",
     "build": "tsc",
     "start": "node build/index.js",
-    "go": "tsc && node build/index.js",
-    "e2e": "tsc && node build/e2e.js",
     "go": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/index.js",
     "go-regular": "tsc && REGULAR=\"yes\" node build/index.js",
     "e2e": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2e.js",
