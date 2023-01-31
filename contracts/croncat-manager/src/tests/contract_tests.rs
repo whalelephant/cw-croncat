@@ -51,6 +51,7 @@ mod instantiate_tests {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
@@ -616,4 +617,26 @@ fn failed_move_balances() {
         .downcast()
         .unwrap();
     assert_eq!(err, ContractError::Unauthorized {});
+}
+
+//TODO: this test is failing as no factory contract is initialized
+#[test]
+fn test_should_fail_with_zero_rewards() {
+    let mut app = default_app();
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+
+    //No available rewards for withdraw
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            manager_addr,
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
 }

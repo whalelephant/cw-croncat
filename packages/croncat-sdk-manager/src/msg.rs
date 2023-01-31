@@ -1,12 +1,17 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Uint128;
+use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+
 use cw20::Cw20Coin;
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
     /// The native denominator of current chain
     pub denom: String,
+    /// CW2 Version provided by factory
+    pub version: Option<String>,
     /// Name of the key for raw querying Tasks address from the factory
     pub croncat_tasks_key: (String, [u8; 2]),
     /// Name of the key for raw querying Agents address from the factory
@@ -55,6 +60,9 @@ pub enum ManagerExecuteMsg {
     CreateTaskBalance(ManagerCreateTaskBalance),
     /// Remove task's balance, called by the tasks contract
     RemoveTask(ManagerRemoveTask),
+
+    /// Withdraw agent rewards on agent removal, this should be called only by agent contract
+    WithdrawAgentRewards(Option<WithdrawRewardsOnRemovalArgs>),
 }
 
 #[cw_serde]
@@ -76,10 +84,19 @@ pub enum ManagerQueryMsg {
     /// Get task balance
     #[returns(Option<crate::types::TaskBalance>)]
     TaskBalance { task_hash: String },
+
+    #[returns(Option<cosmwasm_std::Uint128>)]
+    AgentRewards { agent_id: String },
 }
 
 #[cw_serde]
 pub enum ManagerReceiveMsg {
     RefillTempBalance {},
     RefillTaskBalance { task_hash: String },
+}
+#[cw_serde]
+pub struct WithdrawRewardsCallback {
+    pub agent_id: String,
+    pub rewards: Uint128,
+    pub payable_account_id: String,
 }

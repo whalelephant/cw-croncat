@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Timestamp};
 use std::fmt;
 
 #[cw_serde]
@@ -28,9 +28,6 @@ impl fmt::Display for AgentStatus {
 pub struct Agent {
     // Where rewards get transferred
     pub payable_account_id: Addr,
-
-    // accrued reward balance
-    pub balance: Uint128,
 
     // Timestamp of when agent first registered
     // Useful for rewarding agents for their patience while they are pending and operating service

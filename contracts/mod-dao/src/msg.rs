@@ -3,7 +3,9 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use crate::types::ProposalStatusMatches;
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub version: Option<String>,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {}

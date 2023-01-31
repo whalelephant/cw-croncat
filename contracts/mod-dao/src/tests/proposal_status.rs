@@ -16,7 +16,7 @@ use crate::{
     msg::{InstantiateMsg, QueryMsg},
     tests::helpers::{
         contract_template, instantiate_with_staking_active_threshold, multiple_proposal_contract,
-        single_proposal_contract, CREATOR_ADDR,
+        single_proposal_contract, CREATOR_ADDR, VERSION,
     },
     types::{
         dao::{AnyChoiceProposal, ProposalResponse, Status},
@@ -29,7 +29,9 @@ fn test_dao_single_proposal_ready() {
     let mut app = App::default();
     let code_id = app.store_code(contract_template());
 
-    let instantiate = InstantiateMsg {};
+    let instantiate = InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
     let contract_addr = app
         .instantiate_contract(
             code_id,
@@ -230,7 +232,9 @@ fn test_dao_single_proposal_ready() {
 fn test_dao_multiple_proposal_ready() {
     let mut app = App::default();
     let code_id = app.store_code(contract_template());
-    let instantiate = InstantiateMsg {};
+    let instantiate = InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
     let contract_addr = app
         .instantiate_contract(
             code_id,

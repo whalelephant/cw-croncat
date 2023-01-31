@@ -25,6 +25,7 @@ pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN_CW721: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 const NATIVE_DENOM: &str = "atom";
+const VERSION: &str = "0.1";
 pub const URI: &str = "https://testnet.daodao.zone/dao/juno1p2fuar474uv2p6vfnr2eu4nv9rx4m0qd26xuygkesje0r6pzhrssvrnh2y";
 
 fn mock_app() -> App {
@@ -52,7 +53,9 @@ pub(crate) fn proper_instantiate() -> (App, Addr, Addr) {
     let cw_template_id = app.store_code(contract_template());
     let owner_addr = Addr::unchecked(ADMIN);
     let nft_owner_addr = Addr::unchecked(ADMIN_CW721);
-    let msg = InstantiateMsg {};
+    let msg = InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
     let cw_template_contract_addr = app
         .instantiate_contract(
             cw_template_id,

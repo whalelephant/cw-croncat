@@ -12,7 +12,7 @@ use crate::types::GenericQuery;
 use crate::ContractError;
 
 // version info for migration info
-const CONTRACT_NAME: &str = "croncat:mod-generic";
+const CONTRACT_NAME: &str = "crate:croncat-mod-generic";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -20,9 +20,10 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, StdError> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    let contract_version = msg.version.unwrap_or_else(|| CONTRACT_VERSION.to_string());
+    set_contract_version(deps.storage, CONTRACT_NAME, &contract_version)?;
 
     Ok(Response::new().add_attribute("method", "instantiate"))
 }

@@ -12,6 +12,7 @@ fn test_contract_initialize_is_successfull() {
     let contract_code_id = app.store_code(croncat_agents_contract());
 
     let init_msg = InstantiateMsg {
+        version: Some("0.1".to_owned()),
         owner_addr: Some(ADMIN.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -37,6 +38,7 @@ fn test_contract_initialize_is_successfull() {
     assert_eq!(config.owner_addr, Addr::unchecked(ADMIN));
 
     let init_msg = InstantiateMsg {
+        version: Some("0.1".to_owned()),
         owner_addr: Some(ANYONE.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -96,7 +98,6 @@ fn test_register_agent_is_successfull() {
         .unwrap();
 
     assert_eq!(agent_response.status, AgentStatus::Active);
-    assert_eq!(agent_response.total_tasks_executed, 0);
     assert_eq!(agent_response.balance, Uint128::new(0));
 }
 
@@ -764,6 +765,38 @@ fn removing_agent_from_any_side_is_working() {
 }
 
 #[test]
+fn test_withdraw_rewards_balances_on_unregister() {
+    let mut app = default_app();
+    let TestScope {
+        croncat_factory_addr: _,
+        croncat_agents_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr: _,
+    } = init_test_scope(&mut app);
+
+    // Register agents
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+    let old_balance = app
+        .wrap()
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
+        .unwrap()
+        .amount
+        .u128();
+    unregister_agent(&mut app, &croncat_agents_addr, AGENT0).unwrap();
+    let new_balance = app
+        .wrap()
+        .query_balance(AGENT_BENEFICIARY, NATIVE_DENOM)
+        .unwrap()
+        .amount
+        .u128();
+
+    //Check balances are not changed, as we don't have any rewards to withdraw
+    assert_eq!(old_balance, 500000);
+    assert_eq!(new_balance, 500000);
+}
+
+#[test]
 fn test_query_get_agent_tasks() {
     let mut app = default_app();
     let TestScope {
@@ -889,6 +922,18 @@ fn register_agent(
         &ExecuteMsg::RegisterAgent {
             payable_account_id: Some(beneficiary.to_string()),
         },
+        &[],
+    )
+}
+fn unregister_agent(
+    app: &mut App,
+    croncat_agents_addr: &Addr,
+    agent: &str,
+) -> Result<AppResponse, anyhow::Error> {
+    app.execute_contract(
+        Addr::unchecked(agent),
+        croncat_agents_addr.clone(),
+        &ExecuteMsg::UnregisterAgent { from_behind: None },
         &[],
     )
 }
