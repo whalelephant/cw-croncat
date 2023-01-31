@@ -17,6 +17,7 @@ library = []
 [dependencies]
 cosmwasm-std = { version = "1.1.9" }
 cosmwasm-schema = { version = "=1.1.9" }
+croncat-sdk-agents = { path = "../../packages/croncat-sdk-agents" }
 croncat-sdk-core = { path = "../../packages/croncat-sdk-core" }
 croncat-sdk-manager = { path = "../../packages/croncat-sdk-manager" }
 croncat-factory = { path = "../croncat-factory", features = ["library"] }
