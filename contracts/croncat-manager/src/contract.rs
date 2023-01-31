@@ -63,13 +63,13 @@ pub fn instantiate(
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
 
-    let treasury_funds = info
-        .funds
-        .iter()
-        .find(|coin| coin.denom == denom)
-        .ok_or(ContractError::NoTreasuryFundsAttached {})?;
-
-    TREASURY_BALANCE.save(deps.storage, &treasury_funds.amount)?;
+    //Check if we attached some funds in native denom, add them into treasury
+    let treasury_funds = info.funds.iter().find(|coin| coin.denom == denom);
+    if let Some(funds) = treasury_funds {
+        TREASURY_BALANCE.save(deps.storage, &funds.amount)?;
+    } else {
+        TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
+    }
 
     let config = Config {
         paused: false,
