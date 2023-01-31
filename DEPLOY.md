@@ -46,7 +46,7 @@ Manager instantiate contract message:
 {
   "denom": "stake",
   "version":"0.1",
-  "croncat_factory_addr": "", // We'll pass in CRONCAT_FACTORY_ADDR
+  "owner_addr": "", // We'll pass in CRONCAT_FACTORY_ADDR
   "croncat_tasks_key": [
     "t",
     [
