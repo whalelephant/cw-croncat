@@ -35,3 +35,4 @@ croncat-factory = { workspace = true }
 croncat-sdk-factory = { workspace = true }
 croncat-tasks = { workspace = true }
 croncat-agents = { workspace = true }
+croncat-mod-balances = { workspace = true }

@@ -47,3 +47,12 @@ pub(crate) fn cw20_contract() -> Box<dyn Contract<Empty>> {
     );
     Box::new(contract)
 }
+
+pub(crate) fn mod_balances_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_mod_balances::contract::execute,
+        croncat_mod_balances::contract::instantiate,
+        croncat_mod_balances::contract::query,
+    );
+    Box::new(contract)
+}

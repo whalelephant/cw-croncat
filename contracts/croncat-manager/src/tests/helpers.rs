@@ -180,6 +180,44 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     metadata.unwrap().contract_addr
 }
 
+pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
+    let code_id = app.store_code(contracts::mod_balances_contract());
+    let msg = croncat_mod_balances::msg::InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "mod-balances".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: Option<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "mod-balances".to_owned(),
+            },
+        )
+        .unwrap();
+    metadata.unwrap().contract_addr
+}
+
 // Note: gonna work only with first agent, other have to get nominated
 pub(crate) fn activate_agent(app: &mut App, agents_contract: &Addr) {
     app.execute_contract(
@@ -202,10 +240,16 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
             name: "coin_name".to_owned(),
             symbol: "con".to_owned(),
             decimals: 6,
-            initial_balances: vec![Cw20Coin {
-                address: ADMIN.to_owned(),
-                amount: Uint128::new(100_000_000),
-            }],
+            initial_balances: vec![
+                Cw20Coin {
+                    address: ADMIN.to_owned(),
+                    amount: Uint128::new(100_000_000),
+                },
+                Cw20Coin {
+                    address: PARTICIPANT0.to_owned(),
+                    amount: Uint128::new(100_000_000),
+                },
+            ],
             mint: None,
             marketing: None,
         },
@@ -264,7 +308,7 @@ pub(crate) fn add_little_time(block: &mut BlockInfo) {
 
 // Useful for debugging in case task got suddenly stuck
 #[allow(unused)]
-pub(crate) fn check_task_chain(app: &mut App, tasks_contract: &Addr, agents_contract: &Addr) {
+pub(crate) fn check_task_chain(app: &App, tasks_contract: &Addr, agents_contract: &Addr) {
     let current_task: Option<croncat_sdk_tasks::types::TaskResponse> = app
         .wrap()
         .query_wasm_smart(
@@ -289,7 +333,7 @@ pub(crate) fn check_task_chain(app: &mut App, tasks_contract: &Addr, agents_cont
             },
         )
         .unwrap();
-    let tasks_for_agent: croncat_sdk_agents::msg::AgentTaskResponse = app
+    let tasks_for_agent: Option<croncat_sdk_agents::msg::AgentTaskResponse> = app
         .wrap()
         .query_wasm_smart(
             agents_contract,

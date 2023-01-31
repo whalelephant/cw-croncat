@@ -1,14 +1,17 @@
-use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Uint128, WasmMsg};
 use croncat_sdk_manager::types::{Config, UpdateConfig};
-use croncat_sdk_tasks::types::{Action, Interval, TaskResponse};
-use cw20::Cw20CoinVerified;
+use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse};
+use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_storage_plus::KeyDeserialize;
 
 use crate::{
     contract::DEFAULT_FEE,
-    msg::{ExecuteMsg, InstantiateMsg, ReceiveMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiveMsg},
     tests::{
-        helpers::{default_app, default_instantiate_message, init_manager, query_manager_config},
+        helpers::{
+            default_app, default_instantiate_message, init_manager, init_mod_balances,
+            query_manager_config,
+        },
         helpers::{init_factory, query_manager_balances},
         ADMIN, AGENT1, AGENT2, ANYONE, DENOM,
     },
@@ -647,7 +650,7 @@ fn failed_move_balances() {
 }
 
 #[test]
-fn simple_bank_transfer_execution() {
+fn simple_bank_transfers_block() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
@@ -688,14 +691,16 @@ fn simple_bank_transfer_execution() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr,
-            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
         )
         .unwrap();
 
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
-        let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
-        let gas_fees = gas_needed * ((DEFAULT_FEE as f64 + DEFAULT_FEE as f64) / 100.0);
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
         let amount_for_fees = gas_fees * 0.04;
         amount_for_task + amount_for_fees + 45.0
@@ -706,12 +711,22 @@ fn simple_bank_transfer_execution() {
     let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
     app.execute_contract(
         Addr::unchecked(AGENT0),
-        manager_addr,
+        manager_addr.clone(),
         &ExecuteMsg::ProxyCall { task_hash: None },
         &[],
     )
     .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
 
+    // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
     assert_eq!(bob_balances, coins(45, DENOM));
 
@@ -721,6 +736,975 @@ fn simple_bank_transfer_execution() {
         600_000 - expected_gone_amount,
         after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
     );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+
+    // Checking we don't get same task over and over
+    // Check multi-action transfer
+
+    // withdraw rewards so it's clear before second test
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawAgentRewards(None),
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::OwnerWithdraw {},
+        &[],
+    )
+    .unwrap();
+    // Check balance fully cleared
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob2".to_owned(),
+                    amount: coins(45, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(125, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "lucy".to_owned(),
+                    amount: coins(333, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 45.0 + 125.0 + 333.0
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+
+    // crate::tests::helpers::check_task_chain(&app, &tasks_addr, &agents_addr);
+
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let bob_balances = app.wrap().query_all_balances("bob2").unwrap();
+    assert_eq!(bob_balances, coins(45, DENOM));
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(125, DENOM));
+    let lucy_balances = app.wrap().query_all_balances("lucy").unwrap();
+    assert_eq!(lucy_balances, coins(333, DENOM));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+
+    // Check balance fully clears
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawAgentRewards(None),
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::OwnerWithdraw {},
+        &[],
+    )
+    .unwrap();
+
+    let manager_balances = app.wrap().query_all_balances(manager_addr).unwrap();
+    assert!(manager_balances.is_empty());
+}
+
+#[test]
+fn simple_bank_transfers_cron() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    activate_agent(&mut app, &agents_addr);
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        // Making it cron on purpose
+        boundary: Some(Boundary::Time {
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(100)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 45.0
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let bob_balances = app.wrap().query_all_balances("bob").unwrap();
+    assert_eq!(bob_balances, coins(45, DENOM));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+
+    // Checking we don't get same task over and over
+    // Check multi-action transfer
+
+    // withdraw rewards so it's clear before second test
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawAgentRewards(None),
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::OwnerWithdraw {},
+        &[],
+    )
+    .unwrap();
+    // Check balance fully cleared
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        // Making it cron on purpose
+        boundary: Some(Boundary::Time {
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(100)),
+        }),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob2".to_owned(),
+                    amount: coins(45, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(125, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "lucy".to_owned(),
+                    amount: coins(333, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 45.0 + 125.0 + 333.0
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+
+    // crate::tests::helpers::check_task_chain(&app, &tasks_addr, &agents_addr);
+
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let bob_balances = app.wrap().query_all_balances("bob2").unwrap();
+    assert_eq!(bob_balances, coins(45, DENOM));
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(125, DENOM));
+    let lucy_balances = app.wrap().query_all_balances("lucy").unwrap();
+    assert_eq!(lucy_balances, coins(333, DENOM));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+
+    // Check balance fully clears
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::WithdrawAgentRewards(None),
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::OwnerWithdraw {},
+        &[],
+    )
+    .unwrap();
+
+    let manager_balances = app.wrap().query_all_balances(manager_addr).unwrap();
+    assert!(manager_balances.is_empty());
+}
+
+#[test]
+fn multi_coin_bank_transfers() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    activate_agent(&mut app, &agents_addr);
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(123, "denom"),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: vec![coin(321, DENOM), coin(1001, "denom")],
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let attach_funds = vec![coin(600_000, DENOM), coin(2400, "denom")];
+    app.sudo(
+        BankSudo::Mint {
+            to_address: PARTICIPANT0.to_owned(),
+            amount: attach_funds.clone(),
+        }
+        .into(),
+    )
+    .unwrap();
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &attach_funds,
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 321.0
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let bob_balances = app.wrap().query_all_balances("bob").unwrap();
+    assert_eq!(bob_balances, vec![coin(321, DENOM), coin(1001, "denom")]);
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(123, "denom"));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+}
+
+#[test]
+fn cw20_action_transfer() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let cw20_addr = init_cw20(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    // Refill balance
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(555),
+            msg: to_binary(&ReceiveMsg::RefillTempBalance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    activate_agent(&mut app, &agents_addr);
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                        recipient: "alice".to_owned(),
+                        amount: Uint128::new(500),
+                    })
+                    .unwrap(),
+                    funds: Default::default(),
+                }
+                .into(),
+                gas_limit: Some(250_000),
+            },
+            Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.to_string(),
+                    msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                        recipient: "bob".to_owned(),
+                        amount: Uint128::new(50),
+                    })
+                    .unwrap(),
+                    funds: Default::default(),
+                }
+                .into(),
+                gas_limit: Some(250_000),
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: Some(Cw20Coin {
+            address: cw20_addr.to_string(),
+            amount: Uint128::new(555),
+        }),
+    };
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    let participant_cw20_balance: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &Cw20QueryMsg::Balance {
+                address: PARTICIPANT0.to_owned(),
+            },
+        )
+        .unwrap();
+
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let bob_cw20_balances: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &Cw20QueryMsg::Balance {
+                address: "bob".to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(bob_cw20_balances.balance, Uint128::new(50));
+    let bob_cw20_balances: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &Cw20QueryMsg::Balance {
+                address: "alice".to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(bob_cw20_balances.balance, Uint128::new(500));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // unused cw20's returned to the temp
+    let participant_cw20_temp_balance: Vec<Cw20CoinVerified> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::UsersBalances {
+                wallet: PARTICIPANT0.to_owned(),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        participant_cw20_temp_balance,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.clone(),
+            amount: Uint128::new(5)
+        }]
+    );
+    // And can be withdrawn later
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        manager_addr.clone(),
+        &ExecuteMsg::UserWithdraw { limit: None },
+        &[],
+    )
+    .unwrap();
+    let after_unregister_participant_cw20_balance: cw20::BalanceResponse = app
+        .wrap()
+        .query_wasm_smart(
+            cw20_addr.clone(),
+            &Cw20QueryMsg::Balance {
+                address: PARTICIPANT0.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        Uint128::new(5),
+        after_unregister_participant_cw20_balance.balance - participant_cw20_balance.balance
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+}
+
+#[test]
+fn task_with_query() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+    let mod_balances = init_mod_balances(&mut app, &factory_addr);
+
+    activate_agent(&mut app, &agents_addr);
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "alice".to_owned(),
+                amount: coins(123, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: Some(vec![CroncatQuery {
+            query_mod_addr: mod_balances.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
+                croncat_mod_balances::types::HasBalanceComparator {
+                    address: "lucy".to_owned(),
+                    required_balance: coins(100, "denom").into(),
+                    comparator: croncat_mod_balances::types::BalanceComparator::Eq,
+                },
+            ))
+            .unwrap(),
+        }]),
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 123.0
+    } as u128;
+
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    // Not ready yet
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ExecuteMsg::ProxyCall {
+                task_hash: Some(task_hash.clone()),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoTask {});
+    // Now let's make it ready!
+    app.sudo(
+        BankSudo::Mint {
+            to_address: "lucy".to_owned(),
+            amount: coins(100, "denom"),
+        }
+        .into(),
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall {
+            task_hash: Some(task_hash.clone()),
+        },
+        &[],
+    )
+    .unwrap();
+    // check task got unregistered
+    let task: Option<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task.is_none());
+
+    // action done
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(123, DENOM));
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
 }
 
 #[test]

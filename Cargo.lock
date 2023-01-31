@@ -278,6 +278,7 @@ dependencies = [
  "cosmwasm-std",
  "croncat-agents",
  "croncat-factory",
+ "croncat-mod-balances",
  "croncat-sdk-agents",
  "croncat-sdk-core",
  "croncat-sdk-factory",

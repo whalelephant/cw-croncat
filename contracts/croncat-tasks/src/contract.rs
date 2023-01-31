@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, WasmQuery,
 };
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -506,7 +506,6 @@ fn query_slot_tasks_total(
 /// NOTE: This prioritizes blocks over timestamps
 fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
     let config = CONFIG.load(deps.storage)?;
-
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
         .range(
             deps.storage,
@@ -729,9 +728,13 @@ fn query_task_with_transforms(
     }
     let mut query_responses = Vec::with_capacity(task.queries.len());
     for query in task.queries.iter() {
-        let query_res: mod_sdk::types::QueryResponse = deps
-            .querier
-            .query_wasm_smart(query.query_mod_addr.clone(), &query.msg)?;
+        let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
+            &WasmQuery::Smart {
+                contract_addr: query.query_mod_addr.clone(),
+                msg: query.msg.clone(),
+            }
+            .into(),
+        )?;
         if !query_res.result {
             return Ok(None);
         }

@@ -236,7 +236,7 @@ fn execute_proxy_call_with_queries(
         },
     )?;
     if agent.map_or(false, |agent| {
-        agent.status == croncat_sdk_agents::types::AgentStatus::Active
+        agent.status != croncat_sdk_agents::types::AgentStatus::Active
     }) {
         return Err(ContractError::NoTaskForAgent {});
     }
