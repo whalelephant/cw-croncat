@@ -171,7 +171,7 @@ fn execute_proxy_call(
             num_block_tasks,
             num_cron_tasks,
         }) => {
-            if num_block_tasks.is_zero() || num_cron_tasks.is_zero() {
+            if num_block_tasks.is_zero() && num_cron_tasks.is_zero() {
                 return Err(ContractError::NoTaskForAgent {});
             }
         }
@@ -254,7 +254,6 @@ fn execute_proxy_call_with_queries(
             &config.native_denom,
             task.task_hash.as_bytes(),
         )?;
-        // TODO: help to find a better attributes for this
         let res = Response::new()
             .add_attribute("action", "remove_task")
             .add_attribute("task_status", "invalid");

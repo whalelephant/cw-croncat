@@ -48,6 +48,11 @@ pub(crate) fn sub_user_cw20(
     Ok(new_bal)
 }
 
+/// Adding agent and treasury rewards
+/// Refunding gas used by the agent for this task
+/// For example, if we have both `agent_fee`&`treasury_fee` set at 5% :
+/// 105% of gas cost goes to the agents (100% to cover gas used for this transaction and 5% as a reward)
+/// and remaining 5% goes to the treasury
 pub(crate) fn add_fee_rewards(
     storage: &mut dyn Storage,
     gas: u64,
@@ -60,7 +65,8 @@ pub(crate) fn add_fee_rewards(
         storage,
         agent_addr,
         |agent_balance| -> Result<_, ContractError> {
-            let gas_fee = gas_fee(gas, agent_fee)?;
+            // Adding base gas and agent_fee here
+            let gas_fee = gas_fee(gas, agent_fee)? + gas;
             let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
             Ok(agent_balance.unwrap_or_default() + amount)
         },

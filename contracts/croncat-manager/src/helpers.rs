@@ -152,11 +152,11 @@ pub(crate) fn task_sub_msgs(task: &croncat_sdk_tasks::types::TaskResponse) -> Ve
     }
     if let Some(gas_limit) = last_action.gas_limit {
         sub_msgs.push(
-            SubMsg::reply_on_error(last_action.msg.clone(), last_idx as u64)
+            SubMsg::reply_always(last_action.msg.clone(), last_idx as u64)
                 .with_gas_limit(gas_limit),
         );
     } else {
-        sub_msgs.push(SubMsg::reply_on_error(
+        sub_msgs.push(SubMsg::reply_always(
             last_action.msg.clone(),
             last_idx as u64,
         ));
@@ -173,7 +173,7 @@ pub(crate) fn parse_reply_msg(
     if let cosmwasm_std::SubMsgResult::Err(err) = msg.result {
         queue_item.failures.push((id as u8, err));
     }
-    let last = queue_item.task.actions.len() == id;
+    let last = queue_item.task.actions.len() == id + 1;
     // If last action let's clean state here
     if last {
         REPLY_QUEUE.remove(storage)
@@ -222,8 +222,14 @@ pub(crate) fn finalize_task(
     let (native_for_sends_required, ibc_required) =
         calculate_required_natives(original_amounts.coin, &config.native_denom)?;
 
-    // if should stop on fail or balance drained - unregister task and return unused deposits
-    if (queue_item.task.stop_on_fail && !queue_item.failures.is_empty())
+    // unregister task and return unused deposits if any of this:
+    // - not recurring
+    // - should stop on fail
+    // - task balance drained
+    if matches!(
+        queue_item.task.interval,
+        croncat_sdk_tasks::types::Interval::Once
+    ) || (queue_item.task.stop_on_fail && !queue_item.failures.is_empty())
         || task_balance
             .verify_enough_attached(
                 native_for_sends_required + Uint128::new(native_for_gas_required),

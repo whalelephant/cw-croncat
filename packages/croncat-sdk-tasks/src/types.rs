@@ -323,16 +323,21 @@ impl Task {
         Ok(())
     }
 
+    /// Recalculate cw20 usage for this task
+    /// It can be initially zero, but after transform we still have to check it does have only one type of cw20
+    /// If it had initially cw20, it can't change cw20 type
     fn recalculate_cw20_usage(
         &self,
         api: &dyn Api,
         cron_addr: &Addr,
     ) -> StdResult<Option<Cw20CoinVerified>> {
-        let Some(current_cw20) = &self.amount_for_one_task.cw20 else {
-            return Ok(None)
-        };
-        let actions = self.actions.iter();
+        let mut current_cw20 = self
+            .amount_for_one_task
+            .cw20
+            .as_ref()
+            .map(|cw20| cw20.address.clone());
         let mut cw20_amount = Uint128::zero();
+        let actions = self.actions.iter();
         for action in actions {
             if let CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr, msg, ..
@@ -344,8 +349,12 @@ impl Task {
                 let validated_addr = api.addr_validate(contract_addr)?;
                 if let Ok(cw20_msg) = cosmwasm_std::from_binary::<Cw20ExecuteMsg>(msg) {
                     // Don't let change type of cw20
-                    if validated_addr != current_cw20.address {
-                        return Err(StdError::generic_err("Task is no longer valid"));
+                    if let Some(cw20_addr) = &current_cw20 {
+                        if validated_addr.ne(cw20_addr) {
+                            return Err(StdError::generic_err("Task is no longer valid"));
+                        }
+                    } else {
+                        current_cw20 = Some(validated_addr);
                     }
                     match cw20_msg {
                         Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
@@ -365,8 +374,8 @@ impl Task {
                 }
             }
         }
-        Ok(Some(Cw20CoinVerified {
-            address: current_cw20.address.clone(),
+        Ok(current_cw20.map(|addr| Cw20CoinVerified {
+            address: addr,
             amount: cw20_amount,
         }))
     }
