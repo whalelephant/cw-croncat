@@ -37,7 +37,7 @@ export interface CroncatTasksReadOnlyInterface {
     taskHash
   }: {
     taskHash: string;
-  }) => Promise<NullableTaskResponse>;
+  }) => Promise<Nullable_TaskResponse>;
   taskHash: ({
     task
   }: {
@@ -55,7 +55,7 @@ export interface CroncatTasksReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<SlotIdsResponse>;
-  getCurrentTask: () => Promise<NullableTaskResponse>;
+  getCurrentTask: () => Promise<Nullable_TaskResponse>;
 }
 export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
   client: CosmWasmClient;
@@ -129,7 +129,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     taskHash
   }: {
     taskHash: string;
-  }): Promise<NullableTaskResponse> => {
+  }): Promise<Nullable_TaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       task: {
         task_hash: taskHash
@@ -172,7 +172,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
       }
     });
   };
-  getCurrentTask = async (): Promise<NullableTaskResponse> => {
+  getCurrentTask = async (): Promise<Nullable_TaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_current_task: {}
     });
