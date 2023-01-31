@@ -1,16 +1,12 @@
-use std::cmp;
-use std::ops::Div;
-
 use crate::distributor::*;
 use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Storage, Uint128,
+    entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, Storage,
 };
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
@@ -18,6 +14,8 @@ use croncat_sdk_agents::msg::{
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use cw2::set_contract_version;
+use std::cmp;
+use std::ops::Div;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -95,11 +93,11 @@ pub fn execute(
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
-        ExecuteMsg::UpdateAgent { payable_account_id } => {
-            update_agent(deps, info, env, payable_account_id)
-        }
         ExecuteMsg::UnregisterAgent { from_behind } => {
             unregister_agent(deps, &info.sender, from_behind)
+        }
+        ExecuteMsg::UpdateAgent { payable_account_id } => {
+            update_agent(deps, info, env, payable_account_id)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
@@ -109,7 +107,9 @@ pub fn execute(
 
 fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option<AgentResponse>> {
     let account_id = deps.api.addr_validate(&account_id)?;
+
     let agent = AGENTS.may_load(deps.storage, &account_id)?;
+
     let a = if let Some(a) = agent {
         a
     } else {
@@ -117,8 +117,9 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     };
 
     let config: Config = CONFIG.load(deps.storage)?;
-
-    let total_tasks = query_total_tasks(deps, &config)?;
+    let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
+    let rewards =
+        croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
     let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
@@ -131,8 +132,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     let agent_response = AgentResponse {
         status: agent_status,
         payable_account_id: a.payable_account_id,
-        balance: a.balance,
-        total_tasks_executed: stats.completed_block_tasks + stats.completed_cron_tasks,
+        balance: rewards,
         last_executed_slot: stats.last_executed_slot,
         register_start: a.register_start,
     };
@@ -174,7 +174,7 @@ fn query_get_agent_tasks(
     }
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let (block_slots, cron_slots) = query_tasks_slots(deps, &config)?;
+    let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
         return Ok(None);
     }
@@ -214,7 +214,7 @@ fn register_agent(
     let agent_wallet_balances = deps.querier.query_all_balances(account.clone())?;
 
     // Get the denom from the manager contract
-    let manager_config = query_manager_config(deps.as_ref(), &c)?;
+    let manager_config = croncat_manager_contract::query_manager_config(&deps.as_ref(), &c)?;
 
     let agents_needs_coin = Coin::new(
         c.min_coins_for_agent_registration.into(),
@@ -254,7 +254,6 @@ fn register_agent(
                 None => {
                     Ok(Agent {
                         payable_account_id: payable_id,
-                        balance: Uint128::default(),
                         // REF: https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/types.rs#L57
                         register_start: env.block.time,
                     })
@@ -264,7 +263,7 @@ fn register_agent(
     )?;
 
     Ok(Response::new()
-        .add_attribute("method", "register_agent")
+        .add_attribute("action", "register_agent")
         .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
         .add_attribute("register_start", agent.register_start.nanos().to_string())
         .add_attribute("payable_account_id", agent.payable_account_id))
@@ -299,7 +298,7 @@ fn update_agent(
     )?;
 
     Ok(Response::new()
-        .add_attribute("method", "update_agent")
+        .add_attribute("action", "update_agent")
         .add_attribute("payable_account_id", agent.payable_account_id))
 }
 
@@ -342,7 +341,7 @@ fn accept_nomination_agent(
             AGENTS_PENDING.pop_front(deps.storage)?;
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
             return Ok(Response::new()
-                .add_attribute("method", "accept_nomination_agent")
+                .add_attribute("action", "accept_nomination_agent")
                 .add_attribute("new_agent", info.sender.as_str()));
         } else {
             // No agents can join yet
@@ -386,7 +385,7 @@ fn accept_nomination_agent(
     };
     // Find difference
     Ok(Response::new()
-        .add_attribute("method", "accept_nomination_agent")
+        .add_attribute("action", "accept_nomination_agent")
         .add_attribute("new_agent", info.sender.as_str())
         .add_attribute("kicked_agents: ", format!("{kicked_agents:?}")))
 }
@@ -399,7 +398,14 @@ fn unregister_agent(
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    AGENTS.remove(deps.storage, agent_id);
+    let config: Config = CONFIG.load(deps.storage)?;
+    if config.paused {
+        return Err(ContractError::ContractPaused);
+    }
+    let agent = AGENTS
+        .may_load(deps.storage, agent_id)?
+        .ok_or(ContractError::AgentNotRegistered {})?;
+
     // Remove from the list of active agents if the agent in this list
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
@@ -436,9 +442,18 @@ fn unregister_agent(
             }
         }
     }
+    let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
+        &deps.querier,
+        &config,
+        agent_id.as_str(),
+        agent.payable_account_id.to_string(),
+    )?;
+    AGENTS.remove(deps.storage, agent_id);
 
     let responses = Response::new()
-        .add_attribute("method", "unregister_agent")
+        //Send withdraw rewards message to manager contract
+        .add_message(msg)
+        .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
     Ok(responses)
@@ -594,11 +609,11 @@ fn on_task_created(
     _: AgentOnTaskCreated,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
-    assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
+    croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
     let min_tasks_per_agent = config.min_tasks_per_agent;
     let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let total_tasks = query_total_tasks(deps.as_ref(), &config)?;
+    let total_tasks = croncat_tasks_contract::query_total_tasks(deps.as_ref(), &config)?;
     let num_agents_to_accept =
         agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
 
@@ -612,6 +627,6 @@ fn on_task_created(
             AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
         }
     }
-    let response = Response::new().add_attribute("method", "on_task_created");
+    let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
