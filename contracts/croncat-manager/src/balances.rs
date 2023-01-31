@@ -273,7 +273,10 @@ pub fn query_users_balances(
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|balance_res| {
-            balance_res.map(|(addr, amount)| Cw20CoinVerified {address: addr, amount })
+            balance_res.map(|(addr, amount)| Cw20CoinVerified {
+                address: addr,
+                amount,
+            })
         })
         .collect::<StdResult<_>>()?;
 

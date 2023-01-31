@@ -62,16 +62,14 @@ pub fn instantiate(
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
-        
+
     let treasury_funds = info
         .funds
         .iter()
         .find(|coin| coin.denom == denom)
         .ok_or(ContractError::NoTreasuryFundsAttached {})?;
-   
-    TREASURY_BALANCE.save(deps.storage, &treasury_funds.amount)?;
 
-    
+    TREASURY_BALANCE.save(deps.storage, &treasury_funds.amount)?;
 
     let config = Config {
         paused: false,
