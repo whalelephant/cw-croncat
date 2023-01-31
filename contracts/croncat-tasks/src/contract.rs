@@ -182,15 +182,49 @@ fn execute_reschedule_task(
             match slot_kind {
                 SlotType::Block => {
                     BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+                    // Don't forget to pop finished task
+                    let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
+                        .range(
+                            deps.storage,
+                            None,
+                            Some(Bound::inclusive(env.block.height)),
+                            Order::Ascending,
+                        )
+                        .take(1)
+                        .collect::<StdResult<_>>()?;
+                    let mut slot = block_slot.pop().unwrap();
+                    slot.1.pop();
+                    if slot.1.is_empty() {
+                        BLOCK_SLOTS.remove(deps.storage, slot.0)
+                    } else {
+                        BLOCK_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                    }
                 }
                 SlotType::Cron => {
                     TIME_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+                    // Don't forget to pop finished task
+                    let mut time_slot: Vec<(u64, Vec<Vec<u8>>)> = TIME_SLOTS
+                        .range(
+                            deps.storage,
+                            None,
+                            Some(Bound::inclusive(env.block.time.nanos())),
+                            Order::Ascending,
+                        )
+                        .take(1)
+                        .collect::<StdResult<_>>()?;
+                    let mut slot = time_slot.pop().unwrap();
+                    slot.1.pop();
+                    if slot.1.is_empty() {
+                        TIME_SLOTS.remove(deps.storage, slot.0)
+                    } else {
+                        TIME_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                    }
                 }
             }
         } else {
             remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
             remove_task = Some(ManagerRemoveTask {
-                sender: info.sender,
+                sender: task.owner_addr,
                 task_hash,
             });
         }
@@ -211,7 +245,7 @@ fn execute_reschedule_task(
         } else {
             remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
             remove_task = Some(ManagerRemoveTask {
-                sender: info.sender,
+                sender: task.owner_addr,
                 task_hash,
             });
         }
