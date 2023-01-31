@@ -126,9 +126,7 @@ fn execute_proxy(
     info: MessageInfo,
     msg: WasmMsg,
 ) -> Result<Response, ContractError> {
-    let config = &CONFIG
-        .may_load(deps.storage)?
-        .ok_or(ContractError::UnknownContract {})?;
+    let config = CONFIG.load(deps.storage)?;
 
     // Only allow owner to relay msgs
     if config.owner_addr != info.sender {
@@ -144,14 +142,14 @@ fn execute_proxy(
         } => contract_addr,
         // Disallow unknown messages
         _ => {
-            return Err(ContractError::Unauthorized {});
+            return Err(ContractError::UnknownMethod {});
         }
     };
 
     // Only allow msgs that have existing contract versions
-    CONTRACT_ADDRS_LOOKUP
-        .may_load(deps.storage, deps.api.addr_validate(&contract_addr)?)?
-        .ok_or(ContractError::UnknownContract {})?;
+    if !CONTRACT_ADDRS_LOOKUP.has(deps.storage, deps.api.addr_validate(contract_addr)?) {
+        return Err(ContractError::UnknownContract {});
+    }
 
     Ok(Response::new()
         .add_attribute("action", "proxy")
