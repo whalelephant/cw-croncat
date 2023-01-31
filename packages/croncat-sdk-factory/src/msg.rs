@@ -1,7 +1,7 @@
 use std::fmt;
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Binary};
+use cosmwasm_std::{Addr, Binary, WasmMsg};
 
 #[cw_serde]
 pub struct Config {
@@ -19,7 +19,9 @@ pub struct FactoryInstantiateMsg {
 #[cw_serde]
 pub enum FactoryExecuteMsg {
     /// Updates the factory config
-    UpdateConfig { owner_addr: String },
+    UpdateConfig {
+        owner_addr: String,
+    },
 
     /// Deploys contract and saves metadata of the contract to the factory
     Deploy {
@@ -40,6 +42,10 @@ pub enum FactoryExecuteMsg {
         version: [u8; 2],
         changelog_url: Option<String>,
         schema: Option<String>,
+    },
+
+    Proxy {
+        msg: WasmMsg,
     },
 }
 // TODO: migrate

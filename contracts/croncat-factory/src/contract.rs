@@ -13,8 +13,8 @@ use cw_utils::parse_reply_instantiate_data;
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_METADATAS, LATEST_ADDRS, LATEST_VERSIONS,
-    TEMP_REPLY,
+    Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_ADDRS_LOOKUP, CONTRACT_METADATAS,
+    LATEST_ADDRS, LATEST_VERSIONS, TEMP_REPLY,
 };
 
 // version info for migration info
@@ -44,6 +44,8 @@ fn init_save_metadata_generate_wasm_msg(
         &metadata,
     )?;
     LATEST_VERSIONS.save(storage, &init_info.contract_name, &init_info.version)?;
+
+    // TODO: Once cosmwasm 1.2 is available, change to Instantiate2 https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/results/cosmos_msg.rs#L169
     let msg = WasmMsg::Instantiate {
         admin: Some(factory.to_owned()),
         code_id: init_info.code_id,
@@ -91,6 +93,7 @@ pub fn execute(
 
     match msg {
         ExecuteMsg::UpdateConfig { owner_addr } => execute_update_config(deps, owner_addr),
+        ExecuteMsg::Proxy { msg } => execute_proxy(deps, info, msg),
         ExecuteMsg::Deploy {
             kind,
             module_instantiate_info,
@@ -116,6 +119,43 @@ fn execute_update_config(deps: DepsMut, owner_addr: String) -> Result<Response, 
     Ok(Response::new()
         .add_attribute("action", "update_config")
         .add_attribute("owner_addr", config.owner_addr))
+}
+
+fn execute_proxy(
+    deps: DepsMut,
+    info: MessageInfo,
+    msg: WasmMsg,
+) -> Result<Response, ContractError> {
+    let config = &CONFIG
+        .may_load(deps.storage)?
+        .ok_or(ContractError::UnknownContract {})?;
+
+    // Only allow owner to relay msgs
+    if config.owner_addr != info.sender {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    // Only accept WasmMsg::Execute
+    let contract_addr = match &msg {
+        WasmMsg::Execute {
+            contract_addr,
+            funds: _,
+            msg: _,
+        } => contract_addr,
+        // Disallow unknown messages
+        _ => {
+            return Err(ContractError::Unauthorized {});
+        }
+    };
+
+    // Only allow msgs that have existing contract versions
+    CONTRACT_ADDRS_LOOKUP
+        .may_load(deps.storage, deps.api.addr_validate(&contract_addr)?)?
+        .ok_or(ContractError::UnknownContract {})?;
+
+    Ok(Response::new()
+        .add_attribute("action", "proxy")
+        .add_message(msg))
 }
 
 fn execute_update_metadata(
@@ -162,6 +202,7 @@ fn execute_remove(
     }
 
     let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &version))?;
+    let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
 
     // Can't remove unpaused contract if not a library
     if metadata.kind != VersionKind::Library {
@@ -171,6 +212,7 @@ fn execute_remove(
 
     CONTRACT_METADATAS.remove(deps.storage, (&contract_name, &version));
     CONTRACT_ADDRS.remove(deps.storage, (&contract_name, &version));
+    CONTRACT_ADDRS_LOOKUP.remove(deps.storage, contract_addr);
 
     Ok(Response::new().add_attribute("action", "remove"))
 }
@@ -377,6 +419,8 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         (&contract_name, &latest_version),
         &contract_address,
     )?;
+
+    CONTRACT_ADDRS_LOOKUP.save(deps.storage, contract_address, &contract_name)?;
 
     Ok(Response::new())
 }
