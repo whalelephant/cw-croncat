@@ -43,4 +43,7 @@ pub enum ContractError {
 
     #[error("No rewards owner agent found")]
     NoRewardsOwnerAgentFound {},
+    
+    #[error("No treasury funds attached")]
+    NoTreasuryFundsAttached{}
 }

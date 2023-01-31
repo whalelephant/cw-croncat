@@ -57,7 +57,14 @@ pub fn instantiate(
     if !gas_price.is_valid() {
         return Err(ContractError::InvalidGasPrice {});
     }
+    if info.funds.is_empty() {
+        return Err(ContractError::NoTreasuryFundsAttached {});
+    }
+    if info.funds.len() > 1 {
+        return Err(ContractError::TooManyCoins {});
+    }
 
+    let treasury_funds = info.funds.is.find(|coin| coin.denom = denom);
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
