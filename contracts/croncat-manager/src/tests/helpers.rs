@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Uint128};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::types::Config;
 use cw20::{Cw20Coin, Cw20CoinVerified};

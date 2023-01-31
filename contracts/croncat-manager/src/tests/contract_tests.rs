@@ -1,5 +1,5 @@
-use cosmwasm_std::{coins, from_binary, to_binary, Addr, BankMsg, Uint128};
-use croncat_sdk_manager::types::{gas_price_defaults, Config, UpdateConfig};
+use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Uint128};
+use croncat_sdk_manager::types::{Config, UpdateConfig};
 use croncat_sdk_tasks::types::{Action, Interval, TaskResponse};
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::KeyDeserialize;
@@ -79,7 +79,7 @@ mod instantiate_tests {
         app.sudo(
             BankSudo::Mint {
                 to_address: ADMIN.to_owned(),
-                amount: attach_funds.clone(),
+                amount: attach_funds,
             }
             .into(),
         )
@@ -178,7 +178,7 @@ fn update_config() {
     app.sudo(
         BankSudo::Mint {
             to_address: ADMIN.to_owned(),
-            amount: attach_funds.clone(),
+            amount: attach_funds,
         }
         .into(),
     )
@@ -262,7 +262,7 @@ fn invalid_updates_config() {
     app.sudo(
         BankSudo::Mint {
             to_address: ADMIN.to_owned(),
-            amount: attach_funds.clone(),
+            amount: attach_funds,
         }
         .into(),
     )
@@ -612,7 +612,7 @@ fn failed_move_balances() {
     app.sudo(
         BankSudo::Mint {
             to_address: ADMIN.to_owned(),
-            amount: attach_funds.clone(),
+            amount: attach_funds,
         }
         .into(),
     )
@@ -688,10 +688,8 @@ fn simple_bank_transfer_execution() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
-            &croncat_tasks::msg::QueryMsg::Task {
-                task_hash: task_hash.clone(),
-            },
+            tasks_addr,
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
 
@@ -708,7 +706,7 @@ fn simple_bank_transfer_execution() {
     let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
     app.execute_contract(
         Addr::unchecked(AGENT0),
-        manager_addr.clone(),
+        manager_addr,
         &ExecuteMsg::ProxyCall { task_hash: None },
         &[],
     )
@@ -725,7 +723,6 @@ fn simple_bank_transfer_execution() {
     );
 }
 
-//TODO: this test is failing as no factory contract is initialized
 #[test]
 fn test_should_fail_with_zero_rewards() {
     let mut app = default_app();
