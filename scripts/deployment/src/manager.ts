@@ -1,5 +1,5 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { StdFee } from "@cosmjs/stargate";
+import { coin, Coin, StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 import { getContractVersionFromCargoToml } from './utils'
@@ -20,6 +20,7 @@ export class ManagerClient {
 		const codeId = uploadRes.codeId
 		const checksums = await getChecksums()
 		const githash = await getGitHash()
+		const funds:Coin[]=[coin(50,denom)];
 
 		// get the version from cargo
 		const version = await getContractVersionFromCargoToml('croncat-manager')
@@ -49,7 +50,7 @@ export class ManagerClient {
 			}
 		}
 
-		const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas);
+		const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas,null,funds);
 		const address: string = instRes.logs[0].events[1].attributes[0].value
 
 		return [codeId, address];

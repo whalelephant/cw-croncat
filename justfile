@@ -14,8 +14,8 @@ build:
 	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	#!/bin/bash
-	chmod +x ./scripts/testnet/deploy.sh
-	./scripts/testnet/deploy.sh -w # only wasm update
+	cd ./scripts/deployment
+	yarn go
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
