@@ -59,7 +59,7 @@ const start = async () => {
 		// create a map instead of array
 		versions[v.contract_name] = v.metadata
 	})
-	// console.log('factory allVersions', allVersions);
+	// console.log('factory allVersions', JSON.stringify(allVersions));
 
 	// TODO: Logic:
 	// 1. register agent

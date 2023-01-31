@@ -26,8 +26,14 @@ export class FactoryClient {
     // get the version from cargo
     const version = await getContractVersionFromCargoToml('croncat-factory')
 
+    const instantiateOptions = {
+      admin: sender,
+      // memo: '',
+      // funds: [],
+    }
+
     // instantiate
-    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${version}`, instantiateGas)
+    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${version}`, instantiateGas, instantiateOptions)
     const address = factoryInst.contractAddress
 
 		return [codeId, address];

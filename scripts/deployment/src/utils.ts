@@ -17,11 +17,11 @@ export const getChecksums = async (): Promise<any> => {
 }
 
 export const getContractVersionFromCargoToml = async (contractName): Promise<any> => {
-  const crateToml = fs.readFileSync(path.join(contractsRoot, contractName, 'src', 'Cargo.toml'), 'utf8')
+  const crateToml = fs.readFileSync(path.join(contractsRoot, contractName, 'Cargo.toml'), 'utf8')
   const data = toml.parse(crateToml)
-  console.log('TML: ', contractName, data);
-
-  return data.workspace.package.version
+  const sv = `${data.package.version || data.workspace.package.version}`.split('.').slice(0, 2)
+  if (!sv || sv.length < 1) return [0, 0]
+  return [parseInt(sv[0], 10), parseInt(sv[1], 10)]
 }
 
 export const getGitHash = () => {

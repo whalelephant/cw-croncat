@@ -29,15 +29,15 @@ export class AgentClient {
                 "kind": "agents",
                 "module_instantiate_info": {
                     "code_id": codeId,
-                    "version": version.split('.').slice(0, 2),
-                    "commit_id": githash,
-                    "checksum": checksums.agents,
+                    "version": version,
+                    "commit_id": githash || '-',
+                    "checksum": checksums.agents || '-',
                     "changelog_url": "https://github.com/croncats",
                     "schema": "",
                     "msg": Buffer.from(JSON.stringify({
-                        "version": version,
-                        "croncat_manager_key": ["manager", [0, 0]],
-                        "croncat_tasks_key": ["tasks", [0, 0]],
+                        "version": `${version[0]}.${version[1]}`,
+                        "croncat_manager_key": ["manager", version || [0, 1]],
+                        "croncat_tasks_key": ["tasks", version || [0, 1]],
                     })).toString('base64'),
                     "contract_name": "agents"
                 }

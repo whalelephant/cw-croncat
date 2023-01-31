@@ -26,10 +26,10 @@ export class ManagerClient {
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"denom": denom,
-			"version": version,
+			"version": `${version[0]}.${version[1]}`,
 			"owner_addr": sender,
-			"croncat_tasks_key": ["tasks", [0, 1]],
-			"croncat_agents_key": ["agents", [0, 1]]
+			"croncat_tasks_key": ["tasks", version || [0, 1]],
+			"croncat_agents_key": ["agents", version || [0, 1]]
 		})).toString('base64')
 
 		// instantiate manager contract (from the factory)
@@ -38,9 +38,9 @@ export class ManagerClient {
 				"kind": "manager",
 				"module_instantiate_info": {
 					"code_id": codeId,
-					"version": version.split('.').slice(0,2),
-					"commit_id": githash,
-					"checksum": checksums.manager,
+					"version": version,
+					"commit_id": githash || '-',
+					"checksum": checksums.manager || '-',
 					"changelog_url": "https://github.com/croncats",
 					"schema": "",
 					"msg": base64ManagerInst,
