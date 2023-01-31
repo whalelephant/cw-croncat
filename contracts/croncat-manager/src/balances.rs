@@ -230,7 +230,7 @@ pub fn execute_refill_native_balance(
         .may_load(deps.storage, task_hash.as_bytes())?
         .ok_or(ContractError::NoTaskHash {})?;
 
-    if info.funds.len() > 2 {
+    if info.funds.len() > 3 {
         return Err(ContractError::TooManyCoins {});
     }
     for coin in info.funds {

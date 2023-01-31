@@ -57,18 +57,21 @@ pub fn instantiate(
     if !gas_price.is_valid() {
         return Err(ContractError::InvalidGasPrice {});
     }
-    if info.funds.is_empty() {
-        return Err(ContractError::NoTreasuryFundsAttached {});
-    }
-    if info.funds.len() > 1 {
-        return Err(ContractError::TooManyCoins {});
-    }
 
-    let treasury_funds = info.funds.is.find(|coin| coin.denom = denom);
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
+        
+    let treasury_funds = info
+        .funds
+        .iter()
+        .find(|coin| coin.denom == denom)
+        .ok_or(ContractError::NoTreasuryFundsAttached {})?;
+   
+    TREASURY_BALANCE.save(deps.storage, &treasury_funds.amount)?;
+
+    
 
     let config = Config {
         paused: false,
@@ -89,7 +92,6 @@ pub fn instantiate(
 
     // Update state
     CONFIG.save(deps.storage, &config)?;
-    TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
