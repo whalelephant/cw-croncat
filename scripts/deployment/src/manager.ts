@@ -2,6 +2,7 @@ import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
+import { getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
 import { getGitHash, getChecksums } from './utils'
 const denom: string = process.env.DENOM
@@ -20,11 +21,15 @@ export class ManagerClient {
 		const checksums = await getChecksums()
 		const githash = await getGitHash()
 
+		// get the version from cargo
+		const version = await getContractVersionFromCargoToml('croncat-manager')
+
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"denom": denom,
+			"version": `${version[0]}.${version[1]}`,
 			"owner_addr": sender,
-			"croncat_tasks_key": ["tasks", [0, 1]],
-			"croncat_agents_key": ["agents", [0, 1]]
+			"croncat_tasks_key": ["tasks", version || [0, 1]],
+			"croncat_agents_key": ["agents", version || [0, 1]]
 		})).toString('base64')
 
 		// instantiate manager contract (from the factory)
@@ -33,9 +38,9 @@ export class ManagerClient {
 				"kind": "manager",
 				"module_instantiate_info": {
 					"code_id": codeId,
-					"version": [0, 1],
-					"commit_id": githash,
-					"checksum": checksums.manager,
+					"version": version,
+					"commit_id": githash || '-',
+					"checksum": checksums.manager || '-',
 					"changelog_url": "https://github.com/croncats",
 					"schema": "",
 					"msg": base64ManagerInst,

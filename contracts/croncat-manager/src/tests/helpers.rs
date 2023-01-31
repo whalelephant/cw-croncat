@@ -10,7 +10,7 @@ use crate::msg::{InstantiateMsg, QueryMsg};
 use super::{
     contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERY_RICH,
+    PARTICIPANT6, VERSION, VERY_RICH,
 };
 
 pub(crate) fn default_app() -> App {
@@ -81,6 +81,7 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
 pub(crate) fn default_instantiate_message() -> InstantiateMsg {
     InstantiateMsg {
         denom: DENOM.to_owned(),
+        version: Some(VERSION.to_owned()),
         croncat_tasks_key: ("croncat_tasks_name".to_owned(), [0, 1]),
         croncat_agents_key: ("croncat_agents_name".to_owned(), [0, 1]),
         owner_addr: None,

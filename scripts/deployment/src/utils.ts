@@ -1,5 +1,8 @@
+import path from 'path'
 import * as fs from "fs"
+import toml from 'toml'
 const artifactsRoot = `${process.cwd()}/../../artifacts`
+const contractsRoot = `${process.cwd()}/../../contracts`
 
 export const getChecksums = async (): Promise<any> => {
   const sums = fs.readFileSync(`${artifactsRoot}/checksums.txt`, 'utf8')
@@ -11,6 +14,14 @@ export const getChecksums = async (): Promise<any> => {
     if (a.length > 1) m[k] = a[0]
   })
   return m  
+}
+
+export const getContractVersionFromCargoToml = async (contractName): Promise<any> => {
+  const crateToml = fs.readFileSync(path.join(contractsRoot, contractName, 'Cargo.toml'), 'utf8')
+  const data = toml.parse(crateToml)
+  const sv = `${data.package.version || data.workspace.package.version}`.split('.').slice(0, 2)
+  if (!sv || sv.length < 1) return [0, 0]
+  return [parseInt(sv[0], 10), parseInt(sv[1], 10)]
 }
 
 export const getGitHash = () => {

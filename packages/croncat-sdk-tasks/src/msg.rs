@@ -8,6 +8,9 @@ pub struct TasksInstantiateMsg {
     /// Chain name to add prefix to the task_hash
     pub chain_name: String,
 
+    /// Assigned by Factory, denotes the version of this contract (CW2 spec) & used as the task verion as well.
+    pub version: Option<String>,
+
     /// Address of the contract owner, defaults to the sender
     pub owner_addr: Option<String>,
     /// Name of the key for raw querying Manager address from the factory

@@ -23,6 +23,9 @@ pub struct Config {
     /// Chain name to add prefix to the task_hash
     pub chain_name: String,
 
+    /// Assigned by Factory, denotes the version of this contract (CW2 spec) & used as the task verion as well.
+    pub version: String,
+
     /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: (String, [u8; 2]),
 

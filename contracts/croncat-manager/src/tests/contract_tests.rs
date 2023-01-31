@@ -51,6 +51,7 @@ mod instantiate_tests {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
