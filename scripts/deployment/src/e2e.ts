@@ -18,8 +18,10 @@ const seedPhrase: string = process.env.SEED_PHRASE
 const prefix: string = process.env.PREFIX
 const endpoint: string = process.env.RPC_ENDPOINT
 const denom: string = process.env.DENOM
+const regular: string = process.env.REGULAR
 const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
-const artifactsRoot = `${process.cwd()}/../../artifacts`
+let artifactsRoot = `${process.cwd()}/../../artifacts`
+if (regular === 'yes') artifactsRoot = `${process.cwd()}/../../artifacts/cargo-builds`
 
 // Gas vals
 const executeGas = calculateFee(555_000, defaultGasPrice)
@@ -36,6 +38,7 @@ const start = async () => {
 	})
 	const tmClient = await Tendermint34Client.create(httpBatchClient)
 	const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
+
 	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, 'utf8')
 	if (!rawDeployed) process.exit(1)
 	const deployedContracts = JSON.parse(rawDeployed)
@@ -73,7 +76,6 @@ const start = async () => {
 	// 9. proxy_call
 	// 10. withdraw agent balance
 	// 11. unregister
-
 
 	// Register & check status
 	try {

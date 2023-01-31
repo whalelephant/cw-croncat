@@ -10,6 +10,8 @@
     "go": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/index.js",
     "go-regular": "tsc && REGULAR=\"yes\" node build/index.js",
     "e2e": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2e.js",
+    "e2e-regular": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 REGULAR=\"yes\" node build/e2e.js",
+    "mike": "tsc && node build/mike.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
