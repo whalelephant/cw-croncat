@@ -11,7 +11,7 @@ use croncat_sdk_tasks::types::{
     Config, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task,
     TaskRequest, TaskResponse,
 };
-use cw2::{query_contract_info, set_contract_version};
+use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::Bound;
 
@@ -26,7 +26,7 @@ use crate::state::{
     TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS,
 };
 
-const CONTRACT_NAME: &str = "croncat:croncat-tasks";
+const CONTRACT_NAME: &str = "crate:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // Default value based on non-wasm operations, wasm ops seem impossible to predict
@@ -34,7 +34,7 @@ const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub(crate) const GAS_BASE_FEE: u64 = 300_000;
 pub(crate) const GAS_ACTION_FEE: u64 = 130_000;
 pub(crate) const GAS_QUERY_FEE: u64 = 130_000; // Load query module(~61_000) and query after that(~65_000+)
-pub(crate) const GAS_LIMIT: u64 = 9_500_000; // 10M is default for juno, but let's make sure we have space for missed gas calculations
+pub(crate) const GAS_LIMIT: u64 = 3_000_000; // 10M is default for juno, but let's make sure we have space for block inclusivity guarantees
 pub(crate) const SLOT_GRANULARITY_TIME: u64 = 10_000_000_000; // 10 seconds
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -44,18 +44,22 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     let InstantiateMsg {
         chain_name,
+        version,
         owner_addr,
         croncat_manager_key,
         croncat_agents_key,
         slot_granularity_time,
         gas_base_fee,
         gas_action_fee,
-        gas_query_fee,
         gas_limit,
+        gas_query_fee,
     } = msg;
+
+    let contract_version = version.unwrap_or_else(|| CONTRACT_VERSION.to_string());
+    set_contract_version(deps.storage, CONTRACT_NAME, &contract_version)?;
+
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
@@ -63,6 +67,7 @@ pub fn instantiate(
     let config = Config {
         paused: false,
         chain_name,
+        version: contract_version,
         owner_addr,
         croncat_factory_addr: info.sender,
         croncat_manager_key,
@@ -128,6 +133,7 @@ fn execute_update_config(deps: DepsMut, msg: UpdateConfigMsg) -> Result<Response
             .transpose()?
             .unwrap_or(config.croncat_factory_addr),
         chain_name: config.chain_name,
+        version: config.version,
         croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
         croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
         slot_granularity_time: slot_granularity_time.unwrap_or(config.slot_granularity_time),
@@ -312,7 +318,6 @@ fn execute_create_task(
         })
         .transpose()?;
 
-    let version = query_contract_info(&deps.querier, env.contract.address.as_str())?.version;
     let item = Task {
         owner_addr: owner_addr.clone(),
         interval: task.interval,
@@ -322,7 +327,7 @@ fn execute_create_task(
         actions: task.actions,
         queries: task.queries.unwrap_or_default(),
         transforms: task.transforms.unwrap_or_default(),
-        version,
+        version: config.version.clone(),
     };
     let hash_prefix = &config.chain_name;
     let hash = item.to_hash(hash_prefix);

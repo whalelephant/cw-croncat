@@ -2,7 +2,7 @@ import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { Coin, StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
-import { getGitHash, getChecksums } from './utils'
+import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
 const prefix: string = process.env.PREFIX
 
@@ -20,21 +20,25 @@ export class TaskClient {
     const checksums = await getChecksums()
     const githash = await getGitHash()
 
+    // get the version from cargo
+    const version = await getContractVersionFromCargoToml('croncat-tasks')
+
     // instantiate manager contract (from the factory)
     const deployMsg = {
       "deploy": {
         "kind": "tasks",
         "module_instantiate_info": {
           "code_id": codeId,
-          "version": [0, 1],
-          "commit_id": githash,
-          "checksum": "nosleeptilsecurityaudit",
+          "version": version,
+          "commit_id": githash || '-',
+          "checksum": checksums.tasks || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
           "msg": Buffer.from(JSON.stringify({
             chain_name: prefix || 'juno',
-            croncat_manager_key: ['manager', [0, 1]],
-            croncat_agents_key: ['agents', [0, 1]],
+            version: `${version[0]}.${version[1]}`,
+            croncat_manager_key: ['manager', version || [0, 1]],
+            croncat_agents_key: ['agents', version || [0, 1]],
             // owner_addr: '',
             // croncat_manager_key: '',
             // croncat_agents_key: '',

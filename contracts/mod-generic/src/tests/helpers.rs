@@ -6,6 +6,7 @@ use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use crate::msg::InstantiateMsg;
 
 pub const CREATOR_ADDR: &str = "creator";
+const VERSION: &str = "0.1";
 
 fn contract_template() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(
@@ -40,7 +41,9 @@ pub(crate) fn proper_instantiate() -> (App, Addr, Addr, Addr) {
     let cw4_id = app.store_code(cw4_contract());
     let cw20_id = app.store_code(cw20_template());
 
-    let instantiate = InstantiateMsg {};
+    let instantiate = InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
     let contract_addr = app
         .instantiate_contract(
             code_id,

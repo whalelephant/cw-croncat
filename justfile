@@ -69,3 +69,7 @@ cdeploy:
     #!/bin/bash
     cd {{justfile_directory()}}/scripts/deployment
     npm run go-regular
+
+schema: gen-schema gen-typescript
+
+all: lint build test schema

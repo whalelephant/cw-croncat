@@ -5,14 +5,28 @@ use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    /// Address of the contract owner, defaults to the sender
     pub owner_addr: Option<String>,
+    /// CW2 Version provided by factory
+    pub version: Option<String>,
     /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: (String, [u8; 2]),
     /// Name of the key for raw querying Tasks address from the factory
     pub croncat_tasks_key: (String, [u8; 2]),
 
+    /// Sets the amount of time opportunity for a pending agent to become active.
+    /// If there is a pending queue, the longer a pending agent waits,
+    /// the more pending agents can potentially become active based on this nomination window.
+    /// This duration doesn't block the already nominated agent from becoming active,
+    /// it only opens the door for more to become active. If a pending agent is nominated,
+    /// then is lazy and beat by another agent, they get removed from pending queue and must
+    /// register again.
     pub agent_nomination_duration: Option<u16>,
+    /// The ratio used to calculate active agents/tasks. Example: "3", requires there are
+    /// 4 tasks before letting in another agent to become active. (3 tasks for agent 1, 1 task for agent 2)
     pub min_tasks_per_agent: Option<u64>,
+    /// The required amount needed to actually execute a few tasks before withdraw profits.
+    /// This helps make sure agent wont get stuck out the gate
     pub min_coin_for_agent_registration: Option<u64>,
 }
 
@@ -38,11 +52,7 @@ pub enum QueryMsg {
         limit: Option<u64>,
     },
     #[returns[Option<AgentTaskResponse>]]
-    GetAgentTasks {
-        account_id: String,
-        block_slots: Option<u64>,
-        cron_slots: Option<u64>,
-    },
+    GetAgentTasks { account_id: String },
     #[returns[crate::types::Config]]
     Config {},
 }
@@ -58,7 +68,6 @@ pub struct AgentResponse {
     pub status: AgentStatus,
     pub payable_account_id: Addr,
     pub balance: Uint128,
-    pub total_tasks_executed: u64,
     pub last_executed_slot: u64,
     pub register_start: Timestamp,
 }
