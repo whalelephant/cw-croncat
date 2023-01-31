@@ -23,7 +23,7 @@ use crate::helpers::{
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, WithdrawRewardsCallback};
 use crate::state::{Config, AGENT_REWARDS, CONFIG, TASKS_BALANCES, TREASURY_BALANCE};
 
-pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
+pub(crate) const CONTRACT_NAME: &str = "crate:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub(crate) const DEFAULT_FEE: u64 = 5;
@@ -44,6 +44,7 @@ pub fn instantiate(
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
         denom,
+        version,
         croncat_tasks_key,
         croncat_agents_key,
         owner_addr,
@@ -82,7 +83,11 @@ pub fn instantiate(
     // Update state
     CONFIG.save(deps.storage, &config)?;
     TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    set_contract_version(
+        deps.storage,
+        CONTRACT_NAME,
+        version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")

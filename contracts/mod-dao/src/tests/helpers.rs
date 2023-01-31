@@ -4,6 +4,7 @@ use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use dao_voting_cw20_staked::msg::ActiveThreshold;
 
 pub const CREATOR_ADDR: &str = "creator";
+pub const VERSION: &str = "0.1";
 
 pub fn contract_template() -> Box<dyn Contract<Empty>> {
     let contract = ContractWrapper::new(

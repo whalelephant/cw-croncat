@@ -17,7 +17,7 @@ use cw2::set_contract_version;
 use std::cmp;
 use std::ops::Div;
 
-pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-agents";
+pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -29,6 +29,7 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     let InstantiateMsg {
         owner_addr,
+        version,
         croncat_manager_key,
         croncat_tasks_key,
         agent_nomination_duration,
@@ -55,7 +56,11 @@ pub fn instantiate(
 
     CONFIG.save(deps.storage, config)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    set_contract_version(
+        deps.storage,
+        CONTRACT_NAME,
+        version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
