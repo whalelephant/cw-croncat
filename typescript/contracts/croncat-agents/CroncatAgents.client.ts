@@ -13,19 +13,19 @@ export interface CroncatAgentsReadOnlyInterface {
     accountId
   }: {
     accountId: string;
-  }) => Promise<NullableAgentResponse>;
+  }) => Promise<Nullable_AgentResponse>;
   getAgentIds: ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }) => Promise<NullableGetAgentIdsResponse>;
+  }) => Promise<Nullable_GetAgentIdsResponse>;
   getAgentTasks: ({
     accountId
   }: {
     accountId: string;
-  }) => Promise<NullableAgentTaskResponse>;
+  }) => Promise<Nullable_AgentTaskResponse>;
   config: () => Promise<Config>;
 }
 export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface {
@@ -45,7 +45,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     accountId
   }: {
     accountId: string;
-  }): Promise<NullableAgentResponse> => {
+  }): Promise<Nullable_AgentResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent: {
         account_id: accountId
@@ -58,7 +58,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
   }: {
     fromIndex?: number;
     limit?: number;
-  }): Promise<NullableGetAgentIdsResponse> => {
+  }): Promise<Nullable_GetAgentIdsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_ids: {
         from_index: fromIndex,
@@ -70,7 +70,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     accountId
   }: {
     accountId: string;
-  }): Promise<NullableAgentTaskResponse> => {
+  }): Promise<Nullable_AgentTaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_tasks: {
         account_id: accountId
