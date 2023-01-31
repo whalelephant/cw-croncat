@@ -64,6 +64,7 @@ mod instantiate_tests {
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
@@ -722,4 +723,28 @@ fn simple_bank_transfer_execution() {
         600_000 - expected_gone_amount,
         after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
     );
+}
+
+//TODO: this test is failing as no factory contract is initialized
+#[test]
+fn test_should_fail_with_zero_rewards() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr);
+
+    //No available rewards for withdraw
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            manager_addr,
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoRewardsOwnerAgentFound {});
 }

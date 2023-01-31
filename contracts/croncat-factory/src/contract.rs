@@ -18,7 +18,7 @@ use crate::state::{
 };
 
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:croncat-factory";
+const CONTRACT_NAME: &str = "crate:croncat-factory";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Save metadata and generate wasm msg
@@ -49,7 +49,11 @@ fn init_save_metadata_generate_wasm_msg(
         code_id: init_info.code_id,
         msg: init_info.msg,
         funds: vec![],
-        label: init_info.contract_name,
+        // Formats to `CronCat:manager:0.1`
+        label: format!(
+            "CronCat:{:?}:{:?}.{:?}",
+            init_info.contract_name, init_info.version[0], init_info.version[1]
+        ),
     };
     Ok(msg)
 }

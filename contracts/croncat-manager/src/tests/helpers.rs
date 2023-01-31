@@ -9,7 +9,7 @@ use crate::msg::{InstantiateMsg, QueryMsg};
 use super::{
     contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERY_RICH,
+    PARTICIPANT6, VERSION, VERY_RICH,
 };
 
 pub(crate) fn default_app() -> App {
@@ -92,6 +92,7 @@ pub(crate) fn init_manager(app: &mut App, msg: &InstantiateMsg, factory_addr: &A
 pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_tasks_contract());
     let msg = croncat_tasks::msg::InstantiateMsg {
+        version: Some(VERSION.to_owned()),
         chain_name: "atom".to_owned(),
         owner_addr: None,
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
@@ -138,6 +139,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
 pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_agents_contract());
     let msg = croncat_agents::msg::InstantiateMsg {
+        version: Some(VERSION.to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         owner_addr: None,
@@ -217,6 +219,7 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
 pub(crate) fn default_instantiate_message() -> InstantiateMsg {
     InstantiateMsg {
         denom: DENOM.to_owned(),
+        version: Some(VERSION.to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(ADMIN.to_owned()),

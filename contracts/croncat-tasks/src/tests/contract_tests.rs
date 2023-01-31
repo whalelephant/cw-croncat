@@ -44,6 +44,7 @@ mod instantiate_tests {
             .unwrap();
         let expected_config = Config {
             paused: false,
+            version: "0.1".to_owned(),
             owner_addr: factory_addr.clone(),
             croncat_factory_addr: factory_addr,
             chain_name: "atom".to_owned(),
@@ -66,6 +67,7 @@ mod instantiate_tests {
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             chain_name: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
             owner_addr: Some(ANYONE.to_owned()),
             croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
             croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
@@ -83,6 +85,7 @@ mod instantiate_tests {
 
         let expected_config = Config {
             paused: false,
+            version: "0.1".to_owned(),
             owner_addr: Addr::unchecked(ANYONE),
             croncat_factory_addr: factory_addr,
             chain_name: "cron".to_owned(),
@@ -219,7 +222,7 @@ fn create_task_without_query() {
         actions: vec![action1, action2],
         queries: None,
         transforms: vec![],
-        version: "0.1.0".to_owned(),
+        version: "0.1".to_owned(),
     };
     assert_eq!(task, expected_block_task_response);
 
@@ -369,7 +372,7 @@ fn create_task_without_query() {
         actions: vec![action],
         queries: None,
         transforms: vec![],
-        version: "0.1.0".to_owned(),
+        version: "0.1".to_owned(),
     };
     assert_eq!(task, expected_cron_task_response);
 
@@ -600,7 +603,7 @@ fn create_tasks_with_queries_and_transforms() {
         actions: vec![action],
         queries: Some(queries),
         transforms,
-        version: "0.1.0".to_owned(),
+        version: "0.1".to_owned(),
     };
     assert_eq!(task, expected_block_task_response);
 
@@ -959,6 +962,7 @@ fn update_cfg() {
         .unwrap();
     let expected_config = Config {
         paused: true,
+        version: "0.1".to_owned(),
         owner_addr: Addr::unchecked(ANYONE),
         croncat_factory_addr: Addr::unchecked("fixed_croncat_factory_addr"),
         chain_name: "atom".to_owned(),

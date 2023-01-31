@@ -90,6 +90,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_manager_contract());
     let msg = croncat_manager::msg::InstantiateMsg {
         denom: DENOM.to_owned(),
+        version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(ADMIN.to_owned()),
@@ -132,6 +133,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
 pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_agents_contract());
     let msg = croncat_agents::msg::InstantiateMsg {
+        version: Some("0.1".to_owned()),
         croncat_manager_key: ("manager".to_string(), [0, 1]),
         croncat_tasks_key: ("tasks".to_string(), [0, 1]),
         owner_addr: None,
@@ -175,6 +177,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
 pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
     InstantiateMsg {
         chain_name: "atom".to_owned(),
+        version: Some("0.1".to_owned()),
         owner_addr: None,
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),

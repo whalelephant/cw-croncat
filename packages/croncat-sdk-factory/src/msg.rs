@@ -83,18 +83,6 @@ pub enum FactoryQueryMsg {
 }
 
 #[cw_serde]
-pub struct ContractMetadataResponse {
-    pub kind: VersionKind,
-    pub code_id: u64,
-    pub contract_addr: Addr,
-    pub version: [u8; 2],
-    pub commit_id: String,
-    pub checksum: String,
-    pub changelog_url: Option<String>,
-    pub schema: Option<String>,
-}
-
-#[cw_serde]
 pub struct EntryResponse {
     pub contract_name: String,
     pub metadata: ContractMetadataResponse,
@@ -120,6 +108,46 @@ pub struct ContractMetadata {
 
     /// types/schema - helps keep UI/clients backward compatible
     pub schema: Option<String>,
+}
+
+#[cw_serde]
+pub struct ContractMetadataResponse {
+    pub kind: VersionKind,
+    pub code_id: u64,
+    pub contract_addr: Addr,
+    pub version: [u8; 2],
+    pub commit_id: String,
+    pub checksum: String,
+    pub changelog_url: Option<String>,
+    pub schema: Option<String>,
+}
+
+/// Information needed to instantiate a module.
+#[cw_serde]
+pub struct ModuleInstantiateInfo {
+    /// Code ID of the contract to be instantiated.
+    pub code_id: u64,
+
+    /// Truncated semver so contracts could programmatically check backward compat
+    pub version: [u8; 2],
+
+    /// git commit hash
+    pub commit_id: String,
+
+    /// proof of deployed code
+    pub checksum: String,
+
+    /// public link to a README about this version
+    pub changelog_url: Option<String>,
+
+    /// types/schema - helps keep UI/clients backward compatible
+    pub schema: Option<String>,
+
+    /// Instantiate message to be used to create the contract.
+    pub msg: Binary,
+
+    /// Contract name for the instantiated contract.
+    pub contract_name: String,
 }
 
 #[cw_serde]
@@ -152,32 +180,4 @@ pub enum Admin {
     Address { addr: String },
     /// Sets the admin as the core module address.
     CoreModule {},
-}
-
-/// Information needed to instantiate a module.
-#[cw_serde]
-pub struct ModuleInstantiateInfo {
-    /// Code ID of the contract to be instantiated.
-    pub code_id: u64,
-
-    /// Truncated semver so contracts could programmatically check backward compat
-    pub version: [u8; 2],
-
-    /// git commit hash
-    pub commit_id: String,
-
-    /// proof of deployed code
-    pub checksum: String,
-
-    /// public link to a README about this version
-    pub changelog_url: Option<String>,
-
-    /// types/schema - helps keep UI/clients backward compatible
-    pub schema: Option<String>,
-
-    /// Instantiate message to be used to create the contract.
-    pub msg: Binary,
-
-    /// Contract name for the instantiated contract.
-    pub contract_name: String,
 }

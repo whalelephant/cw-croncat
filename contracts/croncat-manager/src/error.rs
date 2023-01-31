@@ -47,4 +47,10 @@ pub enum ContractError {
     // Note: this should never happen unless agent_fee + treasury_fee got compromised
     #[error("Invalid gas calculation")]
     InvalidGasCalculation {},
+
+    #[error("No rewards available for withdraw")]
+    NoWithdrawRewardsAvailable {},
+
+    #[error("No rewards owner agent found")]
+    NoRewardsOwnerAgentFound {},
 }

@@ -2,6 +2,7 @@ use cosmwasm_std::{
     coin, Addr, BankMsg, Coin, CosmosMsg, DepsMut, Empty, MessageInfo, QuerierWrapper, Reply,
     Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
 };
+use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::{Config, TaskBalance};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -41,7 +42,19 @@ pub(crate) fn get_tasks_addr(
         )?
         .ok_or(ContractError::InvalidKey {})
 }
-
+pub(crate) fn query_agent_addr(
+    querier: &QuerierWrapper<Empty>,
+    config: &Config,
+) -> Result<Addr, ContractError> {
+    let (tasks_name, version) = &config.croncat_agents_key;
+    croncat_factory::state::CONTRACT_ADDRS
+        .query(
+            querier,
+            config.croncat_factory_addr.clone(),
+            (tasks_name, version),
+        )?
+        .ok_or(ContractError::InvalidKey {})
+}
 pub(crate) fn check_if_sender_is_tasks(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
@@ -129,6 +142,49 @@ pub(crate) fn calculate_required_natives(
         [None, Some(_)] => unreachable!(),
     };
     Ok(res)
+}
+pub(crate) fn assert_caller_is_agent_contract(
+    deps_queries: &QuerierWrapper<Empty>,
+    config: &Config,
+    sender: &Addr,
+) -> Result<(), ContractError> {
+    let addr = query_agent_addr(deps_queries, config)?;
+    if addr != *sender {
+        return Err(ContractError::Unauthorized {});
+    }
+    Ok(())
+}
+
+pub fn query_agent(
+    querier: &QuerierWrapper<Empty>,
+    config: &Config,
+    agent_id: String,
+) -> Result<Option<AgentResponse>, ContractError> {
+    let addr = query_agent_addr(querier, config)?;
+
+    // Get the agent from the agent contract
+    let response: Option<AgentResponse> = querier.query_wasm_smart(
+        addr,
+        &croncat_sdk_agents::msg::QueryMsg::GetAgent {
+            account_id: agent_id,
+        },
+    )?;
+
+    Ok(response)
+}
+
+pub(crate) fn create_bank_send_message(
+    to: &Addr,
+    denom: &str,
+    amount: u128,
+) -> StdResult<CosmosMsg> {
+    let coin = coin(amount, denom.to_owned());
+    let msg = BankMsg::Send {
+        to_address: to.into(),
+        amount: vec![coin],
+    };
+
+    Ok(msg.into())
 }
 
 /// Get sub messages for this task

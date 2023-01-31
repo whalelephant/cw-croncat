@@ -1,10 +1,13 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo, Reply,
-    Response, StdResult, Uint128,
+    coin, from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env,
+    MessageInfo, Reply, Response, StdResult, Uint128,
 };
+use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+
+use croncat_sdk_manager::msg::WithdrawRewardsCallback;
 use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -15,14 +18,17 @@ use crate::balances::{
 };
 use crate::error::ContractError;
 use crate::helpers::{
-    attached_natives, calculate_required_natives, check_if_sender_is_tasks,
-    check_ready_for_execution, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    parse_reply_msg, remove_task_balance, task_sub_msgs,
+    assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
+    check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, finalize_task,
+    gas_with_fees, get_agents_addr, get_tasks_addr, parse_reply_msg, query_agent,
+    remove_task_balance, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, QueueItem, CONFIG, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE};
+use crate::state::{
+    Config, QueueItem, AGENT_REWARDS, CONFIG, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
+};
 
-pub(crate) const CONTRACT_NAME: &str = "crates.io:croncat-manager";
+pub(crate) const CONTRACT_NAME: &str = "crate:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub(crate) const DEFAULT_FEE: u64 = 5;
@@ -46,6 +52,7 @@ pub fn instantiate(
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
         denom,
+        version,
         croncat_tasks_key,
         croncat_agents_key,
         owner_addr,
@@ -84,7 +91,11 @@ pub fn instantiate(
     // Update state
     CONFIG.save(deps.storage, &config)?;
     TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    set_contract_version(
+        deps.storage,
+        CONTRACT_NAME,
+        version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -117,6 +128,7 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
+        ExecuteMsg::WithdrawAgentRewards(args) => execute_withdraw_agent_rewards(deps, info, args),
     }
 }
 
@@ -438,6 +450,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::TaskBalance { task_hash } => {
             to_binary(&TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?)
         }
+        QueryMsg::AgentRewards { agent_id } => to_binary(
+            &AGENT_REWARDS
+                .may_load(deps.storage, &Addr::unchecked(agent_id))?
+                .unwrap_or_default(),
+        ),
     }
 }
 
@@ -488,4 +505,61 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             }
         }
     }
+}
+
+/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+fn execute_withdraw_agent_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    args: Option<WithdrawRewardsOnRemovalArgs>,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+
+    let agent_id: Addr;
+    let payable_account_id: Addr;
+    let mut fail_on_zero_balance = true;
+
+    if let Some(arg) = args {
+        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
+        agent_id = Addr::unchecked(arg.agent_id);
+        payable_account_id = Addr::unchecked(arg.payable_account_id);
+        fail_on_zero_balance = false;
+    } else {
+        agent_id = info.sender;
+        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
+            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
+        payable_account_id = agent.payable_account_id;
+    }
+    let agent_rewards = AGENT_REWARDS
+        .may_load(deps.storage, &agent_id)?
+        .unwrap_or_default();
+
+    AGENT_REWARDS.remove(deps.storage, &agent_id);
+
+    let mut msgs = vec![];
+    // This will send all token balances to Agent
+    let msg = create_bank_send_message(
+        &payable_account_id,
+        &config.native_denom,
+        agent_rewards.u128(),
+    )?;
+
+    if !agent_rewards.is_zero() {
+        msgs.push(msg);
+    } else if fail_on_zero_balance {
+        return Err(ContractError::NoWithdrawRewardsAvailable {});
+    }
+
+    Ok(Response::new()
+        .add_messages(msgs)
+        .set_data(to_binary(&WithdrawRewardsCallback {
+            agent_id: agent_id.to_string(),
+            rewards: agent_rewards,
+            payable_account_id: payable_account_id.to_string(),
+        })?)
+        .add_attribute("action", "withdraw_rewards")
+        .add_attribute("payment_account_id", &payable_account_id)
+        .add_attribute("rewards", agent_rewards))
 }

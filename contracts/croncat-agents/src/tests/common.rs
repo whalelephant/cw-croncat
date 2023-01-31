@@ -115,6 +115,7 @@ pub(crate) fn init_croncat_manager_contract(
     let code_id = app.store_code(croncat_manager_contract());
     let msg = croncat_manager::msg::InstantiateMsg {
         denom: NATIVE_DENOM.to_owned(),
+        version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(owner.unwrap_or_else(|| ADMIN.to_string())),
@@ -165,6 +166,7 @@ pub(crate) fn croncat_tasks_contract() -> Box<dyn Contract<Empty>> {
 pub(crate) fn default_croncat_tasks_instantiate_msg() -> croncat_tasks::msg::InstantiateMsg {
     croncat_tasks::msg::InstantiateMsg {
         chain_name: "atom".to_owned(),
+        version: Some("0.1".to_owned()),
         owner_addr: None,
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -224,6 +226,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
         init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
     let (croncat_agents_code_id, croncat_agents_addr) =
         init_agents_contract(app, None, None, croncat_factory_addr.as_str());
+
     TestScope {
         croncat_factory_addr,
         croncat_agents_code_id: Some(croncat_agents_code_id),
@@ -241,6 +244,7 @@ pub(crate) fn init_agents_contract(
 ) -> (u64, Addr) {
     let code_id = app.store_code(croncat_agents_contract());
     let msg = InstantiateMsg {
+        version: Some("0.1".to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         owner_addr: Some(owner.unwrap_or_else(|| ADMIN.to_string())),

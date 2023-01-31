@@ -3,6 +3,7 @@ mod contracts;
 mod helpers;
 
 pub const DENOM: &str = "atom";
+pub const VERSION: &str = "0.1";
 
 pub const AGENT0: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "cosmos17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";

@@ -2,7 +2,7 @@ import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { StdFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
-import { getGitHash, getChecksums } from './utils'
+import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
 const prefix: string = process.env.PREFIX
 
@@ -28,19 +28,23 @@ export class ModulesClient {
     const checksums = await getChecksums()
     const githash = await getGitHash()
 
-    const initMsg = Buffer.from(JSON.stringify({})).toString('base64')
+    // get the version from cargo
+    const version0 = await getContractVersionFromCargoToml('mod-balances')
+    const version1 = await getContractVersionFromCargoToml('mod-dao')
+    const version2 = await getContractVersionFromCargoToml('mod-generic')
+    const version3 = await getContractVersionFromCargoToml('mod-nft')
 
     const exec0 = await this.client.execute(sender, factoryAddress, {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
           "code_id": upload0.codeId,
-          "version": [0, 1],
-          "commit_id": githash,
-          "checksum": checksums.mod_balances,
+          "version": version0,
+          "commit_id": githash || '-',
+          "checksum": checksums.mod_balances || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
-          "msg": initMsg,
+          "msg": Buffer.from(JSON.stringify({ version: `${version0[0]}.${version0[1]}` })).toString('base64'),
           "contract_name": "mod_balances"
         }
       }
@@ -51,12 +55,12 @@ export class ModulesClient {
         "kind": "library",
         "module_instantiate_info": {
           "code_id": upload1.codeId,
-          "version": [0, 1],
-          "commit_id": githash,
-          "checksum": checksums.mod_dao,
+          "version": version1,
+          "commit_id": githash || '-',
+          "checksum": checksums.mod_dao || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
-          "msg": initMsg,
+          "msg": Buffer.from(JSON.stringify({ version: `${version1[0]}.${version1[1]}` })).toString('base64'),
           "contract_name": "mod_dao"
         }
       }
@@ -67,12 +71,12 @@ export class ModulesClient {
         "kind": "library",
         "module_instantiate_info": {
           "code_id": upload2.codeId,
-          "version": [0, 1],
-          "commit_id": githash,
-          "checksum": checksums.mod_generic,
+          "version": version2,
+          "commit_id": githash || '-',
+          "checksum": checksums.mod_generic || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
-          "msg": initMsg,
+          "msg": Buffer.from(JSON.stringify({ version: `${version2[0]}.${version2[1]}` })).toString('base64'),
           "contract_name": "mod_generic"
         }
       }
@@ -82,13 +86,13 @@ export class ModulesClient {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
-          "code_id": upload3.codeId ,
-          "version": [0, 1],
-          "commit_id": githash,
-          "checksum": checksums.mod_nft,
+          "code_id": upload3.codeId,
+          "version": version3,
+          "commit_id": githash || '-',
+          "checksum": checksums.mod_nft || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
-          "msg": initMsg,
+          "msg": Buffer.from(JSON.stringify({ version: `${version3[0]}.${version3[1]}` })).toString('base64'),
           "contract_name": "mod_nft"
         }
       }

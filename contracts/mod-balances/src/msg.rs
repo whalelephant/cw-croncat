@@ -2,7 +2,9 @@ use crate::types::HasBalanceComparator;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub version: Option<String>,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {}
