@@ -1297,7 +1297,7 @@ fn multi_coin_bank_transfers() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
@@ -1335,7 +1335,7 @@ fn multi_coin_bank_transfers() {
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
-        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
     assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
 }
@@ -1459,7 +1459,7 @@ fn cw20_action_transfer() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
@@ -1524,7 +1524,7 @@ fn cw20_action_transfer() {
     let after_unregister_participant_cw20_balance: cw20::BalanceResponse = app
         .wrap()
         .query_wasm_smart(
-            cw20_addr.clone(),
+            cw20_addr,
             &Cw20QueryMsg::Balance {
                 address: PARTICIPANT0.to_owned(),
             },
@@ -1554,7 +1554,7 @@ fn cw20_action_transfer() {
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
-        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
     assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
 }
@@ -1666,7 +1666,7 @@ fn task_with_query() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
@@ -1702,7 +1702,7 @@ fn task_with_query() {
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
-        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
     assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
 }
