@@ -204,9 +204,9 @@ pub(crate) fn remove_task_without_queries(
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
         for (bid, mut block_hashes) in blocks {
-            let found = false;
+            let mut found = false;
             block_hashes.retain(|h| {
-                let found = h == hash;
+                found = h == hash;
                 !found
             });
             if found {
@@ -223,9 +223,9 @@ pub(crate) fn remove_task_without_queries(
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
         for (tid, mut time_hashes) in time_buckets {
-            let found = false;
+            let mut found = false;
             time_hashes.retain(|h| {
-                let found = h == hash;
+                found = h == hash;
                 !found
             });
             if found {
