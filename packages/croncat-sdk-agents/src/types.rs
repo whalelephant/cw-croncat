@@ -76,3 +76,20 @@ pub struct Config {
 
     pub min_coins_for_agent_registration: u64,
 }
+
+#[cfg(test)]
+mod test {
+    use crate::types::AgentStatus;
+
+    #[test]
+    fn agent_status_fmt() {
+        let active = AgentStatus::Active;
+        assert_eq!(format!("{}", active), "active");
+
+        let nominated = AgentStatus::Nominated;
+        assert_eq!(format!("{}", nominated), "nominated");
+
+        let pending = AgentStatus::Pending;
+        assert_eq!(format!("{}", pending), "pending");
+    }
+}
