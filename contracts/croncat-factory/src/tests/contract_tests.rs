@@ -1,9 +1,8 @@
-use cosmwasm_std::{to_binary, Addr, StdError, Uint128};
+use cosmwasm_std::{to_binary, Addr, StdError};
 use croncat_sdk_factory::msg::{
     Config, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
 };
 use croncat_sdk_manager::types::GasPrice;
-use cw20::Cw20Coin;
 use cw_multi_test::Executor;
 
 use super::{contracts, helpers::default_app, ADMIN, ANYONE, AGENT2};
@@ -715,4 +714,62 @@ fn update_metadata() {
     let metadata = metadata.unwrap();
     assert_eq!(metadata.changelog_url, Some("new changelog".to_owned()));
     assert_eq!(metadata.schema, Some("new schema".to_owned()));
+}
+
+
+#[test]
+fn successful_proxy() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let update_config_msg = ExecuteMsg::UpdateConfig {
+        owner_addr: ANYONE.to_owned(),
+    };
+
+    // Not owner_addr execution
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &update_config_msg,
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &update_config_msg,
+        &[],
+    )
+    .unwrap();
+
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr, &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ANYONE)
+        }
+    )
 }
