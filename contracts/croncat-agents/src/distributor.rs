@@ -65,9 +65,9 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
 
         let mut equalizer = |slot_type: SlotType,
                              total_tasks: u64|
-         -> Result<(Uint64, Uint64), ContractError> {
+         -> Result<Uint64, ContractError> {
             if total_tasks < 1 {
-                return Ok((Uint64::zero(), Uint64::zero()));
+                return Ok(Uint64::zero());
             }
             //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate),
             //and O(n log n) worst-case.
@@ -96,7 +96,7 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
             if total_tasks <= active.len() as u64 {
                 let agent_tasks_total = 1u64
                     .saturating_sub(agent_diff_index.saturating_sub(total_tasks.saturating_sub(1)));
-                Ok((agent_tasks_total.into(), agent_tasks_total.into()))
+                Ok(agent_tasks_total.into())
             } else {
                 let leftover = total_tasks % agent_count;
                 let mut extra = 0u64;
@@ -107,14 +107,14 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
                 }
                 let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
 
-                Ok((agent_tasks_total.into(), extra.into()))
+                Ok(agent_tasks_total.into())
             }
         };
 
-        let (n, _) = equalizer(SlotType::Block, block_slots.unwrap_or_default())?;
+        let n = equalizer(SlotType::Block, block_slots.unwrap_or_default())?;
         let num_block_tasks = n;
 
-        let (n, _) = equalizer(SlotType::Cron, cron_slots.unwrap_or_default())?;
+        let n = equalizer(SlotType::Cron, cron_slots.unwrap_or_default())?;
         let num_cron_tasks = n;
 
         Ok(AgentTaskResponse {
