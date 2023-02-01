@@ -294,7 +294,8 @@ pub struct CroncatQuery {
     ///
     /// One requirement for custom contracts: query return value should be formatted as:
     /// ```
-    /// {
+    /// use cosmwasm_std::Binary;
+    /// struct ReturnValue {
     ///     result: bool,
     ///     data: Binary,
     /// }
