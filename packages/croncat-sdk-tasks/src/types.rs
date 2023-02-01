@@ -59,6 +59,12 @@ pub struct TaskRequest {
     pub transforms: Option<Vec<Transform>>,
 
     /// How much of cw20 coin is attached to this task
+    /// This will be taken from the manager's contract temporary "Users balance"
+    /// and attached directly to the task's balance.
+    /// 
+    /// Note: Unlike other coins ( which get refunded to the task creator in the same transaction as task removal)
+    /// cw20's will get moved back to the temporary "Users balance".
+    /// This is done primarily to save up gas from executing another contract during `proxy_call`
     pub cw20: Option<Cw20Coin>,
 }
 
