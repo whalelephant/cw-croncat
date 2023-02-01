@@ -218,6 +218,7 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
     metadata.unwrap().contract_addr
 }
 
+#[allow(unused)]
 pub(crate) fn init_mod_generic(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::mod_generic_contract());
     let msg = croncat_mod_generic::msg::InstantiateMsg {

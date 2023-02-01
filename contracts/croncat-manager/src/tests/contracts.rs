@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use cosmwasm_std::Empty;
 use cw_multi_test::{Contract, ContractWrapper};
 

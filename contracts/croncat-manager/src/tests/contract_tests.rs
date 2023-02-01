@@ -1,6 +1,5 @@
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
-use croncat_mod_generic::types::GenericQuery;
 use croncat_sdk_manager::types::{Config, UpdateConfig};
 use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
@@ -12,7 +11,7 @@ use crate::{
     tests::{
         helpers::{
             default_app, default_instantiate_message, init_manager, init_mod_balances,
-            init_mod_generic, query_manager_config,
+            query_manager_config,
         },
         helpers::{init_factory, query_manager_balances},
         ADMIN, AGENT1, AGENT2, ANYONE, DENOM,
@@ -2462,7 +2461,7 @@ fn negative_proxy_call() {
     assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // not registered agent
-    let err: ContractError = app
+    let _err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT1),
             manager_addr.clone(),
@@ -2599,7 +2598,7 @@ fn negative_proxy_call() {
     let res = app
         .execute_contract(
             Addr::unchecked(AGENT0),
-            manager_addr.clone(),
+            manager_addr,
             &ExecuteMsg::ProxyCall {
                 task_hash: Some(task_hash.clone()),
             },
@@ -2616,10 +2615,8 @@ fn negative_proxy_call() {
     let task: Option<TaskResponse> = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
-            &croncat_tasks::msg::QueryMsg::Task {
-                task_hash: task_hash.clone(),
-            },
+            tasks_addr,
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
     assert!(task.is_none());
