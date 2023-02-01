@@ -3,6 +3,7 @@ use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
+use cosmwasm_std::Uint64;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
@@ -160,11 +161,7 @@ fn query_get_agent_ids(
     Ok(GetAgentIdsResponse { active, pending })
 }
 
-fn query_get_agent_tasks(
-    deps: Deps,
-    env: Env,
-    account_id: String,
-) -> StdResult<Option<AgentTaskResponse>> {
+fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<AgentTaskResponse> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
     if !active.contains(&account_id) {
@@ -176,7 +173,10 @@ fn query_get_agent_tasks(
 
     let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
-        return Ok(None);
+        return Ok(AgentTaskResponse {
+            num_cron_tasks: Uint64::zero(),
+            num_block_tasks: Uint64::zero(),
+        });
     }
     AGENT_TASK_DISTRIBUTOR
         .get_agent_tasks(

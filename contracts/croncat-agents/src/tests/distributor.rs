@@ -67,7 +67,6 @@ fn assert_balancer_tasks(
     for a in act_agents {
         let balancer_result = task_distributor
             .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
-            .unwrap()
             .unwrap();
         result.push((
             a.0,

@@ -17,7 +17,7 @@ pub trait RoundRobinAgentTaskDistributor<'a> {
         env: &Env,
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
-    ) -> Result<Option<AgentTaskResponse>, ContractError>;
+    ) -> Result<AgentTaskResponse, ContractError>;
     #[doc = r"Removes balancer stats and rebalances"]
     fn on_agent_unregistered(
         &self,
@@ -49,13 +49,16 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         _env: &Env,
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
-    ) -> Result<Option<AgentTaskResponse>, ContractError> {
+    ) -> Result<AgentTaskResponse, ContractError> {
         let mut active = AGENTS_ACTIVE.load(deps.storage)?;
         if !active.contains(&agent_id) {
             return Err(ContractError::AgentNotRegistered {});
         }
         if slot_items == (None, None) {
-            return Ok(None);
+            return Ok(AgentTaskResponse {
+                num_block_tasks: Uint64::zero(),
+                num_cron_tasks: Uint64::zero(),
+            });
         }
         let agent_count = active.len() as u64;
         let (block_slots, cron_slots) = slot_items;
@@ -114,10 +117,10 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         let (n, _) = equalizer(SlotType::Cron, cron_slots.unwrap_or_default())?;
         let num_cron_tasks = n;
 
-        Ok(Some(AgentTaskResponse {
+        Ok(AgentTaskResponse {
             num_block_tasks,
             num_cron_tasks,
-        }))
+        })
     }
 
     fn on_agent_unregistered(
