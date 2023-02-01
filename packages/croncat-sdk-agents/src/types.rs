@@ -56,7 +56,7 @@ pub struct Config {
     pub croncat_manager_key: (String, [u8; 2]),
     /// Name of the key for raw querying Tasks address from the factory
     pub croncat_tasks_key: (String, [u8; 2]),
-    //Contract owner address
+    /// Contract owner address
     pub owner_addr: Addr,
     /// If contract was paused/unpaused
     pub paused: bool,
