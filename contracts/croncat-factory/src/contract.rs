@@ -1,3 +1,4 @@
+use cosmwasm_schema::serde::Deserialize;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -167,8 +168,21 @@ fn execute_remove(
 
     // Can't remove unpaused contract if not a library
     if metadata.kind != VersionKind::Library {
-        // Check if paused
-        todo!();
+        // universal paused checker
+        #[derive(Deserialize)]
+        #[serde(crate = "cosmwasm_schema::serde")]
+        struct CheckIfConfigIsPaused {
+            paused: bool,
+        }
+
+        let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
+
+        let config: CheckIfConfigIsPaused = deps
+            .querier
+            .query_wasm_smart(contract_addr, &QueryMsg::Config {})?;
+        if !config.paused {
+            return Err(ContractError::NotPaused {});
+        }
     }
 
     CONTRACT_METADATAS.remove(deps.storage, (&contract_name, &version));

@@ -5,7 +5,7 @@ use croncat_sdk_factory::msg::{
 use cw20::Cw20Coin;
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, ANYONE};
+use super::{contracts, helpers::default_app, ADMIN, ANYONE, DENOM};
 use crate::{msg::*, ContractError};
 
 #[test]
@@ -594,7 +594,139 @@ fn remove() {
         .unwrap();
     assert_eq!(all_entries.len(), 1);
     assert_eq!(all_entries[0].metadata.version, [0, 2]);
-    // TODO: test non-library contracts
+}
+
+#[test]
+fn remove_paused_checks() {
+    let mut app = default_app();
+    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let contract_addr = app
+        .instantiate_contract(
+            contract_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let manager_id = app.store_code(contracts::croncat_manager_contract());
+    let manager_init_msg = croncat_manager::msg::InstantiateMsg {
+        denom: DENOM.to_owned(),
+        version: Some("0.1".to_owned()),
+        croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+        croncat_agents_key: ("agents".to_owned(), [0, 1]),
+        owner_addr: Some(ADMIN.to_owned()),
+        gas_price: None,
+        treasury_addr: None,
+    };
+    let manager_contract_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&manager_init_msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Manager,
+            module_instantiate_info: manager_contract_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+    let manager_v2_contract_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_id,
+        version: [0, 2],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&manager_init_msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Deploy {
+            kind: VersionKind::Manager,
+            module_instantiate_info: manager_v2_contract_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &ExecuteMsg::Remove {
+                contract_name: "manager".to_owned(),
+                version: [0, 1],
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NotPaused {});
+    let manager_metadatas: Vec<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::VersionsByContractName {
+                contract_name: "manager".to_owned(),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let manager_addr = manager_metadatas
+        .into_iter()
+        .find(|metadata| metadata.version == [0, 1])
+        .map(|metadata| metadata.contract_addr)
+        .unwrap();
+    // make it paused
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr,
+        &croncat_manager::msg::ExecuteMsg::UpdateConfig(Box::new(
+            croncat_sdk_manager::types::UpdateConfig {
+                owner_addr: None,
+                paused: Some(true),
+                agent_fee: None,
+                treasury_fee: None,
+                gas_price: None,
+                croncat_tasks_key: None,
+                croncat_agents_key: None,
+                treasury_addr: None,
+            },
+        )),
+        &[],
+    )
+    .unwrap();
+
+    // remove ir after it got paused
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &ExecuteMsg::Remove {
+            contract_name: "manager".to_owned(),
+            version: [0, 1],
+        },
+        &[],
+    )
+    .unwrap();
 }
 
 #[test]
