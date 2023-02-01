@@ -116,5 +116,9 @@ pub enum TasksQueryMsg {
     SlotTasksTotal { offset: Option<u64> },
     /// Get next task to be done
     #[returns(Option<crate::types::TaskResponse>)]
-    GetCurrentTask {},
+    CurrentTask {},
+    /// Get task with queries if it's ready
+    /// To get task when it's not ready query [`TasksQueryMsg::Task`] instead
+    #[returns(Option<crate::types::TaskResponse>)]
+    CurrentTaskWithQueries { task_hash: String },
 }

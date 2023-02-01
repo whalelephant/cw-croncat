@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, Uint128};
+use cosmwasm_std::{Addr, Coin, StdResult, Uint128};
 use cw20::Cw20CoinVerified;
 
 use crate::error::SdkError;
@@ -82,30 +82,7 @@ impl TaskBalance {
                 lack: native_required * multiplier - self.native_balance,
             });
         }
-        match (cw20_required, &self.cw20_balance) {
-            (Some(req), Some(attached)) => {
-                if req.address != attached.address {
-                    return Err(SdkError::NotEnoughCw20 {
-                        addr: req.address.into_string(),
-                        lack: req.amount * multiplier,
-                    });
-                }
-                if attached.amount < req.amount * multiplier {
-                    return Err(SdkError::NotEnoughCw20 {
-                        addr: req.address.into_string(),
-                        lack: req.amount * multiplier - attached.amount,
-                    });
-                }
-            }
-            (Some(req), None) => {
-                return Err(SdkError::NotEnoughCw20 {
-                    addr: req.address.into_string(),
-                    lack: req.amount * multiplier,
-                })
-            }
-            // Note: we are Ok if user decided to attach "needless" cw20
-            (None, Some(_)) | (None, None) => (),
-        }
+        self.verify_enough_cw20(cw20_required, multiplier)?;
         match (ibc_required, &self.ibc_balance) {
             (Some(req), Some(attached)) => {
                 if req.denom != attached.denom {
@@ -129,6 +106,66 @@ impl TaskBalance {
             }
             // Note: we are Ok if user decided to attach "needless" cw20
             (None, Some(_)) | (None, None) => (),
+        }
+        Ok(())
+    }
+
+    pub fn verify_enough_cw20(
+        &self,
+        cw20_required: Option<Cw20CoinVerified>,
+        multiplier: Uint128,
+    ) -> Result<(), SdkError> {
+        match (cw20_required, &self.cw20_balance) {
+            (Some(req), Some(attached)) => {
+                if req.address != attached.address {
+                    return Err(SdkError::NotEnoughCw20 {
+                        addr: req.address.into_string(),
+                        lack: req.amount * multiplier,
+                    });
+                }
+                if attached.amount < req.amount * multiplier {
+                    return Err(SdkError::NotEnoughCw20 {
+                        addr: req.address.into_string(),
+                        lack: req.amount * multiplier - attached.amount,
+                    });
+                }
+                Ok(())
+            }
+            (Some(req), None) => Err(SdkError::NotEnoughCw20 {
+                addr: req.address.into_string(),
+                lack: req.amount * multiplier,
+            }),
+            // Note: we are Ok if user decided to attach "needless" cw20
+            (None, Some(_)) | (None, None) => Ok(()),
+        }
+    }
+
+    pub fn sub_coin(&mut self, coin: &Coin, native_denom: &str) -> StdResult<()> {
+        if coin.denom == native_denom {
+            self.native_balance = self.native_balance.checked_sub(coin.amount)?;
+        } else {
+            match &mut self.ibc_balance {
+                Some(task_coin) if task_coin.denom == coin.denom => {
+                    task_coin.amount = task_coin.amount.checked_sub(coin.amount)?;
+                }
+                _ => {
+                    // If denoms doesn't match it means we have zero coins
+                    Uint128::zero().checked_sub(coin.amount)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn sub_cw20(&mut self, cw20: &Cw20CoinVerified) -> StdResult<()> {
+        match &mut self.cw20_balance {
+            Some(task_cw20) if task_cw20.address == cw20.address => {
+                task_cw20.amount = task_cw20.amount.checked_sub(cw20.amount)?;
+            }
+            _ => {
+                // If addresses doesn't match it means we have zero coins
+                Uint128::zero().checked_sub(cw20.amount)?;
+            }
         }
         Ok(())
     }
