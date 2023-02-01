@@ -6,6 +6,9 @@ lint:
 test:
 	#!/bin/bash
 	cargo test -- --nocapture 
+tarp:
+	#!/bin/bash
+	cargo +nightly tarpaulin --skip-clean --workspace --out Xml --target-dir tmp
 
 build:
 	#!/bin/bash

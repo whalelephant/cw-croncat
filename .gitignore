@@ -24,3 +24,6 @@
 
 # Gas reports
 gas_reports/
+
+# tarpaulin cache
+tmp/

@@ -2,10 +2,11 @@ use cosmwasm_std::{to_binary, Addr, StdError, Uint128};
 use croncat_sdk_factory::msg::{
     Config, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
 };
+use croncat_sdk_manager::types::GasPrice;
 use cw20::Cw20Coin;
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, ANYONE};
+use super::{contracts, helpers::default_app, ADMIN, ANYONE, AGENT2};
 use crate::{msg::*, ContractError};
 
 #[test]
@@ -86,15 +87,18 @@ fn failure_inits() {
 #[test]
 fn deploy_check() {
     let mut app = default_app();
-    let contract_code_id = app.store_code(contracts::croncat_factory_contract());
-    let cw20_code_id = app.store_code(contracts::cw20_contract());
+    let factory_code_id = app.store_code(contracts::croncat_factory_contract());
+    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
+    let agents_code_id = app.store_code(contracts::croncat_agents_contract());
+    let tasks_code_id = app.store_code(contracts::croncat_tasks_contract());
+    let mod_balances_code_id = app.store_code(contracts::croncat_mod_balances());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
     };
     let contract_addr = app
         .instantiate_contract(
-            contract_code_id,
+            factory_code_id,
             Addr::unchecked(ADMIN),
             &init_msg,
             &[],
@@ -103,22 +107,24 @@ fn deploy_check() {
         )
         .unwrap();
     let manager_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: manager_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_manager::msg::InstantiateMsg {
+            denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            croncat_agents_key: ("agents".to_owned(), [0, 1]),
+            owner_addr: Some(ANYONE.to_owned()),
+            gas_price: Some(GasPrice {
+                numerator: 10,
+                denominator: 20,
+                gas_adjustment_numerator: 30,
+            }),
+            treasury_addr: Some(AGENT2.to_owned()),
         })
         .unwrap(),
         contract_name: "manager".to_owned(),
@@ -135,22 +141,23 @@ fn deploy_check() {
     .unwrap();
 
     let tasks_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: tasks_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_tasks::msg::InstantiateMsg {
+            chain_name: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
+            owner_addr: Some(ANYONE.to_owned()),
+            croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
+            croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
+            slot_granularity_time: Some(10),
+            gas_base_fee: Some(1),
+            gas_action_fee: Some(2),
+            gas_query_fee: Some(3),
+            gas_limit: Some(10),
         })
         .unwrap(),
         contract_name: "tasks".to_owned(),
@@ -167,22 +174,20 @@ fn deploy_check() {
     .unwrap();
 
     let agents_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: agents_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_agents::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
+            croncat_manager_key: ("manager".to_owned(), [0, 1]),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            owner_addr: Some(ADMIN.to_owned()),
+            min_coin_for_agent_registration: None,
+            agent_nomination_duration: None,
+            min_tasks_per_agent: None,
         })
         .unwrap(),
         contract_name: "agents".to_owned(),
@@ -198,22 +203,14 @@ fn deploy_check() {
     )
     .unwrap();
     let library_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: mod_balances_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_mod_balances::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
         })
         .unwrap(),
         contract_name: "library".to_owned(),
@@ -253,8 +250,9 @@ fn deploy_check() {
         )
         .unwrap();
     assert_eq!(manager_metadatas.len(), 1);
-    let _manager_metadata = manager_metadatas.remove(0);
-    // TODO check it's manager
+    let manager_metadata = manager_metadatas.remove(0);
+    // check it's manager
+    assert_eq!(manager_metadata.kind, VersionKind::Manager, "Not manager contract");
 
     let mut tasks_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
@@ -268,8 +266,9 @@ fn deploy_check() {
         )
         .unwrap();
     assert_eq!(tasks_metadatas.len(), 1);
-    let _tasks_metadata = tasks_metadatas.remove(0);
-    // TODO check it's tasks
+    let tasks_metadata = tasks_metadatas.remove(0);
+    // check it's tasks
+    assert_eq!(tasks_metadata.kind, VersionKind::Tasks, "Not tasks contract");
 
     let mut agents_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
@@ -283,16 +282,16 @@ fn deploy_check() {
         )
         .unwrap();
     assert_eq!(agents_metadatas.len(), 1);
-    let _agents_metadata = agents_metadatas.remove(0);
-
-    // TODO check it is agents
+    let agents_metadata = agents_metadatas.remove(0);
+    // check it is agents
+    assert_eq!(agents_metadata.kind, VersionKind::Agents, "Not agents contract");
 }
 
 #[test]
 fn failure_deploy() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
-    let cw20_code_id = app.store_code(contracts::cw20_contract());
+    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
@@ -308,22 +307,24 @@ fn failure_deploy() {
         )
         .unwrap();
     let manager_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: manager_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_manager::msg::InstantiateMsg {
+            denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            croncat_agents_key: ("agents".to_owned(), [0, 1]),
+            owner_addr: Some(ANYONE.to_owned()),
+            gas_price: Some(GasPrice {
+                numerator: 10,
+                denominator: 20,
+                gas_adjustment_numerator: 30,
+            }),
+            treasury_addr: Some(AGENT2.to_owned()),
         })
         .unwrap(),
         contract_name: "manager".to_owned(),
@@ -347,7 +348,7 @@ fn failure_deploy() {
     assert_eq!(err, ContractError::Unauthorized {});
 
     let bad_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: manager_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
@@ -375,7 +376,7 @@ fn failure_deploy() {
     assert_eq!(
         err,
         StdError::ParseErr {
-            target_type: "cw20_base::msg::InstantiateMsg".to_owned(),
+            target_type: "croncat_sdk_manager::msg::ManagerInstantiateMsg".to_owned(),
             msg: "EOF while parsing a JSON value.".to_owned()
         }
     )
@@ -442,7 +443,7 @@ fn update_config() {
 fn remove() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
-    let cw20_code_id = app.store_code(contracts::cw20_contract());
+    let mod_balances_code_id = app.store_code(contracts::croncat_mod_balances());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
@@ -458,22 +459,14 @@ fn remove() {
         )
         .unwrap();
     let library_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: mod_balances_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_mod_balances::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
         })
         .unwrap(),
         contract_name: "library".to_owned(),
@@ -489,22 +482,14 @@ fn remove() {
     )
     .unwrap();
     let library_v2_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: mod_balances_code_id,
         version: [0, 2],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_mod_balances::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
         })
         .unwrap(),
         contract_name: "library".to_owned(),
@@ -601,7 +586,7 @@ fn remove() {
 fn update_metadata() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
-    let cw20_code_id = app.store_code(contracts::cw20_contract());
+    let mod_balances_code_id = app.store_code(contracts::croncat_mod_balances());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
@@ -617,22 +602,14 @@ fn update_metadata() {
         )
         .unwrap();
     let library_module_instantiate_info = ModuleInstantiateInfo {
-        code_id: cw20_code_id,
+        code_id: mod_balances_code_id,
         version: [0, 1],
         commit_id: "some".to_owned(),
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&cw20_base::msg::InstantiateMsg {
-            name: "cron".to_owned(),
-            symbol: "cat".to_owned(),
-            decimals: 5,
-            initial_balances: vec![Cw20Coin {
-                address: ANYONE.to_owned(),
-                amount: Uint128::new(150),
-            }],
-            mint: None,
-            marketing: None,
+        msg: to_binary(&croncat_mod_balances::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
         })
         .unwrap(),
         contract_name: "library".to_owned(),
