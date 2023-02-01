@@ -49,6 +49,7 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coins_for_agent_registration: DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+        agents_eject_threshold: 600,
     }
 }
 pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
@@ -61,6 +62,7 @@ pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
         croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,
+        agents_eject_threshold: None,
     }
 }
 

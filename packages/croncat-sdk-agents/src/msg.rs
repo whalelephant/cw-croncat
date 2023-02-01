@@ -40,8 +40,7 @@ pub enum ExecuteMsg {
     OnTaskCreated(AgentOnTaskCreated),
     UpdateConfig { config: UpdateConfig },
     //Tick action will remove unactive agents periodically
-    Tick{}
-
+    Tick {},
 }
 
 #[cw_serde]

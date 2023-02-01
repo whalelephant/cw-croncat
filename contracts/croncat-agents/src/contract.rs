@@ -249,8 +249,10 @@ fn register_agent(
         AGENTS_PENDING.push_back(deps.storage, &account)?;
         AgentStatus::Pending
     };
+
+    let storage = deps.storage;
     let agent = AGENTS.update(
-        deps.storage,
+        storage,
         &account,
         |a: Option<Agent>| -> Result<_, ContractError> {
             match a {
@@ -266,7 +268,17 @@ fn register_agent(
             }
         },
     )?;
-
+    AGENT_STATS.save(
+        storage,
+        &account,
+        &AgentStats {
+            last_executed_slot: env.block.height,
+            completed_block_tasks: 0,
+            completed_cron_tasks: 0,
+            missed_blocked_tasks: 0,
+            missed_cron_tasks: 0,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "register_agent")
         .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
@@ -449,7 +461,7 @@ fn unregister_agent(
         }
     }
     let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
-        &querier,
+        querier,
         &config,
         agent_id.as_str(),
         agent.payable_account_id.to_string(),
@@ -618,7 +630,10 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     let mut submessages = vec![];
     let agents_active = AGENTS_ACTIVE.load(deps.storage)?;
     for agent_id in agents_active {
-        let stats = AGENT_STATS.load(deps.storage, &agent_id)?;
+        let stats = AGENT_STATS
+            .may_load(deps.storage, &agent_id)?
+            .unwrap_or_default();
+
         if current_slot > stats.last_executed_slot + config.agents_eject_threshold {
             let resp =
                 unregister_agent(deps.storage, &deps.querier, &agent_id, None).unwrap_or_default();
