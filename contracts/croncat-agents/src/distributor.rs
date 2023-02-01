@@ -18,12 +18,6 @@ pub trait RoundRobinAgentTaskDistributor<'a> {
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
     ) -> Result<AgentTaskResponse, ContractError>;
-    #[doc = r"Removes balancer stats and rebalances"]
-    fn on_agent_unregistered(
-        &self,
-        storage: &'a mut dyn Storage,
-        agent_id: &Addr,
-    ) -> Result<(), ContractError>;
 
     #[doc = r"Updates agent stats when agent completed task on specified slot"]
     fn on_task_completed(
@@ -121,19 +115,6 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
             num_block_tasks,
             num_cron_tasks,
         })
-    }
-
-    fn on_agent_unregistered(
-        &self,
-        storage: &'a mut dyn Storage,
-        agent_id: &Addr,
-    ) -> Result<(), ContractError> {
-        let active = AGENTS_ACTIVE.load(storage)?;
-        if !active.contains(agent_id) {
-            return Err(ContractError::AgentNotRegistered);
-        }
-        AGENT_STATS.remove(storage, agent_id);
-        Ok(())
     }
 
     fn on_task_completed(

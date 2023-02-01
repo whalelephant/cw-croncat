@@ -324,9 +324,7 @@ fn test_on_agent_unregister() {
         .on_task_completed(&mut deps.storage, &env, agent1_addr, SlotType::Block)
         .unwrap();
 
-    task_distributor
-        .on_agent_unregistered(&mut deps.storage, agent1_addr)
-        .unwrap();
+    AGENT_STATS.remove(&mut deps.storage, agent1_addr);
 
     let stats0 = AGENT_STATS.load(&deps.storage, agent0_addr);
     let stats1 = AGENT_STATS.load(&deps.storage, agent1_addr);

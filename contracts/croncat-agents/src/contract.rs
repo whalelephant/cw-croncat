@@ -410,7 +410,7 @@ fn unregister_agent(
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(deps.storage, agent_id)?;
+        AGENT_STATS.remove(deps.storage, agent_id);
         active_agents.remove(index);
         AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
     } else {
