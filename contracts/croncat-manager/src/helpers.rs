@@ -541,3 +541,24 @@ pub(crate) fn recalculate_cw20(
         amount: cw20_amount,
     }))
 }
+
+pub(crate) fn check_if_sender_is_task_owner(
+    querier: &QuerierWrapper,
+    tasks_addr: &Addr,
+    sender: &Addr,
+    task_hash: &str,
+) -> Result<(), ContractError> {
+    let task: Option<croncat_sdk_tasks::types::TaskResponse> = querier.query_wasm_smart(
+        tasks_addr,
+        &croncat_sdk_tasks::msg::TasksQueryMsg::Task {
+            task_hash: task_hash.to_owned(),
+        },
+    )?;
+    let Some(task) = task else {
+        return Err(ContractError::NoTaskHash {  });
+    };
+    if task.owner_addr.ne(sender) {
+        return Err(ContractError::Unauthorized {});
+    }
+    Ok(())
+}

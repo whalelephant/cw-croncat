@@ -6,7 +6,7 @@ use croncat_sdk_manager::types::{Config, GasPrice};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{
-    helpers::{check_ready_for_execution, gas_fee},
+    helpers::{check_ready_for_execution, gas_fee, get_tasks_addr, check_if_sender_is_task_owner},
     msg::ReceiveMsg,
     state::{AGENT_REWARDS, CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
     ContractError,
@@ -113,7 +113,10 @@ pub fn execute_receive_cw20(
                 .add_attribute("user_cw20_balance", user_cw20_balance))
         }
         ReceiveMsg::RefillTaskBalance { task_hash } => {
-            // TODO: check if sender is task_owner
+            // Check if sender is task owner
+            let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+            check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &sender, &task_hash)?;
+
             let mut task_balances = TASKS_BALANCES
                 .may_load(deps.storage, task_hash.as_bytes())?
                 .ok_or(ContractError::NoTaskHash {})?;
@@ -146,7 +149,9 @@ pub fn execute_refill_task_cw20(
     let config = CONFIG.load(deps.storage)?;
     check_ready_for_execution(&info, &config)?;
 
-    // TODO: check if sender is task_owner
+    // check if sender is task owner
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &info.sender, &task_hash)?;
 
     let cw20_verified = Cw20CoinVerified {
         address: deps.api.addr_validate(&cw20.address)?,
@@ -257,7 +262,10 @@ pub fn execute_refill_native_balance(
     if config.paused {
         return Err(ContractError::Paused {});
     }
-    // TODO: query tasks to check it's task owner who refills
+    // Check if sender is task owner
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &info.sender, &task_hash)?;
+
     let mut task_balances = TASKS_BALANCES
         .may_load(deps.storage, task_hash.as_bytes())?
         .ok_or(ContractError::NoTaskHash {})?;
