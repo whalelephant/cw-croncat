@@ -1621,7 +1621,7 @@ fn task_with_query() {
             gas_limit: None,
         }],
         queries: Some(vec![CroncatQuery {
-            query_mod_addr: mod_balances.to_string(),
+            contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 croncat_mod_balances::types::HasBalanceComparator {
                     address: "lucy".to_owned(),
@@ -1773,7 +1773,7 @@ fn task_with_query() {
             gas_limit: None,
         }],
         queries: Some(vec![CroncatQuery {
-            query_mod_addr: mod_balances.to_string(),
+            contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 croncat_mod_balances::types::HasBalanceComparator {
                     address: "lucy".to_owned(),
@@ -2530,7 +2530,7 @@ fn negative_proxy_call() {
             gas_limit: Some(250_000),
         }],
         queries: Some(vec![CroncatQuery {
-            query_mod_addr: mod_balances.to_string(),
+            contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 HasBalanceComparator {
                     address: "lucy".to_owned(),

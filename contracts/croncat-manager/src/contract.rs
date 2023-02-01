@@ -266,7 +266,7 @@ fn execute_proxy_call_with_queries(
     for query in task.queries.iter().flatten() {
         let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
             &WasmQuery::Smart {
-                contract_addr: query.query_mod_addr.clone(),
+                contract_addr: query.contract_addr.clone(),
                 msg: query.msg.clone(),
             }
             .into(),

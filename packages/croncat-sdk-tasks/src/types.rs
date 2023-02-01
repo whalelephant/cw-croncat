@@ -61,7 +61,7 @@ pub struct TaskRequest {
     /// How much of cw20 coin is attached to this task
     /// This will be taken from the manager's contract temporary "Users balance"
     /// and attached directly to the task's balance.
-    /// 
+    ///
     /// Note: Unlike other coins ( which get refunded to the task creator in the same transaction as task removal)
     /// cw20's will get moved back to the temporary "Users balance".
     /// This is done primarily to save up gas from executing another contract during `proxy_call`
@@ -289,7 +289,17 @@ impl Task {
 /// Query given module contract with a message
 #[cw_serde]
 pub struct CroncatQuery {
-    pub query_mod_addr: String,
+    /// This is address of the queried module contract.
+    /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
+    ///
+    /// One requirement for custom contracts: query return value should be formatted as:
+    /// ```
+    /// {
+    ///     result: bool,
+    ///     data: Binary,
+    /// }
+    /// ```
+    pub contract_addr: String,
     pub msg: Binary,
     pub check_result: bool,
 }
