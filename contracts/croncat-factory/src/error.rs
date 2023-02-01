@@ -21,4 +21,7 @@ pub enum ContractError {
 
     #[error("Can't remove latest version")]
     LatestVersionRemove {},
+
+    #[error("Can't remove contract unless it's paused or library")]
+    NotPaused {},
 }

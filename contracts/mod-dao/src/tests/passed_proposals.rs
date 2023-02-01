@@ -345,6 +345,7 @@ fn test_multiple_check_passed_proposals() {
             &dao_proposal_multiple::msg::ExecuteMsg::Vote {
                 proposal_id: 2 * num as u64,
                 vote: MultipleChoiceVote { option_id: 0 },
+                rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
             },
             &[],
         )

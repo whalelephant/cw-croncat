@@ -84,15 +84,15 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dfb24e866b15a1af2a1b663f10c6b6b8f397a84aadb828f12e5b289ec23a3a3c"
+checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
 
 [[package]]
 name = "cc"
-version = "1.0.78"
+version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a20104e2335ce8a659d6dd92a51a767a0c062599c73b343fd152cb401e828c3d"
+checksum = "50d30906286121d95be3d479533b458f87493b30a4b5f79a607db8f5d11aa91f"
 
 [[package]]
 name = "cfg-if"
@@ -136,9 +136,9 @@ checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb56fffc2233212e9546df66e01267277173d55f6237ab939690ef2c5cfd50c2"
+checksum = "7fecd74d3a0041114110d1260f77fcb644c5d2403549b37096c44f0e643a5177"
 dependencies = [
  "digest 0.10.6",
  "ed25519-zebra",
@@ -149,9 +149,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e26a78e202d602a23fd5d13dff898732814ebe7a8bde20f1bf71eb0209d56d56"
+checksum = "d5abeeb891e6d0098402e4d3d042f90451db52651d2fe14b170e69a1dd3e4115"
 dependencies = [
  "syn",
 ]
@@ -182,9 +182,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b50f4deaed6196047a3ceec9bc23e85d4292b73442d77af63723842d8b6049d"
+checksum = "5034c772c1369b160731aa00bb81f93733ab2884928edd8d588733d607ac5af4"
 dependencies = [
  "base64",
  "cosmwasm-crypto",
@@ -202,9 +202,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c91b9880577b6fa389f60bbcc8daab202996150c51ed0d14e6532a87a764a7d5"
+checksum = "18b4c99c6479e554ef1516950f1fa3d88bd7d0a8fc2367321c07ca0a33997dfc"
 dependencies = [
  "cosmwasm-std",
  "serde",
@@ -419,6 +419,7 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
+ "mod-sdk",
  "sha2 0.10.6",
 ]
 
@@ -574,7 +575,7 @@ dependencies = [
 [[package]]
 name = "cw-denom"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -585,7 +586,7 @@ dependencies = [
 [[package]]
 name = "cw-hooks"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -649,7 +650,7 @@ dependencies = [
 [[package]]
 name = "cw-paginate"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-std",
  "cosmwasm-storage",
@@ -874,7 +875,7 @@ dependencies = [
 [[package]]
 name = "cw20-stake"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -992,9 +993,9 @@ dependencies = [
 
 [[package]]
 name = "cxx"
-version = "1.0.87"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b61a7545f753a88bcbe0a70de1fcc0221e10bfc752f576754fa91e663db1622e"
+checksum = "322296e2f2e5af4270b54df9e85a02ff037e271af20ba3e7fe1575515dc840b8"
 dependencies = [
  "cc",
  "cxxbridge-flags",
@@ -1004,9 +1005,9 @@ dependencies = [
 
 [[package]]
 name = "cxx-build"
-version = "1.0.87"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f464457d494b5ed6905c63b0c4704842aba319084a0a3561cdc1359536b53200"
+checksum = "017a1385b05d631e7875b1f151c9f012d37b53491e2a87f65bff5c262b2111d8"
 dependencies = [
  "cc",
  "codespan-reporting",
@@ -1019,15 +1020,15 @@ dependencies = [
 
 [[package]]
 name = "cxxbridge-flags"
-version = "1.0.87"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43c7119ce3a3701ed81aca8410b9acf6fc399d2629d057b87e2efa4e63a3aaea"
+checksum = "c26bbb078acf09bc1ecda02d4223f03bdd28bd4874edcb0379138efc499ce971"
 
 [[package]]
 name = "cxxbridge-macro"
-version = "1.0.87"
+version = "1.0.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65e07508b90551e610910fa648a1878991d367064997a596135b86df30daf07e"
+checksum = "357f40d1f06a24b60ae1fe122542c1fb05d28d32acb2aed064e84bc2ad1e252e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1037,7 +1038,7 @@ dependencies = [
 [[package]]
 name = "dao-core"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1056,7 +1057,7 @@ dependencies = [
 [[package]]
 name = "dao-interface"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1068,7 +1069,7 @@ dependencies = [
 [[package]]
 name = "dao-macros"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "proc-macro2",
@@ -1079,7 +1080,7 @@ dependencies = [
 [[package]]
 name = "dao-pre-propose-base"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1098,7 +1099,7 @@ dependencies = [
 [[package]]
 name = "dao-pre-propose-multiple"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1110,7 +1111,7 @@ dependencies = [
 [[package]]
 name = "dao-proposal-hooks"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1121,7 +1122,7 @@ dependencies = [
 [[package]]
 name = "dao-proposal-multiple"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1147,7 +1148,7 @@ dependencies = [
 [[package]]
 name = "dao-proposal-single"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1174,7 +1175,7 @@ dependencies = [
 [[package]]
 name = "dao-vote-hooks"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1185,7 +1186,7 @@ dependencies = [
 [[package]]
 name = "dao-voting"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1202,7 +1203,7 @@ dependencies = [
 [[package]]
 name = "dao-voting-cw20-staked"
 version = "2.0.1"
-source = "git+https://github.com/DA0-DA0/dao-contracts#403f5cf1613059fdcd987944c6d69e2942f8ff78"
+source = "git+https://github.com/DA0-DA0/dao-contracts#dbba976261a7027d480dfe80b4b130ccc8024189"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1294,9 +1295,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90e5c1c8368803113bf0c9584fc495a58b86dc8a29edbf8fe877d21d9507e797"
+checksum = "7fcaabb2fef8c910e7f4c7ce9f67a1283a1715879a7c230ca9d6d1ae31f16d91"
 
 [[package]]
 name = "elliptic-curve"
@@ -1443,9 +1444,9 @@ checksum = "fad582f4b9e86b6caa621cabeb0963332d92eea04729ab12892c2533951e6440"
 
 [[package]]
 name = "js-sys"
-version = "0.3.60"
+version = "0.3.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49409df3e3bf0856b916e2ceaca09ee28e6871cf7d9ce97a692cacfdb2a25a47"
+checksum = "445dde2150c55e483f3d8416706b97ec8e8237c307e5b7b4b8dd15e6af2a0730"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -1907,9 +1908,9 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.83"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaf9f5aceeec8be17c128b2e93e031fb8a4d469bb9c4ae2d7dc1888b26887268"
+checksum = "31f8dcbc21f30d9b8f2ea926ecb58f6b91192c17e9d33594b3df58b2007ca53b"
 dependencies = [
  "cfg-if",
  "wasm-bindgen-macro",
@@ -1917,9 +1918,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.83"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c8ffb332579b0557b52d268b91feab8df3615f265d5270fec2a8c95b17c1142"
+checksum = "95ce90fd5bcc06af55a641a86428ee4229e44e07033963a2290a8e241607ccb9"
 dependencies = [
  "bumpalo",
  "log",
@@ -1932,9 +1933,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.83"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "052be0f94026e6cbc75cdefc9bae13fd6052cdcaf532fa6c45e7ae33a1e6c810"
+checksum = "4c21f77c0bedc37fd5dc21f897894a5ca01e7bb159884559461862ae90c0b4c5"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -1942,9 +1943,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.83"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07bc0c051dc5f23e307b13285f9d75df86bfdf816c5721e573dec1f9b8aa193c"
+checksum = "2aff81306fcac3c7515ad4e177f521b5c9a15f2b08f4e32d823066102f35a5f6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1955,9 +1956,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.83"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c38c045535d93ec4f0b4defec448e4291638ee608530863b1e2ba115d4fff7f"
+checksum = "0046fef7e28c3804e5e38bfa31ea2a0f73905319b677e57ebe37e49358989b5d"
 
 [[package]]
 name = "winapi"
