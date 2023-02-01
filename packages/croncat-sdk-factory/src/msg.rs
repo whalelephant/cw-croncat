@@ -1,6 +1,6 @@
 use std::fmt;
 
-use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_schema::{cw_serde, serde::Deserialize, QueryResponses};
 use cosmwasm_std::{Addr, Binary};
 
 #[cw_serde]
@@ -180,4 +180,11 @@ pub enum Admin {
     Address { addr: String },
     /// Sets the admin as the core module address.
     CoreModule {},
+}
+
+/// Universal config struct for removal of non-library contract
+#[derive(Deserialize)]
+#[serde(crate = "cosmwasm_schema::serde")]
+pub struct CheckIfConfigIsPaused {
+    pub paused: bool,
 }

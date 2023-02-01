@@ -5,7 +5,8 @@ use cosmwasm_std::{
     Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
-    ContractMetadata, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
+    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataResponse, EntryResponse,
+    ModuleInstantiateInfo, VersionKind,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
@@ -167,8 +168,14 @@ fn execute_remove(
 
     // Can't remove unpaused contract if not a library
     if metadata.kind != VersionKind::Library {
-        // Check if paused
-        todo!();
+        let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
+
+        let config: CheckIfConfigIsPaused = deps
+            .querier
+            .query_wasm_smart(contract_addr, &QueryMsg::Config {})?;
+        if !config.paused {
+            return Err(ContractError::NotPaused {});
+        }
     }
 
     CONTRACT_METADATAS.remove(deps.storage, (&contract_name, &version));

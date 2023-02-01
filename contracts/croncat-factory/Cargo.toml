@@ -29,3 +29,8 @@ cw-multi-test = { workspace = true }
 anyhow = { workspace = true }
 cw20-base = { workspace = true }
 cw20 = { workspace = true }
+
+croncat-manager = { workspace = true }
+croncat-tasks = { workspace = true }
+croncat-agents = { workspace = true }
+croncat-sdk-manager = { workspace = true }
