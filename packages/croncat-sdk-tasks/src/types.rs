@@ -293,7 +293,7 @@ pub struct CroncatQuery {
     /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
     ///
     /// One requirement for custom contracts: query return value should be formatted as a:
-    /// [`QueryResponse`]: mod_sdk::types::QueryResponse
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub contract_addr: String,
     pub msg: Binary,
     pub check_result: bool,
