@@ -298,7 +298,7 @@ fn test_agent_check_in_successfull() {
     assert_eq!(agent_response.status, AgentStatus::Active);
 }
 #[test]
-fn accept_nomination_agent() {
+fn test_accept_nomination_agent() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -587,7 +587,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
     );
 }
 #[test]
-fn removing_agent_from_any_side_is_working() {
+fn test_removing_agent_from_any_side_is_working() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,

@@ -51,7 +51,7 @@ pub enum QueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    #[returns[Option<AgentTaskResponse>]]
+    #[returns[AgentTaskResponse]]
     GetAgentTasks { account_id: String },
     #[returns[crate::types::Config]]
     Config {},

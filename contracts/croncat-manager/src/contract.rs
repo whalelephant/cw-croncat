@@ -63,6 +63,14 @@ pub fn instantiate(
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
 
+    //Check if we attached some funds in native denom, add them into treasury
+    let treasury_funds = info.funds.iter().find(|coin| coin.denom == denom);
+    if let Some(funds) = treasury_funds {
+        TREASURY_BALANCE.save(deps.storage, &funds.amount)?;
+    } else {
+        TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
+    }
+
     let config = Config {
         paused: false,
         owner_addr,
@@ -82,7 +90,6 @@ pub fn instantiate(
 
     // Update state
     CONFIG.save(deps.storage, &config)?;
-    TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,

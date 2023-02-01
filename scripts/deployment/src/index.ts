@@ -25,7 +25,7 @@ const artifactsRoot = `${process.cwd()}/../../artifacts`
 const uploadGas = calculateFee(4_000_000, defaultGasPrice)
 const executeGas = calculateFee(555_000, defaultGasPrice)
 
-const prettified_out=(o:object)=>{
+const prettified_out = (o: object) => {
     console.info(JSON.stringify(o, null, '\t'));
 }
 const start = async () => {

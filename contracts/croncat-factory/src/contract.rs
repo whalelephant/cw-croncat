@@ -1,8 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult, Storage,
-    SubMsg, WasmMsg,
+    to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult,
+    Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
     ContractMetadata, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
@@ -28,6 +28,7 @@ fn init_save_metadata_generate_wasm_msg(
     init_info: ModuleInstantiateInfo,
     kind: VersionKind,
     factory: &str,
+    funds: Vec<Coin>,
 ) -> StdResult<WasmMsg> {
     let metadata = ContractMetadata {
         kind,
@@ -44,11 +45,12 @@ fn init_save_metadata_generate_wasm_msg(
         &metadata,
     )?;
     LATEST_VERSIONS.save(storage, &init_info.contract_name, &init_info.version)?;
+
     let msg = WasmMsg::Instantiate {
         admin: Some(factory.to_owned()),
         code_id: init_info.code_id,
         msg: init_info.msg,
-        funds: vec![],
+        funds,
         // Formats to `CronCat:manager:0.1`
         label: format!(
             "CronCat:{:?}:{:?}.{:?}",
@@ -94,7 +96,7 @@ pub fn execute(
         ExecuteMsg::Deploy {
             kind,
             module_instantiate_info,
-        } => execute_deploy(deps, env, kind, module_instantiate_info),
+        } => execute_deploy(deps, env, info, kind, module_instantiate_info),
         ExecuteMsg::Remove {
             contract_name,
             version,
@@ -178,6 +180,7 @@ fn execute_remove(
 fn execute_deploy(
     deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     kind: VersionKind,
     module_instantiate_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
@@ -187,6 +190,7 @@ fn execute_deploy(
         module_instantiate_info,
         kind,
         env.contract.address.as_str(),
+        info.funds,
     )?;
     let msg = SubMsg::reply_on_success(wasm, 0);
 

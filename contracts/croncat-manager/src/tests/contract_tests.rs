@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, to_binary, Addr, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, Coin, Uint128};
 use croncat_sdk_manager::types::{Config, UpdateConfig};
 use cw20::Cw20CoinVerified;
 
@@ -19,14 +19,17 @@ use cw_multi_test::{BankSudo, Executor};
 use super::helpers::{init_cw20, query_users_manager};
 
 mod instantiate_tests {
+    use cosmwasm_std::Coin;
+
     use super::*;
 
     #[test]
     fn default_init() {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = default_instantiate_message();
+        let send_funds: &[Coin] = &[coin(600, DENOM)];
 
-        let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+        let manager_addr = init_manager(&mut app, instantiate_msg, &send_funds).unwrap();
         let config = query_manager_config(&app, &manager_addr);
 
         let expected_config = Config {
@@ -62,7 +65,12 @@ mod instantiate_tests {
             }),
             treasury_addr: Some(AGENT2.to_owned()),
         };
-        let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
+        let attach_funds = vec![
+            coin(5000, "denom"),
+            coin(2400, DENOM),
+            coin(600, instantiate_msg.denom.clone()),
+        ];
+
         app.sudo(
             BankSudo::Mint {
                 to_address: ADMIN.to_owned(),
@@ -96,7 +104,7 @@ mod instantiate_tests {
         assert_eq!(config, expected_config);
 
         let manager_balances = query_manager_balances(&app, &manager_addr);
-        assert_eq!(manager_balances, Uint128::zero());
+        assert_eq!(manager_balances, Uint128::new(600));
     }
 
     #[test]
@@ -361,7 +369,9 @@ fn cw20_bad_messages() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
 
     let cw20_addr = init_cw20(&mut app);
     let err: ContractError = app
@@ -416,7 +426,9 @@ fn users_withdraws() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
 
     // refill balances
     let cw20_addr = init_cw20(&mut app);
@@ -477,7 +489,9 @@ fn failed_users_withdraws() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
 
     let cw20_addr = init_cw20(&mut app);
 
@@ -556,19 +570,10 @@ fn withdraw_balances() {
     )
     .unwrap();
 
-    // Withdraw all of balances
-    let err: ContractError = app
-        .execute_contract(
-            Addr::unchecked(ADMIN),
-            manager_addr,
-            &ExecuteMsg::OwnerWithdraw {},
-            &[],
-        )
-        .unwrap_err()
-        .downcast()
-        .unwrap();
+    //Check if sending Cw20 does not effect on treasury
+    let treasury_balance = query_manager_balances(&app, &manager_addr);
 
-    assert_eq!(err, ContractError::EmptyBalance {});
+    assert_eq!(treasury_balance, attach_funds[0].amount);
 
     // TODO: after split tasks
 }
@@ -625,7 +630,9 @@ fn test_should_fail_with_zero_rewards() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+
+    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
 
     //No available rewards for withdraw
     let err: ContractError = app

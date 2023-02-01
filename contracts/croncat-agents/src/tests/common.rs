@@ -3,7 +3,7 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
     DEFAULT_NOMINATION_DURATION,
 };
-use cosmwasm_std::BlockInfo;
+use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
@@ -139,7 +139,7 @@ pub(crate) fn init_croncat_manager_contract(
             kind: VersionKind::Tasks,
             module_instantiate_info,
         },
-        &[],
+        &[coin(50, NATIVE_DENOM)],
     )
     .unwrap();
 

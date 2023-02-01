@@ -44,6 +44,7 @@ pub(crate) fn default_app() -> App {
 
 pub(crate) fn init_manager(app: &mut App, msg: InstantiateMsg, funds: &[Coin]) -> AnyResult<Addr> {
     let code_id = app.store_code(contracts::croncat_manager_contract());
+
     let addr = app.instantiate_contract(
         code_id,
         Addr::unchecked(ADMIN),
