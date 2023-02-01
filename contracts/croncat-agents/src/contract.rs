@@ -3,13 +3,10 @@ use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
-use cosmwasm_std::Attribute;
-use cosmwasm_std::Empty;
-use cosmwasm_std::QuerierWrapper;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
-    entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, Storage,
+    entry_point, has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env,
+    MessageInfo, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
@@ -165,11 +162,7 @@ fn query_get_agent_ids(
     Ok(GetAgentIdsResponse { active, pending })
 }
 
-fn query_get_agent_tasks(
-    deps: Deps,
-    env: Env,
-    account_id: String,
-) -> StdResult<Option<AgentTaskResponse>> {
+fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<AgentTaskResponse> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
     if !active.contains(&account_id) {
@@ -181,7 +174,10 @@ fn query_get_agent_tasks(
 
     let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
-        return Ok(None);
+        return Ok(AgentTaskResponse {
+            num_cron_tasks: Uint64::zero(),
+            num_block_tasks: Uint64::zero(),
+        });
     }
     AGENT_TASK_DISTRIBUTOR
         .get_agent_tasks(
@@ -428,7 +424,7 @@ fn unregister_agent(
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_TASK_DISTRIBUTOR.on_agent_unregistered(storage, agent_id)?;
+        AGENT_STATS.remove(storage, agent_id);
         active_agents.remove(index);
         AGENTS_ACTIVE.save(storage, &active_agents)?;
     } else {

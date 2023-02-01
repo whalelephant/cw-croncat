@@ -49,7 +49,7 @@ export class ManagerClient {
 			}
 		}
 
-		const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas);
+		const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas, null);
 		const address: string = instRes.logs[0].events[1].attributes[0].value
 
 		return [codeId, address];
