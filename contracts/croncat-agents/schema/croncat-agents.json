@@ -12,6 +12,7 @@
     ],
     "properties": {
       "agent_nomination_duration": {
+        "description": "Sets the amount of time opportunity for a pending agent to become active. If there is a pending queue, the longer a pending agent waits, the more pending agents can potentially become active based on this nomination window. This duration doesn't block the already nominated agent from becoming active, it only opens the door for more to become active. If a pending agent is nominated, then is lazy and beat by another agent, they get removed from pending queue and must register again.",
         "type": [
           "integer",
           "null"
@@ -62,6 +63,7 @@
         "minItems": 2
       },
       "min_coin_for_agent_registration": {
+        "description": "The required amount needed to actually execute a few tasks before withdraw profits. This helps make sure agent wont get stuck out the gate",
         "type": [
           "integer",
           "null"
@@ -70,6 +72,7 @@
         "minimum": 0.0
       },
       "min_tasks_per_agent": {
+        "description": "The ratio used to calculate active agents/tasks. Example: \"3\", requires there are 4 tasks before letting in another agent to become active. (3 tasks for agent 1, 1 task for agent 2)",
         "type": [
           "integer",
           "null"
@@ -78,6 +81,14 @@
         "minimum": 0.0
       },
       "owner_addr": {
+        "description": "Address of the contract owner, defaults to the sender",
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "version": {
+        "description": "CW2 Version provided by factory",
         "type": [
           "string",
           "null"
@@ -527,8 +538,7 @@
             "last_executed_slot",
             "payable_account_id",
             "register_start",
-            "status",
-            "total_tasks_executed"
+            "status"
           ],
           "properties": {
             "balance": {
@@ -547,11 +557,6 @@
             },
             "status": {
               "$ref": "#/definitions/AgentStatus"
-            },
-            "total_tasks_executed": {
-              "type": "integer",
-              "format": "uint64",
-              "minimum": 0.0
             }
           },
           "additionalProperties": false
