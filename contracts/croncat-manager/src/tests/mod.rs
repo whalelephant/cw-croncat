@@ -1,6 +1,6 @@
-mod contract_tests;
 mod contracts;
 mod helpers;
+mod manager_tests;
 
 pub const DENOM: &str = "atom";
 pub const VERSION: &str = "0.1";

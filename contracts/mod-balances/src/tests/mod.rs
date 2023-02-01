@@ -1,5 +1,5 @@
 #[cfg(test)]
 mod balance_comparator;
-#[cfg(test)]
-mod get_balances;
 mod helpers;
+#[cfg(test)]
+mod mod_balances_tests;
