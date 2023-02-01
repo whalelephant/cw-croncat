@@ -73,7 +73,7 @@ pub struct Config {
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
     pub agent_nomination_duration: u16,
-    //Min coins that should be attached to register an agent
+    /// Min coins that should be attached to register an agent
     pub min_coins_for_agent_registration: u64,
     // How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
