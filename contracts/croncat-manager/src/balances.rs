@@ -6,7 +6,7 @@ use croncat_sdk_manager::types::{Config, GasPrice};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{
-    helpers::{check_ready_for_execution, gas_fee, get_tasks_addr, check_if_sender_is_task_owner},
+    helpers::{check_if_sender_is_task_owner, check_ready_for_execution, gas_fee, get_tasks_addr},
     msg::ReceiveMsg,
     state::{AGENT_REWARDS, CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
     ContractError,
