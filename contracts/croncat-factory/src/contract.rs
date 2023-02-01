@@ -1,4 +1,3 @@
-use cosmwasm_schema::serde::Deserialize;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -6,7 +5,8 @@ use cosmwasm_std::{
     Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
-    ContractMetadata, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
+    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataResponse, EntryResponse,
+    ModuleInstantiateInfo, VersionKind,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
@@ -168,13 +168,6 @@ fn execute_remove(
 
     // Can't remove unpaused contract if not a library
     if metadata.kind != VersionKind::Library {
-        // universal paused checker
-        #[derive(Deserialize)]
-        #[serde(crate = "cosmwasm_schema::serde")]
-        struct CheckIfConfigIsPaused {
-            paused: bool,
-        }
-
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
 
         let config: CheckIfConfigIsPaused = deps
