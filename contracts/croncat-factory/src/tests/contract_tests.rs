@@ -625,6 +625,7 @@ fn remove_paused_checks() {
         gas_price: None,
         treasury_addr: None,
     };
+    // Deploy first version of the contract
     let manager_contract_instantiate_info = ModuleInstantiateInfo {
         code_id: manager_id,
         version: [0, 1],
@@ -645,6 +646,7 @@ fn remove_paused_checks() {
         &[],
     )
     .unwrap();
+    // Deploy the second version of the contract
     let manager_v2_contract_instantiate_info = ModuleInstantiateInfo {
         code_id: manager_id,
         version: [0, 2],
@@ -666,6 +668,7 @@ fn remove_paused_checks() {
     )
     .unwrap();
 
+    // Not paused by default
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
@@ -716,7 +719,7 @@ fn remove_paused_checks() {
     )
     .unwrap();
 
-    // remove ir after it got paused
+    // remove it after it got paused
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
@@ -727,6 +730,24 @@ fn remove_paused_checks() {
         &[],
     )
     .unwrap();
+    // Make sure it's gone
+    let manager_metadatas: Vec<ContractMetadataResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::VersionsByContractName {
+                contract_name: "manager".to_owned(),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let manager_versions: Vec<[u8; 2]> = manager_metadatas
+        .into_iter()
+        .map(|metadata| metadata.version)
+        .collect();
+    // only last version left
+    assert_eq!(manager_versions, vec![[0,2]]);
 }
 
 #[test]
