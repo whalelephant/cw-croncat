@@ -2665,13 +2665,14 @@ fn test_should_fail_with_zero_rewards() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
-    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let _tasks_addr = init_tasks(&mut app, &factory_addr);
 
     //No available rewards for withdraw
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ANYONE),
-            manager_addr,
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
             &ExecuteMsg::WithdrawAgentRewards(None),
             &[],
         )
@@ -2679,4 +2680,18 @@ fn test_should_fail_with_zero_rewards() {
         .downcast()
         .unwrap();
     assert_eq!(err, ContractError::NoRewardsOwnerAgentFound {});
+
+    activate_agent(&mut app, &agents_addr);
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr,
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
 }
