@@ -47,7 +47,7 @@ pub struct AgentStats {
     // If agent does a task, this number is set to the current block.
     pub last_executed_slot: u64,
 }
-//Contract configuration state
+/// Contract configuration state
 #[cw_serde]
 pub struct Config {
     /// Address of the factory contract
