@@ -285,6 +285,7 @@ impl Task {
 pub struct CroncatQuery {
     pub query_mod_addr: String,
     pub msg: Binary,
+    pub check_result: bool,
 }
 
 #[cw_serde]

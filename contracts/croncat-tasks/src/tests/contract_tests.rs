@@ -529,10 +529,12 @@ fn create_tasks_with_queries_and_transforms() {
         CroncatQuery {
             query_mod_addr: "aloha123".to_owned(),
             msg: Binary::from([4, 2]),
+            check_result: true,
         },
         CroncatQuery {
             query_mod_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
+            check_result: true,
         },
     ];
     let transforms = vec![Transform {
@@ -696,10 +698,12 @@ fn remove_tasks() {
             CroncatQuery {
                 query_mod_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
                 query_mod_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {
@@ -777,10 +781,12 @@ fn remove_tasks() {
             CroncatQuery {
                 query_mod_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
                 query_mod_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {

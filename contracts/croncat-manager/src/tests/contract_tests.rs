@@ -1593,6 +1593,7 @@ fn task_with_query() {
                 },
             ))
             .unwrap(),
+            check_result: true,
         }]),
         transforms: None,
         cw20: None,

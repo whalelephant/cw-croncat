@@ -263,13 +263,14 @@ fn execute_proxy_call_with_queries(
             }
             .into(),
         )?;
-        if !query_res.result {
+        if query.check_result && !query_res.result {
             return Err(ContractError::TaskNotReady {});
         }
         query_responses.push(query_res.data);
     }
     replace_values(&mut task, query_responses)?;
 
+    // Recalculate cw20 usage and re-check for self-calls
     let invalidated_after_transform = if let Ok(amounts) =
         recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
     {
@@ -278,7 +279,8 @@ fn execute_proxy_call_with_queries(
     } else {
         true
     };
-    // Need to re-check if task has enough cw20's, cause it could have been changed through transform
+    // Need to re-check if task has enough cw20's
+    // because it could have been changed through transform
     if invalidated_after_transform
         || task_balance
             .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
