@@ -1,3 +1,3 @@
+pub mod agent_tests;
 pub mod common;
-pub mod contract;
 pub mod distributor;
