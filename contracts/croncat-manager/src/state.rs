@@ -24,7 +24,7 @@ pub const REPLY_QUEUE: Item<QueueItem> = Item::new("reply_queue");
 /// This struct will keep the task and who is doing it until the last action
 #[cw_serde]
 pub struct QueueItem {
-    pub task: croncat_sdk_tasks::types::TaskResponse,
+    pub task: croncat_sdk_tasks::types::TaskInfo,
     pub agent_addr: Addr,
     /// Storing any errors that happened to return
     pub failures: Vec<(u8, String)>,

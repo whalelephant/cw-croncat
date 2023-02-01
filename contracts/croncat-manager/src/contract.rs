@@ -178,15 +178,14 @@ fn execute_proxy_call(
 
     // query agent to check if ready
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_tasks: Option<croncat_sdk_agents::msg::AgentTaskResponse> =
-        deps.querier.query_wasm_smart(
-            agents_addr,
-            &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-                account_id: info.sender.to_string(),
-            },
-        )?;
-    match agent_tasks {
-        Some(croncat_sdk_agents::msg::AgentTaskResponse {
+    let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse = deps.querier.query_wasm_smart(
+        agents_addr,
+        &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
+            account_id: info.sender.to_string(),
+        },
+    )?;
+    match agent_tasks.stats {
+        Some(croncat_sdk_agents::msg::TaskStats {
             num_block_tasks,
             num_cron_tasks,
         }) => {
@@ -199,14 +198,13 @@ fn execute_proxy_call(
 
     // execute task
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: Option<croncat_sdk_tasks::types::TaskResponse> =
-        deps.querier.query_wasm_smart(
-            tasks_addr,
-            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
-        )?;
+    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
+        tasks_addr,
+        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
+    )?;
     // Note: there should be at least one task
     // unless `get_agent_tasks` gave false positive
-    let task = current_task.unwrap();
+    let task = current_task.task.unwrap();
 
     let sub_msgs = task_sub_msgs(&task);
     let queue_item = QueueItem {
@@ -236,13 +234,13 @@ fn execute_proxy_call_with_queries(
 
     // Check if agent is active
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent: Option<croncat_sdk_agents::msg::AgentResponse> = deps.querier.query_wasm_smart(
+    let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
         agents_addr,
         &croncat_sdk_agents::msg::QueryMsg::GetAgent {
             account_id: info.sender.to_string(),
         },
     )?;
-    if agent.map_or(true, |agent| {
+    if agent_reponse.agent.map_or(true, |agent| {
         agent.status != croncat_sdk_agents::types::AgentStatus::Active
     }) {
         return Err(ContractError::NoTaskForAgent {});
@@ -250,15 +248,14 @@ fn execute_proxy_call_with_queries(
 
     // Get a task
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: Option<croncat_sdk_tasks::types::TaskResponse> =
-        deps.querier.query_wasm_smart(
-            tasks_addr.clone(),
-            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries {
-                task_hash: task_hash.clone(),
-            },
-        )?;
+    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
+        tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries {
+            task_hash: task_hash.clone(),
+        },
+    )?;
 
-    let Some(mut task) = current_task else {
+    let Some(mut task) = current_task.task else {
         // No task or not ready
         return Err(ContractError::NoTask {  });
     };
@@ -570,6 +567,7 @@ fn execute_withdraw_agent_rewards(
     } else {
         agent_id = info.sender;
         let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
+            .agent
             .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
         payable_account_id = agent.payable_account_id;
     }

@@ -725,7 +725,7 @@ fn simple_bank_transfers_block() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -735,7 +735,7 @@ fn simple_bank_transfers_block() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -754,14 +754,14 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
@@ -861,7 +861,7 @@ fn simple_bank_transfers_block() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -871,7 +871,7 @@ fn simple_bank_transfers_block() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -893,14 +893,14 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob2").unwrap();
@@ -1003,7 +1003,7 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1013,7 +1013,7 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1032,14 +1032,14 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
@@ -1144,7 +1144,7 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1154,7 +1154,7 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1176,14 +1176,14 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob2").unwrap();
@@ -1301,7 +1301,7 @@ fn multi_coin_bank_transfers() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1311,7 +1311,7 @@ fn multi_coin_bank_transfers() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1330,14 +1330,14 @@ fn multi_coin_bank_transfers() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
@@ -1453,7 +1453,7 @@ fn cw20_action_transfer() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1463,7 +1463,7 @@ fn cw20_action_transfer() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1492,14 +1492,14 @@ fn cw20_action_transfer() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let bob_cw20_balances: cw20::BalanceResponse = app
@@ -1646,7 +1646,7 @@ fn task_with_query() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1656,7 +1656,7 @@ fn task_with_query() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1700,14 +1700,14 @@ fn task_with_query() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let alice_balances = app.wrap().query_all_balances("alice").unwrap();
@@ -1798,7 +1798,7 @@ fn task_with_query() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1808,7 +1808,7 @@ fn task_with_query() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1830,14 +1830,14 @@ fn task_with_query() {
     )
     .unwrap();
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     // action done
     let alice_balances = app.wrap().query_all_balances("alice").unwrap();
@@ -1928,7 +1928,7 @@ fn recurring_task_block() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -1938,7 +1938,7 @@ fn recurring_task_block() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -1978,14 +1978,14 @@ fn recurring_task_block() {
     assert_eq!(alice_balances, coins(123 * 2, DENOM));
 
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
@@ -2076,7 +2076,7 @@ fn recurring_task_block() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -2086,7 +2086,7 @@ fn recurring_task_block() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -2125,14 +2125,14 @@ fn recurring_task_block() {
     assert_eq!(alice_balances, coins(123 * 4, DENOM));
 
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
@@ -2219,7 +2219,7 @@ fn recurring_task_cron() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -2229,7 +2229,7 @@ fn recurring_task_cron() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -2269,14 +2269,14 @@ fn recurring_task_cron() {
     assert_eq!(alice_balances, coins(123 * 2, DENOM));
 
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
@@ -2367,7 +2367,7 @@ fn recurring_task_cron() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -2377,7 +2377,7 @@ fn recurring_task_cron() {
         )
         .unwrap();
 
-    let gas_needed = task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
@@ -2416,14 +2416,14 @@ fn recurring_task_cron() {
     assert_eq!(alice_balances, coins(123 * 4, DENOM));
 
     // check task got unregistered
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
@@ -2648,14 +2648,14 @@ fn negative_proxy_call() {
     }));
 
     // make sure it's gone after invalidation
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 }
 
 #[test]

@@ -59,4 +59,4 @@ gen-typescript:
 
 schema: gen-schema gen-typescript
 
-all: lint build test schema
+all: lint build schema test 

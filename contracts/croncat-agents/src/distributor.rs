@@ -1,5 +1,5 @@
 use cosmwasm_std::{Addr, Deps, Env, Storage, Uint64};
-use croncat_sdk_agents::msg::AgentTaskResponse;
+use croncat_sdk_agents::msg::{AgentTaskResponse, TaskStats};
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::{
@@ -50,8 +50,10 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         }
         if slot_items == (None, None) {
             return Ok(AgentTaskResponse {
-                num_block_tasks: Uint64::zero(),
-                num_cron_tasks: Uint64::zero(),
+                stats: Some(TaskStats {
+                    num_block_tasks: Uint64::zero(),
+                    num_cron_tasks: Uint64::zero(),
+                }),
             });
         }
         let agent_count = active.len() as u64;
@@ -112,8 +114,10 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         let num_cron_tasks = n;
 
         Ok(AgentTaskResponse {
-            num_block_tasks,
-            num_cron_tasks,
+            stats: Some(TaskStats {
+                num_block_tasks,
+                num_cron_tasks,
+            }),
         })
     }
 

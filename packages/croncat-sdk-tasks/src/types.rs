@@ -272,16 +272,18 @@ impl Task {
         };
 
         TaskResponse {
-            task_hash,
-            owner_addr: self.owner_addr,
-            interval: self.interval,
-            boundary,
-            stop_on_fail: self.stop_on_fail,
-            amount_for_one_task: self.amount_for_one_task,
-            actions: self.actions,
-            queries,
-            transforms: self.transforms,
-            version: self.version,
+            task: Some(TaskInfo {
+                task_hash,
+                owner_addr: self.owner_addr,
+                interval: self.interval,
+                boundary,
+                stop_on_fail: self.stop_on_fail,
+                amount_for_one_task: self.amount_for_one_task,
+                actions: self.actions,
+                queries,
+                transforms: self.transforms,
+                version: self.version,
+            }),
         }
     }
 }
@@ -306,7 +308,7 @@ pub struct SlotTasksTotalResponse {
 }
 
 #[cw_serde]
-pub struct TaskResponse {
+pub struct TaskInfo {
     pub task_hash: String,
 
     pub owner_addr: Addr,
@@ -321,6 +323,10 @@ pub struct TaskResponse {
     pub queries: Option<Vec<CroncatQuery>>,
     pub transforms: Vec<Transform>,
     pub version: String,
+}
+#[cw_serde]
+pub struct TaskResponse {
+    pub task: Option<TaskInfo>,
 }
 
 #[cw_serde]
