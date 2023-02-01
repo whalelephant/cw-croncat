@@ -75,6 +75,6 @@ pub struct Config {
     pub agent_nomination_duration: u16,
     /// Min coins that should be attached to register an agent
     pub min_coins_for_agent_registration: u64,
-    // How many slots an agent can miss before being removed from the active queue
+    /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
 }
