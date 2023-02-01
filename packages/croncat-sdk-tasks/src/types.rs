@@ -59,6 +59,12 @@ pub struct TaskRequest {
     pub transforms: Option<Vec<Transform>>,
 
     /// How much of cw20 coin is attached to this task
+    /// This will be taken from the manager's contract temporary "Users balance"
+    /// and attached directly to the task's balance.
+    ///
+    /// Note: Unlike other coins ( which get refunded to the task creator in the same transaction as task removal)
+    /// cw20's will get moved back to the temporary "Users balance".
+    /// This is done primarily to save up gas from executing another contract during `proxy_call`
     pub cw20: Option<Cw20Coin>,
 }
 
@@ -142,6 +148,22 @@ pub struct BoundaryValidated {
     pub start: u64,
     pub end: Option<u64>,
     pub is_block_boundary: bool,
+}
+
+impl From<BoundaryValidated> for Boundary {
+    fn from(value: BoundaryValidated) -> Self {
+        if value.is_block_boundary {
+            Boundary::Height {
+                start: Some(value.start.into()),
+                end: value.end.map(Into::into),
+            }
+        } else {
+            Boundary::Time {
+                start: Some(Timestamp::from_nanos(value.start)),
+                end: value.end.map(Timestamp::from_nanos),
+            }
+        }
+    }
 }
 
 #[cw_serde]
@@ -241,17 +263,7 @@ impl Task {
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {
         let task_hash = self.to_hash(prefix);
-        let boundary = if self.boundary.is_block_boundary {
-            Boundary::Height {
-                start: Some(self.boundary.start.into()),
-                end: self.boundary.end.map(Into::into),
-            }
-        } else {
-            Boundary::Time {
-                start: Some(Timestamp::from_nanos(self.boundary.start)),
-                end: self.boundary.end.map(Timestamp::from_nanos),
-            }
-        };
+        let boundary = self.boundary.into();
 
         let queries = if !self.queries.is_empty() {
             Some(self.queries)
@@ -277,8 +289,14 @@ impl Task {
 /// Query given module contract with a message
 #[cw_serde]
 pub struct CroncatQuery {
-    pub query_mod_addr: String,
+    /// This is address of the queried module contract.
+    /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
+    ///
+    /// One requirement for custom contracts: query return value should be formatted as a:
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
+    pub contract_addr: String,
     pub msg: Binary,
+    pub check_result: bool,
 }
 
 #[cw_serde]

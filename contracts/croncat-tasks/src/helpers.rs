@@ -3,7 +3,7 @@ use cosmwasm_std::{
     Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
+    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, Task, TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
@@ -204,9 +204,9 @@ pub(crate) fn remove_task_without_queries(
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
         for (bid, mut block_hashes) in blocks {
-            let found = false;
+            let mut found = false;
             block_hashes.retain(|h| {
-                let found = h == hash;
+                found = h == hash;
                 !found
             });
             if found {
@@ -223,9 +223,9 @@ pub(crate) fn remove_task_without_queries(
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;
         for (tid, mut time_hashes) in time_buckets {
-            let found = false;
+            let mut found = false;
             time_hashes.retain(|h| {
-                let found = h == hash;
+                found = h == hash;
                 !found
             });
             if found {
@@ -296,4 +296,21 @@ pub(crate) fn get_agents_addr(
             (agents_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
+}
+
+/// Check that this task can be executed in current slot
+pub(crate) fn task_with_queries_ready(
+    storage: &dyn Storage,
+    block_info: &BlockInfo,
+    task: &Task,
+    hash: &[u8],
+) -> StdResult<bool> {
+    let task_ready = if task.boundary.is_block_boundary {
+        let block = BLOCK_MAP_QUERIES.load(storage, hash)?;
+        block_info.height >= block
+    } else {
+        let time = TIME_MAP_QUERIES.load(storage, hash)?;
+        block_info.time.nanos() >= time
+    };
+    Ok(task_ready)
 }

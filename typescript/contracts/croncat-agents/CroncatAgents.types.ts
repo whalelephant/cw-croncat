@@ -11,6 +11,7 @@ export interface InstantiateMsg {
   min_coin_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
+  version?: string | null;
 }
 export type ExecuteMsg = {
   register_agent: {
@@ -84,7 +85,6 @@ export interface AgentResponse {
   payable_account_id: Addr;
   register_start: Timestamp;
   status: AgentStatus;
-  total_tasks_executed: number;
 }
 export type Nullable_GetAgentIdsResponse = GetAgentIdsResponse | null;
 export interface GetAgentIdsResponse {

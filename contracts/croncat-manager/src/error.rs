@@ -1,5 +1,6 @@
 use cosmwasm_std::StdError;
 use croncat_sdk_manager::SdkError;
+use cw_utils::ParseReplyError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -9,6 +10,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     Sdk(#[from] SdkError),
+
+    #[error(transparent)]
+    ParseReplyError(#[from] ParseReplyError),
 
     #[error("No coin balance found")]
     EmptyBalance {},
@@ -34,6 +38,12 @@ pub enum ContractError {
     #[error("Invalid version key, please update it")]
     InvalidKey {},
 
+    #[error("Agent doesn't have to do a task in this slot")]
+    NoTaskForAgent {},
+
+    #[error("No tasks to be done in this slot")]
+    NoTask {},
+
     // Note: this should never happen unless agent_fee + treasury_fee got compromised
     #[error("Invalid gas calculation")]
     InvalidGasCalculation {},
@@ -43,4 +53,10 @@ pub enum ContractError {
 
     #[error("No rewards owner agent found")]
     NoRewardsOwnerAgentFound {},
+
+    #[error("Task is no longer valid")]
+    TaskNoLongerValid {},
+
+    #[error("Task queries is not ready yet")]
+    TaskNotReady {},
 }

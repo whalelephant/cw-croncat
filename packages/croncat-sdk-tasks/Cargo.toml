@@ -13,6 +13,7 @@ cron_schedule = { workspace = true }
 
 croncat-mod-generic = { workspace = true, features = ["library"]}
 croncat-sdk-core = { workspace = true }
+mod-sdk = { workspace = true }
 
 sha2 = { workspace = true }
 hex = { workspace = true }

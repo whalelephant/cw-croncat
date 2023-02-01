@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, StdResult};
+use cosmwasm_std::{Coin, StdResult, Uint128};
 use cw20::Cw20CoinVerified;
 
 #[cw_serde]
@@ -58,5 +58,44 @@ impl AmountForOneTask {
             self.cw20 = Some(cw20);
         }
         true
+    }
+
+    pub fn sub_coin(&mut self, coin: &Coin) -> StdResult<()> {
+        match &mut self.coin {
+            [Some(c1), Some(c2)] => {
+                if c1.denom == coin.denom {
+                    c1.amount = c1.amount.checked_sub(coin.amount)?;
+                } else if c2.denom == coin.denom {
+                    c2.amount = c2.amount.checked_sub(coin.amount)?;
+                } else {
+                    Uint128::zero().checked_sub(coin.amount)?;
+                }
+            }
+            [Some(c1), None] => {
+                if c1.denom == coin.denom {
+                    c1.amount = c1.amount.checked_sub(coin.amount)?;
+                } else {
+                    Uint128::zero().checked_sub(coin.amount)?;
+                }
+            }
+            [None, None] => {
+                Uint128::zero().checked_sub(coin.amount)?;
+            }
+            [None, Some(_)] => unreachable!(),
+        }
+        Ok(())
+    }
+
+    pub fn sub_cw20(&mut self, cw20: &Cw20CoinVerified) -> StdResult<()> {
+        match &mut self.cw20 {
+            Some(task_cw20) if task_cw20.address == cw20.address => {
+                task_cw20.amount = task_cw20.amount.checked_sub(cw20.amount)?;
+            }
+            _ => {
+                // If addresses doesn't match it means we have zero coins
+                Uint128::zero().checked_sub(cw20.amount)?;
+            }
+        }
+        Ok(())
     }
 }

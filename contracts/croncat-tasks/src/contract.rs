@@ -18,7 +18,8 @@ use cw_storage_plus::Bound;
 use crate::error::ContractError;
 use crate::helpers::{
     check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task_with_queries,
-    remove_task_without_queries, validate_boundary, validate_msg_calculate_usage,
+    remove_task_without_queries, task_with_queries_ready, validate_boundary,
+    validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -181,15 +182,49 @@ fn execute_reschedule_task(
             match slot_kind {
                 SlotType::Block => {
                     BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+                    // Don't forget to pop finished task
+                    let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
+                        .range(
+                            deps.storage,
+                            None,
+                            Some(Bound::inclusive(env.block.height)),
+                            Order::Ascending,
+                        )
+                        .take(1)
+                        .collect::<StdResult<_>>()?;
+                    let mut slot = block_slot.pop().unwrap();
+                    slot.1.pop();
+                    if slot.1.is_empty() {
+                        BLOCK_SLOTS.remove(deps.storage, slot.0)
+                    } else {
+                        BLOCK_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                    }
                 }
                 SlotType::Cron => {
                     TIME_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+                    // Don't forget to pop finished task
+                    let mut time_slot: Vec<(u64, Vec<Vec<u8>>)> = TIME_SLOTS
+                        .range(
+                            deps.storage,
+                            None,
+                            Some(Bound::inclusive(env.block.time.nanos())),
+                            Order::Ascending,
+                        )
+                        .take(1)
+                        .collect::<StdResult<_>>()?;
+                    let mut slot = time_slot.pop().unwrap();
+                    slot.1.pop();
+                    if slot.1.is_empty() {
+                        TIME_SLOTS.remove(deps.storage, slot.0)
+                    } else {
+                        TIME_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                    }
                 }
             }
         } else {
             remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
             remove_task = Some(ManagerRemoveTask {
-                sender: info.sender,
+                sender: task.owner_addr,
                 task_hash,
             });
         }
@@ -210,7 +245,7 @@ fn execute_reschedule_task(
         } else {
             remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
             remove_task = Some(ManagerRemoveTask {
-                sender: info.sender,
+                sender: task.owner_addr,
                 task_hash,
             });
         }
@@ -435,7 +470,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotTasksTotal { offset } => {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
-        QueryMsg::GetCurrentTask {} => to_binary(&query_get_current_task(deps, env)?),
+        QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
+        QueryMsg::CurrentTaskWithQueries { task_hash } => {
+            to_binary(&query_current_task_with_queries(deps, env, task_hash)?)
+        }
     }
 }
 
@@ -500,9 +538,8 @@ fn query_slot_tasks_total(
 
 /// Get the slot with lowest height/timestamp
 /// NOTE: This prioritizes blocks over timestamps
-fn query_get_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
+fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
     let config = CONFIG.load(deps.storage)?;
-
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
         .range(
             deps.storage,
@@ -705,4 +742,33 @@ fn query_slot_ids(
         time_ids,
         block_ids,
     })
+}
+
+/// Query task with queries,
+/// it will return None if
+/// 1 - task does not exist
+/// 2 - task is not ready
+fn query_current_task_with_queries(
+    deps: Deps,
+    env: Env,
+    task_hash: String,
+) -> StdResult<Option<TaskResponse>> {
+    let Some(task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
+        return Ok(None);
+    };
+    if !task_with_queries_ready(deps.storage, &env.block, &task, task_hash.as_bytes())? {
+        return Ok(None);
+    }
+    Ok(Some(TaskResponse {
+        task_hash,
+        owner_addr: task.owner_addr,
+        interval: task.interval,
+        boundary: task.boundary.into(),
+        stop_on_fail: task.stop_on_fail,
+        amount_for_one_task: task.amount_for_one_task,
+        actions: task.actions,
+        queries: Some(task.queries),
+        transforms: task.transforms,
+        version: task.version,
+    }))
 }
