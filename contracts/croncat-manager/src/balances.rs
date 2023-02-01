@@ -298,12 +298,12 @@ pub fn execute_refill_native_balance(
 /// Returns list of cw20 balances
 pub fn query_users_balances(
     deps: Deps,
-    wallet: String,
+    address: String,
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<Cw20CoinVerified>> {
     let config = CONFIG.load(deps.storage)?;
-    let addr = deps.api.addr_validate(&wallet)?;
+    let addr = deps.api.addr_validate(&address)?;
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(config.limit);
 
@@ -313,7 +313,10 @@ pub fn query_users_balances(
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|balance_res| {
-            balance_res.map(|(address, amount)| Cw20CoinVerified { address, amount })
+            balance_res.map(|(addr, amount)| Cw20CoinVerified {
+                address: addr,
+                amount,
+            })
         })
         .collect::<StdResult<_>>()?;
 

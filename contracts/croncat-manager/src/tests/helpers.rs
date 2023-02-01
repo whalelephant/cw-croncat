@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::types::Config;
 use cw20::{Cw20Coin, Cw20CoinVerified};
@@ -54,8 +54,14 @@ pub(crate) fn init_factory(app: &mut App) -> Addr {
     .unwrap()
 }
 
-pub(crate) fn init_manager(app: &mut App, msg: &InstantiateMsg, factory_addr: &Addr) -> Addr {
+pub(crate) fn init_manager(
+    app: &mut App,
+    msg: &InstantiateMsg,
+    factory_addr: &Addr,
+    funds: &[Coin],
+) -> Addr {
     let code_id = app.store_code(contracts::croncat_manager_contract());
+
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
         version: [0, 1],
@@ -73,7 +79,7 @@ pub(crate) fn init_manager(app: &mut App, msg: &InstantiateMsg, factory_addr: &A
             kind: VersionKind::Manager,
             module_instantiate_info,
         },
-        &[],
+        funds,
     )
     .unwrap();
 

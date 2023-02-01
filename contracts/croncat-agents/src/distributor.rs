@@ -17,13 +17,7 @@ pub trait RoundRobinAgentTaskDistributor<'a> {
         env: &Env,
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
-    ) -> Result<Option<AgentTaskResponse>, ContractError>;
-    #[doc = r"Removes balancer stats and rebalances"]
-    fn on_agent_unregistered(
-        &self,
-        storage: &'a mut dyn Storage,
-        agent_id: &Addr,
-    ) -> Result<(), ContractError>;
+    ) -> Result<AgentTaskResponse, ContractError>;
 
     #[doc = r"Updates agent stats when agent completed task on specified slot"]
     fn on_task_completed(
@@ -49,22 +43,25 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         _env: &Env,
         agent_id: Addr,
         slot_items: (Option<u64>, Option<u64>),
-    ) -> Result<Option<AgentTaskResponse>, ContractError> {
+    ) -> Result<AgentTaskResponse, ContractError> {
         let mut active = AGENTS_ACTIVE.load(deps.storage)?;
         if !active.contains(&agent_id) {
             return Err(ContractError::AgentNotRegistered {});
         }
         if slot_items == (None, None) {
-            return Ok(None);
+            return Ok(AgentTaskResponse {
+                num_block_tasks: Uint64::zero(),
+                num_cron_tasks: Uint64::zero(),
+            });
         }
         let agent_count = active.len() as u64;
         let (block_slots, cron_slots) = slot_items;
 
         let mut equalizer = |slot_type: SlotType,
                              total_tasks: u64|
-         -> Result<(Uint64, Uint64), ContractError> {
+         -> Result<Uint64, ContractError> {
             if total_tasks < 1 {
-                return Ok((Uint64::zero(), Uint64::zero()));
+                return Ok(Uint64::zero());
             }
             //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate),
             //and O(n log n) worst-case.
@@ -93,7 +90,7 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
             if total_tasks <= active.len() as u64 {
                 let agent_tasks_total = 1u64
                     .saturating_sub(agent_diff_index.saturating_sub(total_tasks.saturating_sub(1)));
-                Ok((agent_tasks_total.into(), agent_tasks_total.into()))
+                Ok(agent_tasks_total.into())
             } else {
                 let leftover = total_tasks % agent_count;
                 let mut extra = 0u64;
@@ -104,33 +101,20 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
                 }
                 let agent_tasks_total = total_tasks.saturating_div(agent_count) + extra;
 
-                Ok((agent_tasks_total.into(), extra.into()))
+                Ok(agent_tasks_total.into())
             }
         };
 
-        let (n, _) = equalizer(SlotType::Block, block_slots.unwrap_or_default())?;
+        let n = equalizer(SlotType::Block, block_slots.unwrap_or_default())?;
         let num_block_tasks = n;
 
-        let (n, _) = equalizer(SlotType::Cron, cron_slots.unwrap_or_default())?;
+        let n = equalizer(SlotType::Cron, cron_slots.unwrap_or_default())?;
         let num_cron_tasks = n;
 
-        Ok(Some(AgentTaskResponse {
+        Ok(AgentTaskResponse {
             num_block_tasks,
             num_cron_tasks,
-        }))
-    }
-
-    fn on_agent_unregistered(
-        &self,
-        storage: &'a mut dyn Storage,
-        agent_id: &Addr,
-    ) -> Result<(), ContractError> {
-        let active = AGENTS_ACTIVE.load(storage)?;
-        if !active.contains(agent_id) {
-            return Err(ContractError::AgentNotRegistered);
-        }
-        AGENT_STATS.remove(storage, agent_id);
-        Ok(())
+        })
     }
 
     fn on_task_completed(
