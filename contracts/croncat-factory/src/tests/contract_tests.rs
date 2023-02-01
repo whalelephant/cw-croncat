@@ -747,7 +747,7 @@ fn remove_paused_checks() {
         .map(|metadata| metadata.version)
         .collect();
     // only last version left
-    assert_eq!(manager_versions, vec![[0,2]]);
+    assert_eq!(manager_versions, vec![[0, 2]]);
 }
 
 #[test]
