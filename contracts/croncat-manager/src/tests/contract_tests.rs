@@ -1642,7 +1642,7 @@ fn task_with_query() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTask {});
+    assert_eq!(err, ContractError::TaskNotReady {});
     // Now let's make it ready!
     app.sudo(
         BankSudo::Mint {

@@ -1,10 +1,11 @@
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Coin, CosmosMsg, DepsMut, Empty, MessageInfo, QuerierWrapper, Reply,
-    Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
+    coin, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
+    QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::{Config, TaskBalance};
+use croncat_sdk_tasks::types::TaskResponse;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -400,4 +401,143 @@ pub(crate) fn remove_task_balance(
     }
     TASKS_BALANCES.remove(storage, task_hash);
     Ok(coins_transfer)
+}
+
+/// Check for calls of our contracts
+pub(crate) fn check_for_self_calls(
+    tasks_addr: &Addr,
+    manager_addr: &Addr,
+    agents_addr: &Addr,
+    manager_owner_addr: &Addr,
+    sender: &Addr,
+    contract_addr: &String,
+    msg: &Binary,
+) -> Result<(), ContractError> {
+    // If it one of the our contracts it should be a manager
+    if contract_addr == tasks_addr || contract_addr == agents_addr {
+        return Err(ContractError::TaskNoLongerValid {});
+    } else if contract_addr == manager_addr {
+        // Check if caller is manager owner
+        if sender != manager_owner_addr {
+            return Err(ContractError::TaskNoLongerValid {});
+        } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
+            // Check if it's tick
+            if !matches!(msg, croncat_sdk_manager::msg::ManagerExecuteMsg::Tick {}) {
+                return Err(ContractError::TaskNoLongerValid {});
+            }
+            // Other messages not allowed
+        } else {
+            return Err(ContractError::TaskNoLongerValid {});
+        }
+    }
+    Ok(())
+}
+
+/// Replace values to the result value from the rules
+/// Recalculate cw20 usage if any replacements
+pub fn replace_values(
+    task: &mut TaskResponse,
+    construct_res_data: Vec<cosmwasm_std::Binary>,
+) -> Result<(), ContractError> {
+    for transform in task.transforms.iter() {
+        let wasm_msg = task
+            .actions
+            .get_mut(transform.action_idx as usize)
+            .and_then(|action| {
+                if let CosmosMsg::Wasm(WasmMsg::Execute {
+                    contract_addr: _,
+                    msg,
+                    funds: _,
+                }) = &mut action.msg
+                {
+                    Some(msg)
+                } else {
+                    None
+                }
+            })
+            .ok_or(ContractError::TaskNotReady {})?;
+        let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
+
+        let mut q_val = {
+            let bin = construct_res_data
+                .get(transform.query_idx as usize)
+                .ok_or(ContractError::TaskNotReady {})?;
+            cosmwasm_std::from_binary(bin)?
+        };
+        let replace_value = transform.query_response_path.find_value(&mut q_val)?;
+        let replaced_value = transform.action_path.find_value(&mut action_value)?;
+        *replaced_value = replace_value.clone();
+        *wasm_msg = Binary(
+            serde_json_wasm::to_vec(&action_value)
+                .map_err(|e| StdError::generic_err(e.to_string()))?,
+        );
+    }
+    Ok(())
+}
+
+/// Recalculate cw20 usage for this task
+/// And check for self-calls
+/// It can be initially zero, but after transform we still have to check it does have only one type of cw20
+/// If it had initially cw20, it can't change cw20 type
+pub(crate) fn recalculate_cw20(
+    task: &TaskResponse,
+    config: &Config,
+    deps: Deps,
+    manager_addr: &Addr,
+) -> Result<Option<Cw20CoinVerified>, ContractError> {
+    let mut current_cw20 = task
+        .amount_for_one_task
+        .cw20
+        .as_ref()
+        .map(|cw20| cw20.address.clone());
+    let mut cw20_amount = Uint128::zero();
+    let agents_addr = get_agents_addr(&deps.querier, config)?;
+    let tasks_addr = get_tasks_addr(&deps.querier, config)?;
+    let actions = task.actions.iter();
+    for action in actions {
+        if let CosmosMsg::Wasm(WasmMsg::Execute {
+            contract_addr, msg, ..
+        }) = &action.msg
+        {
+            check_for_self_calls(
+                &tasks_addr,
+                manager_addr,
+                &agents_addr,
+                &config.owner_addr,
+                &task.owner_addr,
+                contract_addr,
+                msg,
+            )?;
+            let validated_addr = deps.api.addr_validate(contract_addr)?;
+            if let Ok(cw20_msg) = cosmwasm_std::from_binary::<Cw20ExecuteMsg>(msg) {
+                // Don't let change type of cw20
+                if let Some(cw20_addr) = &current_cw20 {
+                    if validated_addr.ne(cw20_addr) {
+                        return Err(ContractError::TaskNoLongerValid {});
+                    }
+                } else {
+                    current_cw20 = Some(validated_addr);
+                }
+                match cw20_msg {
+                    Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
+                        cw20_amount = cw20_amount
+                            .checked_add(amount)
+                            .map_err(StdError::overflow)?;
+                    }
+                    Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
+                        cw20_amount = cw20_amount
+                            .checked_add(amount)
+                            .map_err(StdError::overflow)?;
+                    }
+                    _ => {
+                        return Err(ContractError::TaskNoLongerValid {});
+                    }
+                }
+            }
+        }
+    }
+    Ok(current_cw20.map(|addr| Cw20CoinVerified {
+        address: addr,
+        amount: cw20_amount,
+    }))
 }

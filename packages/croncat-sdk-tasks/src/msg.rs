@@ -117,8 +117,8 @@ pub enum TasksQueryMsg {
     /// Get next task to be done
     #[returns(Option<crate::types::TaskResponse>)]
     CurrentTask {},
-    /// Get task with transforms
-    /// To get original task query [`TasksQueryMsg::Task`] instead
+    /// Get task with queries if it's ready
+    /// To get task when it's not ready query [`TasksQueryMsg::Task`] instead
     #[returns(Option<crate::types::TaskResponse>)]
-    TaskWithTransforms { task_hash: String },
+    CurrentTaskWithQueries { task_hash: String },
 }

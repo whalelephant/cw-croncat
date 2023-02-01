@@ -53,4 +53,10 @@ pub enum ContractError {
 
     #[error("No rewards owner agent found")]
     NoRewardsOwnerAgentFound {},
+
+    #[error("Task is no longer valid")]
+    TaskNoLongerValid {},
+
+    #[error("Task queries is not ready yet")]
+    TaskNotReady {},
 }

@@ -1,14 +1,11 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{
-    Addr, Api, Binary, CosmosMsg, Empty, Env, StdError, StdResult, Timestamp, Uint128, Uint64,
-    WasmMsg,
-};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
-use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg};
+use cw20::Cw20Coin;
 use hex::ToHex;
 use sha2::{Digest, Sha256};
 
@@ -280,107 +277,6 @@ impl Task {
             transforms: self.transforms,
             version: self.version,
         }
-    }
-
-    /// Replace values to the result value from the rules
-    /// Recalculate cw20 usage if any replacements
-    pub fn replace_values(
-        &mut self,
-        api: &dyn Api,
-        cron_addr: &Addr,
-        construct_res_data: Vec<cosmwasm_std::Binary>,
-    ) -> StdResult<()> {
-        for transform in self.transforms.iter() {
-            let wasm_msg = self
-                .actions
-                .get_mut(transform.action_idx as usize)
-                .and_then(|action| {
-                    if let CosmosMsg::Wasm(WasmMsg::Execute {
-                        contract_addr: _,
-                        msg,
-                        funds: _,
-                    }) = &mut action.msg
-                    {
-                        Some(msg)
-                    } else {
-                        None
-                    }
-                })
-                .ok_or_else(|| StdError::generic_err("Task is no longer valid"))?;
-            let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
-
-            let mut q_val = construct_res_data
-                .get(transform.query_idx as usize)
-                .ok_or_else(|| StdError::generic_err("Task is no longer valid"))
-                .and_then(cosmwasm_std::from_binary)?;
-            let replace_value = transform.query_response_path.find_value(&mut q_val)?;
-            let replaced_value = transform.action_path.find_value(&mut action_value)?;
-            *replaced_value = replace_value.clone();
-            *wasm_msg = Binary(
-                serde_json_wasm::to_vec(&action_value)
-                    .map_err(|e| StdError::generic_err(e.to_string()))?,
-            );
-        }
-        let cw20_amount_recalculated = self.recalculate_cw20_usage(api, cron_addr)?;
-        self.amount_for_one_task.cw20 = cw20_amount_recalculated;
-        Ok(())
-    }
-
-    /// Recalculate cw20 usage for this task
-    /// It can be initially zero, but after transform we still have to check it does have only one type of cw20
-    /// If it had initially cw20, it can't change cw20 type
-    fn recalculate_cw20_usage(
-        &self,
-        api: &dyn Api,
-        cron_addr: &Addr,
-    ) -> StdResult<Option<Cw20CoinVerified>> {
-        let mut current_cw20 = self
-            .amount_for_one_task
-            .cw20
-            .as_ref()
-            .map(|cw20| cw20.address.clone());
-        let mut cw20_amount = Uint128::zero();
-        let actions = self.actions.iter();
-        for action in actions {
-            if let CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr, msg, ..
-            }) = &action.msg
-            {
-                if cron_addr.as_str().eq(contract_addr) {
-                    return Err(StdError::generic_err("Task is no longer valid"));
-                }
-                let validated_addr = api.addr_validate(contract_addr)?;
-                if let Ok(cw20_msg) = cosmwasm_std::from_binary::<Cw20ExecuteMsg>(msg) {
-                    // Don't let change type of cw20
-                    if let Some(cw20_addr) = &current_cw20 {
-                        if validated_addr.ne(cw20_addr) {
-                            return Err(StdError::generic_err("Task is no longer valid"));
-                        }
-                    } else {
-                        current_cw20 = Some(validated_addr);
-                    }
-                    match cw20_msg {
-                        Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
-                            cw20_amount = cw20_amount
-                                .checked_add(amount)
-                                .map_err(StdError::overflow)?;
-                        }
-                        Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
-                            cw20_amount = cw20_amount
-                                .checked_add(amount)
-                                .map_err(StdError::overflow)?;
-                        }
-                        _ => {
-                            return Err(StdError::generic_err("Task is no longer valid"));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(current_cw20.map(|addr| Cw20CoinVerified {
-            address: addr,
-            amount: cw20_amount,
-        }))
     }
 }
 

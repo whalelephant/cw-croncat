@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdResult, Uint128,
+    Reply, Response, StdResult, Uint128, WasmQuery,
 };
 use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -20,8 +20,8 @@ use crate::error::ContractError;
 use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, finalize_task,
-    gas_with_fees, get_agents_addr, get_tasks_addr, parse_reply_msg, query_agent,
-    remove_task_balance, task_sub_msgs,
+    gas_with_fees, get_agents_addr, get_tasks_addr, parse_reply_msg, query_agent, recalculate_cw20,
+    remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -218,7 +218,7 @@ fn execute_proxy_call(
 
 fn execute_proxy_call_with_queries(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     task_hash: String,
 ) -> Result<Response, ContractError> {
@@ -246,17 +246,43 @@ fn execute_proxy_call_with_queries(
     let current_task: Option<croncat_sdk_tasks::types::TaskResponse> =
         deps.querier.query_wasm_smart(
             tasks_addr,
-            &croncat_sdk_tasks::msg::TasksQueryMsg::TaskWithTransforms { task_hash },
+            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries { task_hash },
         )?;
 
-    let Some(task) = current_task else {
+    let Some(mut task) = current_task else {
         // No task or not ready
         return Err(ContractError::NoTask {  });
     };
+
+    let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
+    for query in task.queries.iter().flatten() {
+        let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
+            &WasmQuery::Smart {
+                contract_addr: query.query_mod_addr.clone(),
+                msg: query.msg.clone(),
+            }
+            .into(),
+        )?;
+        if !query_res.result {
+            return Err(ContractError::TaskNotReady {});
+        }
+        query_responses.push(query_res.data);
+    }
+    replace_values(&mut task, query_responses)?;
+
+    let invalidated_after_transform = if let Ok(amounts) =
+        recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
+    {
+        task.amount_for_one_task.cw20 = amounts;
+        false
+    } else {
+        true
+    };
     // Need to re-check if task has enough cw20's, cause it could have been changed through transform
-    if task_balance
-        .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
-        .is_err()
+    if invalidated_after_transform
+        || task_balance
+            .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
+            .is_err()
     {
         // Task is no longer valid
         let coins_transfer = remove_task_balance(

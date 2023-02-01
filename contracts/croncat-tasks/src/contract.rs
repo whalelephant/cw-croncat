@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, WasmQuery,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
 };
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -471,8 +471,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
         QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
-        QueryMsg::TaskWithTransforms { task_hash } => {
-            to_binary(&query_task_with_transforms(deps, env, task_hash)?)
+        QueryMsg::CurrentTaskWithQueries { task_hash } => {
+            to_binary(&query_current_task_with_queries(deps, env, task_hash)?)
         }
     }
 }
@@ -744,37 +744,21 @@ fn query_slot_ids(
     })
 }
 
-/// Query task with applied transforms,
+/// Query task with queries,
 /// it will return None if
 /// 1 - task does not exist
 /// 2 - task is not ready
-/// 3 - any of the queries returned false as a result
-fn query_task_with_transforms(
+fn query_current_task_with_queries(
     deps: Deps,
     env: Env,
     task_hash: String,
 ) -> StdResult<Option<TaskResponse>> {
-    let Some(mut task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
+    let Some(task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
         return Ok(None);
     };
     if !task_with_queries_ready(deps.storage, &env.block, &task, task_hash.as_bytes())? {
         return Ok(None);
     }
-    let mut query_responses = Vec::with_capacity(task.queries.len());
-    for query in task.queries.iter() {
-        let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
-            &WasmQuery::Smart {
-                contract_addr: query.query_mod_addr.clone(),
-                msg: query.msg.clone(),
-            }
-            .into(),
-        )?;
-        if !query_res.result {
-            return Ok(None);
-        }
-        query_responses.push(query_res.data);
-    }
-    task.replace_values(deps.api, &env.contract.address, query_responses)?;
     Ok(Some(TaskResponse {
         task_hash,
         owner_addr: task.owner_addr,
