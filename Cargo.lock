@@ -279,18 +279,26 @@ dependencies = [
 name = "croncat-manager"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-agents",
  "croncat-factory",
+ "croncat-mod-balances",
+ "croncat-mod-generic",
  "croncat-sdk-agents",
  "croncat-sdk-core",
+ "croncat-sdk-factory",
  "croncat-sdk-manager",
+ "croncat-sdk-tasks",
+ "croncat-tasks",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
+ "cw-utils 0.16.0",
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
+ "mod-sdk",
+ "serde-json-wasm",
  "thiserror",
 ]
 

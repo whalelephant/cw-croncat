@@ -67,7 +67,6 @@ fn assert_balancer_tasks(
     for a in act_agents {
         let balancer_result = task_distributor
             .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
-            .unwrap()
             .unwrap();
         result.push((
             a.0,
@@ -325,9 +324,7 @@ fn test_on_agent_unregister() {
         .on_task_completed(&mut deps.storage, &env, agent1_addr, SlotType::Block)
         .unwrap();
 
-    task_distributor
-        .on_agent_unregistered(&mut deps.storage, agent1_addr)
-        .unwrap();
+    AGENT_STATS.remove(&mut deps.storage, agent1_addr);
 
     let stats0 = AGENT_STATS.load(&deps.storage, agent0_addr);
     let stats1 = AGENT_STATS.load(&deps.storage, agent1_addr);

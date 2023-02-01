@@ -2,7 +2,7 @@ test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accou
 
 set export
 lint:
-	cargo fmt --all && cargo clippy -- -D warnings
+	cargo fmt --all && cargo clippy --all-targets -- -D warnings
 test:
 	#!/bin/bash
 	cargo test -- --nocapture 
@@ -17,8 +17,8 @@ build:
 	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	#!/bin/bash
-	chmod +x ./scripts/testnet/deploy.sh
-	./scripts/testnet/deploy.sh -w # only wasm update
+	cd ./scripts/deployment
+	yarn go
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh

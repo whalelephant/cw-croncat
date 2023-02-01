@@ -27,3 +27,7 @@ gas_reports/
 
 # tarpaulin cache
 tmp/
+
+# codecov xml output
+cobertura.xml
+default_*

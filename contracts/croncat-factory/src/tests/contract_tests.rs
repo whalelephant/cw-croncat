@@ -5,7 +5,7 @@ use croncat_sdk_factory::msg::{
 use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, ANYONE, AGENT2};
+use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE};
 use crate::{msg::*, ContractError};
 
 #[test]
@@ -251,7 +251,11 @@ fn deploy_check() {
     assert_eq!(manager_metadatas.len(), 1);
     let manager_metadata = manager_metadatas.remove(0);
     // check it's manager
-    assert_eq!(manager_metadata.kind, VersionKind::Manager, "Not manager contract");
+    assert_eq!(
+        manager_metadata.kind,
+        VersionKind::Manager,
+        "Not manager contract"
+    );
 
     let mut tasks_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
@@ -267,7 +271,11 @@ fn deploy_check() {
     assert_eq!(tasks_metadatas.len(), 1);
     let tasks_metadata = tasks_metadatas.remove(0);
     // check it's tasks
-    assert_eq!(tasks_metadata.kind, VersionKind::Tasks, "Not tasks contract");
+    assert_eq!(
+        tasks_metadata.kind,
+        VersionKind::Tasks,
+        "Not tasks contract"
+    );
 
     let mut agents_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
@@ -283,7 +291,11 @@ fn deploy_check() {
     assert_eq!(agents_metadatas.len(), 1);
     let agents_metadata = agents_metadatas.remove(0);
     // check it is agents
-    assert_eq!(agents_metadata.kind, VersionKind::Agents, "Not agents contract");
+    assert_eq!(
+        agents_metadata.kind,
+        VersionKind::Agents,
+        "Not agents contract"
+    );
 }
 
 #[test]
@@ -715,7 +727,6 @@ fn update_metadata() {
     assert_eq!(metadata.changelog_url, Some("new changelog".to_owned()));
     assert_eq!(metadata.schema, Some("new schema".to_owned()));
 }
-
 
 #[test]
 fn successful_proxy() {

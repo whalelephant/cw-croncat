@@ -253,7 +253,7 @@ fn create_task_without_query() {
     // Check it's next item
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
     assert!(current_slot.is_none());
     app.update_block(add_little_time);
@@ -273,7 +273,7 @@ fn create_task_without_query() {
     );
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
 
     assert_eq!(current_slot, Some(expected_block_task_response.clone()));
@@ -409,7 +409,7 @@ fn create_task_without_query() {
     // Check it prefers block over cron
     let current_slot: Option<TaskResponse> = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
     assert_eq!(current_slot, Some(expected_block_task_response));
 
@@ -527,12 +527,14 @@ fn create_tasks_with_queries_and_transforms() {
     };
     let queries = vec![
         CroncatQuery {
-            query_mod_addr: "aloha123".to_owned(),
+            contract_addr: "aloha123".to_owned(),
             msg: Binary::from([4, 2]),
+            check_result: true,
         },
         CroncatQuery {
-            query_mod_addr: "aloha321".to_owned(),
+            contract_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
+            check_result: true,
         },
     ];
     let transforms = vec![Transform {
@@ -694,12 +696,14 @@ fn remove_tasks() {
         }],
         queries: Some(vec![
             CroncatQuery {
-                query_mod_addr: "aloha123".to_owned(),
+                contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
-                query_mod_addr: "aloha321".to_owned(),
+                contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {
@@ -775,12 +779,14 @@ fn remove_tasks() {
         }],
         queries: Some(vec![
             CroncatQuery {
-                query_mod_addr: "aloha123".to_owned(),
+                contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
-                query_mod_addr: "aloha321".to_owned(),
+                contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {
