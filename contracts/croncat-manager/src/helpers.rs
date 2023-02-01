@@ -129,7 +129,7 @@ pub(crate) fn calculate_required_natives(
             } else if c2.denom == native_denom {
                 (c2.amount, Some(c1))
             } else {
-                return Err(StdError::generic_err("none of the coins are native").into());
+                return Err(ContractError::TooManyCoins {});
             }
         }
         [Some(c1), None] => {

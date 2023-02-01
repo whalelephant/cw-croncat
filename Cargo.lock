@@ -279,6 +279,7 @@ dependencies = [
  "croncat-agents",
  "croncat-factory",
  "croncat-mod-balances",
+ "croncat-mod-generic",
  "croncat-sdk-agents",
  "croncat-sdk-core",
  "croncat-sdk-factory",
@@ -413,7 +414,6 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
- "serde-json-wasm",
  "sha2 0.10.6",
 ]
 

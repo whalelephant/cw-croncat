@@ -56,3 +56,12 @@ pub(crate) fn mod_balances_contract() -> Box<dyn Contract<Empty>> {
     );
     Box::new(contract)
 }
+
+pub(crate) fn mod_generic_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        croncat_mod_generic::contract::execute,
+        croncat_mod_generic::contract::instantiate,
+        croncat_mod_generic::contract::query,
+    );
+    Box::new(contract)
+}

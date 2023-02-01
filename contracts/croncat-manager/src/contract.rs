@@ -197,9 +197,9 @@ fn execute_proxy_call(
             tasks_addr,
             &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
         )?;
-    let Some(task) = current_task else {
-        return Err(ContractError::NoTask {  });
-    };
+    // Note: there should be at least one task
+    // unless `get_agent_tasks` gave false positive
+    let task = current_task.unwrap();
 
     let sub_msgs = task_sub_msgs(&task);
     let queue_item = QueueItem {
@@ -235,7 +235,7 @@ fn execute_proxy_call_with_queries(
             account_id: info.sender.to_string(),
         },
     )?;
-    if agent.map_or(false, |agent| {
+    if agent.map_or(true, |agent| {
         agent.status != croncat_sdk_agents::types::AgentStatus::Active
     }) {
         return Err(ContractError::NoTaskForAgent {});
@@ -245,15 +245,16 @@ fn execute_proxy_call_with_queries(
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
     let current_task: Option<croncat_sdk_tasks::types::TaskResponse> =
         deps.querier.query_wasm_smart(
-            tasks_addr,
-            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries { task_hash },
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries {
+                task_hash: task_hash.clone(),
+            },
         )?;
 
     let Some(mut task) = current_task else {
         // No task or not ready
         return Err(ContractError::NoTask {  });
     };
-
     let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
     for query in task.queries.iter().flatten() {
         let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
@@ -294,9 +295,14 @@ fn execute_proxy_call_with_queries(
             &config.native_denom,
             task.task_hash.as_bytes(),
         )?;
+        let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+            task_hash: task_hash.into_bytes(),
+        }
+        .into_cosmos_msg(tasks_addr)?;
         let res = Response::new()
             .add_attribute("action", "remove_task")
-            .add_attribute("task_status", "invalid");
+            .add_attribute("task_status", "invalid")
+            .add_message(msg);
         if !coins_transfer.is_empty() {
             let bank_send = BankMsg::Send {
                 to_address: task.owner_addr.into_string(),
@@ -385,7 +391,7 @@ pub fn execute_update_config(
         .add_attribute("owner_id", new_config.owner_addr.to_string()))
 }
 
-/// Execute: UpdateConfig
+/// Execute: Tick
 /// Helps manage and cleanup agents
 /// Deletes agents which missed more than agents_eject_threshold slot
 ///
