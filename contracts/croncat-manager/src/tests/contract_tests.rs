@@ -1,4 +1,4 @@
-use cosmwasm_std::{coins, to_binary, Addr, Coin, Uint128};
+use cosmwasm_std::{to_binary, Addr, Uint128};
 use croncat_sdk_manager::types::{Config, UpdateConfig};
 use cw20::Cw20CoinVerified;
 
@@ -19,7 +19,6 @@ use cw_multi_test::{BankSudo, Executor};
 use super::helpers::{init_cw20, query_users_manager};
 
 mod instantiate_tests {
-    use cosmwasm_std::Coin;
 
     use super::*;
 
@@ -27,9 +26,8 @@ mod instantiate_tests {
     fn default_init() {
         let mut app = default_app();
         let instantiate_msg: InstantiateMsg = default_instantiate_message();
-        let send_funds: &[Coin] = &[coin(600, DENOM)];
 
-        let manager_addr = init_manager(&mut app, instantiate_msg, &send_funds).unwrap();
+        let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
         let config = query_manager_config(&app, &manager_addr);
 
         let expected_config = Config {
@@ -339,7 +337,7 @@ fn cw20_receive() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let manager_addr = init_manager(&mut app, instantiate_msg, &coins(100, DENOM)).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
 
     let cw20_addr = init_cw20(&mut app);
     app.execute_contract(
@@ -369,9 +367,8 @@ fn cw20_bad_messages() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
-    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
 
     let cw20_addr = init_cw20(&mut app);
     let err: ContractError = app
@@ -426,9 +423,8 @@ fn users_withdraws() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
-    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
 
     // refill balances
     let cw20_addr = init_cw20(&mut app);
@@ -489,9 +485,8 @@ fn failed_users_withdraws() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
-    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
 
     let cw20_addr = init_cw20(&mut app);
 
@@ -630,9 +625,8 @@ fn test_should_fail_with_zero_rewards() {
     let mut app = default_app();
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
-    let manager_addr = init_manager(&mut app, instantiate_msg, send_funds).unwrap();
+    let manager_addr = init_manager(&mut app, instantiate_msg, &[]).unwrap();
 
     //No available rewards for withdraw
     let err: ContractError = app

@@ -53,7 +53,7 @@ pub fn instantiate(
         agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr,
         paused: false,
-        agents_eject_threshold: DEFAULT_AGENTS_EVECT_THRESHOLD,
+        agents_eject_threshold: DEFAULT_AGENTS_EJECT_THRESHOLD,
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
@@ -518,7 +518,7 @@ pub fn execute_update_config(
             min_coins_for_agent_registration: min_coins_for_agent_registration
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agents_eject_threshold: agents_eject_threshold
-                .unwrap_or(DEFAULT_AGENTS_EVECT_THRESHOLD),
+                .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
         };
         Ok(new_config)
     })?;
@@ -624,7 +624,7 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
     }
 }
 pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
-    let current_slot = env.block.height;
+    let block_height = env.block.height;
     let config = CONFIG.load(deps.storage)?;
     let mut attributes = vec![];
     let mut submessages = vec![];
@@ -634,7 +634,7 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
             .may_load(deps.storage, &agent_id)?
             .unwrap_or_default();
 
-        if current_slot > stats.last_executed_slot + config.agents_eject_threshold {
+        if block_height > stats.last_executed_slot + config.agents_eject_threshold {
             let resp =
                 unregister_agent(deps.storage, &deps.querier, &agent_id, None).unwrap_or_default();
             // Save attributes and messages
