@@ -58,7 +58,7 @@ pub struct Config {
     pub croncat_tasks_key: (String, [u8; 2]),
     //Contract owner address
     pub owner_addr: Addr,
-    //If contract was paused/unpaused
+    /// If contract was paused/unpaused
     pub paused: bool,
     /// Agent management
     /// The minimum number of tasks per agent
