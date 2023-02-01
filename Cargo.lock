@@ -418,6 +418,7 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
+ "mod-sdk",
  "sha2 0.10.6",
 ]
 
