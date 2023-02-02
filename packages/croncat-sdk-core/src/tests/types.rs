@@ -117,3 +117,150 @@ fn amount_for_one_task_add_cw20() {
         })
     );
 }
+
+#[test]
+fn amount_for_one_task_sub_coin() {
+    let mut amount = AmountForOneTask {
+        gas: 0,
+        cw20: None,
+        coin: [None, None],
+    };
+
+    let coin1 = coin(10, "denom1".to_string());
+    assert!(amount.sub_coin(&coin1).is_err());
+    assert_eq!(
+        amount,
+        AmountForOneTask {
+            gas: 0,
+            cw20: None,
+            coin: [None, None],
+        }
+    );
+
+    // Add the first coin
+    assert!(amount.add_coin(coin1.clone()).unwrap());
+    assert_eq!(amount.coin, [Some(coin1.clone()), None]);
+
+    // Check sub_coin when amount already contains one coin
+    amount.sub_coin(&coin(1, "denom1".to_string())).unwrap();
+    assert_eq!(amount.coin, [Some(coin(9, "denom1".to_string())), None]);
+
+    assert!(amount.sub_coin(&coin(10, "denom1".to_string())).is_err());
+    assert_eq!(amount.coin, [Some(coin(9, "denom1".to_string())), None]);
+
+    assert!(amount.sub_coin(&coin(1, "denom2".to_string())).is_err());
+    assert_eq!(amount.coin, [Some(coin(9, "denom1".to_string())), None]);
+
+    // Add the second coin
+    let coin2 = coin(100, "denom2".to_string());
+    assert!(amount.add_coin(coin2.clone()).unwrap());
+    assert_eq!(
+        amount.coin,
+        [Some(coin(9, "denom1".to_string())), Some(coin2.clone())]
+    );
+
+    // Check sub_coin when amount already has two coins
+    amount.sub_coin(&coin(2, "denom1".to_string())).unwrap();
+    assert_eq!(
+        amount.coin,
+        [Some(coin(7, "denom1".to_string())), Some(coin2)]
+    );
+
+    amount.sub_coin(&coin(10, "denom2".to_string())).unwrap();
+    assert_eq!(
+        amount.coin,
+        [
+            Some(coin(7, "denom1".to_string())),
+            Some(coin(90, "denom2".to_string()))
+        ]
+    );
+
+    assert!(amount.sub_coin(&coin(8, "denom1".to_string())).is_err());
+    assert_eq!(
+        amount.coin,
+        [
+            Some(coin(7, "denom1".to_string())),
+            Some(coin(90, "denom2".to_string()))
+        ]
+    );
+
+    assert!(amount.sub_coin(&coin(91, "denom2".to_string())).is_err());
+    assert_eq!(
+        amount.coin,
+        [
+            Some(coin(7, "denom1".to_string())),
+            Some(coin(90, "denom2".to_string()))
+        ]
+    );
+
+    assert!(amount.sub_coin(&coin(1, "denom3".to_string())).is_err());
+    assert_eq!(
+        amount.coin,
+        [
+            Some(coin(7, "denom1".to_string())),
+            Some(coin(90, "denom2".to_string()))
+        ]
+    );
+}
+
+#[test]
+fn amount_for_one_task_sub_cw20() {
+    let mut amount = AmountForOneTask {
+        gas: 0,
+        cw20: None,
+        coin: [None, None],
+    };
+
+    let cw20 = Cw20CoinVerified {
+        address: Addr::unchecked("addr"),
+        amount: 10u64.into(),
+    };
+    assert!(amount.sub_cw20(&cw20).is_err());
+
+    // Add cw20 coin
+    assert!(amount.add_cw20(cw20.clone()));
+    assert_eq!(amount.cw20, Some(cw20));
+
+    // Check sub_cw20
+    amount
+        .sub_cw20(&Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: 1u64.into(),
+        })
+        .unwrap();
+    assert_eq!(
+        amount.cw20,
+        Some(Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: 9u64.into(),
+        })
+    );
+
+    assert!(amount
+        .sub_cw20(&Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: 10u64.into(),
+        })
+        .is_err());
+    assert_eq!(
+        amount.cw20,
+        Some(Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: 9u64.into(),
+        })
+    );
+
+    assert!(amount
+        .sub_cw20(&Cw20CoinVerified {
+            address: Addr::unchecked("addr2"),
+            amount: 1u64.into(),
+        })
+        .is_err());
+    assert_eq!(
+        amount.cw20,
+        Some(Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: 9u64.into(),
+        })
+    );
+}

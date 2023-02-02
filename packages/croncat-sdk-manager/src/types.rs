@@ -483,4 +483,95 @@ mod test {
             }
         );
     }
+
+    #[test]
+    fn sub_coin_test() {
+        let native_balance = Uint128::from(100u64);
+        let ibc_coin = coin(100, "ibc");
+
+        let mut task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: None,
+            ibc_balance: Some(ibc_coin.clone()),
+        };
+
+        task_balance
+            .sub_coin(&coin(10, "native"), "native")
+            .unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance: Uint128::from(90u64),
+                cw20_balance: None,
+                ibc_balance: Some(ibc_coin),
+            }
+        );
+
+        task_balance.sub_coin(&coin(1, "ibc"), "native").unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance: Uint128::from(90u64),
+                cw20_balance: None,
+                ibc_balance: Some(coin(99, "ibc")),
+            }
+        );
+
+        assert!(task_balance
+            .sub_coin(&coin(91, "native"), "native")
+            .is_err());
+
+        assert!(task_balance.sub_coin(&coin(100, "ibc"), "native").is_err());
+
+        assert!(task_balance
+            .sub_coin(&coin(100, "wrong"), "native")
+            .is_err());
+    }
+
+    #[test]
+    fn sub_cw20_test() {
+        let native_balance = Uint128::from(100u64);
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: Uint128::from(100u64),
+        };
+
+        let mut task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: Some(cw20),
+            ibc_balance: None,
+        };
+
+        task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr"),
+                amount: Uint128::from(10u64),
+            })
+            .unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance,
+                cw20_balance: Some(Cw20CoinVerified {
+                    address: Addr::unchecked("addr"),
+                    amount: Uint128::from(90u64),
+                }),
+                ibc_balance: None,
+            }
+        );
+
+        assert!(task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr"),
+                amount: Uint128::from(91u64),
+            })
+            .is_err());
+
+        assert!(task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr2"),
+                amount: Uint128::from(1u64),
+            })
+            .is_err());
+    }
 }
