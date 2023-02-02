@@ -409,8 +409,8 @@ fn cw20_bad_messages() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -467,8 +467,8 @@ fn users_withdraws() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     // refill balances
@@ -531,8 +531,8 @@ fn failed_users_withdraws() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);

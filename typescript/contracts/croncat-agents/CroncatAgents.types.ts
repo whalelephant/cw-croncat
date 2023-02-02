@@ -33,12 +33,15 @@ export type ExecuteMsg = {
   update_config: {
     config: UpdateConfig;
   };
+} | {
+  tick: {};
 };
 export interface AgentOnTaskCreated {
   task_hash: string;
 }
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
+  agents_eject_threshold?: number | null;
   croncat_factory_addr?: string | null;
   croncat_manager_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
@@ -66,6 +69,7 @@ export type QueryMsg = {
 export type Addr = string;
 export interface Config {
   agent_nomination_duration: number;
+  agents_eject_threshold: number;
   croncat_factory_addr: Addr;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];

@@ -20,7 +20,6 @@ export class ManagerClient {
 		const codeId = uploadRes.codeId
 		const checksums = await getChecksums()
 		const githash = await getGitHash()
-		const funds: Coin[] = [coin(50, denom)];
 
 		// get the version from cargo
 		const version = await getContractVersionFromCargoToml('croncat-manager')
