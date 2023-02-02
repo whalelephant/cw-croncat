@@ -706,8 +706,7 @@ fn on_task_completed(
         &info.sender,
     )?;
     let mut stats = AGENT_STATS
-        .may_load(deps.storage, &args.agent_id)?
-        .unwrap_or_default();
+        .load(deps.storage, &args.agent_id)?;
 
     if args.is_block_slot_task {
         stats.completed_block_tasks += 1;
