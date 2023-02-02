@@ -566,7 +566,6 @@ pub(crate) fn check_if_sender_is_task_owner(
 pub fn create_task_completed_msg(
     querier: &QuerierWrapper<Empty>,
     config: &Config,
-    task_hash: String,
     agent_id: &Addr,
     is_block_slot_task: bool,
 ) -> Result<CosmosMsg, ContractError> {
@@ -574,7 +573,6 @@ pub fn create_task_completed_msg(
     let args = AgentOnTaskCompleted {
         agent_id: agent_id.to_owned(),
         is_block_slot_task,
-        task_hash,
     };
     let execute = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: addr.into(),

@@ -697,14 +697,13 @@ fn on_task_completed(
     args: AgentOnTaskCompleted,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
-   
+
     croncat_manager_contract::assert_caller_is_manager_contract(
         &deps.querier,
         &config,
         &info.sender,
     )?;
-    let mut stats = AGENT_STATS
-        .load(deps.storage, &args.agent_id)?;
+    let mut stats = AGENT_STATS.load(deps.storage, &args.agent_id)?;
 
     if args.is_block_slot_task {
         stats.completed_block_tasks += 1;

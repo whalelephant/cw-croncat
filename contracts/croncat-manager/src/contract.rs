@@ -535,7 +535,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 let complete_msg = create_task_completed_msg(
                     &deps.querier,
                     &config,
-                    queue_item.task.task_hash.clone(),
                     &queue_item.agent_addr,
                     !matches!(queue_item.task.interval, Interval::Cron(_)),
                 )?;

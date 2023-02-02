@@ -46,7 +46,6 @@ export interface AgentOnTaskCreated {
 export interface AgentOnTaskCompleted {
   agent_id: Addr;
   is_block_slot_task: boolean;
-  task_hash: string;
 }
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
