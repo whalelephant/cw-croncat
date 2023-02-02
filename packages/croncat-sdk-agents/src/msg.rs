@@ -87,7 +87,7 @@ pub struct TaskStats {
 }
 #[cw_serde]
 pub struct AgentTaskResponse {
-    pub stats: Option<TaskStats>,
+    pub stats: TaskStats,
 }
 
 #[cw_serde]

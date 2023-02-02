@@ -856,10 +856,10 @@ fn test_query_get_agent_tasks() {
     assert_eq!(
         agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            stats: Some(TaskStats {
+            stats: TaskStats {
                 num_block_tasks: 3u64.into(),
                 num_cron_tasks: 2u64.into()
-            })
+            }
         }
     );
 
@@ -893,10 +893,10 @@ fn test_query_get_agent_tasks() {
     assert_eq!(
         agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            stats: Some(TaskStats {
+            stats: TaskStats {
                 num_block_tasks: 2u64.into(),
                 num_cron_tasks: 1u64.into()
-            })
+            }
         }
     );
 
@@ -906,20 +906,23 @@ fn test_query_get_agent_tasks() {
     assert_eq!(
         agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            stats: Some(TaskStats {
+            stats: TaskStats {
                 num_block_tasks: 1u64.into(),
                 num_cron_tasks: 1u64.into()
-            })
+            }
         }
     );
 
     // Should fail for random user not in the active queue
     let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT2);
-    let error: cosmwasm_std::StdError = agent_tasks_res.unwrap_err().downcast().unwrap();
+    let result = agent_tasks_res.unwrap();
     assert_eq!(
-        error,
-        cosmwasm_std::StdError::GenericErr {
-            msg: "Querier contract error: Generic error: Agent is not active!".to_string()
+        result,
+        AgentTaskResponse {
+            stats: TaskStats {
+                num_block_tasks: Uint64::zero(),
+                num_cron_tasks: Uint64::zero(),
+            }
         }
     );
 }

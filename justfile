@@ -6,6 +6,9 @@ lint:
 test:
 	#!/bin/bash
 	cargo test -- --nocapture 
+tarp:
+	#!/bin/bash
+	cargo +nightly tarpaulin --skip-clean --workspace --out Xml --target-dir tmp
 
 build:
 	#!/bin/bash
@@ -16,6 +19,10 @@ deploy:
 	#!/bin/bash
 	cd ./scripts/deployment
 	yarn go
+e2e:
+	#!/bin/bash
+	cd ./scripts/deployment
+	yarn e2e
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh

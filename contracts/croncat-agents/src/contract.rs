@@ -174,8 +174,11 @@ fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
     if !active.contains(&account_id) {
-        return Err(StdError::GenericErr {
-            msg: "Agent is not active!".to_owned(),
+        return Ok(AgentTaskResponse {
+            stats: TaskStats {
+                num_cron_tasks: Uint64::zero(),
+                num_block_tasks: Uint64::zero(),
+            },
         });
     }
     let config: Config = CONFIG.load(deps.storage)?;
@@ -183,10 +186,10 @@ fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<
     let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
         return Ok(AgentTaskResponse {
-            stats: Some(TaskStats {
+            stats: TaskStats {
                 num_cron_tasks: Uint64::zero(),
                 num_block_tasks: Uint64::zero(),
-            }),
+            },
         });
     }
     AGENT_TASK_DISTRIBUTOR

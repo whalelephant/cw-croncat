@@ -577,6 +577,7 @@ fn test_dao_multiple_proposals_with_migration() {
         &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 1,
             vote: MultipleChoiceVote { option_id: 0 },
+            rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
         },
         &[],
     )
@@ -609,6 +610,7 @@ fn test_dao_multiple_proposals_with_migration() {
         &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 2,
             vote: MultipleChoiceVote { option_id: 0 },
+            rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
         },
         &[],
     )
@@ -619,6 +621,7 @@ fn test_dao_multiple_proposals_with_migration() {
         &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 3,
             vote: MultipleChoiceVote { option_id: 1 },
+            rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
         },
         &[],
     )
@@ -651,6 +654,7 @@ fn test_dao_multiple_proposals_with_migration() {
         &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 4,
             vote: MultipleChoiceVote { option_id: 0 },
+            rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
         },
         &[],
     )
@@ -661,6 +665,7 @@ fn test_dao_multiple_proposals_with_migration() {
         &dao_proposal_multiple::msg::ExecuteMsg::Vote {
             proposal_id: 5,
             vote: MultipleChoiceVote { option_id: 0 },
+            rationale: Some("because_pulled_pork_mac_n_cheese".to_string()),
         },
         &[],
     )

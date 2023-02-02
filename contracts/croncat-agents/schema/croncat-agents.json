@@ -708,16 +708,12 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentTaskResponse",
       "type": "object",
+      "required": [
+        "stats"
+      ],
       "properties": {
         "stats": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/TaskStats"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/definitions/TaskStats"
         }
       },
       "additionalProperties": false,

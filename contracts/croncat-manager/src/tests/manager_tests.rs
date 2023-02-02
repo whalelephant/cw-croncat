@@ -641,8 +641,6 @@ fn withdraw_balances() {
         .unwrap();
 
     assert_eq!(err, ContractError::EmptyBalance {});
-
-    // TODO: after split tasks
 }
 
 #[test]
@@ -2502,7 +2500,7 @@ fn negative_proxy_call() {
     assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // not registered agent
-    let _err: ContractError = app
+    let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT1),
             manager_addr.clone(),
@@ -2513,7 +2511,7 @@ fn negative_proxy_call() {
         .downcast()
         .unwrap();
     // TODO: get_agent_tasks shouldn't error, but give 0 tasks instead for inactive agent
-    // assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // agent not registered before proxy call with queries
     // Creating task itself
