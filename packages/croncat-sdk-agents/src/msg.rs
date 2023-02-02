@@ -46,9 +46,9 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns[Option<AgentResponse>]]
+    #[returns[AgentResponse]]
     GetAgent { account_id: String },
-    #[returns[Option<GetAgentIdsResponse>]]
+    #[returns[GetAgentIdsResponse]]
     GetAgentIds {
         from_index: Option<u64>,
         limit: Option<u64>,
@@ -64,20 +64,26 @@ pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
     pub pending: Vec<Addr>,
 }
-
 #[cw_serde]
-pub struct AgentResponse {
+pub struct AgentInfo {
     pub status: AgentStatus,
     pub payable_account_id: Addr,
     pub balance: Uint128,
     pub last_executed_slot: u64,
     pub register_start: Timestamp,
 }
-
 #[cw_serde]
-pub struct AgentTaskResponse {
+pub struct AgentResponse {
+    pub agent: Option<AgentInfo>,
+}
+#[cw_serde]
+pub struct TaskStats {
     pub num_block_tasks: Uint64,
     pub num_cron_tasks: Uint64,
+}
+#[cw_serde]
+pub struct AgentTaskResponse {
+    pub stats: Option<TaskStats>,
 }
 
 #[cw_serde]
