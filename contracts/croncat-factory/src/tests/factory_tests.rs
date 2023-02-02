@@ -1,6 +1,7 @@
-use cosmwasm_std::{to_binary, Addr, StdError};
+use cosmwasm_std::{to_binary, Addr, Binary, StdError, WasmMsg};
 use croncat_sdk_factory::msg::{
-    Config, ContractMetadataResponse, EntryResponse, ModuleInstantiateInfo, VersionKind,
+    Config, ContractMetadataResponse, EntryResponse, FactoryExecuteMsg, ModuleInstantiateInfo,
+    VersionKind,
 };
 use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::Executor;
@@ -131,7 +132,7 @@ fn deploy_check() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info,
         },
@@ -164,7 +165,7 @@ fn deploy_check() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Tasks,
             module_instantiate_info: tasks_module_instantiate_info,
         },
@@ -194,7 +195,7 @@ fn deploy_check() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Agents,
             module_instantiate_info: agents_module_instantiate_info,
         },
@@ -217,7 +218,7 @@ fn deploy_check() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Library,
             module_instantiate_info: library_module_instantiate_info,
         },
@@ -346,7 +347,7 @@ fn failure_deploy() {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &ExecuteMsg::Deploy {
+            &FactoryExecuteMsg::Deploy {
                 kind: VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info,
             },
@@ -374,7 +375,7 @@ fn failure_deploy() {
         .execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr,
-            &ExecuteMsg::Deploy {
+            &FactoryExecuteMsg::Deploy {
                 kind: VersionKind::Manager,
                 module_instantiate_info: bad_module_instantiate_info,
             },
@@ -412,7 +413,7 @@ fn update_config() {
         )
         .unwrap();
 
-    let update_config_msg = ExecuteMsg::UpdateConfig {
+    let update_config_msg = FactoryExecuteMsg::UpdateConfig {
         owner_addr: ANYONE.to_owned(),
     };
 
@@ -485,7 +486,7 @@ fn remove() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Library,
             module_instantiate_info: library_module_instantiate_info,
         },
@@ -508,7 +509,7 @@ fn remove() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Library,
             module_instantiate_info: library_v2_module_instantiate_info,
         },
@@ -521,7 +522,7 @@ fn remove() {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &ExecuteMsg::Remove {
+            &FactoryExecuteMsg::Remove {
                 contract_name: "library".to_owned(),
                 version: [0, 1],
             },
@@ -538,7 +539,7 @@ fn remove() {
         .execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &ExecuteMsg::Remove {
+            &FactoryExecuteMsg::Remove {
                 contract_name: "manager".to_owned(),
                 version: [0, 2],
             },
@@ -555,7 +556,7 @@ fn remove() {
         .execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &ExecuteMsg::Remove {
+            &FactoryExecuteMsg::Remove {
                 contract_name: "library".to_owned(),
                 version: [0, 2],
             },
@@ -570,7 +571,7 @@ fn remove() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Remove {
+        &FactoryExecuteMsg::Remove {
             contract_name: "library".to_owned(),
             version: [0, 1],
         },
@@ -635,7 +636,7 @@ fn remove_paused_checks() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_contract_instantiate_info,
         },
@@ -656,7 +657,7 @@ fn remove_paused_checks() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_v2_contract_instantiate_info,
         },
@@ -669,7 +670,7 @@ fn remove_paused_checks() {
         .execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &ExecuteMsg::Remove {
+            &FactoryExecuteMsg::Remove {
                 contract_name: "manager".to_owned(),
                 version: [0, 1],
             },
@@ -719,7 +720,7 @@ fn remove_paused_checks() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Remove {
+        &FactoryExecuteMsg::Remove {
             contract_name: "manager".to_owned(),
             version: [0, 1],
         },
@@ -781,7 +782,7 @@ fn update_metadata() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::Deploy {
+        &FactoryExecuteMsg::Deploy {
             kind: VersionKind::Library,
             module_instantiate_info: library_module_instantiate_info,
         },
@@ -794,7 +795,7 @@ fn update_metadata() {
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &ExecuteMsg::UpdateMetadata {
+            &FactoryExecuteMsg::UpdateMetadata {
                 contract_name: "library".to_owned(),
                 version: [0, 1],
                 changelog_url: Some("new changelog".to_owned()),
@@ -813,7 +814,7 @@ fn update_metadata() {
         .execute_contract(
             Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &ExecuteMsg::UpdateMetadata {
+            &FactoryExecuteMsg::UpdateMetadata {
                 contract_name: "manager".to_owned(),
                 version: [0, 1],
                 changelog_url: Some("new changelog".to_owned()),
@@ -830,7 +831,7 @@ fn update_metadata() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::UpdateMetadata {
+        &FactoryExecuteMsg::UpdateMetadata {
             contract_name: "library".to_owned(),
             version: [0, 1],
             changelog_url: Some("new changelog".to_owned()),
@@ -857,7 +858,7 @@ fn update_metadata() {
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &ExecuteMsg::UpdateMetadata {
+        &FactoryExecuteMsg::UpdateMetadata {
             contract_name: "library".to_owned(),
             version: [0, 1],
             changelog_url: None,
@@ -882,9 +883,10 @@ fn update_metadata() {
 }
 
 #[test]
-fn successful_proxy() {
+fn fail_and_success_proxy() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
+    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
@@ -900,40 +902,152 @@ fn successful_proxy() {
         )
         .unwrap();
 
-    let update_config_msg = ExecuteMsg::UpdateConfig {
-        owner_addr: ANYONE.to_owned(),
+    let manager_module_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&croncat_manager::msg::InstantiateMsg {
+            denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            croncat_agents_key: ("agents".to_owned(), [0, 1]),
+            owner_addr: None,
+            gas_price: Some(GasPrice {
+                numerator: 10,
+                denominator: 20,
+                gas_adjustment_numerator: 30,
+            }),
+            treasury_addr: Some(AGENT2.to_owned()),
+        })
+        .unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::Deploy {
+            kind: VersionKind::Manager,
+            module_instantiate_info: manager_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Get the manager contract_addr
+    let manager_metadata: ContractMetadataResponse = app
+        .wrap()
+        .query_wasm_smart(
+            contract_addr.clone(),
+            &QueryMsg::LatestContract {
+                contract_name: "manager".to_string(),
+            },
+        )
+        .unwrap();
+    println!("{:?}", manager_metadata);
+    assert_eq!(manager_metadata.code_id, manager_code_id);
+
+    let proxy_msg = FactoryExecuteMsg::Proxy {
+        msg: WasmMsg::Execute {
+            contract_addr: manager_metadata.contract_addr.clone().to_string(),
+            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
+                Box::new(croncat_sdk_manager::types::UpdateConfig {
+                    owner_addr: None,
+                    paused: None,
+                    agent_fee: None,
+                    treasury_fee: Some(10), // simulate moving to 0.01%
+                    gas_price: None,
+                    croncat_tasks_key: None,
+                    croncat_agents_key: None,
+                    treasury_addr: None,
+                }),
+            ))
+            .unwrap(),
+            funds: vec![],
+        },
     };
 
-    // Not owner_addr execution
+    let bad_msg_proxy_msg = FactoryExecuteMsg::Proxy {
+        msg: WasmMsg::Instantiate {
+            admin: Some(contract_addr.clone().to_string()),
+            code_id: manager_code_id,
+            msg: Binary::default(),
+            funds: vec![],
+            label: "bad msg, bad".to_string(),
+        },
+    };
+
+    let bad_version_proxy_msg = FactoryExecuteMsg::Proxy {
+        msg: WasmMsg::Execute {
+            contract_addr: Addr::unchecked(ANYONE).to_string(),
+            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
+                Box::new(croncat_sdk_manager::types::UpdateConfig {
+                    owner_addr: None,
+                    paused: None,
+                    agent_fee: None,
+                    treasury_fee: Some(10), // simulate moving to 0.01%
+                    gas_price: None,
+                    croncat_tasks_key: None,
+                    croncat_agents_key: None,
+                    treasury_addr: None,
+                }),
+            ))
+            .unwrap(),
+            funds: vec![],
+        },
+    };
+
+    // Not the factory owner
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             contract_addr.clone(),
-            &update_config_msg,
+            &proxy_msg,
             &[],
         )
         .unwrap_err()
         .downcast()
         .unwrap();
-
     assert_eq!(err, ContractError::Unauthorized {});
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        contract_addr.clone(),
-        &update_config_msg,
-        &[],
-    )
-    .unwrap();
-
-    let new_config: Config = app
-        .wrap()
-        .query_wasm_smart(contract_addr, &QueryMsg::Config {})
+    // Not valid msg
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &bad_msg_proxy_msg,
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
         .unwrap();
-    assert_eq!(
-        new_config,
-        Config {
-            owner_addr: Addr::unchecked(ANYONE)
-        }
-    )
+    assert_eq!(err, ContractError::UnknownMethod {});
+
+    // Not a valid factory version contract
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &bad_version_proxy_msg,
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::UnknownContract {});
+
+    // Okay yasssss ill let you work
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &proxy_msg,
+            &[],
+        )
+        .unwrap();
+    // Check for action proxy & action update_config
+    assert_eq!(res.events[1].attributes[1].value, "proxy");
+    assert_eq!(res.events[3].attributes[1].value, "update_config");
 }
