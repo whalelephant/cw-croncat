@@ -16,7 +16,7 @@ use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
-use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
+use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
 use std::cmp;
 use std::ops::Div;
@@ -39,6 +39,7 @@ pub fn instantiate(
         agent_nomination_duration,
         min_tasks_per_agent,
         min_coin_for_agent_registration,
+        agents_eject_threshold,
     } = msg;
 
     let owner_addr = owner_addr
@@ -54,7 +55,7 @@ pub fn instantiate(
         agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr,
         paused: false,
-        agents_eject_threshold: DEFAULT_AGENTS_EJECT_THRESHOLD,
+        agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
@@ -108,6 +109,7 @@ pub fn execute(
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
+        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
     }
 }
 
@@ -687,5 +689,32 @@ fn on_task_created(
         }
     }
     let response = Response::new().add_attribute("action", "on_task_created");
+    Ok(response)
+}
+fn on_task_completed(
+    deps: DepsMut,
+    info: MessageInfo,
+    args: AgentOnTaskCompleted,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+
+    croncat_manager_contract::assert_caller_is_manager_contract(
+        &deps.querier,
+        &config,
+        &info.sender,
+    )?;
+    let mut stats = AGENT_STATS.load(deps.storage, &args.agent_id)?;
+
+    if args.is_block_slot_task {
+        stats.completed_block_tasks += 1;
+    } else {
+        stats.completed_cron_tasks += 1;
+    }
+    AGENT_STATS.save(deps.storage, &args.agent_id, &stats)?;
+
+    let response = Response::new()
+        .add_attribute("action", "on_task_completed")
+        .add_attribute("agent_id", args.agent_id.to_string())
+        .add_attribute("is_block_slot_task", args.is_block_slot_task.to_string());
     Ok(response)
 }

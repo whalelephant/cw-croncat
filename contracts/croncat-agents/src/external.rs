@@ -35,6 +35,7 @@ pub mod croncat_tasks_contract {
         }
         Ok(())
     }
+
     pub(crate) fn query_tasks_addr(
         deps_queries: &QuerierWrapper<Empty>,
         config: &Config,
@@ -125,5 +126,18 @@ pub mod croncat_manager_contract {
         )?;
 
         Ok(response)
+    }
+    pub(crate) fn assert_caller_is_manager_contract(
+        deps_queries: &QuerierWrapper<Empty>,
+        config: &Config,
+        sender: &Addr,
+    ) -> StdResult<()> {
+        let addr = query_manager_addr(deps_queries, config)?;
+        if addr != *sender {
+            return Err(cosmwasm_std::StdError::GenericErr {
+                msg: ContractError::Unauthorized {}.to_string(),
+            });
+        }
+        Ok(())
     }
 }

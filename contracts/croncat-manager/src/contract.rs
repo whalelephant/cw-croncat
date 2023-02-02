@@ -9,6 +9,7 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 
 use croncat_sdk_manager::msg::WithdrawRewardsCallback;
 use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
+use croncat_sdk_tasks::types::Interval;
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
@@ -19,9 +20,10 @@ use crate::balances::{
 use crate::error::ContractError;
 use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
-    check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message, finalize_task,
-    gas_with_fees, get_agents_addr, get_tasks_addr, parse_reply_msg, query_agent, recalculate_cw20,
-    remove_task_balance, replace_values, task_sub_msgs,
+    check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
+    create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
+    parse_reply_msg, query_agent, recalculate_cw20, remove_task_balance, replace_values,
+    task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -528,8 +530,17 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .iter()
                     .map(|(idx, failure)| Attribute::new(format!("action{}_failure", idx), failure))
                     .collect();
-                // TODO: agent: on_task_executed?
-                Ok(finalize_task(deps, queue_item)?.add_attributes(failures))
+                let config = CONFIG.load(deps.storage)?;
+                //todo: fix is_block_slot param after boundary fix
+                let complete_msg = create_task_completed_msg(
+                    &deps.querier,
+                    &config,
+                    &queue_item.agent_addr,
+                    !matches!(queue_item.task.interval, Interval::Cron(_)),
+                )?;
+                Ok(finalize_task(deps, queue_item)?
+                    .add_message(complete_msg)
+                    .add_attributes(failures))
             } else {
                 Ok(Response::new())
             }

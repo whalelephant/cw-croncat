@@ -1,7 +1,7 @@
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
-    DEFAULT_NOMINATION_DURATION,
+    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+    DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
@@ -253,6 +253,7 @@ pub(crate) fn init_agents_contract(
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
