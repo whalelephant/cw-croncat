@@ -950,7 +950,7 @@ fn fail_and_success_proxy() {
 
     let proxy_msg = FactoryExecuteMsg::Proxy {
         msg: WasmMsg::Execute {
-            contract_addr: manager_metadata.contract_addr.clone().to_string(),
+            contract_addr: manager_metadata.contract_addr.to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
                     owner_addr: None,
@@ -970,7 +970,7 @@ fn fail_and_success_proxy() {
 
     let bad_msg_proxy_msg = FactoryExecuteMsg::Proxy {
         msg: WasmMsg::Instantiate {
-            admin: Some(contract_addr.clone().to_string()),
+            admin: Some(contract_addr.to_string()),
             code_id: manager_code_id,
             msg: Binary::default(),
             funds: vec![],
@@ -1039,12 +1039,7 @@ fn fail_and_success_proxy() {
 
     // Okay yasssss ill let you work
     let res = app
-        .execute_contract(
-            Addr::unchecked(ADMIN),
-            contract_addr.clone(),
-            &proxy_msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(ADMIN), contract_addr, &proxy_msg, &[])
         .unwrap();
     // Check for action proxy & action update_config
     assert_eq!(res.events[1].attributes[1].value, "proxy");
