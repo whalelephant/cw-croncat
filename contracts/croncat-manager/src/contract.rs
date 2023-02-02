@@ -184,16 +184,8 @@ fn execute_proxy_call(
             account_id: info.sender.to_string(),
         },
     )?;
-    match agent_tasks.stats {
-        Some(croncat_sdk_agents::msg::TaskStats {
-            num_block_tasks,
-            num_cron_tasks,
-        }) => {
-            if num_block_tasks.is_zero() && num_cron_tasks.is_zero() {
-                return Err(ContractError::NoTaskForAgent {});
-            }
-        }
-        None => return Err(ContractError::NoTaskForAgent {}),
+    if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero() {
+        return Err(ContractError::NoTaskForAgent {});
     }
 
     // execute task
