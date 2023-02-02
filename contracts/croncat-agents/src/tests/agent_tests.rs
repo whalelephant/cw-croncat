@@ -949,7 +949,7 @@ fn test_tick() {
         Addr::unchecked(ADMIN),
         croncat_agents_addr.clone(),
         &update_config_msg,
-        &vec![],
+        &[],
     )
     .unwrap();
 

@@ -112,6 +112,7 @@ export interface CroncatAgentsInterface extends CroncatAgentsReadOnlyInterface {
   }: {
     config: UpdateConfig;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  tick: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
 export class CroncatAgentsClient extends CroncatAgentsQueryClient implements CroncatAgentsInterface {
   client: SigningCosmWasmClient;
@@ -129,6 +130,7 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
     this.unregisterAgent = this.unregisterAgent.bind(this);
     this.onTaskCreated = this.onTaskCreated.bind(this);
     this.updateConfig = this.updateConfig.bind(this);
+    this.tick = this.tick.bind(this);
   }
 
   registerAgent = async ({
@@ -189,6 +191,11 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
       update_config: {
         config
       }
+    }, fee, memo, funds);
+  };
+  tick = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      tick: {}
     }, fee, memo, funds);
   };
 }
