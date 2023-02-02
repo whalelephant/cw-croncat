@@ -228,7 +228,7 @@ pub fn execute_user_withdraw(
         .add_messages(msgs))
 }
 
-/// Execute: MoveBalances
+/// Execute: OwnerWithdraw
 /// Used by owner of the contract to move balances from the manager to treasury or owner address
 pub fn execute_owner_withdraw(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
