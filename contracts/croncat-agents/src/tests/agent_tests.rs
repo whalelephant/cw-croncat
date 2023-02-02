@@ -1,5 +1,6 @@
 use crate::error::ContractError;
 use crate::msg::*;
+use crate::state::{DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_DURATION};
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
@@ -918,6 +919,188 @@ fn test_query_get_agent_tasks() {
     );
 }
 
+//Tick
+#[test]
+fn test_tick() {
+    let mut app = default_app();
+    let TestScope {
+        croncat_factory_addr,
+        croncat_agents_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr: _,
+    } = init_test_scope(&mut app);
+
+    // Change settings, the agent can miss 1000 blocks
+    let update_config_msg = ExecuteMsg::UpdateConfig {
+        config: UpdateConfig {
+            owner_addr: Some(ADMIN.to_owned()),
+            croncat_factory_addr: Some(croncat_factory_addr.to_string()),
+            croncat_manager_key: Some(("manager".to_owned(), [0, 1])),
+            croncat_tasks_key: Some(("tasks".to_owned(), [0, 1])),
+            paused: None,
+            min_tasks_per_agent: None,
+            min_coins_for_agent_registration: Some(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
+            agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+            agents_eject_threshold: Some(1000), // allow to miss 1000 slots
+        },
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_agents_addr.clone(),
+        &update_config_msg,
+        &[],
+    )
+    .unwrap();
+
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+
+    app.update_block(|info| increment_block_height(info, Some(1001)));
+    app.update_block(|info| add_seconds_to_block(info, 19));
+
+    let res = tick(&mut app, &croncat_agents_addr, ANYONE).unwrap();
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "tick")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "unregister_agent")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
+
+    // The agent missed 1001 blocks and he was unregistered
+    // Pending agents weren't deleted
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_agents_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(agents.active.is_empty());
+    assert!(agents.pending.is_empty());
+
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+
+    // need block advancement
+    app.update_block(|info| add_seconds_to_block(info, 19));
+
+    // Call tick
+    // Not enough time passed to delete the agent
+    let res = tick(&mut app, &croncat_agents_addr, AGENT0).unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "tick")));
+    assert!(!res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "unregister_agent")));
+
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_agents_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(agents.active.len(), 1);
+    assert_eq!(agents.pending.len(), 2);
+
+    // First pending agent wasn't nominated
+    let err = app
+        .execute_contract(
+            Addr::unchecked(AGENT1),
+            croncat_agents_addr.clone(),
+            &ExecuteMsg::CheckInAgent {},
+            &[],
+        )
+        .unwrap_err();
+    assert_eq!(
+        ContractError::NotAcceptingNewAgents,
+        err.downcast().unwrap()
+    );
+
+    // Add enough blocks to call tick
+    app.update_block(|info| increment_block_height(info, Some(1001)));
+
+    let res = tick(&mut app, &croncat_agents_addr, ANYONE).unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "tick")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "action" && attr.value == "unregister_agent")));
+    assert!(res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
+    assert!(!res.events.iter().any(|ev| ev
+        .attributes
+        .iter()
+        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
+
+    // The agent missed 1001 blocks and he was unregistered
+    // Pending agents weren't deleted
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_agents_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(agents.active.is_empty());
+    assert_eq!(agents.pending.len(), 2);
+
+    // First agent was nominated and can call CheckInAgent
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        croncat_agents_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+    // Second agent wasn't nominated
+    let err = app
+        .execute_contract(
+            Addr::unchecked(AGENT2),
+            croncat_agents_addr.clone(),
+            &ExecuteMsg::CheckInAgent {},
+            &[],
+        )
+        .unwrap_err();
+    assert_eq!(
+        ContractError::NotAcceptingNewAgents,
+        err.downcast().unwrap()
+    );
+}
+
 fn register_agent(
     app: &mut App,
     croncat_agents_addr: &Addr,
@@ -942,6 +1125,18 @@ fn unregister_agent(
         Addr::unchecked(agent),
         croncat_agents_addr.clone(),
         &ExecuteMsg::UnregisterAgent { from_behind: None },
+        &[],
+    )
+}
+fn tick(
+    app: &mut App,
+    croncat_agents_addr: &Addr,
+    agent: &str,
+) -> Result<AppResponse, anyhow::Error> {
+    app.execute_contract(
+        Addr::unchecked(agent),
+        croncat_agents_addr.clone(),
+        &ExecuteMsg::Tick {},
         &[],
     )
 }

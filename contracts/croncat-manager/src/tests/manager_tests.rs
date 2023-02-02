@@ -1,6 +1,10 @@
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
-use croncat_sdk_manager::types::{Config, UpdateConfig};
+use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_manager::{
+    msg::WithdrawRewardsCallback,
+    types::{Config, UpdateConfig},
+};
 use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_storage_plus::KeyDeserialize;
@@ -14,7 +18,7 @@ use crate::{
             query_manager_config,
         },
         helpers::{init_factory, query_manager_balances},
-        ADMIN, AGENT1, AGENT2, ANYONE, DENOM,
+        ADMIN, AGENT1, AGENT2, ANYONE, DENOM, PARTICIPANT2,
     },
     ContractError,
 };
@@ -405,8 +409,8 @@ fn cw20_bad_messages() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -463,8 +467,8 @@ fn users_withdraws() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     // refill balances
@@ -527,8 +531,8 @@ fn failed_users_withdraws() {
     let factory_addr = init_factory(&mut app);
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
 
+    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -2659,7 +2663,7 @@ fn negative_proxy_call() {
 }
 
 #[test]
-fn test_should_fail_with_zero_rewards() {
+fn test_withdraw_agent_fail() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
@@ -2668,7 +2672,7 @@ fn test_should_fail_with_zero_rewards() {
     let agents_addr = init_agents(&mut app, &factory_addr);
     let _tasks_addr = init_tasks(&mut app, &factory_addr);
 
-    //No available rewards for withdraw
+    // Agent isn't registered
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT0),
@@ -2683,6 +2687,67 @@ fn test_should_fail_with_zero_rewards() {
 
     activate_agent(&mut app, &agents_addr);
 
+    // No available rewards for withdraw
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
+
+    // Unauthorized to withdraw, only agent contracts can call WithdrawAgentRewards with args
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+                agent_id: AGENT0.to_owned(),
+                payable_account_id: PARTICIPANT0.to_owned(),
+            })),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Shouldn't attach funds
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[coin(1, DENOM)],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::RedundantFunds {});
+
+    // Paused
+    let update_cfg_msg = UpdateConfig {
+        owner_addr: None,
+        paused: Some(true),
+        agent_fee: None,
+        treasury_fee: None,
+        gas_price: None,
+        croncat_tasks_key: None,
+        croncat_agents_key: None,
+        treasury_addr: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+        &[],
+    )
+    .unwrap();
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT0),
@@ -2693,5 +2758,315 @@ fn test_should_fail_with_zero_rewards() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
+    assert_eq!(err, ContractError::Paused {});
+}
+
+#[test]
+fn test_withdraw_agent_success() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    activate_agent(&mut app, &agents_addr);
+
+    // Create a task
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task.clone()),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+
+    // Get info abount the task
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+
+    app.update_block(add_little_time);
+
+    // Agent executes a task
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+
+    // Check agent reward
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    let agent_balance_before_withdraw = app.wrap().query_balance(AGENT0, DENOM).unwrap().amount;
+
+    // withdraw rewards
+    let res = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawAgentRewards(None),
+            &[],
+        )
+        .unwrap();
+
+    let agent_balance_after_withdraw = app.wrap().query_balance(AGENT0, DENOM).unwrap().amount;
+
+    // Check agent balance
+    assert_eq!(
+        agent_balance_before_withdraw
+            .checked_add(agent_reward.unwrap())
+            .unwrap(),
+        agent_balance_after_withdraw
+    );
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "withdraw_rewards")
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "payment_account_id" && attr.value == *AGENT0)
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.unwrap().to_string())
+    }));
+    // Check data
+    assert_eq!(
+        res.data,
+        Some(
+            to_binary(&WithdrawRewardsCallback {
+                agent_id: AGENT0.to_string(),
+                rewards: agent_reward.unwrap(),
+                payable_account_id: AGENT0.to_string(),
+            })
+            .unwrap()
+        )
+    );
+
+    // Agent balance in manager contract is zero after withdraw
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_reward, Some(Uint128::zero()));
+
+    // Do the same again to check WithdrawAgentRewards with args (when agent contract calls withdraw)
+
+    // Create a task
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        tasks_addr,
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+            task: Box::new(task),
+        },
+        &coins(600_000, DENOM),
+    )
+    .unwrap();
+
+    app.update_block(add_little_time);
+
+    // Agent executes a task
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+
+    // Check agent reward
+    // Don't calculate prices again, task is the same
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+
+    // Agent contract calls withdraw for this agent
+    let payable_account_balance_before_withdraw = app
+        .wrap()
+        .query_balance(PARTICIPANT2, DENOM)
+        .unwrap()
+        .amount;
+    let res = app
+        .execute_contract(
+            Addr::unchecked(agents_addr.clone()),
+            manager_addr.clone(),
+            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+                agent_id: AGENT0.to_owned(),
+                payable_account_id: PARTICIPANT2.to_owned(),
+            })),
+            &[],
+        )
+        .unwrap();
+    let payable_account_balance_after_withdraw = app
+        .wrap()
+        .query_balance(PARTICIPANT2, DENOM)
+        .unwrap()
+        .amount;
+
+    // Check payable_account balance
+    assert_eq!(
+        payable_account_balance_before_withdraw
+            .checked_add(agent_reward.unwrap())
+            .unwrap(),
+        payable_account_balance_after_withdraw
+    );
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "withdraw_rewards")
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "payment_account_id" && attr.value == *PARTICIPANT2)
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.unwrap().to_string())
+    }));
+    // Check data
+    assert_eq!(
+        res.data,
+        Some(
+            to_binary(&WithdrawRewardsCallback {
+                agent_id: AGENT0.to_string(),
+                rewards: agent_reward.unwrap(),
+                payable_account_id: PARTICIPANT2.to_string(),
+            })
+            .unwrap()
+        )
+    );
+
+    // Agent balance in manager contract is zero after withdraw
+    let agent_reward: Option<Uint128> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(agent_reward, Some(Uint128::zero()));
+
+    // Agent contract can call WithdrawAgentRewards even if the reward is zero
+    let payable_account_balance_before_withdraw = app
+        .wrap()
+        .query_balance(PARTICIPANT2, DENOM)
+        .unwrap()
+        .amount;
+    // Agent contract calls withdraw for the agent
+    let res = app
+        .execute_contract(
+            Addr::unchecked(agents_addr),
+            manager_addr,
+            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+                agent_id: AGENT0.to_owned(),
+                payable_account_id: PARTICIPANT2.to_owned(),
+            })),
+            &[],
+        )
+        .unwrap();
+    let payable_account_balance_after_withdraw = app
+        .wrap()
+        .query_balance(PARTICIPANT2, DENOM)
+        .unwrap()
+        .amount;
+
+    // Check payable_account balance
+    assert_eq!(
+        payable_account_balance_before_withdraw,
+        payable_account_balance_after_withdraw
+    );
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "withdraw_rewards")
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "payment_account_id" && attr.value == *PARTICIPANT2)
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "rewards" && attr.value == *"0")
+    }));
+    // Check data
+    assert_eq!(
+        res.data,
+        Some(
+            to_binary(&WithdrawRewardsCallback {
+                agent_id: AGENT0.to_string(),
+                rewards: Uint128::zero(),
+                payable_account_id: PARTICIPANT2.to_string(),
+            })
+            .unwrap()
+        )
+    );
 }

@@ -12,7 +12,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub const CONTRACT_METADATAS: Map<(&str, &[u8]), ContractMetadata> = Map::new("contract_metadatas");
 
 /// Contract name with the version to the Addr
-pub const CONTRACT_ADDRS: Map<(&str, &[u8]), Addr> = Map::new("contract_addrs");
+pub const CONTRACT_ADDRS: Map<(&str, &[u8]), Addr> = croncat_sdk_factory::state::CONTRACT_ADDRS;
 /// Contract Addr linked to contract name
 pub const CONTRACT_ADDRS_LOOKUP: Map<Addr, String> = Map::new("contract_addrs_lookup");
 

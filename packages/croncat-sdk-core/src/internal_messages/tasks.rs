@@ -26,7 +26,7 @@ impl TasksRemoveTaskByManager {
 }
 
 #[cw_serde]
-enum RemoveTaskByManager {
+pub(crate) enum RemoveTaskByManager {
     RemoveTaskByManager(TasksRemoveTaskByManager),
 }
 
@@ -55,6 +55,6 @@ impl TasksRescheduleTask {
 }
 
 #[cw_serde]
-enum RescheduleTaskMsg {
+pub(crate) enum RescheduleTaskMsg {
     RescheduleTask(TasksRescheduleTask),
 }

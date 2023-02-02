@@ -47,7 +47,7 @@ pub struct AgentStats {
     // If agent does a task, this number is set to the current block.
     pub last_executed_slot: u64,
 }
-
+/// Contract configuration state
 #[cw_serde]
 pub struct Config {
     /// Address of the factory contract
@@ -56,8 +56,9 @@ pub struct Config {
     pub croncat_manager_key: (String, [u8; 2]),
     /// Name of the key for raw querying Tasks address from the factory
     pub croncat_tasks_key: (String, [u8; 2]),
-
+    /// Contract owner address
     pub owner_addr: Addr,
+    /// If contract was paused/unpaused
     pub paused: bool,
     /// Agent management
     /// The minimum number of tasks per agent
@@ -66,13 +67,31 @@ pub struct Config {
     /// NOTE: Caveat, when there are odd number of tasks or agents, the overflow will be available to first-come, first-serve. This doesn't negate the possibility of a failed txn from race case choosing winner inside a block.
     /// NOTE: The overflow will be adjusted to be handled by sweeper in next implementation.
     pub min_tasks_per_agent: u64,
-
     /// The duration a prospective agent has to nominate themselves.
     /// When a task is created such that a new agent can join,
     /// The agent at the zeroth index of the pending agent queue has this time to nominate
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
     pub agent_nomination_duration: u16,
-
+    /// Min coins that should be attached to register an agent
     pub min_coins_for_agent_registration: u64,
+    /// How many slots an agent can miss before being removed from the active queue
+    pub agents_eject_threshold: u64,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::types::AgentStatus;
+
+    #[test]
+    fn agent_status_fmt() {
+        let active = AgentStatus::Active;
+        assert_eq!(format!("{active}"), "active");
+
+        let nominated = AgentStatus::Nominated;
+        assert_eq!(format!("{nominated}"), "nominated");
+
+        let pending = AgentStatus::Pending;
+        assert_eq!(format!("{pending}"), "pending");
+    }
 }

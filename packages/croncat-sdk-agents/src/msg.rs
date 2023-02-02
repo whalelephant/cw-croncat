@@ -39,6 +39,8 @@ pub enum ExecuteMsg {
     //Task contract will send message when task is created
     OnTaskCreated(AgentOnTaskCreated),
     UpdateConfig { config: UpdateConfig },
+    //Tick action will remove unactive agents periodically
+    Tick {},
 }
 
 #[cw_serde]
@@ -98,4 +100,6 @@ pub struct UpdateConfig {
     pub min_tasks_per_agent: Option<u64>,
     pub agent_nomination_duration: Option<u16>,
     pub min_coins_for_agent_registration: Option<u64>,
+    // How many slots an agent can miss before being removed from the active queue
+    pub agents_eject_threshold: Option<u64>,
 }
