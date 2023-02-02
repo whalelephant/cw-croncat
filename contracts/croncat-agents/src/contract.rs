@@ -7,8 +7,8 @@ use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
 use cosmwasm_std::{
-     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env,
-    MessageInfo, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
+    has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
+    QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::AgentInfo;
 use croncat_sdk_agents::msg::TaskStats;
