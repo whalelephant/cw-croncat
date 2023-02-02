@@ -126,9 +126,6 @@ pub(crate) fn validate_msg_calculate_usage(
                 if action.gas_limit.is_none() {
                     return Err(ContractError::NoGasLimit {});
                 }
-                if funds.len() > 2 {
-                    return Err(ContractError::InvalidAction {});
-                }
                 for coin in funds {
                     if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
                         return Err(ContractError::InvalidAction {});
@@ -171,12 +168,8 @@ pub(crate) fn validate_msg_calculate_usage(
                 to_address: _,
                 amount,
             }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
-                // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
-                // which is however much was passed in, like 1000000ujunox below:
-                // junod tx wasm execute … … --amount 1000000ujunox
-                if amount.len() > 2 {
+                // Restrict no-coin transfer
+                if amount.is_empty() {
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {

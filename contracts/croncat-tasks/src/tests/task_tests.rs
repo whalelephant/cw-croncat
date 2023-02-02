@@ -1558,6 +1558,39 @@ fn is_valid_msg_negative_tests() {
 
     assert_eq!(err, ContractError::InvalidAction {});
 
+    // Zero coins bank transfer
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "alice".to_owned(),
+            amount: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
     // not supported message
     let action = Action {
         msg: BankMsg::Burn {
