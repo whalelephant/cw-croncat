@@ -63,4 +63,4 @@ checksum:
 
 schema: gen-schema gen-typescript
 
-all: lint build schema test checksum
+all: lint build test schema checksum
