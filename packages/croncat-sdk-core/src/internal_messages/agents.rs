@@ -8,7 +8,6 @@ pub struct AgentOnTaskCreated {
 
 #[cw_serde]
 pub struct AgentOnTaskCompleted {
-    pub task_hash: String,
     pub is_block_slot_task: bool,
     pub agent_id: Addr,
 }
