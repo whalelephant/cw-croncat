@@ -717,7 +717,7 @@ fn on_task_completed(
     AGENT_STATS.save(deps.storage, &args.agent_id, &stats)?;
 
     let response = Response::new()
-        .add_attribute("method", "on_task_completed")
+        .add_attribute("action", "on_task_completed")
         .add_attribute("agent_id", args.agent_id.to_string())
         .add_attribute("is_block_slot_task", args.is_block_slot_task.to_string());
     Ok(response)
