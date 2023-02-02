@@ -5,7 +5,7 @@ use cosmwasm_std::{
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::TaskResponse;
+use croncat_sdk_tasks::types::TaskInfo;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -160,11 +160,11 @@ pub fn query_agent(
     querier: &QuerierWrapper<Empty>,
     config: &Config,
     agent_id: String,
-) -> Result<Option<AgentResponse>, ContractError> {
+) -> Result<AgentResponse, ContractError> {
     let addr = query_agent_addr(querier, config)?;
 
     // Get the agent from the agent contract
-    let response: Option<AgentResponse> = querier.query_wasm_smart(
+    let response: AgentResponse = querier.query_wasm_smart(
         addr,
         &croncat_sdk_agents::msg::QueryMsg::GetAgent {
             account_id: agent_id,
@@ -191,7 +191,7 @@ pub(crate) fn create_bank_send_message(
 /// Get sub messages for this task
 /// To minimize gas consumption for loads we only reply on failure
 /// And the last item to calculate rewards and reschedule or removal of the task
-pub(crate) fn task_sub_msgs(task: &croncat_sdk_tasks::types::TaskResponse) -> Vec<SubMsg> {
+pub(crate) fn task_sub_msgs(task: &croncat_sdk_tasks::types::TaskInfo) -> Vec<SubMsg> {
     let mut sub_msgs = Vec::with_capacity(task.actions.len());
     let mut actions_iter = task.actions.iter().enumerate();
 
@@ -436,7 +436,7 @@ pub(crate) fn check_for_self_calls(
 /// Replace values to the result value from the rules
 /// Recalculate cw20 usage if any replacements
 pub fn replace_values(
-    task: &mut TaskResponse,
+    task: &mut TaskInfo,
     construct_res_data: Vec<cosmwasm_std::Binary>,
 ) -> Result<(), ContractError> {
     for transform in task.transforms.iter() {
@@ -480,7 +480,7 @@ pub fn replace_values(
 /// It can be initially zero, but after transform we still have to check it does have only one type of cw20
 /// If it had initially cw20, it can't change cw20 type
 pub(crate) fn recalculate_cw20(
-    task: &TaskResponse,
+    task: &TaskInfo,
     config: &Config,
     deps: Deps,
     manager_addr: &Addr,
@@ -548,13 +548,13 @@ pub(crate) fn check_if_sender_is_task_owner(
     sender: &Addr,
     task_hash: &str,
 ) -> Result<(), ContractError> {
-    let task: Option<croncat_sdk_tasks::types::TaskResponse> = querier.query_wasm_smart(
+    let task_response: croncat_sdk_tasks::types::TaskResponse = querier.query_wasm_smart(
         tasks_addr,
         &croncat_sdk_tasks::msg::TasksQueryMsg::Task {
             task_hash: task_hash.to_owned(),
         },
     )?;
-    let Some(task) = task else {
+    let Some(task) = task_response.task else {
         return Err(ContractError::NoTaskHash {  });
     };
     if task.owner_addr.ne(sender) {
