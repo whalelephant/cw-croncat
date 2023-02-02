@@ -946,7 +946,6 @@ fn fail_and_success_proxy() {
             },
         )
         .unwrap();
-    println!("{:?}", manager_metadata);
     assert_eq!(manager_metadata.code_id, manager_code_id);
 
     let proxy_msg = FactoryExecuteMsg::Proxy {
