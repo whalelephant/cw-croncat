@@ -2,7 +2,7 @@ test_addrs := env_var_or_default('TEST_ADDR', `jq -r '.[].address' ci/test_accou
 
 set export
 lint:
-	cargo fmt --all && cargo clippy -- -D warnings
+	cargo fmt --all && cargo clippy --all-targets -- -D warnings
 test:
 	#!/bin/bash
 	cargo test -- --nocapture 
@@ -14,8 +14,8 @@ build:
 	cargo build --release --lib --target wasm32-unknown-unknown
 deploy:
 	#!/bin/bash
-	chmod +x ./scripts/testnet/deploy.sh
-	./scripts/testnet/deploy.sh -w # only wasm update
+	cd ./scripts/deployment
+	yarn go
 deploy-local:
 	#!/bin/bash
 	chmod +x ./scripts/local/deploy.sh
@@ -57,6 +57,10 @@ gen-typescript:
 	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
 
+checksum:
+	#!/bin/bash
+	cat artifacts/checksums.txt | grep -e croncat_agents.wasm -e croncat_factory.wasm -e croncat_manager.wasm -e croncat_mod_balances.wasm -e croncat_mod_dao.wasm -e croncat_mod_generic.wasm -e croncat_mod_nft.wasm -e croncat_tasks.wasm > checksum
+
 schema: gen-schema gen-typescript
 
-all: lint build test schema
+all: lint build schema test checksum

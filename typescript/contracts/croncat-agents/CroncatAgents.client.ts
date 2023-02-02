@@ -6,26 +6,26 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, UpdateConfig, QueryMsg, Addr, Config, Nullable_AgentResponse, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, Nullable_GetAgentIdsResponse, GetAgentIdsResponse, Nullable_AgentTaskResponse, AgentTaskResponse } from "./CroncatAgents.types";
+import { InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, UpdateConfig, QueryMsg, Addr, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
     accountId
   }: {
     accountId: string;
-  }) => Promise<NullableAgentResponse>;
+  }) => Promise<AgentResponse>;
   getAgentIds: ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }) => Promise<NullableGetAgentIdsResponse>;
+  }) => Promise<GetAgentIdsResponse>;
   getAgentTasks: ({
     accountId
   }: {
     accountId: string;
-  }) => Promise<NullableAgentTaskResponse>;
+  }) => Promise<AgentTaskResponse>;
   config: () => Promise<Config>;
 }
 export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface {
@@ -45,7 +45,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     accountId
   }: {
     accountId: string;
-  }): Promise<NullableAgentResponse> => {
+  }): Promise<AgentResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent: {
         account_id: accountId
@@ -58,7 +58,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
   }: {
     fromIndex?: number;
     limit?: number;
-  }): Promise<NullableGetAgentIdsResponse> => {
+  }): Promise<GetAgentIdsResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_ids: {
         from_index: fromIndex,
@@ -70,7 +70,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     accountId
   }: {
     accountId: string;
-  }): Promise<NullableAgentTaskResponse> => {
+  }): Promise<AgentTaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_tasks: {
         account_id: accountId

@@ -2,13 +2,13 @@ use cosmwasm_std::{
     coins, from_binary, to_binary, Addr, BankMsg, Deps, DepsMut, MessageInfo, Order, Response,
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
-use croncat_sdk_manager::types::Config;
+use croncat_sdk_manager::types::{Config, GasPrice};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{
-    helpers::check_ready_for_execution,
+    helpers::{check_if_sender_is_task_owner, check_ready_for_execution, gas_fee, get_tasks_addr},
     msg::ReceiveMsg,
-    state::{CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
+    state::{AGENT_REWARDS, CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
     ContractError,
 };
 
@@ -48,6 +48,38 @@ pub(crate) fn sub_user_cw20(
     Ok(new_bal)
 }
 
+/// Adding agent and treasury rewards
+/// Refunding gas used by the agent for this task
+/// For example, if we have both `agent_fee`&`treasury_fee` set at 5% :
+/// 105% of gas cost goes to the agents (100% to cover gas used for this transaction and 5% as a reward)
+/// and remaining 5% goes to the treasury
+pub(crate) fn add_fee_rewards(
+    storage: &mut dyn Storage,
+    gas: u64,
+    gas_price: &GasPrice,
+    agent_addr: &Addr,
+    agent_fee: u64,
+    treasury_fee: u64,
+) -> Result<(), ContractError> {
+    AGENT_REWARDS.update(
+        storage,
+        agent_addr,
+        |agent_balance| -> Result<_, ContractError> {
+            // Adding base gas and agent_fee here
+            let gas_fee = gas_fee(gas, agent_fee)? + gas;
+            let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+            Ok(agent_balance.unwrap_or_default() + amount)
+        },
+    )?;
+
+    TREASURY_BALANCE.update(storage, |balance| -> Result<_, ContractError> {
+        let gas_fee = gas_fee(gas, treasury_fee)?;
+        let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+        Ok(balance + amount)
+    })?;
+    Ok(())
+}
+
 // Contract methods
 
 /// Execute: Receive
@@ -81,7 +113,10 @@ pub fn execute_receive_cw20(
                 .add_attribute("user_cw20_balance", user_cw20_balance))
         }
         ReceiveMsg::RefillTaskBalance { task_hash } => {
-            // TODO: check if sender is task_owner
+            // Check if sender is task owner
+            let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+            check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &sender, &task_hash)?;
+
             let mut task_balances = TASKS_BALANCES
                 .may_load(deps.storage, task_hash.as_bytes())?
                 .ok_or(ContractError::NoTaskHash {})?;
@@ -114,7 +149,9 @@ pub fn execute_refill_task_cw20(
     let config = CONFIG.load(deps.storage)?;
     check_ready_for_execution(&info, &config)?;
 
-    // TODO: check if sender is task_owner
+    // check if sender is task owner
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &info.sender, &task_hash)?;
 
     let cw20_verified = Cw20CoinVerified {
         address: deps.api.addr_validate(&cw20.address)?,
@@ -225,7 +262,10 @@ pub fn execute_refill_native_balance(
     if config.paused {
         return Err(ContractError::Paused {});
     }
-    // TODO: query tasks to check it's task owner who refills
+    // Check if sender is task owner
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &info.sender, &task_hash)?;
+
     let mut task_balances = TASKS_BALANCES
         .may_load(deps.storage, task_hash.as_bytes())?
         .ok_or(ContractError::NoTaskHash {})?;
@@ -258,12 +298,12 @@ pub fn execute_refill_native_balance(
 /// Returns list of cw20 balances
 pub fn query_users_balances(
     deps: Deps,
-    wallet: String,
+    address: String,
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<Cw20CoinVerified>> {
     let config = CONFIG.load(deps.storage)?;
-    let addr = deps.api.addr_validate(&wallet)?;
+    let addr = deps.api.addr_validate(&address)?;
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(config.limit);
 
@@ -273,7 +313,10 @@ pub fn query_users_balances(
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|balance_res| {
-            balance_res.map(|(address, amount)| Cw20CoinVerified { address, amount })
+            balance_res.map(|(addr, amount)| Cw20CoinVerified {
+                address: addr,
+                amount,
+            })
         })
         .collect::<StdResult<_>>()?;
 

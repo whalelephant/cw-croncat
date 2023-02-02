@@ -79,7 +79,7 @@ pub enum TasksQueryMsg {
     #[returns(cosmwasm_std::Uint64)]
     TasksWithQueriesTotal {},
     /// Get list of active tasks, without queries
-    #[returns(Vec<crate::types::TaskResponse>)]
+    #[returns(Vec<crate::types::TaskInfo>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
@@ -98,7 +98,7 @@ pub enum TasksQueryMsg {
         limit: Option<u64>,
     },
     /// Get task by the task hash
-    #[returns(Option<crate::types::TaskResponse>)]
+    #[returns(crate::types::TaskResponse)]
     Task { task_hash: String },
     /// Simulate task_hash by the given task
     #[returns(String)]
@@ -115,6 +115,10 @@ pub enum TasksQueryMsg {
     #[returns(crate::types::SlotTasksTotalResponse)]
     SlotTasksTotal { offset: Option<u64> },
     /// Get next task to be done
-    #[returns(Option<crate::types::TaskResponse>)]
-    GetCurrentTask {},
+    #[returns(crate::types::TaskResponse)]
+    CurrentTask {},
+    /// Get task with queries if it's ready
+    /// To get task when it's not ready query [`TasksQueryMsg::Task`] instead
+    #[returns(crate::types::TaskResponse)]
+    CurrentTaskWithQueries { task_hash: String },
 }

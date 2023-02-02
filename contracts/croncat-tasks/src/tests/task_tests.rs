@@ -6,8 +6,8 @@ use croncat_sdk_manager::types::TaskBalance;
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, Config, CroncatQuery, Interval, SlotTasksTotalResponse, TaskRequest,
-        TaskResponse, Transform,
+        Action, Boundary, Config, CroncatQuery, Interval, SlotTasksTotalResponse, TaskInfo,
+        TaskRequest, TaskResponse, Transform,
     },
 };
 use cw_multi_test::{BankSudo, Executor};
@@ -185,7 +185,7 @@ fn create_task_without_query() {
     // check it created task with responded task hash and can be queried from anywhere
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
     assert!(task_hash.starts_with("atom:"));
-    let tasks: Vec<TaskResponse> = app
+    let tasks: Vec<TaskInfo> = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -195,7 +195,7 @@ fn create_task_without_query() {
             },
         )
         .unwrap();
-    let task: TaskResponse = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -204,27 +204,29 @@ fn create_task_without_query() {
             },
         )
         .unwrap();
-    assert_eq!(task, tasks[0]);
+    assert_eq!(task_response.task.clone().unwrap(), tasks[0]);
     let expected_block_task_response = TaskResponse {
-        task_hash: task_hash.clone(),
-        owner_addr: Addr::unchecked(ANYONE),
-        interval: Interval::Once,
-        boundary: Boundary::Height {
-            start: Some(app.block_info().height.into()),
-            end: Some((app.block_info().height + 10).into()),
-        },
-        stop_on_fail: false,
-        amount_for_one_task: AmountForOneTask {
-            gas: GAS_BASE_FEE + action1.gas_limit.unwrap() + action2.gas_limit.unwrap(),
-            cw20: None,
-            coin: [Some(coin(15, DENOM)), None],
-        },
-        actions: vec![action1, action2],
-        queries: None,
-        transforms: vec![],
-        version: "0.1".to_owned(),
+        task: Some(TaskInfo {
+            task_hash: task_hash.clone(),
+            owner_addr: Addr::unchecked(ANYONE),
+            interval: Interval::Once,
+            boundary: Boundary::Height {
+                start: Some(app.block_info().height.into()),
+                end: Some((app.block_info().height + 10).into()),
+            },
+            stop_on_fail: false,
+            amount_for_one_task: AmountForOneTask {
+                gas: GAS_BASE_FEE + action1.gas_limit.unwrap() + action2.gas_limit.unwrap(),
+                cw20: None,
+                coin: [Some(coin(15, DENOM)), None],
+            },
+            actions: vec![action1, action2],
+            queries: None,
+            transforms: vec![],
+            version: "0.1".to_owned(),
+        }),
     };
-    assert_eq!(task, expected_block_task_response);
+    assert_eq!(task_response.task, expected_block_task_response.task);
 
     // check total tasks
     let total_tasks: Uint64 = app
@@ -251,11 +253,11 @@ fn create_task_without_query() {
     );
 
     // Check it's next item
-    let current_slot: Option<TaskResponse> = app
+    let current_slot: TaskResponse = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
-    assert!(current_slot.is_none());
+    assert!(current_slot.task.is_none());
     app.update_block(add_little_time);
     let slot_total: SlotTasksTotalResponse = app
         .wrap()
@@ -271,12 +273,12 @@ fn create_task_without_query() {
             cron_tasks: 0,
         }
     );
-    let current_slot: Option<TaskResponse> = app
+    let current_slot: TaskResponse = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
 
-    assert_eq!(current_slot, Some(expected_block_task_response.clone()));
+    assert_eq!(current_slot.task, expected_block_task_response.task);
 
     // check it all transferred out of tasks
     let manager_balance = app
@@ -329,7 +331,7 @@ fn create_task_without_query() {
 
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
     assert!(task_hash.starts_with("atom:"));
-    let tasks: Vec<TaskResponse> = app
+    let responses: Vec<TaskInfo> = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -340,11 +342,11 @@ fn create_task_without_query() {
             },
         )
         .unwrap();
-    let task_from_task_list = tasks
+    let task_from_task_list = responses
         .into_iter()
-        .find(|task_res| task_res.task_hash == task_hash)
+        .find(|task_res| task_res.clone().task_hash == task_hash)
         .unwrap();
-    let task: TaskResponse = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -353,28 +355,30 @@ fn create_task_without_query() {
             },
         )
         .unwrap();
-    assert_eq!(task, task_from_task_list);
+    assert_eq!(task_response.task.clone().unwrap(), task_from_task_list);
 
     let expected_cron_task_response = TaskResponse {
-        task_hash: task_hash.clone(),
-        owner_addr: Addr::unchecked(ANYONE),
-        interval: Interval::Immediate,
-        boundary: Boundary::Time {
-            start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_nanos(100)),
-        },
-        stop_on_fail: false,
-        amount_for_one_task: AmountForOneTask {
-            gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
-            cw20: None,
-            coin: [Some(coin(10, DENOM)), Some(coin(5, "test_coins"))],
-        },
-        actions: vec![action],
-        queries: None,
-        transforms: vec![],
-        version: "0.1".to_owned(),
+        task: Some(TaskInfo {
+            task_hash: task_hash.clone(),
+            owner_addr: Addr::unchecked(ANYONE),
+            interval: Interval::Immediate,
+            boundary: Boundary::Time {
+                start: Some(app.block_info().time),
+                end: Some(app.block_info().time.plus_nanos(100)),
+            },
+            stop_on_fail: false,
+            amount_for_one_task: AmountForOneTask {
+                gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
+                cw20: None,
+                coin: [Some(coin(10, DENOM)), Some(coin(5, "test_coins"))],
+            },
+            actions: vec![action],
+            queries: None,
+            transforms: vec![],
+            version: "0.1".to_owned(),
+        }),
     };
-    assert_eq!(task, expected_cron_task_response);
+    assert_eq!(task_response.task, expected_cron_task_response.task);
 
     let total_tasks: Uint64 = app
         .wrap()
@@ -407,11 +411,11 @@ fn create_task_without_query() {
     );
 
     // Check it prefers block over cron
-    let current_slot: Option<TaskResponse> = app
+    let current_slot: TaskResponse = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::GetCurrentTask {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTask {})
         .unwrap();
-    assert_eq!(current_slot, Some(expected_block_task_response));
+    assert_eq!(current_slot.task, expected_block_task_response.task);
 
     let manager_task_balance: Option<TaskBalance> = app
         .wrap()
@@ -527,12 +531,14 @@ fn create_tasks_with_queries_and_transforms() {
     };
     let queries = vec![
         CroncatQuery {
-            query_mod_addr: "aloha123".to_owned(),
+            contract_addr: "aloha123".to_owned(),
             msg: Binary::from([4, 2]),
+            check_result: true,
         },
         CroncatQuery {
-            query_mod_addr: "aloha321".to_owned(),
+            contract_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
+            check_result: true,
         },
     ];
     let transforms = vec![Transform {
@@ -565,7 +571,7 @@ fn create_tasks_with_queries_and_transforms() {
         )
         .unwrap();
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
-    let tasks: Vec<TaskResponse> = app
+    let tasks: Vec<TaskInfo> = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -575,7 +581,7 @@ fn create_tasks_with_queries_and_transforms() {
             },
         )
         .unwrap();
-    let task: TaskResponse = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -584,28 +590,30 @@ fn create_tasks_with_queries_and_transforms() {
             },
         )
         .unwrap();
-    assert_eq!(task, tasks[0]);
+    assert_eq!(task_response.task.clone().unwrap(), tasks[0]);
 
     let expected_block_task_response = TaskResponse {
-        task_hash: task_hash.clone(),
-        owner_addr: Addr::unchecked(ANYONE),
-        interval: Interval::Once,
-        boundary: Boundary::Height {
-            start: Some(app.block_info().height.into()),
-            end: Some((app.block_info().height + 10).into()),
-        },
-        stop_on_fail: false,
-        amount_for_one_task: AmountForOneTask {
-            gas: GAS_BASE_FEE + action.gas_limit.unwrap() + GAS_QUERY_FEE * 2,
-            cw20: None,
-            coin: [Some(coin(5, DENOM)), None],
-        },
-        actions: vec![action],
-        queries: Some(queries),
-        transforms,
-        version: "0.1".to_owned(),
+        task: Some(TaskInfo {
+            task_hash: task_hash.clone(),
+            owner_addr: Addr::unchecked(ANYONE),
+            interval: Interval::Once,
+            boundary: Boundary::Height {
+                start: Some(app.block_info().height.into()),
+                end: Some((app.block_info().height + 10).into()),
+            },
+            stop_on_fail: false,
+            amount_for_one_task: AmountForOneTask {
+                gas: GAS_BASE_FEE + action.gas_limit.unwrap() + GAS_QUERY_FEE * 2,
+                cw20: None,
+                coin: [Some(coin(5, DENOM)), None],
+            },
+            actions: vec![action],
+            queries: Some(queries),
+            transforms,
+            version: "0.1".to_owned(),
+        }),
     };
-    assert_eq!(task, expected_block_task_response);
+    assert_eq!(task_response.task, expected_block_task_response.task);
 
     let total_tasks: Uint64 = app
         .wrap()
@@ -694,12 +702,14 @@ fn remove_tasks() {
         }],
         queries: Some(vec![
             CroncatQuery {
-                query_mod_addr: "aloha123".to_owned(),
+                contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
-                query_mod_addr: "aloha321".to_owned(),
+                contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {
@@ -775,12 +785,14 @@ fn remove_tasks() {
         }],
         queries: Some(vec![
             CroncatQuery {
-                query_mod_addr: "aloha123".to_owned(),
+                contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
+                check_result: true,
             },
             CroncatQuery {
-                query_mod_addr: "aloha321".to_owned(),
+                contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
+                check_result: true,
             },
         ]),
         transforms: Some(vec![Transform {
@@ -852,7 +864,7 @@ fn remove_tasks() {
     )
     .unwrap();
 
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -861,7 +873,7 @@ fn remove_tasks() {
             },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     assert!(BLOCK_MAP_QUERIES
         .query(
@@ -894,7 +906,7 @@ fn remove_tasks() {
     )
     .unwrap();
 
-    let task: Option<TaskResponse> = app
+    let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
@@ -903,7 +915,7 @@ fn remove_tasks() {
             },
         )
         .unwrap();
-    assert!(task.is_none());
+    assert!(task_response.task.is_none());
 
     assert!(TIME_MAP_QUERIES
         .query(

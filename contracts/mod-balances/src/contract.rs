@@ -25,7 +25,7 @@ pub fn instantiate(
     let contract_version = msg.version.unwrap_or_else(|| CONTRACT_VERSION.to_string());
     set_contract_version(deps.storage, CONTRACT_NAME, &contract_version)?;
 
-    Ok(Response::new().add_attribute("method", "instantiate"))
+    Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

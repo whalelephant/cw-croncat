@@ -11,6 +11,7 @@ export interface InstantiateMsg {
   min_coin_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
+  version?: string | null;
 }
 export type ExecuteMsg = {
   register_agent: {
@@ -73,26 +74,28 @@ export interface Config {
   owner_addr: Addr;
   paused: boolean;
 }
-export type Nullable_AgentResponse = AgentResponse | null;
 export type Uint128 = string;
 export type Timestamp = Uint64;
 export type Uint64 = string;
 export type AgentStatus = "active" | "pending" | "nominated";
 export interface AgentResponse {
+  agent?: AgentInfo | null;
+}
+export interface AgentInfo {
   balance: Uint128;
   last_executed_slot: number;
   payable_account_id: Addr;
   register_start: Timestamp;
   status: AgentStatus;
-  total_tasks_executed: number;
 }
-export type Nullable_GetAgentIdsResponse = GetAgentIdsResponse | null;
 export interface GetAgentIdsResponse {
   active: Addr[];
   pending: Addr[];
 }
-export type Nullable_AgentTaskResponse = AgentTaskResponse | null;
 export interface AgentTaskResponse {
+  stats?: TaskStats | null;
+}
+export interface TaskStats {
   num_block_tasks: Uint64;
   num_cron_tasks: Uint64;
 }

@@ -2,8 +2,10 @@ use crate::error::ContractError;
 use crate::msg::*;
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
+use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
+
 use cw_multi_test::{App, AppResponse, Executor};
 
 #[test]
@@ -97,8 +99,9 @@ fn test_register_agent_is_successfull() {
         )
         .unwrap();
 
-    assert_eq!(agent_response.status, AgentStatus::Active);
-    assert_eq!(agent_response.balance, Uint128::new(0));
+    let agent = agent_response.agent.unwrap();
+    assert_eq!(agent.status, AgentStatus::Active);
+    assert_eq!(agent.balance, Uint128::new(0));
 }
 
 #[test]
@@ -193,9 +196,8 @@ fn test_update_agent_is_successfull() {
             },
         )
         .unwrap();
-
     assert_eq!(
-        agent_response.payable_account_id.to_string(),
+        agent_response.agent.unwrap().payable_account_id.to_string(),
         ADMIN.to_string()
     );
 }
@@ -295,10 +297,10 @@ fn test_agent_check_in_successfull() {
         )
         .unwrap();
 
-    assert_eq!(agent_response.status, AgentStatus::Active);
+    assert_eq!(agent_response.agent.unwrap().status, AgentStatus::Active);
 }
 #[test]
-fn accept_nomination_agent() {
+fn test_accept_nomination_agent() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -333,11 +335,13 @@ fn accept_nomination_agent() {
 
     let mut agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT2)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
@@ -380,6 +384,7 @@ fn accept_nomination_agent() {
 
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
@@ -397,11 +402,13 @@ fn accept_nomination_agent() {
     // Now that enough time has passed, both agents should see they're nominated
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT4)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
@@ -433,7 +440,7 @@ fn test_get_agent_status() {
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
     let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
-    assert_eq!(None, agent_status_res);
+    assert_eq!(None, agent_status_res.agent);
 
     // Register AGENT1, who immediately becomes active
     let register_agent_res =
@@ -444,10 +451,8 @@ fn test_get_agent_status() {
         "Registering agent should succeed"
     );
 
-    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT0)
-        .unwrap()
-        .unwrap();
-    assert_eq!(AgentStatus::Active, agent_status_res.status);
+    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT0).unwrap();
+    assert_eq!(AgentStatus::Active, agent_status_res.agent.unwrap().status);
 
     // Register an agent and make sure the status comes back as pending
     let register_agent_res = register_agent(&mut app, &croncat_agents_addr, AGENT1, PARTICIPANT1);
@@ -455,12 +460,10 @@ fn test_get_agent_status() {
         register_agent_res.is_ok(),
         "Registering agent should succeed"
     );
-    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1)
-        .unwrap()
-        .unwrap();
+    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
     assert_eq!(
         AgentStatus::Pending,
-        agent_status_res.status,
+        agent_status_res.agent.unwrap().status,
         "New agent should be pending"
     );
 
@@ -474,7 +477,7 @@ fn test_get_agent_status() {
 
     assert_eq!(
         AgentStatus::Nominated,
-        agent_status_res.unwrap().unwrap().status,
+        agent_status_res.unwrap().agent.unwrap().status,
         "New agent should have nominated status"
     );
 }
@@ -558,7 +561,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
             },
         )
         .unwrap();
-    assert_eq!(agent_res.status, AgentStatus::Nominated);
+    assert_eq!(agent_res.agent.unwrap().status, AgentStatus::Nominated);
 
     // Check in
     app.execute_contract(
@@ -587,7 +590,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
     );
 }
 #[test]
-fn removing_agent_from_any_side_is_working() {
+fn test_removing_agent_from_any_side_is_working() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -796,107 +799,124 @@ fn test_withdraw_rewards_balances_on_unregister() {
     assert_eq!(new_balance, 500000);
 }
 
-// This test requires tasks contract
-// #[test]
-// fn test_query_get_agent_tasks() {
-//     let mut app = default_app();
-//     let (_, croncat_agents_addr) = init_agents_contract(&mut app, None, None, None, None);
-//     let mut total_tasks = 0;
+#[test]
+fn test_query_get_agent_tasks() {
+    let mut app = default_app();
+    let TestScope {
+        croncat_factory_addr: _,
+        croncat_agents_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr,
+    } = init_test_scope(&mut app);
 
-//     let block_info = app.block_info();
+    let block_info = app.block_info();
 
-//     // Register AGENT1, who immediately becomes active
-//     register_agent(&mut app, &croncat_agents_addr, AGENT1, &AGENT_BENEFICIARY);
-//     // Add five tasks total
-//     // Three of them are block-based
-//     add_block_task_exec(
-//         &mut app,
-//         &croncat_agents_addr,
-//         PARTICIPANT0,
-//         block_info.height + 6,
-//     );
-//     add_block_task_exec(
-//         &mut app,
-//         &croncat_agents_addr,
-//         PARTICIPANT1,
-//         block_info.height + 66,
-//     );
-//     add_block_task_exec(
-//         &mut app,
-//         &croncat_agents_addr,
-//         PARTICIPANT2,
-//         block_info.height + 67,
-//     );
-//     // add_block_task_exec(&mut app, &croncat_agents_addr, PARTICIPANT3, block_info.height + 131);
-//     // Two tasks use Cron instead of Block (for task interval)
-//     add_cron_task_exec(&mut app, &croncat_agents_addr, PARTICIPANT4, 6); // 3 minutes
-//     add_cron_task_exec(&mut app, &croncat_agents_addr, PARTICIPANT5, 53); // 53 minutes
-//     let num_tasks = get_task_total(&app, &croncat_agents_addr);
-//     assert_eq!(num_tasks, 5);
+    // Register AGENT0, who immediately becomes active
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
 
-//     // Now the task ratio is 1:2 (one agent per two tasks)
-//     // Register two agents, the first one succeeding
-//     register_agent_exec(&mut app, &croncat_agents_addr, AGENT2, &AGENT_BENEFICIARY);
-//     assert!(check_in_exec(&mut app, &croncat_agents_addr, AGENT2).is_ok());
-//     // This next agent should fail because there's no enough tasks yet
-//     // Later, we'll have this agent try to nominate themselves before their time
-//     register_agent_exec(&mut app, &croncat_agents_addr, AGENT3, &AGENT_BENEFICIARY);
-//     let failed_check_in = check_in_exec(&mut app, &croncat_agents_addr, AGENT3);
-//     assert_eq!(
-//         ContractError::CustomError {
-//             val: "Not accepting new agents".to_string()
-//         },
-//         failed_check_in.unwrap_err().downcast().unwrap()
-//     );
+    // Add five tasks total
+    // Three of them are block-based
+    add_block_task_exec(&mut app, &croncat_tasks_addr, ANYONE, block_info.height + 6);
+    add_block_task_exec(
+        &mut app,
+        &croncat_tasks_addr,
+        ANYONE,
+        block_info.height + 66,
+    );
+    add_block_task_exec(
+        &mut app,
+        &croncat_tasks_addr,
+        ANYONE,
+        block_info.height + 67,
+    );
 
-//     let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &croncat_agents_addr);
-//     assert_eq!(2, num_active_agents);
-//     assert_eq!(1, num_pending_agents);
+    // Two tasks use Cron instead of Block (for task interval)
+    add_cron_task_exec(&mut app, &croncat_tasks_addr, ANYONE, 6); // 3 minutes
+    add_cron_task_exec(&mut app, &croncat_tasks_addr, ANYONE, 53); // 53 minutes
+    let total_tasks = get_total_tasks(&mut app, &croncat_tasks_addr).unwrap();
+    assert_eq!(total_tasks, 5);
 
-//     // Fast forward time a little
-//     app.update_block(|block| {
-//         let height = 666;
-//         block.time = block.time.plus_seconds(6 * height); // ~6 sec block time
-//         block.height = block.height + height;
-//     });
+    // Fast forward time a little
+    app.update_block(|block| add_seconds_to_block(block, 6 * 666));
+    app.update_block(|block| increment_block_height(block, Some(666)));
 
-//     // What happens when the only active agent queries to see if there's work for them
-//     // calls:
-//     // fn query_get_agent_tasks
-//     let mut msg_agent_tasks = QueryMsg::GetAgentTasks {
-//         account_id: AGENT1.to_string(),
-//     };
-//     let mut query_task_res: StdResult<Option<AgentTaskResponse>> = app
-//         .wrap()
-//         .query_wasm_smart(croncat_agents_addr.clone(), &msg_agent_tasks);
-//     assert!(
-//         query_task_res.is_ok(),
-//         "Did not successfully find the newly added task"
-//     );
-//     msg_agent_tasks = QueryMsg::GetAgentTasks {
-//         account_id: AGENT2.to_string(),
-//     };
-//     query_task_res = app
-//         .wrap()
-//         .query_wasm_smart(croncat_agents_addr.clone(), &msg_agent_tasks);
-//     assert!(query_task_res.is_ok());
-//     // Should fail for random user not in the active queue
-//     msg_agent_tasks = QueryMsg::GetAgentTasks {
-//         // rando account
-//         account_id: "juno1kqfjv53g7ll9u6ngvsu5l5nfv9ht24m4q4gdqz".to_string(),
-//     };
-//     query_task_res = app
-//         .wrap()
-//         .query_wasm_smart(croncat_agents_addr.clone(), &msg_agent_tasks);
-//     assert_eq!(
-//         query_task_res.unwrap_err(),
-//         cosmwasm_std::StdError::GenericErr {
-//             msg: "Querier contract error: Generic error: Agent is not in the list of active agents"
-//                 .to_string()
-//         }
-//         .into()
-//     );
-// }
+    // What happens when the only active agent queries to see if there's work for them
+    // calls:
+    // fn query_get_agent_tasks
+    let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT0);
+    assert!(agent_tasks_res.is_ok(),);
+    // Agent gets all tasks
+    assert_eq!(
+        agent_tasks_res.unwrap(),
+        AgentTaskResponse {
+            stats: Some(TaskStats {
+                num_block_tasks: 3u64.into(),
+                num_cron_tasks: 2u64.into()
+            })
+        }
+    );
+
+    // Now the task ratio is 1:2 (one agent per two tasks)
+    // Register two agents, the first one succeeding
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
+    let check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT1);
+    assert!(check_in_res.is_ok());
+    // This next agent should fail because there's no enough tasks yet
+    // Later, we'll have this agent try to nominate themselves before their time
+    register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+    let failed_check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT2).unwrap_err();
+    assert_eq!(
+        ContractError::NotAcceptingNewAgents,
+        failed_check_in_res.downcast().unwrap()
+    );
+
+    let (_, num_active_agents, num_pending_agents) = get_agent_ids(&app, &croncat_agents_addr);
+    assert_eq!(2, num_active_agents);
+    assert_eq!(1, num_pending_agents);
+
+    // Fast forward time a little
+    app.update_block(|block| add_seconds_to_block(block, 6 * 666));
+    app.update_block(|block| increment_block_height(block, Some(666)));
+
+    // What happens when the first active agent queries to see if there's work for them
+    // calls:
+    // fn query_get_agent_tasks
+    let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT0);
+    assert!(agent_tasks_res.is_ok());
+    assert_eq!(
+        agent_tasks_res.unwrap(),
+        AgentTaskResponse {
+            stats: Some(TaskStats {
+                num_block_tasks: 2u64.into(),
+                num_cron_tasks: 1u64.into()
+            })
+        }
+    );
+
+    // For the second agent
+    let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT1);
+    assert!(agent_tasks_res.is_ok());
+    assert_eq!(
+        agent_tasks_res.unwrap(),
+        AgentTaskResponse {
+            stats: Some(TaskStats {
+                num_block_tasks: 1u64.into(),
+                num_cron_tasks: 1u64.into()
+            })
+        }
+    );
+
+    // Should fail for random user not in the active queue
+    let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT2);
+    let error: cosmwasm_std::StdError = agent_tasks_res.unwrap_err().downcast().unwrap();
+    assert_eq!(
+        error,
+        cosmwasm_std::StdError::GenericErr {
+            msg: "Querier contract error: Generic error: Agent is not active!".to_string()
+        }
+    );
+}
 
 fn register_agent(
     app: &mut App,
@@ -943,8 +963,8 @@ fn get_agent_status(
     app: &mut App,
     croncat_agents_addr: &Addr,
     agent: &str,
-) -> Result<Option<AgentResponse>, anyhow::Error> {
-    let agent_info: Option<AgentResponse> = app.wrap().query_wasm_smart(
+) -> Result<AgentResponse, anyhow::Error> {
+    let agent_info: AgentResponse = app.wrap().query_wasm_smart(
         croncat_agents_addr,
         &QueryMsg::GetAgent {
             account_id: agent.to_string(),
@@ -953,6 +973,22 @@ fn get_agent_status(
 
     Ok(agent_info)
 }
+
+fn get_agent_tasks(
+    app: &mut App,
+    croncat_agents_addr: &Addr,
+    agent: &str,
+) -> Result<AgentTaskResponse, anyhow::Error> {
+    let agent_info: AgentTaskResponse = app.wrap().query_wasm_smart(
+        croncat_agents_addr,
+        &QueryMsg::GetAgentTasks {
+            account_id: agent.to_string(),
+        },
+    )?;
+
+    Ok(agent_info)
+}
+
 fn get_total_tasks(app: &mut App, croncat_agents_addr: &Addr) -> Result<u64, anyhow::Error> {
     let total_tasks: Uint64 = app.wrap().query_wasm_smart(
         croncat_agents_addr,
@@ -980,7 +1016,7 @@ fn create_task(
     sender: &str,
     receiver: &str,
 ) -> Result<AppResponse, anyhow::Error> {
-    let send_funds = coins(500_000, NATIVE_DENOM);
+    let send_funds = coins(100_000, NATIVE_DENOM);
     let action = Action {
         msg: BankMsg::Send {
             to_address: receiver.to_owned(),
@@ -1006,4 +1042,74 @@ fn create_task(
         },
         &send_funds,
     )
+}
+
+fn add_block_task_exec(
+    app: &mut App,
+    task_contract_addr: &Addr,
+    sender: &str,
+    block_num: u64,
+) -> AppResponse {
+    let send_funds = coins(50_000, NATIVE_DENOM);
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: PARTICIPANT0.to_owned(),
+            amount: coins(5, NATIVE_DENOM),
+        }
+        .into(),
+        gas_limit: Some(50_000),
+    };
+    let request = TaskRequest {
+        interval: Interval::Block(block_num),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(sender),
+        task_contract_addr.clone(),
+        &croncat_tasks::msg::ExecuteMsg::CreateTask {
+            task: Box::new(request),
+        },
+        send_funds.as_ref(),
+    )
+    .expect("Error adding task")
+}
+
+fn add_cron_task_exec(
+    app: &mut App,
+    task_contract_addr: &Addr,
+    sender: &str,
+    num_minutes: u64,
+) -> AppResponse {
+    let send_funds = coins(50_000, NATIVE_DENOM);
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: PARTICIPANT0.to_owned(),
+            amount: coins(5, NATIVE_DENOM),
+        }
+        .into(),
+        gas_limit: Some(50_000),
+    };
+    let request = TaskRequest {
+        interval: Interval::Cron(format!("* {} * * * *", num_minutes)),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(sender),
+        task_contract_addr.clone(),
+        &croncat_tasks::msg::ExecuteMsg::CreateTask {
+            task: Box::new(request),
+        },
+        send_funds.as_ref(),
+    )
+    .expect("Error adding task")
 }
