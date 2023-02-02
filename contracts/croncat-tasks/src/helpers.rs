@@ -107,21 +107,32 @@ pub(crate) fn validate_msg_calculate_usage(
         &croncat_sdk_manager::msg::ManagerQueryMsg::Config {},
     )?;
 
+    if task.actions.is_empty() {
+        return Err(ContractError::InvalidAction {});
+    }
     for action in task.actions.iter() {
         if !amount_for_one_task.add_gas(
             action.gas_limit.unwrap_or(config.gas_action_fee),
             config.gas_limit,
         ) {
-            return Err(ContractError::InvalidAction {});
+            return Err(ContractError::InvalidGas {});
         }
         match &action.msg {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr,
-                funds: _,
+                funds,
                 msg,
             }) => {
                 if action.gas_limit.is_none() {
                     return Err(ContractError::NoGasLimit {});
+                }
+                if funds.len() > 2 {
+                    return Err(ContractError::InvalidAction {});
+                }
+                for coin in funds {
+                    if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
+                        return Err(ContractError::InvalidAction {});
+                    }
                 }
                 check_for_self_calls(
                     self_addr,
