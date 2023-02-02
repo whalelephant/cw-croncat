@@ -11,17 +11,14 @@ fn amount_for_one_task_add_gas() {
         coin: [None, None],
     };
 
-    // amount.gas < limit
-    assert!(amount.add_gas(10, 11));
+    amount.add_gas(10);
     assert_eq!(amount.gas, 10);
 
-    // amount.gas == limit
-    assert!(amount.add_gas(5, 15));
+    amount.add_gas(5);
     assert_eq!(amount.gas, 15);
 
-    // amount.gas > limit
-    assert!(!amount.add_gas(3, 17));
-    assert_eq!(amount.gas, 18);
+    amount.add_gas(u64::MAX);
+    assert_eq!(amount.gas, u64::MAX);
 }
 
 #[test]

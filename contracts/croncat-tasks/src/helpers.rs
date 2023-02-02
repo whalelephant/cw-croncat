@@ -107,21 +107,25 @@ pub(crate) fn validate_msg_calculate_usage(
         &croncat_sdk_manager::msg::ManagerQueryMsg::Config {},
     )?;
 
+    if task.actions.is_empty() {
+        return Err(ContractError::InvalidAction {});
+    }
     for action in task.actions.iter() {
-        if !amount_for_one_task.add_gas(
-            action.gas_limit.unwrap_or(config.gas_action_fee),
-            config.gas_limit,
-        ) {
-            return Err(ContractError::InvalidAction {});
-        }
+        amount_for_one_task.add_gas(action.gas_limit.unwrap_or(config.gas_action_fee));
+
         match &action.msg {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr,
-                funds: _,
+                funds,
                 msg,
             }) => {
                 if action.gas_limit.is_none() {
                     return Err(ContractError::NoGasLimit {});
+                }
+                for coin in funds {
+                    if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
+                        return Err(ContractError::InvalidAction {});
+                    }
                 }
                 check_for_self_calls(
                     self_addr,
@@ -160,12 +164,8 @@ pub(crate) fn validate_msg_calculate_usage(
                 to_address: _,
                 amount,
             }) => {
-                // Restrict bank msg for time being, so contract doesnt get drained, however could allow an escrow type setup
-                // Do something silly to keep it simple. Ensure they only sent one kind of native token and it's testnet Juno
-                // Remember total_deposit is set in tasks.rs when a task is created, and assigned to info.funds
-                // which is however much was passed in, like 1000000ujunox below:
-                // junod tx wasm execute … … --amount 1000000ujunox
-                if amount.len() > 2 {
+                // Restrict no-coin transfer
+                if amount.is_empty() {
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {
@@ -182,12 +182,7 @@ pub(crate) fn validate_msg_calculate_usage(
     }
 
     if let Some(queries) = &task.queries {
-        if !amount_for_one_task.add_gas(
-            queries.len() as u64 * config.gas_query_fee,
-            config.gas_limit,
-        ) {
-            return Err(ContractError::InvalidAction {});
-        }
+        amount_for_one_task.add_gas(queries.len() as u64 * config.gas_query_fee)
     }
     Ok(amount_for_one_task)
 }

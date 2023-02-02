@@ -97,7 +97,7 @@ export interface GetAgentIdsResponse {
   pending: Addr[];
 }
 export interface AgentTaskResponse {
-  stats?: TaskStats | null;
+  stats: TaskStats;
 }
 export interface TaskStats {
   num_block_tasks: Uint64;
