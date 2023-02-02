@@ -6,10 +6,9 @@ use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
-
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Storage, Uint64,
+    has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
+    QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::AgentInfo;
 use croncat_sdk_agents::msg::TaskStats;
@@ -55,6 +54,7 @@ pub fn instantiate(
         agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
         owner_addr,
         paused: false,
+        agents_eject_threshold: DEFAULT_AGENTS_EJECT_THRESHOLD,
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
     };
@@ -99,7 +99,7 @@ pub fn execute(
             register_agent(deps, info, env, payable_account_id)
         }
         ExecuteMsg::UnregisterAgent { from_behind } => {
-            unregister_agent(deps, &info.sender, from_behind)
+            unregister_agent(deps.storage, &deps.querier, &info.sender, from_behind)
         }
         ExecuteMsg::UpdateAgent { payable_account_id } => {
             update_agent(deps, info, env, payable_account_id)
@@ -107,6 +107,7 @@ pub fn execute(
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
+        ExecuteMsg::Tick {} => execute_tick(deps, env),
     }
 }
 
@@ -252,8 +253,10 @@ fn register_agent(
         AGENTS_PENDING.push_back(deps.storage, &account)?;
         AgentStatus::Pending
     };
+
+    let storage = deps.storage;
     let agent = AGENTS.update(
-        deps.storage,
+        storage,
         &account,
         |a: Option<Agent>| -> Result<_, ContractError> {
             match a {
@@ -269,7 +272,17 @@ fn register_agent(
             }
         },
     )?;
-
+    AGENT_STATS.save(
+        storage,
+        &account,
+        &AgentStats {
+            last_executed_slot: env.block.height,
+            completed_block_tasks: 0,
+            completed_cron_tasks: 0,
+            missed_blocked_tasks: 0,
+            missed_cron_tasks: 0,
+        },
+    )?;
     Ok(Response::new()
         .add_attribute("action", "register_agent")
         .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
@@ -402,32 +415,33 @@ fn accept_nomination_agent(
 /// Withdraws all reward balances to the agent payable account id.
 /// In case it fails to unregister pending agent try to set `from_behind` to true
 fn unregister_agent(
-    deps: DepsMut,
+    storage: &mut dyn Storage,
+    querier: &QuerierWrapper<Empty>,
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
+    let config: Config = CONFIG.load(storage)?;
     if config.paused {
         return Err(ContractError::ContractPaused);
     }
     let agent = AGENTS
-        .may_load(deps.storage, agent_id)?
+        .may_load(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
 
     // Remove from the list of active agents if the agent in this list
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
+    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE.load(storage)?;
     if let Some(index) = active_agents.iter().position(|addr| addr == agent_id) {
         //Notify the balancer agent has been removed, to rebalance itself
-        AGENT_STATS.remove(deps.storage, agent_id);
+        AGENT_STATS.remove(storage, agent_id);
         active_agents.remove(index);
-        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
+        AGENTS_ACTIVE.save(storage, &active_agents)?;
     } else {
         // Agent can't be both in active and pending vector
         // Remove from the pending queue
         let mut return_those_agents: Vec<Addr> =
-            Vec::with_capacity((AGENTS_PENDING.len(deps.storage)? / 2) as usize);
+            Vec::with_capacity((AGENTS_PENDING.len(storage)? / 2) as usize);
         if from_behind.unwrap_or(false) {
-            while let Some(addr) = AGENTS_PENDING.pop_front(deps.storage)? {
+            while let Some(addr) = AGENTS_PENDING.pop_front(storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -435,10 +449,10 @@ fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                AGENTS_PENDING.push_front(deps.storage, ag)?;
+                AGENTS_PENDING.push_front(storage, ag)?;
             }
         } else {
-            while let Some(addr) = AGENTS_PENDING.pop_back(deps.storage)? {
+            while let Some(addr) = AGENTS_PENDING.pop_back(storage)? {
                 if addr.eq(agent_id) {
                     break;
                 } else {
@@ -446,17 +460,17 @@ fn unregister_agent(
                 }
             }
             for ag in return_those_agents.iter().rev() {
-                AGENTS_PENDING.push_back(deps.storage, ag)?;
+                AGENTS_PENDING.push_back(storage, ag)?;
             }
         }
     }
     let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
-        &deps.querier,
+        querier,
         &config,
         agent_id.as_str(),
         agent.payable_account_id.to_string(),
     )?;
-    AGENTS.remove(deps.storage, agent_id);
+    AGENTS.remove(storage, agent_id);
 
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
@@ -483,6 +497,7 @@ pub fn execute_update_config(
             min_tasks_per_agent,
             agent_nomination_duration,
             min_coins_for_agent_registration,
+            agents_eject_threshold,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -506,6 +521,8 @@ pub fn execute_update_config(
                 .unwrap_or(config.agent_nomination_duration),
             min_coins_for_agent_registration: min_coins_for_agent_registration
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
+            agents_eject_threshold: agents_eject_threshold
+                .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
         };
         Ok(new_config)
     })?;
@@ -610,6 +627,37 @@ fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64)
         0
     }
 }
+pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
+    let block_height = env.block.height;
+    let config = CONFIG.load(deps.storage)?;
+    let mut attributes = vec![];
+    let mut submessages = vec![];
+    let agents_active = AGENTS_ACTIVE.load(deps.storage)?;
+    for agent_id in agents_active {
+        let stats = AGENT_STATS
+            .may_load(deps.storage, &agent_id)?
+            .unwrap_or_default();
+
+        if block_height > stats.last_executed_slot + config.agents_eject_threshold {
+            let resp =
+                unregister_agent(deps.storage, &deps.querier, &agent_id, None).unwrap_or_default();
+            // Save attributes and messages
+            attributes.extend_from_slice(&resp.attributes);
+            submessages.extend_from_slice(&resp.messages);
+        }
+    }
+
+    // Check if there isn't any active or pending agents
+    if AGENTS_ACTIVE.load(deps.storage)?.is_empty() && AGENTS_PENDING.is_empty(deps.storage)? {
+        attributes.push(Attribute::new("lifecycle", "tick_failure"))
+    }
+    let response = Response::new()
+        .add_attribute("action", "tick")
+        .add_attributes(attributes)
+        .add_submessages(submessages);
+    Ok(response)
+}
+
 fn on_task_created(
     env: Env,
     deps: DepsMut,

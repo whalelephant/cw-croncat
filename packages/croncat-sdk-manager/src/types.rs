@@ -213,9 +213,12 @@ pub struct UpdateConfig {
 
 #[cfg(test)]
 mod test {
+    use cosmwasm_std::{coin, Addr, Uint128};
+    use cw20::Cw20CoinVerified;
+
     use crate::SdkError;
 
-    use super::GasPrice;
+    use super::{GasPrice, TaskBalance};
 
     #[test]
     fn gas_price_validation() {
@@ -295,5 +298,280 @@ mod test {
 
         let err = gas_price_wrapper.calculate(u64::MAX).unwrap_err();
         assert!(matches!(err, SdkError::InvalidGas {}));
+    }
+
+    #[test]
+    fn verify_enough_attached_ok_test() {
+        let native_balance = Uint128::from(100u64);
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: Uint128::from(100u64),
+        };
+        let ibc_coin = coin(100, "ibc");
+
+        // Test when cw20_balance and ibc_balance are None
+        let task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: None,
+            ibc_balance: None,
+        };
+        assert!(task_balance
+            .verify_enough_attached(Uint128::from(100u64), None, None, false, "denom")
+            .is_ok());
+        assert!(task_balance
+            .verify_enough_attached(Uint128::from(50u64), None, None, true, "denom")
+            .is_ok());
+
+        // Test with cw20_balance and ibc_balance
+        let task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: Some(cw20.clone()),
+            ibc_balance: Some(ibc_coin.clone()),
+        };
+        assert!(task_balance
+            .verify_enough_attached(Uint128::from(100u64), None, None, false, "denom")
+            .is_ok());
+        assert!(task_balance
+            .verify_enough_attached(Uint128::from(50u64), None, None, true, "denom")
+            .is_ok());
+        assert!(task_balance
+            .verify_enough_attached(
+                Uint128::from(100u64),
+                Some(cw20),
+                Some(ibc_coin),
+                false,
+                "denom"
+            )
+            .is_ok());
+        assert!(task_balance
+            .verify_enough_attached(
+                Uint128::from(50u64),
+                Some(Cw20CoinVerified {
+                    address: Addr::unchecked("addr"),
+                    amount: Uint128::from(50u64),
+                }),
+                Some(coin(50, "ibc")),
+                true,
+                "denom"
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn verify_enough_attached_err_test() {
+        let native_balance = Uint128::from(100u64);
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: Uint128::from(100u64),
+        };
+        let ibc_coin = coin(100, "ibc");
+
+        // Test when cw20_balance and ibc_balance are None, native_balance is not sufficient
+        let task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: None,
+            ibc_balance: None,
+        };
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(Uint128::from(101u64), None, None, false, "denom")
+                .unwrap_err(),
+            SdkError::NotEnoughNative {
+                denom: "denom".to_owned(),
+                lack: 1u64.into(),
+            }
+        );
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(native_balance, Some(cw20.clone()), None, false, "denom")
+                .unwrap_err(),
+            SdkError::NotEnoughCw20 {
+                addr: "addr".to_owned(),
+                lack: 100u64.into(),
+            }
+        );
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(
+                    native_balance,
+                    None,
+                    Some(ibc_coin.clone()),
+                    false,
+                    "denom"
+                )
+                .unwrap_err(),
+            SdkError::NotEnoughNative {
+                denom: "ibc".to_owned(),
+                lack: 100u64.into(),
+            }
+        );
+
+        // Test when cw20_balance or ibc_balance are not sufficient
+        let task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: Some(cw20.clone()),
+            ibc_balance: Some(ibc_coin.clone()),
+        };
+        // cw20_balance is not sufficient
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(
+                    Uint128::from(100u64),
+                    Some(Cw20CoinVerified {
+                        address: Addr::unchecked("addr"),
+                        amount: Uint128::from(101u64),
+                    }),
+                    Some(ibc_coin.clone()),
+                    false,
+                    "denom"
+                )
+                .unwrap_err(),
+            SdkError::NotEnoughCw20 {
+                addr: "addr".to_owned(),
+                lack: 1u64.into(),
+            }
+        );
+        // cw20_balance has another address
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(
+                    Uint128::from(100u64),
+                    Some(Cw20CoinVerified {
+                        address: Addr::unchecked("addr2"),
+                        amount: Uint128::from(100u64),
+                    }),
+                    Some(ibc_coin),
+                    false,
+                    "denom"
+                )
+                .unwrap_err(),
+            SdkError::NotEnoughCw20 {
+                addr: "addr2".to_owned(),
+                lack: 100u64.into(),
+            }
+        );
+        // ibc_balance is not sufficient
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(
+                    Uint128::from(100u64),
+                    Some(cw20.clone()),
+                    Some(coin(101, "ibc")),
+                    false,
+                    "denom"
+                )
+                .unwrap_err(),
+            SdkError::NotEnoughNative {
+                denom: "ibc".to_owned(),
+                lack: 1u64.into(),
+            }
+        );
+        // ibc_balance has another denom
+        assert_eq!(
+            task_balance
+                .verify_enough_attached(
+                    Uint128::from(100u64),
+                    Some(cw20),
+                    Some(coin(100, "ibc2")),
+                    false,
+                    "denom"
+                )
+                .unwrap_err(),
+            SdkError::NotEnoughNative {
+                denom: "ibc2".to_owned(),
+                lack: 100u64.into(),
+            }
+        );
+    }
+
+    #[test]
+    fn sub_coin_test() {
+        let native_balance = Uint128::from(100u64);
+        let ibc_coin = coin(100, "ibc");
+
+        let mut task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: None,
+            ibc_balance: Some(ibc_coin.clone()),
+        };
+
+        task_balance
+            .sub_coin(&coin(10, "native"), "native")
+            .unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance: Uint128::from(90u64),
+                cw20_balance: None,
+                ibc_balance: Some(ibc_coin),
+            }
+        );
+
+        task_balance.sub_coin(&coin(1, "ibc"), "native").unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance: Uint128::from(90u64),
+                cw20_balance: None,
+                ibc_balance: Some(coin(99, "ibc")),
+            }
+        );
+
+        assert!(task_balance
+            .sub_coin(&coin(91, "native"), "native")
+            .is_err());
+
+        assert!(task_balance.sub_coin(&coin(100, "ibc"), "native").is_err());
+
+        assert!(task_balance
+            .sub_coin(&coin(100, "wrong"), "native")
+            .is_err());
+    }
+
+    #[test]
+    fn sub_cw20_test() {
+        let native_balance = Uint128::from(100u64);
+        let cw20 = Cw20CoinVerified {
+            address: Addr::unchecked("addr"),
+            amount: Uint128::from(100u64),
+        };
+
+        let mut task_balance = TaskBalance {
+            native_balance,
+            cw20_balance: Some(cw20),
+            ibc_balance: None,
+        };
+
+        task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr"),
+                amount: Uint128::from(10u64),
+            })
+            .unwrap();
+        assert_eq!(
+            task_balance,
+            TaskBalance {
+                native_balance,
+                cw20_balance: Some(Cw20CoinVerified {
+                    address: Addr::unchecked("addr"),
+                    amount: Uint128::from(90u64),
+                }),
+                ibc_balance: None,
+            }
+        );
+
+        assert!(task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr"),
+                amount: Uint128::from(91u64),
+            })
+            .is_err());
+
+        assert!(task_balance
+            .sub_cw20(&Cw20CoinVerified {
+                address: Addr::unchecked("addr2"),
+                amount: Uint128::from(1u64),
+            })
+            .is_err());
     }
 }
