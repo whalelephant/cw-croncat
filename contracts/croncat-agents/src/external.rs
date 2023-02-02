@@ -3,9 +3,9 @@ use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, Uint64,
     WasmMsg,
 };
-use croncat_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
 use croncat_sdk_tasks::msg::TasksQueryMsg;
