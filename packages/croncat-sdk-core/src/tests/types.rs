@@ -44,7 +44,7 @@ fn amount_for_one_task_add_coin() {
 
     // Add coin with the first denom
     coin1 = coin(20, "denom1".to_string());
-    assert!(amount.add_coin(coin1.clone()).unwrap());
+    assert!(amount.add_coin(coin1).unwrap());
     assert_eq!(
         amount.coin,
         [Some(coin(30, "denom1".to_string())), Some(coin2.clone())]
@@ -52,7 +52,7 @@ fn amount_for_one_task_add_coin() {
 
     // Add coin with the second denom
     coin2 = coin(200, "denom2".to_string());
-    assert!(amount.add_coin(coin2.clone()).unwrap());
+    assert!(amount.add_coin(coin2).unwrap());
     assert_eq!(
         amount.coin,
         [
@@ -63,7 +63,7 @@ fn amount_for_one_task_add_coin() {
 
     // Add coin with a new denom, return false
     let another_coin = coin(1, "denom3".to_string());
-    assert!(!amount.add_coin(another_coin.clone()).unwrap());
+    assert!(!amount.add_coin(another_coin).unwrap());
     assert_eq!(
         amount.coin,
         [
@@ -108,7 +108,7 @@ fn amount_for_one_task_add_cw20() {
         address: Addr::unchecked("addr2"),
         amount: 10u64.into(),
     };
-    assert!(!amount.add_cw20(cw20.clone()));
+    assert!(!amount.add_cw20(cw20));
     assert_eq!(
         amount.cw20,
         Some(Cw20CoinVerified {

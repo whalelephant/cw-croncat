@@ -516,8 +516,9 @@ mod test {
                 gas_limit: Some(5),
             }],
             queries: vec![CroncatQuery {
-                query_mod_addr: "addr".to_owned(),
                 msg: Default::default(),
+                contract_addr: "addr".to_owned(),
+                check_result: true,
             }],
             transforms: vec![Transform {
                 action_idx: 0,
@@ -547,7 +548,7 @@ mod test {
         let bytes = encoded.clone().into_bytes();
 
         // Tests
-        assert_eq!(encoded, task.to_hash(prefix.clone()));
+        assert_eq!(encoded, task.to_hash(prefix));
         assert_eq!(bytes, task.to_hash_vec(prefix));
     }
 
@@ -641,7 +642,7 @@ mod test {
         // Check all these cases
         for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
             let env = mock_env();
-            let (next_id, slot_kind) = interval.next(&env, &boundary, 1);
+            let (next_id, slot_kind) = interval.next(&env, boundary, 1);
             assert_eq!(outcome_block, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }
@@ -840,7 +841,7 @@ mod test {
         // Check all these cases
         let env = mock_env();
         for (interval, boundary, outcome_block, outcome_slot_kind) in cases.iter() {
-            let (next_id, slot_kind) = interval.next(&env, &boundary, 1);
+            let (next_id, slot_kind) = interval.next(&env, boundary, 1);
             assert_eq!(outcome_block, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }
@@ -991,7 +992,7 @@ mod test {
         // Check all these cases
         for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
             let env = mock_env();
-            let (next_id, slot_kind) = interval.next(&env, &boundary, 1);
+            let (next_id, slot_kind) = interval.next(&env, boundary, 1);
             assert_eq!(outcome_time, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }
@@ -1121,7 +1122,7 @@ mod test {
         // Check all these cases
         for (interval, boundary, outcome_time, outcome_slot_kind) in cases.iter() {
             let env = mock_env();
-            let (next_id, slot_kind) = interval.next(&env, &boundary, TWO_MINUTES);
+            let (next_id, slot_kind) = interval.next(&env, boundary, TWO_MINUTES);
             assert_eq!(outcome_time, &next_id);
             assert_eq!(outcome_slot_kind, &slot_kind);
         }
