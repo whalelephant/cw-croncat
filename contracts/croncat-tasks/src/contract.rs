@@ -340,6 +340,9 @@ fn execute_create_task(
         &owner_addr,
         &config,
     )?;
+    if amount_for_one_task.gas > config.gas_limit {
+        return Err(ContractError::InvalidGas {});
+    }
     let cw20 = task
         .cw20
         .map(|human| {

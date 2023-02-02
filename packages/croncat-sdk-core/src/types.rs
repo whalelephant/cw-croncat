@@ -10,11 +10,8 @@ pub struct AmountForOneTask {
 }
 
 impl AmountForOneTask {
-    #[must_use]
-    pub fn add_gas(&mut self, gas: u64, limit: u64) -> bool {
+    pub fn add_gas(&mut self, gas: u64) {
         self.gas = self.gas.saturating_add(gas);
-
-        self.gas <= limit
     }
 
     pub fn add_coin(&mut self, coin: Coin) -> StdResult<bool> {
