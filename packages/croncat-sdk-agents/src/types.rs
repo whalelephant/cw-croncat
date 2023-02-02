@@ -84,12 +84,12 @@ mod test {
     #[test]
     fn agent_status_fmt() {
         let active = AgentStatus::Active;
-        assert_eq!(format!("{}", active), "active");
+        assert_eq!(format!("{active}"), "active");
 
         let nominated = AgentStatus::Nominated;
-        assert_eq!(format!("{}", nominated), "nominated");
+        assert_eq!(format!("{nominated}"), "nominated");
 
         let pending = AgentStatus::Pending;
-        assert_eq!(format!("{}", pending), "pending");
+        assert_eq!(format!("{pending}"), "pending");
     }
 }
