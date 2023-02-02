@@ -13,6 +13,8 @@ pub const CONTRACT_METADATAS: Map<(&str, &[u8]), ContractMetadata> = Map::new("c
 
 /// Contract name with the version to the Addr
 pub const CONTRACT_ADDRS: Map<(&str, &[u8]), Addr> = croncat_sdk_factory::state::CONTRACT_ADDRS;
+/// Contract Addr linked to contract name
+pub const CONTRACT_ADDRS_LOOKUP: Map<Addr, String> = Map::new("contract_addrs_lookup");
 
 /// Latest contract name to the Addr
 pub const LATEST_ADDRS: Map<&str, Addr> = Map::new("latest_addrs");

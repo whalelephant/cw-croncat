@@ -16,6 +16,9 @@ pub enum ContractError {
     #[error("Unknown contract name")]
     UnknownContract {},
 
+    #[error("Unknown contract method")]
+    UnknownMethod {},
+
     #[error("Can't remove latest version")]
     LatestVersionRemove {},
 
