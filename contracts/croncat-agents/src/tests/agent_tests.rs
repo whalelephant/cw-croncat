@@ -1,6 +1,9 @@
 use crate::error::ContractError;
 use crate::msg::*;
-use crate::state::{DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_DURATION};
+use crate::state::{
+    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+    DEFAULT_NOMINATION_DURATION,
+};
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
@@ -22,6 +25,7 @@ fn test_contract_initialize_is_successfull() {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
     };
     let croncat_agents_addr = app
         .instantiate_contract(
@@ -48,6 +52,7 @@ fn test_contract_initialize_is_successfull() {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
     };
 
     let croncat_agents_addr = app

@@ -1,6 +1,7 @@
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+
 use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
     types::{Config, UpdateConfig},

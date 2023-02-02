@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
+    coin, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
     QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
-use croncat_sdk_core::types::AmountForOneTask;
+use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
 use croncat_sdk_tasks::types::TaskInfo;
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -561,4 +561,26 @@ pub(crate) fn check_if_sender_is_task_owner(
         return Err(ContractError::Unauthorized {});
     }
     Ok(())
+}
+
+pub fn create_task_completed_msg(
+    querier: &QuerierWrapper<Empty>,
+    config: &Config,
+    task_hash: String,
+    agent_id: &Addr,
+    is_block_slot_task: bool,
+) -> Result<CosmosMsg, ContractError> {
+    let addr = query_agent_addr(querier, config)?;
+    let args = AgentOnTaskCompleted {
+        agent_id: agent_id.to_owned(),
+        is_block_slot_task,
+        task_hash,
+    };
+    let execute = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: addr.into(),
+        msg: to_binary(&croncat_sdk_agents::msg::ExecuteMsg::OnTaskCompleted(args))?,
+        funds: vec![],
+    });
+
+    Ok(execute)
 }

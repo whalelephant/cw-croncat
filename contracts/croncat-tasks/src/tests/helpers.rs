@@ -140,6 +140,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: None,
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
