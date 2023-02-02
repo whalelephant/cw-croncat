@@ -59,7 +59,7 @@ gen-typescript:
 
 checksum:
 	#!/bin/bash
-	cat artifacts/checksums.txt | grep -e croncat_factory.wasm -e croncat_agents.wasm -e croncat_manager.wasm -e croncat_factory.wasm -e croncat_mod_balances.wasm -e croncat_mod_dao.wasm -e croncat_mod_generic.wasm -e croncat_mod_nft.wasm -e croncat_tasks.wasm -e mod_dao.wasm > checksum
+	cat artifacts/checksums.txt | grep -e croncat_agents.wasm -e croncat_factory.wasm -e croncat_manager.wasm -e croncat_mod_balances.wasm -e croncat_mod_dao.wasm -e croncat_mod_generic.wasm -e croncat_mod_nft.wasm -e croncat_tasks.wasm -e mod_dao.wasm > checksum
 
 schema: gen-schema gen-typescript
 
