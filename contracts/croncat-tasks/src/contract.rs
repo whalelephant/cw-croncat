@@ -8,7 +8,7 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
-    Config, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task,
+    Config, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task, TaskInfo,
     TaskRequest, TaskResponse,
 };
 use cw2::set_contract_version;
@@ -538,7 +538,7 @@ fn query_slot_tasks_total(
 
 /// Get the slot with lowest height/timestamp
 /// NOTE: This prioritizes blocks over timestamps
-fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
+fn query_current_task(deps: Deps, env: Env) -> StdResult<TaskResponse> {
     let config = CONFIG.load(deps.storage)?;
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
         .range(
@@ -552,7 +552,7 @@ fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
     if !block_slot.is_empty() {
         let task_hash = block_slot.pop().unwrap().1.pop().unwrap();
         let task = tasks_map().load(deps.storage, &task_hash)?;
-        Ok(Some(task.into_response(&config.chain_name)))
+        Ok(task.into_response(&config.chain_name))
     } else {
         let mut time_slot: Vec<(u64, Vec<Vec<u8>>)> = TIME_SLOTS
             .range(
@@ -566,9 +566,9 @@ fn query_current_task(deps: Deps, env: Env) -> StdResult<Option<TaskResponse>> {
         if !time_slot.is_empty() {
             let task_hash = time_slot.pop().unwrap().1.pop().unwrap();
             let task = tasks_map().load(deps.storage, &task_hash)?;
-            Ok(Some(task.into_response(&config.chain_name)))
+            Ok(task.into_response(&config.chain_name))
         } else {
-            Ok(None)
+            Ok(TaskResponse { task: None })
         }
     }
 }
@@ -577,7 +577,7 @@ fn query_tasks(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
+) -> StdResult<Vec<TaskInfo>> {
     let config = CONFIG.load(deps.storage)?;
 
     let from_index = from_index.unwrap_or_default();
@@ -587,7 +587,9 @@ fn query_tasks(
         .range(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .map(|task_res| {
+            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
+        })
         .collect()
 }
 
@@ -595,7 +597,7 @@ fn query_tasks_with_queries(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
+) -> StdResult<Vec<TaskInfo>> {
     let config = CONFIG.load(deps.storage)?;
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
@@ -604,7 +606,9 @@ fn query_tasks_with_queries(
         .range(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .map(|task_res| {
+            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
+        })
         .collect()
 }
 
@@ -613,7 +617,7 @@ fn query_tasks_by_owner(
     owner_addr: String,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<Vec<TaskResponse>> {
+) -> StdResult<Vec<TaskInfo>> {
     let owner_addr = deps.api.addr_validate(&owner_addr)?;
     let config = CONFIG.load(deps.storage)?;
 
@@ -636,21 +640,23 @@ fn query_tasks_by_owner(
         .chain(tasks_with_queries)
         .skip(from_index as usize)
         .take(limit as usize)
-        .map(|task_res| task_res.map(|(_, task)| task.into_response(&config.chain_name)))
+        .map(|task_res| {
+            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
+        })
         .collect()
 }
 
-fn query_task(deps: Deps, task_hash: String) -> StdResult<Option<TaskResponse>> {
+fn query_task(deps: Deps, task_hash: String) -> StdResult<TaskResponse> {
     let config = CONFIG.load(deps.storage)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, task_hash.as_bytes())? {
-        Ok(Some(task.into_response(&config.chain_name)))
+        Ok(task.into_response(&config.chain_name))
     } else if let Some(task) =
         tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())?
     {
-        Ok(Some(task.into_response(&config.chain_name)))
+        Ok(task.into_response(&config.chain_name))
     } else {
-        Ok(None)
+        Ok(TaskResponse { task: None })
     }
 }
 
@@ -752,23 +758,25 @@ fn query_current_task_with_queries(
     deps: Deps,
     env: Env,
     task_hash: String,
-) -> StdResult<Option<TaskResponse>> {
+) -> StdResult<TaskResponse> {
     let Some(task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
-        return Ok(None);
+        return Ok(TaskResponse { task:None });
     };
     if !task_with_queries_ready(deps.storage, &env.block, &task, task_hash.as_bytes())? {
-        return Ok(None);
+        return Ok(TaskResponse { task: None });
     }
-    Ok(Some(TaskResponse {
-        task_hash,
-        owner_addr: task.owner_addr,
-        interval: task.interval,
-        boundary: task.boundary.into(),
-        stop_on_fail: task.stop_on_fail,
-        amount_for_one_task: task.amount_for_one_task,
-        actions: task.actions,
-        queries: Some(task.queries),
-        transforms: task.transforms,
-        version: task.version,
-    }))
+    Ok(TaskResponse {
+        task: Some(TaskInfo {
+            task_hash,
+            owner_addr: task.owner_addr,
+            interval: task.interval,
+            boundary: task.boundary.into(),
+            stop_on_fail: task.stop_on_fail,
+            amount_for_one_task: task.amount_for_one_task,
+            actions: task.actions,
+            queries: Some(task.queries),
+            transforms: task.transforms,
+            version: task.version,
+        }),
+    })
 }

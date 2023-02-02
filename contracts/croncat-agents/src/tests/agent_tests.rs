@@ -2,8 +2,10 @@ use crate::error::ContractError;
 use crate::msg::*;
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
+use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
+
 use cw_multi_test::{App, AppResponse, Executor};
 
 #[test]
@@ -97,8 +99,9 @@ fn test_register_agent_is_successfull() {
         )
         .unwrap();
 
-    assert_eq!(agent_response.status, AgentStatus::Active);
-    assert_eq!(agent_response.balance, Uint128::new(0));
+    let agent = agent_response.agent.unwrap();
+    assert_eq!(agent.status, AgentStatus::Active);
+    assert_eq!(agent.balance, Uint128::new(0));
 }
 
 #[test]
@@ -193,9 +196,8 @@ fn test_update_agent_is_successfull() {
             },
         )
         .unwrap();
-
     assert_eq!(
-        agent_response.payable_account_id.to_string(),
+        agent_response.agent.unwrap().payable_account_id.to_string(),
         ADMIN.to_string()
     );
 }
@@ -295,7 +297,7 @@ fn test_agent_check_in_successfull() {
         )
         .unwrap();
 
-    assert_eq!(agent_response.status, AgentStatus::Active);
+    assert_eq!(agent_response.agent.unwrap().status, AgentStatus::Active);
 }
 #[test]
 fn test_accept_nomination_agent() {
@@ -333,11 +335,13 @@ fn test_accept_nomination_agent() {
 
     let mut agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT2)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
@@ -380,6 +384,7 @@ fn test_accept_nomination_agent() {
 
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
@@ -397,11 +402,13 @@ fn test_accept_nomination_agent() {
     // Now that enough time has passed, both agents should see they're nominated
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT4)
         .unwrap()
+        .agent
         .unwrap()
         .status;
     assert_eq!(AgentStatus::Nominated, agent_status);
@@ -433,7 +440,7 @@ fn test_get_agent_status() {
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
     let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
-    assert_eq!(None, agent_status_res);
+    assert_eq!(None, agent_status_res.agent);
 
     // Register AGENT1, who immediately becomes active
     let register_agent_res =
@@ -444,10 +451,8 @@ fn test_get_agent_status() {
         "Registering agent should succeed"
     );
 
-    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT0)
-        .unwrap()
-        .unwrap();
-    assert_eq!(AgentStatus::Active, agent_status_res.status);
+    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT0).unwrap();
+    assert_eq!(AgentStatus::Active, agent_status_res.agent.unwrap().status);
 
     // Register an agent and make sure the status comes back as pending
     let register_agent_res = register_agent(&mut app, &croncat_agents_addr, AGENT1, PARTICIPANT1);
@@ -455,12 +460,10 @@ fn test_get_agent_status() {
         register_agent_res.is_ok(),
         "Registering agent should succeed"
     );
-    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1)
-        .unwrap()
-        .unwrap();
+    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
     assert_eq!(
         AgentStatus::Pending,
-        agent_status_res.status,
+        agent_status_res.agent.unwrap().status,
         "New agent should be pending"
     );
 
@@ -474,7 +477,7 @@ fn test_get_agent_status() {
 
     assert_eq!(
         AgentStatus::Nominated,
-        agent_status_res.unwrap().unwrap().status,
+        agent_status_res.unwrap().agent.unwrap().status,
         "New agent should have nominated status"
     );
 }
@@ -558,7 +561,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
             },
         )
         .unwrap();
-    assert_eq!(agent_res.status, AgentStatus::Nominated);
+    assert_eq!(agent_res.agent.unwrap().status, AgentStatus::Nominated);
 
     // Check in
     app.execute_contract(
@@ -845,10 +848,12 @@ fn test_query_get_agent_tasks() {
     assert!(agent_tasks_res.is_ok(),);
     // Agent gets all tasks
     assert_eq!(
-        agent_tasks_res.unwrap().unwrap(),
+        agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            num_block_tasks: 3u64.into(),
-            num_cron_tasks: 2u64.into()
+            stats: Some(TaskStats {
+                num_block_tasks: 3u64.into(),
+                num_cron_tasks: 2u64.into()
+            })
         }
     );
 
@@ -880,10 +885,12 @@ fn test_query_get_agent_tasks() {
     let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT0);
     assert!(agent_tasks_res.is_ok());
     assert_eq!(
-        agent_tasks_res.unwrap().unwrap(),
+        agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            num_block_tasks: 2u64.into(),
-            num_cron_tasks: 1u64.into()
+            stats: Some(TaskStats {
+                num_block_tasks: 2u64.into(),
+                num_cron_tasks: 1u64.into()
+            })
         }
     );
 
@@ -891,10 +898,12 @@ fn test_query_get_agent_tasks() {
     let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT1);
     assert!(agent_tasks_res.is_ok());
     assert_eq!(
-        agent_tasks_res.unwrap().unwrap(),
+        agent_tasks_res.unwrap(),
         AgentTaskResponse {
-            num_block_tasks: 1u64.into(),
-            num_cron_tasks: 1u64.into()
+            stats: Some(TaskStats {
+                num_block_tasks: 1u64.into(),
+                num_cron_tasks: 1u64.into()
+            })
         }
     );
 
@@ -906,7 +915,6 @@ fn test_query_get_agent_tasks() {
         cosmwasm_std::StdError::GenericErr {
             msg: "Querier contract error: Generic error: Agent is not active!".to_string()
         }
-        .into()
     );
 }
 
@@ -955,8 +963,8 @@ fn get_agent_status(
     app: &mut App,
     croncat_agents_addr: &Addr,
     agent: &str,
-) -> Result<Option<AgentResponse>, anyhow::Error> {
-    let agent_info: Option<AgentResponse> = app.wrap().query_wasm_smart(
+) -> Result<AgentResponse, anyhow::Error> {
+    let agent_info: AgentResponse = app.wrap().query_wasm_smart(
         croncat_agents_addr,
         &QueryMsg::GetAgent {
             account_id: agent.to_string(),
@@ -970,8 +978,8 @@ fn get_agent_tasks(
     app: &mut App,
     croncat_agents_addr: &Addr,
     agent: &str,
-) -> Result<Option<AgentTaskResponse>, anyhow::Error> {
-    let agent_info: Option<AgentTaskResponse> = app.wrap().query_wasm_smart(
+) -> Result<AgentTaskResponse, anyhow::Error> {
+    let agent_info: AgentTaskResponse = app.wrap().query_wasm_smart(
         croncat_agents_addr,
         &QueryMsg::GetAgentTasks {
             account_id: agent.to_string(),

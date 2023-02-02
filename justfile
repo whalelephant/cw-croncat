@@ -60,6 +60,10 @@ gen-typescript:
 	yarn --cwd ./typescript build
 	yarn --cwd ./typescript codegen
 
+checksum:
+	#!/bin/bash
+	cat artifacts/checksums.txt | grep -e croncat_agents.wasm -e croncat_factory.wasm -e croncat_manager.wasm -e croncat_mod_balances.wasm -e croncat_mod_dao.wasm -e croncat_mod_generic.wasm -e croncat_mod_nft.wasm -e croncat_tasks.wasm > checksum
+
 schema: gen-schema gen-typescript
 
-all: lint build test schema
+all: lint build schema test checksum

@@ -9,6 +9,8 @@ use cosmwasm_std::{
     entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
     Response, StdError, StdResult, Storage,
 };
+use croncat_sdk_agents::msg::AgentInfo;
+use croncat_sdk_agents::msg::TaskStats;
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
 };
@@ -106,7 +108,7 @@ pub fn execute(
     }
 }
 
-fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option<AgentResponse>> {
+fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentResponse> {
     let account_id = deps.api.addr_validate(&account_id)?;
 
     let agent = AGENTS.may_load(deps.storage, &account_id)?;
@@ -114,7 +116,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
     let a = if let Some(a) = agent {
         a
     } else {
-        return Ok(None);
+        return Ok(AgentResponse { agent: None });
     };
 
     let config: Config = CONFIG.load(deps.storage)?;
@@ -131,13 +133,15 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<Option
         .may_load(deps.storage, &account_id)?
         .unwrap_or_default();
     let agent_response = AgentResponse {
-        status: agent_status,
-        payable_account_id: a.payable_account_id,
-        balance: rewards,
-        last_executed_slot: stats.last_executed_slot,
-        register_start: a.register_start,
+        agent: Some(AgentInfo {
+            status: agent_status,
+            payable_account_id: a.payable_account_id,
+            balance: rewards,
+            last_executed_slot: stats.last_executed_slot,
+            register_start: a.register_start,
+        }),
     };
-    Ok(Some(agent_response))
+    Ok(agent_response)
 }
 
 /// Get a list of agent addresses
@@ -174,8 +178,10 @@ fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<
     let (block_slots, cron_slots) = croncat_tasks_contract::query_tasks_slots(deps, &config)?;
     if block_slots == 0 && cron_slots == 0 {
         return Ok(AgentTaskResponse {
-            num_cron_tasks: Uint64::zero(),
-            num_block_tasks: Uint64::zero(),
+            stats: Some(TaskStats {
+                num_cron_tasks: Uint64::zero(),
+                num_block_tasks: Uint64::zero(),
+            }),
         });
     }
     AGENT_TASK_DISTRIBUTOR

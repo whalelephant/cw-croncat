@@ -731,7 +731,7 @@ fn remove_paused_checks() {
     let manager_metadatas: Vec<ContractMetadataResponse> = app
         .wrap()
         .query_wasm_smart(
-            contract_addr.clone(),
+            contract_addr,
             &QueryMsg::VersionsByContractName {
                 contract_name: "manager".to_owned(),
                 from_index: None,
