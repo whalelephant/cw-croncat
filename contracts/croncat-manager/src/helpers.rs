@@ -35,7 +35,7 @@ pub(crate) fn get_tasks_addr(
     config: &Config,
 ) -> Result<Addr, ContractError> {
     let (tasks_name, version) = &config.croncat_tasks_key;
-    croncat_factory::state::CONTRACT_ADDRS
+    croncat_sdk_factory::state::CONTRACT_ADDRS
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
@@ -48,7 +48,7 @@ pub(crate) fn query_agent_addr(
     config: &Config,
 ) -> Result<Addr, ContractError> {
     let (tasks_name, version) = &config.croncat_agents_key;
-    croncat_factory::state::CONTRACT_ADDRS
+    croncat_sdk_factory::state::CONTRACT_ADDRS
         .query(
             querier,
             config.croncat_factory_addr.clone(),
@@ -74,7 +74,7 @@ pub(crate) fn get_agents_addr(
     config: &Config,
 ) -> Result<Addr, ContractError> {
     let (agents_name, version) = &config.croncat_agents_key;
-    croncat_factory::state::CONTRACT_ADDRS
+    croncat_sdk_factory::state::CONTRACT_ADDRS
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
