@@ -1,13 +1,15 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use crate::distributor::*;
 use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
-use cosmwasm_std::Uint64;
-#[cfg(not(feature = "library"))]
+
 use cosmwasm_std::{
-    entry_point, has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo,
-    Response, StdError, StdResult, Storage,
+    has_coins, to_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::AgentInfo;
 use croncat_sdk_agents::msg::TaskStats;

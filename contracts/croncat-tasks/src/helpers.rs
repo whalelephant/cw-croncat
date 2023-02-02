@@ -286,7 +286,7 @@ pub(crate) fn get_manager_addr(
     config: &Config,
 ) -> Result<Addr, ContractError> {
     let (manager_name, version) = &config.croncat_manager_key;
-    croncat_factory::state::CONTRACT_ADDRS
+    croncat_sdk_factory::state::CONTRACT_ADDRS
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
@@ -300,7 +300,7 @@ pub(crate) fn get_agents_addr(
     config: &Config,
 ) -> Result<Addr, ContractError> {
     let (agents_name, version) = &config.croncat_agents_key;
-    croncat_factory::state::CONTRACT_ADDRS
+    croncat_sdk_factory::state::CONTRACT_ADDRS
         .query(
             deps_queries,
             config.croncat_factory_addr.clone(),
