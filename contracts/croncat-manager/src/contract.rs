@@ -537,10 +537,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     &config,
                     queue_item.task.task_hash.clone(),
                     &queue_item.agent_addr,
-                    matches!(
-                        queue_item.task.interval,
-                        Interval::Block(_) | Interval::Immediate
-                    ),
+                    !matches!(queue_item.task.interval, Interval::Cron(_)),
                 )?;
                 Ok(finalize_task(deps, queue_item)?
                     .add_message(complete_msg)
