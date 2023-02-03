@@ -61,11 +61,11 @@ pub enum FactoryQueryMsg {
     LatestContracts {},
 
     /// Gets latest version metadata of the contract
-    #[returns[Option<ContractMetadataResponse>]]
+    #[returns[ContractMetadataResponse]]
     LatestContract { contract_name: String },
 
     /// Gets metadatas of the contract
-    #[returns[Vec<ContractMetadataResponse>]]
+    #[returns[Vec<ContractMetadataInfo>]]
     VersionsByContractName {
         contract_name: String,
         from_index: Option<u64>,
@@ -90,7 +90,7 @@ pub enum FactoryQueryMsg {
 #[cw_serde]
 pub struct EntryResponse {
     pub contract_name: String,
-    pub metadata: ContractMetadataResponse,
+    pub metadata: ContractMetadataInfo,
 }
 
 #[cw_serde]
@@ -114,9 +114,8 @@ pub struct ContractMetadata {
     /// types/schema - helps keep UI/clients backward compatible
     pub schema: Option<String>,
 }
-
 #[cw_serde]
-pub struct ContractMetadataResponse {
+pub struct ContractMetadataInfo {
     pub kind: VersionKind,
     pub code_id: u64,
     pub contract_addr: Addr,
@@ -125,6 +124,10 @@ pub struct ContractMetadataResponse {
     pub checksum: String,
     pub changelog_url: Option<String>,
     pub schema: Option<String>,
+}
+#[cw_serde]
+pub struct ContractMetadataResponse {
+    pub metadata: Option<ContractMetadataInfo>,
 }
 
 /// Information needed to instantiate a module.

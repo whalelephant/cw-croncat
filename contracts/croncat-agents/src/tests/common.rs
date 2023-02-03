@@ -146,7 +146,7 @@ pub(crate) fn init_croncat_manager_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -155,7 +155,7 @@ pub(crate) fn init_croncat_manager_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 pub(crate) fn croncat_tasks_contract() -> Box<dyn Contract<Empty>> {
@@ -209,7 +209,7 @@ pub(crate) fn init_croncat_tasks_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -218,7 +218,7 @@ pub(crate) fn init_croncat_tasks_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
@@ -277,7 +277,7 @@ pub(crate) fn init_agents_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -286,7 +286,7 @@ pub(crate) fn init_agents_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 //Factory

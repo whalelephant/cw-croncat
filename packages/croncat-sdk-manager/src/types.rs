@@ -56,6 +56,10 @@ impl Default for GasPrice {
 }
 
 #[cw_serde]
+pub struct TaskBalanceResponse {
+    pub balance: Option<TaskBalance>,
+}
+#[cw_serde]
 pub struct TaskBalance {
     pub native_balance: Uint128,
     pub cw20_balance: Option<Cw20CoinVerified>,

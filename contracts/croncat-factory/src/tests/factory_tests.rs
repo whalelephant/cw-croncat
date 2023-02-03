@@ -1,7 +1,7 @@
 use cosmwasm_std::{to_binary, Addr, Binary, StdError, WasmMsg};
 use croncat_sdk_factory::msg::{
-    Config, ContractMetadataResponse, EntryResponse, FactoryExecuteMsg, ModuleInstantiateInfo,
-    VersionKind,
+    Config, ContractMetadataInfo, ContractMetadataResponse, EntryResponse, FactoryExecuteMsg,
+    ModuleInstantiateInfo, VersionKind,
 };
 use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::Executor;
@@ -240,7 +240,7 @@ fn deploy_check() {
         .unwrap();
     assert_eq!(contracts.len(), 4);
 
-    let mut manager_metadatas: Vec<ContractMetadataResponse> = app
+    let mut manager_metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -260,7 +260,7 @@ fn deploy_check() {
         "Not manager contract"
     );
 
-    let mut tasks_metadatas: Vec<ContractMetadataResponse> = app
+    let mut tasks_metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -280,7 +280,7 @@ fn deploy_check() {
         "Not tasks contract"
     );
 
-    let mut agents_metadatas: Vec<ContractMetadataResponse> = app
+    let mut agents_metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -684,7 +684,7 @@ fn remove_paused_checks() {
         .downcast()
         .unwrap();
     assert_eq!(err, ContractError::NotPaused {});
-    let manager_metadatas: Vec<ContractMetadataResponse> = app
+    let manager_metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -733,7 +733,7 @@ fn remove_paused_checks() {
     )
     .unwrap();
     // Make sure it's gone
-    let manager_metadatas: Vec<ContractMetadataResponse> = app
+    let manager_metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -846,7 +846,7 @@ fn update_metadata() {
     )
     .unwrap();
 
-    let metadatas: Vec<ContractMetadataResponse> = app
+    let metadatas: Vec<ContractMetadataInfo> = app
         .wrap()
         .query_wasm_smart(
             contract_addr.clone(),
@@ -873,7 +873,7 @@ fn update_metadata() {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             contract_addr,
@@ -882,7 +882,7 @@ fn update_metadata() {
             },
         )
         .unwrap();
-    let metadata = metadata.unwrap();
+    let metadata = metadata.metadata.unwrap();
     assert_eq!(metadata.changelog_url, Some("new changelog".to_owned()));
     assert_eq!(metadata.schema, Some("new schema".to_owned()));
 }
@@ -952,11 +952,14 @@ fn fail_and_success_proxy() {
             },
         )
         .unwrap();
-    assert_eq!(manager_metadata.code_id, manager_code_id);
+    assert_eq!(
+        manager_metadata.metadata.clone().unwrap().code_id,
+        manager_code_id
+    );
 
     let proxy_msg = FactoryExecuteMsg::Proxy {
         msg: WasmMsg::Execute {
-            contract_addr: manager_metadata.contract_addr.to_string(),
+            contract_addr: manager_metadata.metadata.unwrap().contract_addr.to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
                     owner_addr: None,
