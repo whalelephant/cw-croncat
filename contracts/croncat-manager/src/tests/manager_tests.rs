@@ -4,7 +4,7 @@ use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 
 use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
-    types::{Config, TaskBalance, UpdateConfig, TaskBalanceResponse},
+    types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
 use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
