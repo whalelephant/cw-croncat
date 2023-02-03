@@ -254,6 +254,8 @@ export type QueryMsg = {
 } | {
   tasks_total: {};
 } | {
+  current_task_info: {};
+} | {
   tasks_with_queries_total: {};
 } | {
   tasks: {
@@ -353,6 +355,10 @@ export interface TaskInfo {
   task_hash: string;
   transforms: Transform[];
   version: string;
+}
+export interface CurrentTaskInfoResponse {
+  last_created_task: Timestamp;
+  total: Uint64;
 }
 export interface SlotHashesResponse {
   block_id: number;

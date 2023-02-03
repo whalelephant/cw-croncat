@@ -6,11 +6,12 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, BoundaryValidated, Config, TaskResponse, TaskInfo, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskInfo, ArrayOfTaskResponse } from "./CroncatTasks.types";
+import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, BoundaryValidated, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskInfo, ArrayOfTaskResponse } from "./CroncatTasks.types";
 export interface CroncatTasksReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
   tasksTotal: () => Promise<Uint64>;
+  currentTaskInfo: () => Promise<CurrentTaskInfoResponse>;
   tasksWithQueriesTotal: () => Promise<Uint64>;
   tasks: ({
     fromIndex,
@@ -78,6 +79,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     this.contractAddress = contractAddress;
     this.config = this.config.bind(this);
     this.tasksTotal = this.tasksTotal.bind(this);
+    this.currentTaskInfo = this.currentTaskInfo.bind(this);
     this.tasksWithQueriesTotal = this.tasksWithQueriesTotal.bind(this);
     this.tasks = this.tasks.bind(this);
     this.tasksWithQueries = this.tasksWithQueries.bind(this);
@@ -99,6 +101,11 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
   tasksTotal = async (): Promise<Uint64> => {
     return this.client.queryContractSmart(this.contractAddress, {
       tasks_total: {}
+    });
+  };
+  currentTaskInfo = async (): Promise<CurrentTaskInfoResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      current_task_info: {}
     });
   };
   tasksWithQueriesTotal = async (): Promise<Uint64> => {
