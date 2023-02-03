@@ -74,7 +74,7 @@ pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Add
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -83,7 +83,7 @@ pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Add
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -118,7 +118,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -127,7 +127,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -163,7 +163,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -172,7 +172,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn default_instantiate_msg() -> InstantiateMsg {

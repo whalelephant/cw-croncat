@@ -8,7 +8,7 @@ use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 
 use croncat_sdk_manager::msg::WithdrawRewardsCallback;
-use croncat_sdk_manager::types::{TaskBalance, UpdateConfig};
+use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::Interval;
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
@@ -479,13 +479,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             from_index,
             limit,
         } => to_binary(&query_users_balances(deps, wallet, from_index, limit)?),
-        QueryMsg::TaskBalance { task_hash } => {
-            to_binary(&TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?)
-        }
+        QueryMsg::TaskBalance { task_hash } => to_binary(&TaskBalanceResponse {
+            balance: TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?,
+        }),
         QueryMsg::AgentRewards { agent_id } => to_binary(
             &AGENT_REWARDS
                 .may_load(deps.storage, &Addr::unchecked(agent_id))?
-                .unwrap_or_default(),
+                .unwrap_or(Uint128::zero()),
         ),
     }
 }

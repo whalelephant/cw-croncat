@@ -115,9 +115,9 @@ export type Addr = string;
 export type ArrayOfEntryResponse = EntryResponse[];
 export interface EntryResponse {
   contract_name: string;
-  metadata: ContractMetadataResponse;
+  metadata: ContractMetadataInfo;
 }
-export interface ContractMetadataResponse {
+export interface ContractMetadataInfo {
   changelog_url?: string | null;
   checksum: string;
   code_id: number;
@@ -131,5 +131,7 @@ export interface Config {
   owner_addr: Addr;
 }
 export type ArrayOfString = string[];
-export type Nullable_ContractMetadataResponse = ContractMetadataResponse | null;
-export type ArrayOfContractMetadataResponse = ContractMetadataResponse[];
+export interface ContractMetadataResponse {
+  metadata?: ContractMetadataInfo | null;
+}
+export type ArrayOfContractMetadataInfo = ContractMetadataInfo[];

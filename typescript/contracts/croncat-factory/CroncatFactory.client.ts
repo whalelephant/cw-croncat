@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, VersionKind, Binary, WasmMsg, Uint128, ModuleInstantiateInfo, Coin, QueryMsg, Addr, ArrayOfEntryResponse, EntryResponse, ContractMetadataResponse, Config, ArrayOfString, Nullable_ContractMetadataResponse, ArrayOfContractMetadataResponse } from "./CroncatFactory.types";
+import { InstantiateMsg, ExecuteMsg, VersionKind, Binary, WasmMsg, Uint128, ModuleInstantiateInfo, Coin, QueryMsg, Addr, ArrayOfEntryResponse, EntryResponse, ContractMetadataInfo, Config, ArrayOfString, ContractMetadataResponse, ArrayOfContractMetadataInfo } from "./CroncatFactory.types";
 export interface CroncatFactoryReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
@@ -15,7 +15,7 @@ export interface CroncatFactoryReadOnlyInterface {
     contractName
   }: {
     contractName: string;
-  }) => Promise<NullableContractMetadataResponse>;
+  }) => Promise<ContractMetadataResponse>;
   versionsByContractName: ({
     contractName,
     fromIndex,
@@ -24,7 +24,7 @@ export interface CroncatFactoryReadOnlyInterface {
     contractName: string;
     fromIndex?: number;
     limit?: number;
-  }) => Promise<ArrayOfContractMetadataResponse>;
+  }) => Promise<ArrayOfContractMetadataInfo>;
   contractNames: ({
     fromIndex,
     limit
@@ -69,7 +69,7 @@ export class CroncatFactoryQueryClient implements CroncatFactoryReadOnlyInterfac
     contractName
   }: {
     contractName: string;
-  }): Promise<NullableContractMetadataResponse> => {
+  }): Promise<ContractMetadataResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       latest_contract: {
         contract_name: contractName
@@ -84,7 +84,7 @@ export class CroncatFactoryQueryClient implements CroncatFactoryReadOnlyInterfac
     contractName: string;
     fromIndex?: number;
     limit?: number;
-  }): Promise<ArrayOfContractMetadataResponse> => {
+  }): Promise<ArrayOfContractMetadataInfo> => {
     return this.client.queryContractSmart(this.contractAddress, {
       versions_by_contract_name: {
         contract_name: contractName,

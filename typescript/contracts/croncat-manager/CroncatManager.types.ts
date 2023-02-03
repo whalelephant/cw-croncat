@@ -120,7 +120,6 @@ export type QueryMsg = {
     agent_id: string;
   };
 };
-export type Nullable_Uint128 = Uint128 | null;
 export interface Config {
   agent_fee: number;
   croncat_agents_key: [string, [number, number]];
@@ -135,7 +134,9 @@ export interface Config {
   treasury_addr?: Addr | null;
   treasury_fee: number;
 }
-export type Nullable_TaskBalance = TaskBalance | null;
+export interface TaskBalanceResponse {
+  balance?: TaskBalance | null;
+}
 export interface TaskBalance {
   cw20_balance?: Cw20CoinVerified | null;
   ibc_balance?: Coin | null;

@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, Addr, UpdateConfig, Cw20Coin, Cw20ReceiveMsg, ManagerCreateTaskBalance, AmountForOneTask, Coin, Cw20CoinVerified, ManagerRemoveTask, WithdrawRewardsOnRemovalArgs, QueryMsg, Nullable_Uint128, Config, Nullable_TaskBalance, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
+import { InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, Addr, UpdateConfig, Cw20Coin, Cw20ReceiveMsg, ManagerCreateTaskBalance, AmountForOneTask, Coin, Cw20CoinVerified, ManagerRemoveTask, WithdrawRewardsOnRemovalArgs, QueryMsg, Config, TaskBalanceResponse, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
 export interface CroncatManagerReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
@@ -24,12 +24,12 @@ export interface CroncatManagerReadOnlyInterface {
     taskHash
   }: {
     taskHash: string;
-  }) => Promise<NullableTaskBalance>;
+  }) => Promise<TaskBalanceResponse>;
   agentRewards: ({
     agentId
   }: {
     agentId: string;
-  }) => Promise<NullableUint128>;
+  }) => Promise<Uint128>;
 }
 export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterface {
   client: CosmWasmClient;
@@ -76,7 +76,7 @@ export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterfac
     taskHash
   }: {
     taskHash: string;
-  }): Promise<NullableTaskBalance> => {
+  }): Promise<TaskBalanceResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       task_balance: {
         task_hash: taskHash
@@ -87,7 +87,7 @@ export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterfac
     agentId
   }: {
     agentId: string;
-  }): Promise<NullableUint128> => {
+  }): Promise<Uint128> => {
     return this.client.queryContractSmart(this.contractAddress, {
       agent_rewards: {
         agent_id: agentId
