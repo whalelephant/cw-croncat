@@ -75,6 +75,9 @@ pub enum TasksQueryMsg {
     /// Get the total amount of tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
+    /// CurrentTaskInfo
+    #[returns(crate::types::CurrentTaskInfoResponse)]
+    CurrentTaskInfo {},
     /// Get the total amount of tasks with queries
     #[returns(cosmwasm_std::Uint64)]
     TasksWithQueriesTotal {},

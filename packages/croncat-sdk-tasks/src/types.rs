@@ -308,6 +308,12 @@ pub struct SlotTasksTotalResponse {
 }
 
 #[cw_serde]
+pub struct CurrentTaskInfoResponse {
+    pub total: Uint64,
+    pub last_created_task: Timestamp,
+}
+
+#[cw_serde]
 pub struct TaskInfo {
     pub task_hash: String,
 

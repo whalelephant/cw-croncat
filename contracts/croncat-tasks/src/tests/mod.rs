@@ -1,3 +1,4 @@
+mod common;
 mod contracts;
 mod helpers;
 mod task_tests;
