@@ -23,7 +23,6 @@ pub const TIME_MAP_QUERIES: Map<&[u8], u64> = Map::new("time_map_queries");
 /// Block based map by the corresponding task hash
 pub const BLOCK_MAP_QUERIES: Map<&[u8], u64> = Map::new("block_map_queries");
 
-// TODO: make IndexedMap's const as soon as cw_storage_plus new version arrives
 pub fn tasks_map<'a>() -> IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>> {
     let indexes = TaskIndexes {
         owner: MultiIndex::new(token_owner_idx, "tasks", "tasks__owner"),

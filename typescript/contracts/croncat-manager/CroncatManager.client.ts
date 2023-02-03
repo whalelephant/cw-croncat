@@ -102,6 +102,7 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
     agentFee,
     croncatAgentsKey,
     croncatTasksKey,
+    cw20Whitelist,
     gasPrice,
     ownerAddr,
     paused,
@@ -111,6 +112,7 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
     agentFee?: number;
     croncatAgentsKey?: string[][];
     croncatTasksKey?: string[][];
+    cw20Whitelist?: string[];
     gasPrice?: GasPrice;
     ownerAddr?: string;
     paused?: boolean;
@@ -149,7 +151,6 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
   }: {
     limit?: number;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  tick: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   createTaskBalance: ({
     amountForOneTask,
     cw20,
@@ -189,7 +190,6 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.receive = this.receive.bind(this);
     this.userWithdraw = this.userWithdraw.bind(this);
-    this.tick = this.tick.bind(this);
     this.createTaskBalance = this.createTaskBalance.bind(this);
     this.removeTask = this.removeTask.bind(this);
     this.withdrawAgentRewards = this.withdrawAgentRewards.bind(this);
@@ -199,6 +199,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     agentFee,
     croncatAgentsKey,
     croncatTasksKey,
+    cw20Whitelist,
     gasPrice,
     ownerAddr,
     paused,
@@ -208,6 +209,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     agentFee?: number;
     croncatAgentsKey?: string[][];
     croncatTasksKey?: string[][];
+    cw20Whitelist?: string[];
     gasPrice?: GasPrice;
     ownerAddr?: string;
     paused?: boolean;
@@ -219,6 +221,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
         agent_fee: agentFee,
         croncat_agents_key: croncatAgentsKey,
         croncat_tasks_key: croncatTasksKey,
+        cw20_whitelist: cw20Whitelist,
         gas_price: gasPrice,
         owner_addr: ownerAddr,
         paused,
@@ -294,11 +297,6 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
       user_withdraw: {
         limit
       }
-    }, fee, memo, funds);
-  };
-  tick = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
-    return await this.client.execute(this.sender, this.contractAddress, {
-      tick: {}
     }, fee, memo, funds);
   };
   createTaskBalance = async ({

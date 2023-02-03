@@ -456,7 +456,7 @@ fn create_task_with_wasm() {
     let action = Action {
         msg: WasmMsg::Execute {
             contract_addr: manager_addr.to_string(),
-            msg: to_binary(&croncat_manager::msg::ExecuteMsg::Tick {}).unwrap(),
+            msg: to_binary(&croncat_sdk_agents::msg::ExecuteMsg::Tick {}).unwrap(),
             funds: vec![],
         }
         .into(),

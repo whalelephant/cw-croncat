@@ -7,6 +7,7 @@
 export interface InstantiateMsg {
   croncat_agents_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
+  cw20_whitelist?: string[] | null;
   denom: string;
   gas_price?: GasPrice | null;
   owner_addr?: string | null;
@@ -42,8 +43,6 @@ export type ExecuteMsg = {
     limit?: number | null;
   };
 } | {
-  tick: {};
-} | {
   create_task_balance: ManagerCreateTaskBalance;
 } | {
   remove_task: ManagerRemoveTask;
@@ -57,6 +56,7 @@ export interface UpdateConfig {
   agent_fee?: number | null;
   croncat_agents_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
+  cw20_whitelist?: string[] | null;
   gas_price?: GasPrice | null;
   owner_addr?: string | null;
   paused?: boolean | null;

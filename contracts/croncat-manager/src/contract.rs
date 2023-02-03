@@ -60,6 +60,7 @@ pub fn instantiate(
         owner_addr,
         gas_price,
         treasury_addr,
+        cw20_whitelist,
     } = msg;
 
     let gas_price = gas_price.unwrap_or_default();
@@ -81,6 +82,12 @@ pub fn instantiate(
         TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
     }
 
+    let cw20_whitelist = cw20_whitelist
+        .unwrap_or_default()
+        .into_iter()
+        .map(|human| deps.api.addr_validate(&human))
+        .collect::<StdResult<_>>()?;
+
     let config = Config {
         paused: false,
         owner_addr,
@@ -90,7 +97,7 @@ pub fn instantiate(
         agent_fee: DEFAULT_FEE,
         treasury_fee: DEFAULT_FEE,
         gas_price,
-        cw20_whitelist: vec![],
+        cw20_whitelist,
         native_denom: denom,
         limit: 100,
         treasury_addr: treasury_addr
@@ -134,7 +141,6 @@ pub fn execute(
             execute_refill_task_cw20(deps, info, task_hash, cw20)
         }
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
-        ExecuteMsg::Tick {} => execute_tick(deps, env, info),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
         ExecuteMsg::WithdrawAgentRewards(args) => execute_withdraw_agent_rewards(deps, info, args),
@@ -327,7 +333,7 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |config| {
+    let new_config = CONFIG.update(deps.storage, |mut config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
@@ -338,6 +344,7 @@ pub fn execute_update_config(
             croncat_tasks_key,
             croncat_agents_key,
             treasury_addr,
+            cw20_whitelist,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -358,6 +365,14 @@ pub fn execute_update_config(
         } else {
             config.treasury_addr
         };
+
+        let cw20_whitelist: Vec<Addr> = cw20_whitelist
+            .unwrap_or_default()
+            .into_iter()
+            .map(|human| deps.api.addr_validate(&human))
+            .collect::<StdResult<_>>()?;
+
+        config.cw20_whitelist.extend(cw20_whitelist);
 
         let new_config = Config {
             paused: paused.unwrap_or(config.paused),
@@ -380,47 +395,6 @@ pub fn execute_update_config(
         .add_attribute("action", "update_config")
         .add_attribute("paused", new_config.paused.to_string())
         .add_attribute("owner_id", new_config.owner_addr.to_string()))
-}
-
-/// Execute: Tick
-/// Helps manage and cleanup agents
-/// Deletes agents which missed more than agents_eject_threshold slot
-///
-/// Returns removed agents
-// TODO: It might be not possible to deserialize all of the active agents, need to find better solution
-// See issue #247
-pub fn execute_tick(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
-
-    // let current_slot = env.block.height;
-    // let cfg = CONFIG.load(deps.storage)?;
-    // let mut attributes = vec![];
-    // let mut submessages = vec![];
-
-    // for agent_id in self.agent_active_queue.load(deps.storage)? {
-    //     let agent = self.agents.load(deps.storage, &agent_id)?;
-    //     if current_slot > agent.last_executed_slot + cfg.agents_eject_threshold {
-    //         let resp = self
-    //             .unregister_agent(deps.storage, &agent_id, None)
-    //             .unwrap_or_default();
-    //         // Save attributes and messages
-    //         attributes.extend_from_slice(&resp.attributes);
-    //         submessages.extend_from_slice(&resp.messages);
-    //     }
-    // }
-
-    // // Check if there isn't any active or pending agents
-    // if self.agent_active_queue.load(deps.storage)?.is_empty()
-    //     && self.agent_pending_queue.is_empty(deps.storage)?
-    // {
-    //     attributes.push(Attribute::new("lifecycle", "tick_failure"))
-    // }
-    Ok(Response::new().add_attribute("action", "tick"))
 }
 
 fn execute_create_task_balance(
