@@ -158,16 +158,13 @@ fn execute_remove_task(
         &msg.task_hash,
     )?;
 
-    let res = Response::new().add_attribute("action", "remove_task");
-    if !coins_transfer.is_empty() {
-        let bank_send = BankMsg::Send {
-            to_address: task_owner.into_string(),
-            amount: coins_transfer,
-        };
-        Ok(res.add_message(bank_send))
-    } else {
-        Ok(res)
-    }
+    let bank_send = BankMsg::Send {
+        to_address: task_owner.into_string(),
+        amount: coins_transfer,
+    };
+    Ok(Response::new()
+        .add_attribute("action", "remove_task")
+        .add_message(bank_send))
 }
 
 fn execute_proxy_call(
@@ -297,19 +294,15 @@ fn execute_proxy_call_with_queries(
             task_hash: task_hash.into_bytes(),
         }
         .into_cosmos_msg(tasks_addr)?;
-        let res = Response::new()
+        let bank_send = BankMsg::Send {
+            to_address: task.owner_addr.into_string(),
+            amount: coins_transfer,
+        };
+        Ok(Response::new()
             .add_attribute("action", "remove_task")
             .add_attribute("task_status", "invalid")
-            .add_message(msg);
-        if !coins_transfer.is_empty() {
-            let bank_send = BankMsg::Send {
-                to_address: task.owner_addr.into_string(),
-                amount: coins_transfer,
-            };
-            Ok(res.add_message(bank_send))
-        } else {
-            Ok(res)
-        }
+            .add_message(msg)
+            .add_message(bank_send))
     } else {
         let sub_msgs = task_sub_msgs(&task);
         let queue_item = QueueItem {
@@ -511,15 +504,11 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 &msg.task_hash,
             )?;
 
-            if !coins_transfer.is_empty() {
-                let bank_send = BankMsg::Send {
-                    to_address: task_owner.into_string(),
-                    amount: coins_transfer,
-                };
-                Ok(Response::new().add_message(bank_send))
-            } else {
-                Ok(Response::new())
-            }
+            let bank_send = BankMsg::Send {
+                to_address: task_owner.into_string(),
+                amount: coins_transfer,
+            };
+            Ok(Response::new().add_message(bank_send))
         }
         _ => {
             let mut queue_item = REPLY_QUEUE.load(deps.storage)?;
