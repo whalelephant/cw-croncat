@@ -169,6 +169,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {
+                    // Zero coins will fail the transaction
                     if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
                         return Err(ContractError::InvalidAction {});
                     }
