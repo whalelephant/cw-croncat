@@ -3301,6 +3301,7 @@ fn refill_task_balance_fail() {
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
 
     app.execute_contract(
@@ -3512,6 +3513,7 @@ fn refill_task_cw20_fail() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
@@ -3717,6 +3719,7 @@ fn refill_task_cw20_fail() {
 
     // Try RefillTaskCw20Balance with wrong cw20 address
     let new_cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, new_cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         new_cw20_addr.clone(),
@@ -3772,6 +3775,7 @@ fn refill_task_cw20_fail() {
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
 
     app.execute_contract(
@@ -3846,6 +3850,7 @@ fn refill_task_cw20_success() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
