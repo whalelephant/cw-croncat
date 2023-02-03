@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Binary, StdError, Uint128, Uint64, WasmMsg,
+    coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Uint128, Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::TaskBalance;
@@ -10,6 +10,7 @@ use croncat_sdk_tasks::{
         SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
+use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{BankSudo, Executor};
 use cw_storage_plus::KeyDeserialize;
 
@@ -1412,6 +1413,894 @@ fn update_cfg() {
         .query_wasm_smart(tasks_addr, &QueryMsg::Config {})
         .unwrap();
     assert_eq!(not_updated_config, expected_config);
+}
+
+#[test]
+fn negative_create_task() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(50_000),
+    };
+
+    let task = TaskRequest {
+        interval: Interval::Cron("aloha".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        transforms: None,
+        cw20: None,
+        queries: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidInterval {});
+    // invalid gas limit
+    let action1 = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(GAS_LIMIT / 2),
+    };
+    let action2 = Action {
+        msg: BankMsg::Send {
+            to_address: "Alice".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(GAS_LIMIT / 2 + 1),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![action1, action2],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::InvalidGas {});
+
+    // Invalid boundary
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(25_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::InvalidBoundary {});
+
+    // Same task - can't repeat tasks
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(25_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task.clone()),
+        },
+        &coins(30000, DENOM),
+    )
+    .unwrap();
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::TaskExists {});
+
+    // Same task, but with queries - can't repeat tasks
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(25_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: Some(vec![CroncatQuery {
+            contract_addr: "aloha".to_owned(),
+            msg: Default::default(),
+            check_result: true,
+        }]),
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task.clone()),
+        },
+        &coins(40000, DENOM),
+    )
+    .unwrap();
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(40000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::TaskExists {});
+    // contract paused
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: Some(true),
+            owner_addr: None,
+            croncat_factory_addr: None,
+            croncat_manager_key: None,
+            croncat_agents_key: None,
+            slot_granularity_time: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
+            gas_query_fee: None,
+            gas_limit: None,
+        }),
+        &[],
+    )
+    .unwrap();
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(25_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr,
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+}
+
+#[test]
+fn remove_task_negative() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _manager_addr = init_manager(&mut app, &factory_addr);
+    let _agent_addr = init_agents(&mut app, &factory_addr);
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+        .into(),
+        gas_limit: Some(25_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(40000, DENOM),
+        )
+        .unwrap();
+
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Not task owner tries to remove a task
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("wrong_person"),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask { task_hash },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: Some(vec![CroncatQuery {
+            contract_addr: "aloha".to_owned(),
+            msg: Default::default(),
+            check_result: true,
+        }]),
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(40000, DENOM),
+        )
+        .unwrap();
+
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Not a task owner tries to remove a task with queries
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("wrong_person"),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // No task
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked("wrong_person"),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: "wrong_task_hash".to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::NoTaskFound {});
+
+    // contract is paused
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: Some(true),
+            owner_addr: None,
+            croncat_factory_addr: None,
+            croncat_manager_key: None,
+            croncat_agents_key: None,
+            slot_granularity_time: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
+            gas_query_fee: None,
+            gas_limit: None,
+        }),
+        &[],
+    )
+    .unwrap();
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr,
+            &ExecuteMsg::RemoveTask { task_hash },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::Paused {});
+}
+
+#[test]
+fn is_valid_msg_negative_tests() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _manager_addr = init_manager(&mut app, &factory_addr);
+    let _agent_addr = init_agents(&mut app, &factory_addr);
+
+    // no actions
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // no gas limit for wasm action
+    let wasm_action = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "contract".to_owned(),
+            msg: to_binary("wasm message").unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![wasm_action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoGasLimit {});
+
+    // Too many coins bank transfer
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "alice".to_owned(),
+            amount: vec![coin(5, "coin1"), coin(2, "coin2"), coin(45, "coin3")],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Zero coin bank transfer
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "alice".to_owned(),
+            amount: vec![coin(0, "coin1")],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Zero coins bank transfer
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "alice".to_owned(),
+            amount: vec![],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // not supported message
+    let action = Action {
+        msg: BankMsg::Burn {
+            amount: vec![coin(10, "coin1")],
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // not supported message
+    let action = Action {
+        msg: StakingMsg::Delegate {
+            validator: "alice".to_owned(),
+            amount: coin(10, "coin1"),
+        }
+        .into(),
+        gas_limit: None,
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // too many coins transfer inside wasm action
+    let action = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "bestcontract".to_owned(),
+            msg: Default::default(),
+            funds: vec![coin(5, "coin1"), coin(2, "coin2"), coin(45, "coin3")],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // zero coins transfer inside wasm action
+    let action = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "bestcontract".to_owned(),
+            msg: Default::default(),
+            funds: vec![coin(0, "coin1")],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Zero cw20 transfer
+    let action = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "bestcontract".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "bob".to_owned(),
+                amount: Uint128::new(0),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Zero cw20 send
+    let action = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "best_contract".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "bob".to_owned(),
+                msg: Default::default(),
+                amount: Uint128::new(0),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Multiple cw20 send
+    let action1 = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "best_contract".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "bob".to_owned(),
+                msg: Default::default(),
+                amount: Uint128::new(45),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let action2 = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "best_contract2".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Send {
+                contract: "bob".to_owned(),
+                msg: Default::default(),
+                amount: Uint128::new(45),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action1, action2],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
+
+    // Multiple cw20 transfer
+    let action1 = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "best_contract".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "bob".to_owned(),
+                amount: Uint128::new(45),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let action2 = Action {
+        msg: WasmMsg::Execute {
+            contract_addr: "best_contract2".to_owned(),
+            msg: to_binary(&Cw20ExecuteMsg::Transfer {
+                recipient: "bob".to_owned(),
+                amount: Uint128::new(45),
+            })
+            .unwrap(),
+            funds: vec![],
+        }
+        .into(),
+        gas_limit: Some(150_000),
+    };
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action1, action2],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr,
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::InvalidAction {});
 }
 
 #[test]

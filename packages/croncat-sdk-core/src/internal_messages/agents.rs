@@ -1,9 +1,15 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{to_binary, Binary, CosmosMsg, StdResult, WasmMsg};
+use cosmwasm_std::{to_binary, Addr, Binary, CosmosMsg, StdResult, WasmMsg};
 
 #[cw_serde]
 pub struct AgentOnTaskCreated {
     pub task_hash: String,
+}
+
+#[cw_serde]
+pub struct AgentOnTaskCompleted {
+    pub is_block_slot_task: bool,
+    pub agent_id: Addr,
 }
 
 impl AgentOnTaskCreated {

@@ -68,8 +68,7 @@ fn assert_balancer_tasks(
         let balancer_result = task_distributor
             .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
             .unwrap()
-            .stats
-            .unwrap();
+            .stats;
         result.push((
             a.0,
             balancer_result.num_block_tasks.u64(),

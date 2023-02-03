@@ -50,10 +50,10 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         }
         if slot_items == (None, None) {
             return Ok(AgentTaskResponse {
-                stats: Some(TaskStats {
+                stats: TaskStats {
                     num_block_tasks: Uint64::zero(),
                     num_cron_tasks: Uint64::zero(),
-                }),
+                },
             });
         }
         let agent_count = active.len() as u64;
@@ -114,10 +114,10 @@ impl<'a> RoundRobinAgentTaskDistributor<'a> for AgentTaskDistributor {
         let num_cron_tasks = n;
 
         Ok(AgentTaskResponse {
-            stats: Some(TaskStats {
+            stats: TaskStats {
                 num_block_tasks,
                 num_cron_tasks,
-            }),
+            },
         })
     }
 

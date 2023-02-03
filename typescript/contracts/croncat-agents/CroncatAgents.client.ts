@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, UpdateConfig, QueryMsg, Addr, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats } from "./CroncatAgents.types";
+import { InstantiateMsg, ExecuteMsg, Addr, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
@@ -107,6 +107,13 @@ export interface CroncatAgentsInterface extends CroncatAgentsReadOnlyInterface {
   }: {
     taskHash: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  onTaskCompleted: ({
+    agentId,
+    isBlockSlotTask
+  }: {
+    agentId: Addr;
+    isBlockSlotTask: boolean;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   updateConfig: ({
     config
   }: {
@@ -129,6 +136,7 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
     this.checkInAgent = this.checkInAgent.bind(this);
     this.unregisterAgent = this.unregisterAgent.bind(this);
     this.onTaskCreated = this.onTaskCreated.bind(this);
+    this.onTaskCompleted = this.onTaskCompleted.bind(this);
     this.updateConfig = this.updateConfig.bind(this);
     this.tick = this.tick.bind(this);
   }
@@ -179,6 +187,20 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
     return await this.client.execute(this.sender, this.contractAddress, {
       on_task_created: {
         task_hash: taskHash
+      }
+    }, fee, memo, funds);
+  };
+  onTaskCompleted = async ({
+    agentId,
+    isBlockSlotTask
+  }: {
+    agentId: Addr;
+    isBlockSlotTask: boolean;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      on_task_completed: {
+        agent_id: agentId,
+        is_block_slot_task: isBlockSlotTask
       }
     }, fee, memo, funds);
   };

@@ -20,6 +20,15 @@
         "format": "uint16",
         "minimum": 0.0
       },
+      "agents_eject_threshold": {
+        "description": "How many slots an agent can miss before being removed from the active queue",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint64",
+        "minimum": 0.0
+      },
       "croncat_manager_key": {
         "description": "Name of the key for raw querying Manager address from the factory",
         "type": "array",
@@ -192,6 +201,18 @@
       {
         "type": "object",
         "required": [
+          "on_task_completed"
+        ],
+        "properties": {
+          "on_task_completed": {
+            "$ref": "#/definitions/AgentOnTaskCompleted"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
           "update_config"
         ],
         "properties": {
@@ -225,6 +246,26 @@
       }
     ],
     "definitions": {
+      "Addr": {
+        "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+        "type": "string"
+      },
+      "AgentOnTaskCompleted": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "is_block_slot_task"
+        ],
+        "properties": {
+          "agent_id": {
+            "$ref": "#/definitions/Addr"
+          },
+          "is_block_slot_task": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "AgentOnTaskCreated": {
         "type": "object",
         "required": [
@@ -663,16 +704,12 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentTaskResponse",
       "type": "object",
+      "required": [
+        "stats"
+      ],
       "properties": {
         "stats": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/TaskStats"
-            },
-            {
-              "type": "null"
-            }
-          ]
+          "$ref": "#/definitions/TaskStats"
         }
       },
       "additionalProperties": false,

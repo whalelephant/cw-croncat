@@ -343,7 +343,7 @@ pub struct SlotIdsResponse {
     pub block_ids: Vec<u64>,
 }
 
-#[derive(Debug, PartialEq)]
+#[cw_serde]
 pub enum SlotType {
     Block,
     Cron,

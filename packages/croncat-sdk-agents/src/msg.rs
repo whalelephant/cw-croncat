@@ -1,7 +1,7 @@
 use crate::types::AgentStatus;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
-use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
+use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -28,6 +28,9 @@ pub struct InstantiateMsg {
     /// The required amount needed to actually execute a few tasks before withdraw profits.
     /// This helps make sure agent wont get stuck out the gate
     pub min_coin_for_agent_registration: Option<u64>,
+
+    /// How many slots an agent can miss before being removed from the active queue
+    pub agents_eject_threshold: Option<u64>,
 }
 
 #[cw_serde]
@@ -38,6 +41,7 @@ pub enum ExecuteMsg {
     UnregisterAgent { from_behind: Option<bool> },
     //Task contract will send message when task is created
     OnTaskCreated(AgentOnTaskCreated),
+    OnTaskCompleted(AgentOnTaskCompleted),
     UpdateConfig { config: UpdateConfig },
     //Tick action will remove unactive agents periodically
     Tick {},
@@ -83,7 +87,7 @@ pub struct TaskStats {
 }
 #[cw_serde]
 pub struct AgentTaskResponse {
-    pub stats: Option<TaskStats>,
+    pub stats: TaskStats,
 }
 
 #[cw_serde]

@@ -6,6 +6,7 @@
 
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
+  agents_eject_threshold?: number | null;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
   min_coin_for_agent_registration?: number | null;
@@ -30,14 +31,21 @@ export type ExecuteMsg = {
 } | {
   on_task_created: AgentOnTaskCreated;
 } | {
+  on_task_completed: AgentOnTaskCompleted;
+} | {
   update_config: {
     config: UpdateConfig;
   };
 } | {
   tick: {};
 };
+export type Addr = string;
 export interface AgentOnTaskCreated {
   task_hash: string;
+}
+export interface AgentOnTaskCompleted {
+  agent_id: Addr;
+  is_block_slot_task: boolean;
 }
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
@@ -66,7 +74,6 @@ export type QueryMsg = {
 } | {
   config: {};
 };
-export type Addr = string;
 export interface Config {
   agent_nomination_duration: number;
   agents_eject_threshold: number;
@@ -97,7 +104,7 @@ export interface GetAgentIdsResponse {
   pending: Addr[];
 }
 export interface AgentTaskResponse {
-  stats?: TaskStats | null;
+  stats: TaskStats;
 }
 export interface TaskStats {
   num_block_tasks: Uint64;

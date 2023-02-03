@@ -1,6 +1,7 @@
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+
 use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
     types::{Config, TaskBalance, UpdateConfig},
@@ -640,8 +641,6 @@ fn withdraw_balances() {
         .unwrap();
 
     assert_eq!(err, ContractError::EmptyBalance {});
-
-    // TODO: after split tasks
 }
 
 #[test]
@@ -2501,7 +2500,7 @@ fn negative_proxy_call() {
     assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // not registered agent
-    let _err: ContractError = app
+    let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT1),
             manager_addr.clone(),
@@ -2512,7 +2511,7 @@ fn negative_proxy_call() {
         .downcast()
         .unwrap();
     // TODO: get_agent_tasks shouldn't error, but give 0 tasks instead for inactive agent
-    // assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // agent not registered before proxy call with queries
     // Creating task itself
