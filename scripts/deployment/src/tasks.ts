@@ -1,5 +1,5 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { Coin, StdFee } from "@cosmjs/stargate";
+import { Coin, StdFee, QueryClient } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
@@ -8,9 +8,11 @@ const prefix: string = process.env.PREFIX
 
 export class TaskClient {
   client: SigningCosmWasmClient;
+  querier: any;
 
-  constructor(client: SigningCosmWasmClient) {
+  constructor(client: SigningCosmWasmClient, querier?: QueryClient) {
     this.client = client;
+    this.querier = querier;
   }
 
   async deploy(artifactsRoot: string, sender: string, factoryAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
@@ -56,6 +58,13 @@ export class TaskClient {
     const address: string = instRes.logs[0].events[1].attributes[0].value
 
     return [codeId, address];
+  }
+
+  async getTasks(contractAddr: string): Promise<any> {
+    const q = { tasks: {} };
+    // const q = { tasks_with_queries: {} };
+    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    return response;
   }
 
   async create(sender: string, contractAddr: string, gas: StdFee, task: any, funds: Coin[]): Promise<ExecuteResult> {
