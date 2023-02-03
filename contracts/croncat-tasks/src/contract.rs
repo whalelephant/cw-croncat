@@ -1,16 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
-};
+use cosmwasm_std::{to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint64};
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
-use croncat_sdk_tasks::types::{
-    Config, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task, TaskInfo,
-    TaskRequest, TaskResponse,
-};
+use croncat_sdk_tasks::types::{Config, CurrentTaskInfoResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, SlotType, Task, TaskInfo, TaskRequest, TaskResponse};
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
 use cw_storage_plus::Bound;
@@ -22,10 +17,7 @@ use crate::helpers::{
     validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{
-    tasks_map, tasks_with_queries_map, BLOCK_MAP_QUERIES, BLOCK_SLOTS, CONFIG, TASKS_TOTAL,
-    TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS,
-};
+use crate::state::{tasks_map, tasks_with_queries_map, BLOCK_MAP_QUERIES, BLOCK_SLOTS, CONFIG, TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS, LAST_TASK_CREATION};
 
 const CONTRACT_NAME: &str = "crate:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -381,6 +373,7 @@ fn execute_create_task(
             SlotType::Block => BLOCK_MAP_QUERIES.save(deps.storage, hash.as_bytes(), &next_id),
             SlotType::Cron => TIME_MAP_QUERIES.save(deps.storage, hash.as_bytes(), &next_id),
         }?;
+        // Update query totals and map
         TASKS_WITH_QUERIES_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
         tasks_with_queries_map().update(deps.storage, hash.as_bytes(), |old| match old {
             Some(_) => Err(ContractError::TaskExists {}),
@@ -388,6 +381,7 @@ fn execute_create_task(
         })?;
     } else {
         let hash = hash.clone().into_bytes();
+        // Update normal task totals and map
         TASKS_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
         tasks_map().update(deps.storage, &hash, |old| match old {
             Some(_) => Err(ContractError::TaskExists {}),
@@ -415,6 +409,9 @@ fn execute_create_task(
             }
         }
     }
+
+    // Save the current timestamp as the last time a task was created
+    LAST_TASK_CREATION.save(deps.storage, &env.block.time)?;
 
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let manager_create_task_balance_msg = ManagerCreateTaskBalance {
@@ -447,8 +444,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::TasksTotal {} => to_binary(&cosmwasm_std::Uint64::from(
-            TASKS_TOTAL.load(deps.storage)? + TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
+            query_tasks_total(deps)?
         )),
+        QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
         QueryMsg::TasksWithQueriesTotal {} => to_binary(&cosmwasm_std::Uint64::from(
             TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
         )),
@@ -475,6 +473,21 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_current_task_with_queries(deps, env, task_hash)?)
         }
     }
+}
+
+fn query_tasks_total(deps: Deps) -> StdResult<u64> {
+    let total_normal: u64 = TASKS_TOTAL.load(deps.storage)?;
+    let total_queries: u64 = TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?;
+
+    // Return total of both
+    Ok(total_normal.saturating_add(total_queries))
+}
+
+fn query_current_task_info(deps: Deps, _env: Env) -> StdResult<CurrentTaskInfoResponse> {
+    Ok(CurrentTaskInfoResponse {
+        total: Uint64::from(query_tasks_total(deps).unwrap()),
+        last_created_task: LAST_TASK_CREATION.load(deps.storage)?,
+    })
 }
 
 fn query_slot_tasks_total(

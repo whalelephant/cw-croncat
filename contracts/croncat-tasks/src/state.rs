@@ -1,4 +1,4 @@
-use cosmwasm_std::Addr;
+use cosmwasm_std::{Addr, Timestamp};
 use croncat_sdk_tasks::types::{Config, Task};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
@@ -22,6 +22,9 @@ pub const TIME_MAP_QUERIES: Map<&[u8], u64> = Map::new("time_map_queries");
 
 /// Block based map by the corresponding task hash
 pub const BLOCK_MAP_QUERIES: Map<&[u8], u64> = Map::new("block_map_queries");
+
+/// Last task creation timestamp
+pub const LAST_TASK_CREATION: Item<Timestamp> = Item::new("last_task_creation");
 
 // TODO: make IndexedMap's const as soon as cw_storage_plus new version arrives
 pub fn tasks_map<'a>() -> IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>> {

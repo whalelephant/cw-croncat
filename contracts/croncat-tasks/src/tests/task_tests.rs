@@ -1,18 +1,17 @@
-use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Uint128, Uint64, WasmMsg,
-};
+use cosmwasm_std::{coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Uint128, Uint64, WasmMsg, Timestamp};
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::TaskBalance;
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
         Action, Boundary, Config, CroncatQuery, Interval, SlotTasksTotalResponse, TaskInfo,
-        TaskRequest, TaskResponse, Transform,
+        TaskRequest, TaskResponse, Transform, CurrentTaskInfoResponse
     },
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{BankSudo, Executor};
 use cw_storage_plus::KeyDeserialize;
+use crate::tests::common::add_seconds_to_block;
 
 use super::{
     contracts,
@@ -441,6 +440,92 @@ fn create_task_without_query() {
         vec![coin(30000 + 60000, DENOM), coin(10, "test_coins")]
     );
     assert_eq!(tasks_balance, vec![]);
+}
+
+#[test]
+fn check_task_timestamp() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    let action1 = Action {
+        msg: BankMsg::Send {
+            to_address: "Bob".to_owned(),
+            amount: coins(5, DENOM),
+        }
+          .into(),
+        gas_limit: Some(50_000),
+    };
+
+    let action2 = Action {
+        msg: BankMsg::Send {
+            to_address: "Alice".to_owned(),
+            amount: coins(10, DENOM),
+        }
+          .into(),
+        gas_limit: Some(100_000),
+    };
+
+    let mut task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![action1.clone(), action2.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app
+      .execute_contract(
+          Addr::unchecked(ANYONE),
+          tasks_addr.clone(),
+          &ExecuteMsg::CreateTask {
+              task: Box::new(task.clone()),
+          },
+          &coins(30000, DENOM),
+      ).expect("Couldn't create first task");
+
+    // Check latest timestamp
+    let mut latest_timestamp: CurrentTaskInfoResponse = app
+      .wrap()
+      .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTaskInfo {})
+      .unwrap();
+    let mut expected = CurrentTaskInfoResponse {
+        total: Uint64::one(),
+        last_created_task: Timestamp::from_nanos(1571797419879305533),
+    };
+    assert_eq!(latest_timestamp, expected);
+    app.update_block(|block| add_seconds_to_block(block, 666));
+
+    // Another task
+    task.boundary = None; // Change a detail to avoid task hash collision
+
+    app.execute_contract(
+          Addr::unchecked(ANYONE),
+          tasks_addr.clone(),
+          &ExecuteMsg::CreateTask {
+              task: Box::new(task),
+          },
+          &coins(30000, DENOM),
+      )
+      .expect("Couldn't create second task");
+    latest_timestamp = app
+      .wrap()
+      .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTaskInfo {})
+      .unwrap();
+    expected.last_created_task = Timestamp::from_nanos(1571798085879305533);
+    expected.total = Uint64::new(2u64);
+    assert_eq!(latest_timestamp, expected);
+
+    // Note: At the time of this writing, we've discussed at length whether removal of a task should change the latest task creation time. We've decided it's not needed for the beta release.
+    // Tracked here: https://github.com/CronCats/cw-croncat/issues/319
 }
 
 #[test]
