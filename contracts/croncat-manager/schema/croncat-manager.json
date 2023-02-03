@@ -54,6 +54,16 @@
         "maxItems": 2,
         "minItems": 2
       },
+      "cw20_whitelist": {
+        "description": "List of whitelisted cw20s",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
       "denom": {
         "description": "The native denominator of current chain",
         "type": "string"
@@ -255,20 +265,6 @@
                 "minimum": 0.0
               }
             },
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      },
-      {
-        "description": "Kick inactive agents",
-        "type": "object",
-        "required": [
-          "tick"
-        ],
-        "properties": {
-          "tick": {
-            "type": "object",
             "additionalProperties": false
           }
         },
@@ -586,6 +582,16 @@
             ],
             "maxItems": 2,
             "minItems": 2
+          },
+          "cw20_whitelist": {
+            "description": "Add supported cw20s That's seems unfair to undo support of cw20's after user already created a task with it",
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
           "gas_price": {
             "anyOf": [
