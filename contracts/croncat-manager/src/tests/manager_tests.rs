@@ -4,7 +4,7 @@ use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 
 use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
-    types::{Config, UpdateConfig},
+    types::{Config, TaskBalance, UpdateConfig},
 };
 use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
@@ -2800,7 +2800,7 @@ fn test_withdraw_agent_success() {
         )
         .unwrap();
 
-    // Get info abount the task
+    // Get task info
     let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
     let task_response: TaskResponse = app
         .wrap()
@@ -3068,4 +3068,890 @@ fn test_withdraw_agent_success() {
             .unwrap()
         )
     );
+}
+
+#[test]
+fn refill_task_balance_fail() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    // RefillTaskBalance with wrong hash
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: "hash".to_owned(),
+            },
+            &coins(100_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoTaskHash {});
+
+    // Create a task
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task.clone()),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    app.update_block(add_little_time);
+
+    // RefillTaskBalance called by the wrong address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT2),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(100_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // RefillTaskBalance with 3 coins
+    let attach_funds = vec![coin(100_000, "ujuno"), coin(100_000, "ibc")];
+    app.sudo(
+        BankSudo::Mint {
+            to_address: PARTICIPANT0.to_owned(),
+            amount: attach_funds,
+        }
+        .into(),
+    )
+    .unwrap();
+    let mut participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[
+            coin(4_400_000, DENOM),
+            coin(100_000, "ibc"),
+            coin(100_000, "ujuno")
+        ]
+    );
+
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &[
+                coin(100_000, DENOM),
+                coin(10_000, "ujuno".to_owned()),
+                coin(10_000, "ibc".to_owned()),
+            ],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::TooManyCoins {});
+
+    // RefillTaskBalance with wrong denom, task doesn't have ibc coins
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(10_000, "ibc".to_owned()),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::TooManyCoins {});
+
+    // Get task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TaskBalance { task_hash })
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 600_000u64.into(),
+            cw20_balance: None,
+            ibc_balance: None
+        }
+    );
+
+    // Check that PARTICIPANT0 balance didn't change
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[
+            coin(4_400_000, DENOM),
+            coin(100_000, "ibc"),
+            coin(100_000, "ujuno")
+        ]
+    );
+
+    // Create task with ibc balance
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &[coin(600_000, DENOM), coin(50_000, "ibc")],
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Check PARTICIPANT0 balance
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[
+            coin(3_800_000, DENOM),
+            coin(50_000, "ibc"),
+            coin(100_000, "ujuno")
+        ]
+    );
+
+    // RefillTaskBalance with wrong denom, task has ibc coins
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(10_000, "ujuno".to_owned()),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::TooManyCoins {});
+
+    // Pause
+    let update_cfg_msg = UpdateConfig {
+        owner_addr: None,
+        paused: Some(true),
+        agent_fee: None,
+        treasury_fee: None,
+        gas_price: None,
+        croncat_tasks_key: None,
+        croncat_agents_key: None,
+        treasury_addr: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+        &[],
+    )
+    .unwrap();
+
+    // RefillTaskBalance when contract is paused
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT2),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(100_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+
+    // Check task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(manager_addr, &QueryMsg::TaskBalance { task_hash })
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 600_000u64.into(),
+            cw20_balance: None,
+            ibc_balance: Some(coin(50_000, "ibc".to_owned()))
+        }
+    );
+
+    // Check that PARTICIPANT0 balance didn't change
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[
+            coin(3_800_000, DENOM),
+            coin(50_000, "ibc"),
+            coin(100_000, "ujuno")
+        ]
+    );
+}
+
+#[test]
+fn refill_task_balance_success() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    // Create task with ibc balance
+    let attach_funds = vec![coin(100_000, "ibc")];
+    app.sudo(
+        BankSudo::Mint {
+            to_address: PARTICIPANT0.to_owned(),
+            amount: attach_funds,
+        }
+        .into(),
+    )
+    .unwrap();
+    let mut participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[coin(5_000_000, DENOM), coin(100_000, "ibc")]
+    );
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &[coin(600_000, DENOM), coin(50_000, "ibc")],
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // PARTICIPANT0 balances
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[coin(4_400_000, DENOM), coin(50_000, "ibc")]
+    );
+
+    app.update_block(add_little_time);
+
+    // RefillTaskBalance with native coins
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(100_000, DENOM),
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "refill_native_balance")
+    }));
+
+    // Check task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::TaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 700_000u64.into(),
+            cw20_balance: None,
+            ibc_balance: Some(coin(50_000, "ibc".to_owned()))
+        }
+    );
+
+    // Check PARTICIPANT0 balances
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[coin(4_300_000, DENOM), coin(50_000, "ibc")]
+    );
+
+    // RefillTaskBalance with ibc coins
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskBalance {
+                task_hash: task_hash.to_owned(),
+            },
+            &coins(30_000, "ibc"),
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "refill_native_balance")
+    }));
+
+    // Check task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(manager_addr, &QueryMsg::TaskBalance { task_hash })
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 700_000u64.into(),
+            cw20_balance: None,
+            ibc_balance: Some(coin(80_000, "ibc".to_owned()))
+        }
+    );
+
+    // Check PARTICIPANT0 balances
+    participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
+    assert_eq!(
+        participant_balances,
+        &[coin(4_300_000, DENOM), coin(20_000, "ibc")]
+    );
+}
+
+#[test]
+fn refill_task_cw20_fail() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    let cw20_addr = init_cw20(&mut app);
+
+    let cw20 = Cw20Coin {
+        address: cw20_addr.to_string(),
+        amount: 100u64.into(),
+    };
+
+    // RefillTaskCw20Balance with wrong hash
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: "hash".to_owned(),
+                cw20: cw20.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoTaskHash {});
+
+    // Create a task
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    app.update_block(add_little_time);
+
+    // RefillTaskCw20Balance with funds
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20: cw20.clone(),
+            },
+            &coins(100_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::RedundantFunds {});
+
+    // RefillTaskCw20Balance called by the wrong address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT2),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20: cw20.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // RefillTaskBalance fails because PARTICIPANT0 doesn't have cw20 deposit
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20: cw20.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::EmptyBalance {});
+
+    // PARTICIPANT0 deposits some cw20 coins
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(555),
+            msg: to_binary(&ReceiveMsg::RefillTempBalance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+    let mut wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(555),
+        }]
+    );
+
+    // RefillTaskCw20Balance fails because the task balance doesn't have cw20
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20: cw20.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::TooManyCoins {});
+
+    // Get task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TaskBalance { task_hash })
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 600_000u64.into(),
+            cw20_balance: None,
+            ibc_balance: None
+        }
+    );
+
+    // PARTICIPANT0 cw20 deposit didn't change
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(555),
+        }]
+    );
+
+    // Create a task with cw20
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: Some(cw20.clone()),
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // PARTICIPANT0 spent 100 coins
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(455),
+        }]
+    );
+
+    app.update_block(add_little_time);
+
+    // Try RefillTaskCw20Balance with wrong cw20 address
+    let new_cw20_addr = init_cw20(&mut app);
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        new_cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(555),
+            msg: to_binary(&ReceiveMsg::RefillTempBalance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Check PARTICIPANT0 cw20 deposit on manager contract
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![
+            Cw20CoinVerified {
+                address: cw20_addr.to_owned(),
+                amount: Uint128::new(455),
+            },
+            Cw20CoinVerified {
+                address: new_cw20_addr.to_owned(),
+                amount: Uint128::new(555),
+            }
+        ]
+    );
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20: Cw20Coin {
+                    address: new_cw20_addr.to_string(),
+                    amount: 1u64.into(),
+                },
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::TooManyCoins {});
+
+    // Pause
+    let update_cfg_msg = UpdateConfig {
+        owner_addr: None,
+        paused: Some(true),
+        agent_fee: None,
+        treasury_fee: None,
+        gas_price: None,
+        croncat_tasks_key: None,
+        croncat_agents_key: None,
+        treasury_addr: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.clone(),
+        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+        &[],
+    )
+    .unwrap();
+
+    // RefillTaskBalance when contract is paused
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+
+    // Get task balance
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.to_owned(),
+            &QueryMsg::TaskBalance { task_hash },
+        )
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 600_000u64.into(),
+            cw20_balance: Some(Cw20CoinVerified {
+                address: cw20_addr.to_owned(),
+                amount: 100u64.into()
+            }),
+            ibc_balance: None
+        }
+    );
+
+    // Check that PARTICIPANT0 cw20 balance didn't change
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![
+            Cw20CoinVerified {
+                address: cw20_addr,
+                amount: Uint128::new(455),
+            },
+            Cw20CoinVerified {
+                address: new_cw20_addr,
+                amount: Uint128::new(555),
+            }
+        ]
+    );
+}
+
+#[test]
+fn refill_task_cw20_success() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let _agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    let cw20_addr = init_cw20(&mut app);
+
+    let cw20 = Cw20Coin {
+        address: cw20_addr.to_string(),
+        amount: 100u64.into(),
+    };
+
+    // PARTICIPANT0 deposits some cw20 coins
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        cw20_addr.clone(),
+        &cw20::Cw20ExecuteMsg::Send {
+            contract: manager_addr.to_string(),
+            amount: Uint128::new(555),
+            msg: to_binary(&ReceiveMsg::RefillTempBalance {}).unwrap(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Check the deposit
+    let mut wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(555),
+        }]
+    );
+
+    // Create a task with cw20
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: Some(cw20.clone()),
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // PARTICIPANT0 spent 455 coins
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(455),
+        }]
+    );
+
+    app.update_block(add_little_time);
+
+    // Refill task balance
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            manager_addr.clone(),
+            &ExecuteMsg::RefillTaskCw20Balance {
+                task_hash: task_hash.to_owned(),
+                cw20,
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Get task balance, cw20_balance increased
+    let task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.to_owned(),
+            &QueryMsg::TaskBalance { task_hash },
+        )
+        .unwrap();
+    assert_eq!(
+        task_balance.unwrap(),
+        TaskBalance {
+            native_balance: 600_000u64.into(),
+            cw20_balance: Some(Cw20CoinVerified {
+                address: cw20_addr.clone(),
+                amount: 200u64.into()
+            }),
+            ibc_balance: None
+        }
+    );
+
+    // PARTICIPANT0 balance decreased
+    wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
+    assert_eq!(
+        wallet_balances,
+        vec![Cw20CoinVerified {
+            address: cw20_addr.to_owned(),
+            amount: Uint128::new(355),
+        }]
+    );
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "refill_task_cw20")
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes.iter().any(|attr| {
+            attr.key == "cw20_refilled"
+                && attr.value
+                    == Cw20CoinVerified {
+                        address: cw20_addr.clone(),
+                        amount: 100u64.into(),
+                    }
+                    .to_string()
+        })
+    }));
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes.iter().any(|attr| {
+            attr.key == "task_cw20_balance"
+                && attr.value
+                    == Cw20CoinVerified {
+                        address: cw20_addr.clone(),
+                        amount: 200u64.into(),
+                    }
+                    .to_string()
+        })
+    }));
 }

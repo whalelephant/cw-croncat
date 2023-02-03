@@ -6,8 +6,8 @@ use croncat_sdk_manager::types::TaskBalance;
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, Config, CroncatQuery, Interval, SlotTasksTotalResponse, TaskInfo,
-        TaskRequest, TaskResponse, Transform,
+        Action, Boundary, Config, CroncatQuery, Interval, SlotHashesResponse,
+        SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
@@ -676,7 +676,188 @@ fn create_tasks_with_queries_and_transforms() {
 }
 
 #[test]
-fn remove_tasks() {
+fn remove_tasks_fail() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Try RemoveTask with wrong hash
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: "hash".to_string(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoTaskFound {});
+
+    // Create two tasks, one with queries, another without queries
+    // With query:
+    let task_with_query = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                contract_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+                check_result: true,
+            },
+            CroncatQuery {
+                contract_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+                check_result: true,
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_with_query),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Without queries
+    let task_without_query = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_without_query),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Another user tries to remove the task
+    // With queries:
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_with_queries.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Without queries
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_without_queries.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: Some(true),
+            owner_addr: None,
+            croncat_factory_addr: None,
+            croncat_manager_key: None,
+            croncat_agents_key: None,
+            slot_granularity_time: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
+            gas_query_fee: None,
+            gas_limit: None,
+        }),
+        &[],
+    )
+    .unwrap();
+
+    // With queries:
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_with_queries,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+
+    // Without queries
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr,
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_without_queries,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+}
+
+#[test]
+fn remove_tasks_with_queries_success() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
@@ -855,15 +1036,23 @@ fn remove_tasks() {
     );
 
     // remove block task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        tasks_addr.clone(),
-        &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_block_with_queries.clone(),
-        },
-        &[],
-    )
-    .unwrap();
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_block_with_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
 
     let task_response: TaskResponse = app
         .wrap()
@@ -897,15 +1086,23 @@ fn remove_tasks() {
     assert!(manager_task_balance.is_none());
 
     // remove cron task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        tasks_addr.clone(),
-        &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_cron_with_queries.clone(),
-        },
-        &[],
-    )
-    .unwrap();
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_cron_with_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
 
     let task_response: TaskResponse = app
         .wrap()
@@ -933,6 +1130,207 @@ fn remove_tasks() {
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
                 task_hash: task_hash_cron_with_queries,
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // Check all balances moved from manager contract
+    let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
+    assert!(manager_balance.is_empty());
+}
+
+#[test]
+fn remove_tasks_without_queries_success() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Create one block and one cron without queries and then remove one by one
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_block_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Time {
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(1000)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_cron_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    // remove block task
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
+
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Task {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task_response.task.is_none());
+
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_without_queries,
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // remove cron task
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
+
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &QueryMsg::Task {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task_response.task.is_none());
+
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_without_queries,
             },
         )
         .unwrap();
@@ -1024,10 +1422,9 @@ fn negative_create_task() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
-    let _manager_addr = init_manager(&mut app, &factory_addr);
-    let _agent_addr = init_agents(&mut app, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
 
-    // invalid interval
     let action = Action {
         msg: BankMsg::Send {
             to_address: "Bob".to_owned(),
@@ -1042,9 +1439,9 @@ fn negative_create_task() {
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
-        queries: None,
         transforms: None,
         cw20: None,
+        queries: None,
     };
     let err: ContractError = app
         .execute_contract(
@@ -1904,4 +2301,483 @@ fn is_valid_msg_negative_tests() {
         .unwrap();
 
     assert_eq!(err, ContractError::InvalidAction {});
+}
+
+#[test]
+fn query_slot_hashes_test() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Test SlotHashes without tasks
+    let hashes: SlotHashesResponse = app
+        .wrap()
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::SlotHashes { slot: None })
+        .unwrap();
+    assert_eq!(
+        hashes,
+        SlotHashesResponse {
+            block_id: 0,
+            block_task_hash: vec![],
+            time_id: 0,
+            time_task_hash: vec![]
+        }
+    );
+
+    let hashes: SlotHashesResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotHashes { slot: Some(12350) },
+        )
+        .unwrap();
+    assert_eq!(
+        hashes,
+        SlotHashesResponse {
+            block_id: 0,
+            block_task_hash: vec![],
+            time_id: 0,
+            time_task_hash: vec![]
+        }
+    );
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Alice".to_owned(),
+            amount: coins(10, DENOM),
+        }
+        .into(),
+        gas_limit: Some(100_000),
+    };
+    let current_block: Uint64 = app.block_info().height.into(); // 12_345
+
+    // Create several tasks
+    let task1 = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task1),
+            },
+            &coins(30000, DENOM),
+        )
+        .unwrap();
+    let block_task_hash1 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let task2 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task2),
+            },
+            &coins(53000, DENOM),
+        )
+        .unwrap();
+    let block_task_hash2 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let task3 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block.saturating_add(5u64.into())),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task3),
+            },
+            &coins(53000, DENOM),
+        )
+        .unwrap();
+    let block_task_hash3 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let task4 = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task4),
+            },
+            &coins(53000, DENOM),
+        )
+        .unwrap();
+    let block_task_hash4 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let task5 = TaskRequest {
+        interval: Interval::Cron("* * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task5),
+            },
+            &coins(53000, DENOM),
+        )
+        .unwrap();
+    let time_task_hash1 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let task6 = TaskRequest {
+        interval: Interval::Cron("0 * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task6),
+            },
+            &coins(53000, DENOM),
+        )
+        .unwrap();
+    let time_task_hash2 = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let hashes: SlotHashesResponse = app
+        .wrap()
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::SlotHashes { slot: None })
+        .unwrap();
+    assert_eq!(
+        hashes,
+        SlotHashesResponse {
+            block_id: current_block.u64() + 1,
+            block_task_hash: vec![block_task_hash1, block_task_hash2],
+            time_id: 1_571_797_420_000_000_000,
+            time_task_hash: vec![time_task_hash1]
+        }
+    );
+
+    let hashes: SlotHashesResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotHashes {
+                slot: Some(current_block.u64() + 5),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        hashes,
+        SlotHashesResponse {
+            block_id: current_block.u64() + 5,
+            block_task_hash: vec![block_task_hash3, block_task_hash4],
+            time_id: 0,
+            time_task_hash: vec![]
+        }
+    );
+
+    // Current time is 1_571_797_419_879_305_533
+    // Take the earliest timestamp with 00 seconds in it
+    let hashes: SlotHashesResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &QueryMsg::SlotHashes {
+                slot: Some(1_571_797_440_000_000_000),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        hashes,
+        SlotHashesResponse {
+            block_id: 0,
+            block_task_hash: vec![],
+            time_id: 1_571_797_440_000_000_000,
+            time_task_hash: vec![time_task_hash2]
+        }
+    );
+}
+
+#[test]
+fn query_slot_tasks_total_test() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Test SlotTasksTotal without tasks
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: None },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(5) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Alice".to_owned(),
+            amount: coins(10, DENOM),
+        }
+        .into(),
+        gas_limit: Some(100_000),
+    };
+    let current_block: Uint64 = app.block_info().height.into(); // 12_345
+
+    // Create several tasks
+    let task1 = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task1),
+        },
+        &coins(30000, DENOM),
+    )
+    .unwrap();
+
+    let task2 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task2),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    let task3 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block.saturating_add(5u64.into())),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task3),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    let task4 = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task4),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    // Cron task
+    // Scheduled for 1_571_797_420_000_000_000
+    let task5 = TaskRequest {
+        interval: Interval::Cron("* * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task5),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    // Takes block 12345 and timestamp 1571797410000000000
+    // No task scheduled for these slots
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: None },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    // Takes block 12346 and timestamp 1571797420000000000
+    // Tasks 1, 2 (block) and 5(time) are scheduled
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(1) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 2,
+            cron_tasks: 1
+        }
+    );
+
+    // Takes block 12350 and timestamp 1571797460000000000
+    // Tasks 3 and 4 (block) are scheduled
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(5) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 2,
+            cron_tasks: 0
+        }
+    );
+
+    // Add 5 blocks
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(tasks_addr, &QueryMsg::SlotTasksTotal { offset: None })
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 4,
+            cron_tasks: 1
+        }
+    );
 }
