@@ -2313,7 +2313,7 @@ fn query_slot_hashes_test() {
     let _ = init_manager(&mut app, &factory_addr);
     let _ = init_agents(&mut app, &factory_addr);
 
-    // Test SlotHashesResponse without tasks
+    // Test SlotHashes without tasks
     let hashes: SlotHashesResponse = app
         .wrap()
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::SlotHashes { slot: None })
@@ -2503,7 +2503,7 @@ fn query_slot_hashes_test() {
         SlotHashesResponse {
             block_id: current_block.u64() + 1,
             block_task_hash: vec![block_task_hash1, block_task_hash2],
-            time_id: 1571797420000000000,
+            time_id: 1_571_797_420_000_000_000,
             time_task_hash: vec![time_task_hash1]
         }
     );
@@ -2546,6 +2546,238 @@ fn query_slot_hashes_test() {
             block_task_hash: vec![],
             time_id: 1_571_797_440_000_000_000,
             time_task_hash: vec![time_task_hash2]
+        }
+    );
+}
+
+#[test]
+fn query_slot_tasks_total_test() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Test SlotTasksTotal without tasks
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: None },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(5) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    let action = Action {
+        msg: BankMsg::Send {
+            to_address: "Alice".to_owned(),
+            amount: coins(10, DENOM),
+        }
+        .into(),
+        gas_limit: Some(100_000),
+    };
+    let current_block: Uint64 = app.block_info().height.into(); // 12_345
+
+    // Create several tasks
+    let task1 = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task1),
+        },
+        &coins(30000, DENOM),
+    )
+    .unwrap();
+
+    let task2 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task2),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    let task3 = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: Some(Boundary::Height {
+            start: Some(current_block.saturating_add(5u64.into())),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task3),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    let task4 = TaskRequest {
+        interval: Interval::Block(5),
+        boundary: Some(Boundary::Height {
+            start: Some(current_block),
+            end: None,
+        }),
+        stop_on_fail: false,
+        actions: vec![action.clone()],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task4),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    // Cron task
+    // Scheduled for 1_571_797_420_000_000_000
+    let task5 = TaskRequest {
+        interval: Interval::Cron("* * * * * *".to_string()),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![action],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::CreateTask {
+            task: Box::new(task5),
+        },
+        &coins(53000, DENOM),
+    )
+    .unwrap();
+
+    // Takes block 12345 and timestamp 1571797410000000000
+    // No task scheduled for these slots
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: None },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 0,
+            cron_tasks: 0
+        }
+    );
+
+    // Takes block 12346 and timestamp 1571797420000000000
+    // Tasks 1, 2 (block) and 5(time) are scheduled
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(1) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 2,
+            cron_tasks: 1
+        }
+    );
+
+    // Takes block 12350 and timestamp 1571797460000000000
+    // Tasks 3 and 4 (block) are scheduled
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(5) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 2,
+            cron_tasks: 0
+        }
+    );
+
+    // Add 5 blocks
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(tasks_addr, &QueryMsg::SlotTasksTotal { offset: None })
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 4,
+            cron_tasks: 1
         }
     );
 }
