@@ -98,6 +98,9 @@ pub fn execute_receive_cw20(
 
     let sender = deps.api.addr_validate(&wrapper.sender)?;
     let coin_addr = info.sender;
+    if !config.cw20_whitelist.contains(&coin_addr) {
+        return Err(ContractError::NotSupportedCw20 {});
+    }
 
     let cw20_verified = Cw20CoinVerified {
         address: coin_addr,

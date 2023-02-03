@@ -59,4 +59,7 @@ pub enum ContractError {
 
     #[error("Task queries is not ready yet")]
     TaskNotReady {},
+
+    #[error("This cw20 address is not supported")]
+    NotSupportedCw20 {},
 }

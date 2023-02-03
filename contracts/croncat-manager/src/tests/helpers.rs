@@ -1,11 +1,11 @@
 use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
-use croncat_sdk_manager::types::Config;
+use croncat_sdk_manager::types::{Config, UpdateConfig};
 
 use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 
-use crate::msg::{InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use super::{
     contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
@@ -316,6 +316,7 @@ pub(crate) fn default_instantiate_message() -> InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
         gas_price: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     }
 }
 
@@ -351,6 +352,26 @@ pub(crate) fn query_users_manager(
 pub(crate) fn add_little_time(block: &mut BlockInfo) {
     block.time = block.time.plus_seconds(40);
     block.height += 1;
+}
+
+pub(crate) fn support_new_cw20(app: &mut App, manager_addr: &Addr, new_cw20_addr: &str) {
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        manager_addr.to_owned(),
+        &ExecuteMsg::UpdateConfig(Box::new(UpdateConfig {
+            owner_addr: None,
+            paused: None,
+            agent_fee: None,
+            treasury_fee: None,
+            gas_price: None,
+            croncat_tasks_key: None,
+            croncat_agents_key: None,
+            treasury_addr: None,
+            cw20_whitelist: Some(vec![new_cw20_addr.to_owned()]),
+        })),
+        &[],
+    )
+    .unwrap();
 }
 
 // Useful for debugging in case task got suddenly stuck

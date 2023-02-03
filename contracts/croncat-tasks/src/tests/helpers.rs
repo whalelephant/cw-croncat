@@ -96,6 +96,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
         owner_addr: Some(ADMIN.to_owned()),
         gas_price: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,

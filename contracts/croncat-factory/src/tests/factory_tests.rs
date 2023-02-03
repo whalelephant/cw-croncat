@@ -7,7 +7,7 @@ use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::Executor;
 
 use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, DENOM};
-use crate::{msg::*, ContractError};
+use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
 fn successful_inits() {
@@ -125,6 +125,7 @@ fn deploy_check() {
                 gas_adjustment_numerator: 30,
             }),
             treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT0.to_owned()]),
         })
         .unwrap(),
         contract_name: "manager".to_owned(),
@@ -338,6 +339,7 @@ fn failure_deploy() {
                 gas_adjustment_numerator: 30,
             }),
             treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT0.to_owned()]),
         })
         .unwrap(),
         contract_name: "manager".to_owned(),
@@ -622,6 +624,7 @@ fn remove_paused_checks() {
         owner_addr: Some(ADMIN.to_owned()),
         gas_price: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
     // Deploy first version of the contract
     let manager_contract_instantiate_info = ModuleInstantiateInfo {
@@ -711,6 +714,7 @@ fn remove_paused_checks() {
                 croncat_tasks_key: None,
                 croncat_agents_key: None,
                 treasury_addr: None,
+                cw20_whitelist: None,
             },
         )),
         &[],
@@ -922,6 +926,7 @@ fn fail_and_success_proxy() {
                 gas_adjustment_numerator: 30,
             }),
             treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT0.to_owned()]),
         })
         .unwrap(),
         contract_name: "manager".to_owned(),
@@ -962,6 +967,7 @@ fn fail_and_success_proxy() {
                     croncat_tasks_key: None,
                     croncat_agents_key: None,
                     treasury_addr: None,
+                    cw20_whitelist: None,
                 }),
             ))
             .unwrap(),
@@ -992,6 +998,7 @@ fn fail_and_success_proxy() {
                     croncat_tasks_key: None,
                     croncat_agents_key: None,
                     treasury_addr: None,
+                    cw20_whitelist: None,
                 }),
             ))
             .unwrap(),

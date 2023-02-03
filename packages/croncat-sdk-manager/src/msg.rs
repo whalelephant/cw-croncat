@@ -24,6 +24,9 @@ pub struct ManagerInstantiateMsg {
     /// Contract's treasury.
     /// Fees from tasks will go to this address, if set or to the owner address otherwise
     pub treasury_addr: Option<String>,
+
+    /// List of whitelisted cw20s
+    pub cw20_whitelist: Option<Vec<String>>,
 }
 
 #[cw_serde]

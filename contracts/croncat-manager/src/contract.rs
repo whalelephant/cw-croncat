@@ -60,6 +60,7 @@ pub fn instantiate(
         owner_addr,
         gas_price,
         treasury_addr,
+        cw20_whitelist,
     } = msg;
 
     let gas_price = gas_price.unwrap_or_default();
@@ -81,6 +82,12 @@ pub fn instantiate(
         TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
     }
 
+    let cw20_whitelist = cw20_whitelist
+        .unwrap_or_default()
+        .into_iter()
+        .map(|human| deps.api.addr_validate(&human))
+        .collect::<StdResult<_>>()?;
+
     let config = Config {
         paused: false,
         owner_addr,
@@ -90,7 +97,7 @@ pub fn instantiate(
         agent_fee: DEFAULT_FEE,
         treasury_fee: DEFAULT_FEE,
         gas_price,
-        cw20_whitelist: vec![],
+        cw20_whitelist,
         native_denom: denom,
         limit: 100,
         treasury_addr: treasury_addr
@@ -333,7 +340,7 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |config| {
+    let new_config = CONFIG.update(deps.storage, |mut config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
@@ -344,6 +351,7 @@ pub fn execute_update_config(
             croncat_tasks_key,
             croncat_agents_key,
             treasury_addr,
+            cw20_whitelist,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -364,6 +372,14 @@ pub fn execute_update_config(
         } else {
             config.treasury_addr
         };
+
+        let cw20_whitelist: Vec<Addr> = cw20_whitelist
+            .unwrap_or_default()
+            .into_iter()
+            .map(|human| deps.api.addr_validate(&human))
+            .collect::<StdResult<_>>()?;
+
+        config.cw20_whitelist.extend(cw20_whitelist);
 
         let new_config = Config {
             paused: paused.unwrap_or(config.paused),

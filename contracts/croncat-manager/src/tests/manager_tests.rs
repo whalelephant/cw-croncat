@@ -16,7 +16,7 @@ use crate::{
     tests::{
         helpers::{
             default_app, default_instantiate_message, init_manager, init_mod_balances,
-            query_manager_config,
+            query_manager_config, support_new_cw20,
         },
         helpers::{init_factory, query_manager_balances},
         ADMIN, AGENT1, AGENT2, ANYONE, DENOM, PARTICIPANT2,
@@ -38,6 +38,8 @@ use super::{
 };
 
 mod instantiate_tests {
+    use crate::tests::PARTICIPANT3;
+
     use super::*;
 
     #[test]
@@ -84,6 +86,7 @@ mod instantiate_tests {
                 gas_adjustment_numerator: 30,
             }),
             treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT3.to_owned()]),
         };
         let attach_funds = vec![
             coin(5000, "denom"),
@@ -116,7 +119,7 @@ mod instantiate_tests {
                 denominator: 20,
                 gas_adjustment_numerator: 30,
             },
-            cw20_whitelist: vec![],
+            cw20_whitelist: vec![Addr::unchecked(PARTICIPANT3)],
             native_denom: "cron".to_owned(),
             limit: 100,
             treasury_addr: Some(Addr::unchecked(AGENT2)),
@@ -214,6 +217,7 @@ fn update_config() {
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
+        cw20_whitelist: Some(vec!["randomcw20".to_owned()]),
     };
 
     app.execute_contract(
@@ -237,7 +241,7 @@ fn update_config() {
             denominator: 666,
             gas_adjustment_numerator: 777,
         },
-        cw20_whitelist: vec![],
+        cw20_whitelist: vec![Addr::unchecked("randomcw20")],
         native_denom: DENOM.to_owned(),
         limit: 100,
         treasury_addr: Some(Addr::unchecked(ANYONE)),
@@ -254,6 +258,7 @@ fn update_config() {
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
 
     app.execute_contract(
@@ -299,6 +304,7 @@ fn invalid_updates_config() {
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
+        cw20_whitelist: Some(vec!["randomcw20".to_owned()]),
     };
     let err: ContractError = app
         .execute_contract(
@@ -327,6 +333,7 @@ fn invalid_updates_config() {
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
+        cw20_whitelist: Some(vec!["randomcw20".to_owned()]),
     };
     let err: ContractError = app
         .execute_contract(
@@ -354,6 +361,7 @@ fn invalid_updates_config() {
         croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
         croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
         treasury_addr: Some(ANYONE.to_owned()),
+        cw20_whitelist: Some(vec!["randomcw20".to_owned()]),
     };
     let err: ContractError = app
         .execute_contract(
@@ -382,6 +390,23 @@ fn cw20_receive() {
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
 
     let cw20_addr = init_cw20(&mut app);
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            cw20_addr.clone(),
+            &cw20::Cw20ExecuteMsg::Send {
+                contract: manager_addr.to_string(),
+                amount: Uint128::new(555),
+                msg: to_binary(&ReceiveMsg::RefillTempBalance {}).unwrap(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NotSupportedCw20 {});
+
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -415,6 +440,7 @@ fn cw20_bad_messages() {
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
@@ -474,6 +500,7 @@ fn users_withdraws() {
 
     // refill balances
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -537,6 +564,7 @@ fn failed_users_withdraws() {
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
 
     // try to withdraw empty balances
     let err: ContractError = app
@@ -602,6 +630,8 @@ fn withdraw_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr,
@@ -663,6 +693,7 @@ fn failed_move_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr,
@@ -1391,6 +1422,7 @@ fn cw20_action_transfer() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     // Refill balance
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         cw20_addr.clone(),
@@ -2471,6 +2503,7 @@ fn negative_proxy_call() {
     let mod_balances = init_mod_balances(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
+    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
 
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
@@ -2737,6 +2770,7 @@ fn test_withdraw_agent_fail() {
         croncat_tasks_key: None,
         croncat_agents_key: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
 
     app.execute_contract(
