@@ -82,10 +82,10 @@ pub enum ManagerQueryMsg {
         limit: Option<u64>,
     },
     /// Get task balance
-    #[returns(Option<crate::types::TaskBalance>)]
+    #[returns(crate::types::TaskBalanceResponse)]
     TaskBalance { task_hash: String },
 
-    #[returns(Option<cosmwasm_std::Uint128>)]
+    #[returns(cosmwasm_std::Uint128)]
     AgentRewards { agent_id: String },
 }
 

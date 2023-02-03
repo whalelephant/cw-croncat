@@ -6,8 +6,8 @@ use cosmwasm_std::{
     Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
-    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataResponse, EntryResponse,
-    ModuleInstantiateInfo, VersionKind,
+    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataInfo, ContractMetadataResponse,
+    EntryResponse, ModuleInstantiateInfo, VersionKind,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
@@ -295,7 +295,7 @@ fn query_all_entries(
     let mut entries = Vec::with_capacity(metadatas.len());
     for ((contract_name, version), metadata) in metadatas {
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
-        let metadata_response = ContractMetadataResponse {
+        let metadata_response = ContractMetadataInfo {
             kind: metadata.kind,
             code_id: metadata.code_id,
             contract_addr,
@@ -334,7 +334,7 @@ fn query_versions_by_contract_name(
     contract_name: String,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<Vec<ContractMetadataResponse>> {
+) -> StdResult<Vec<ContractMetadataInfo>> {
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
     let metadatas: Vec<(Vec<u8>, ContractMetadata)> = CONTRACT_METADATAS
@@ -347,7 +347,7 @@ fn query_versions_by_contract_name(
     let mut versions = Vec::with_capacity(metadatas.len());
     for (version, metadata) in metadatas {
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
-        let metadata_response = ContractMetadataResponse {
+        let metadata_response = ContractMetadataInfo {
             kind: metadata.kind,
             code_id: metadata.code_id,
             contract_addr,
@@ -370,7 +370,7 @@ pub fn query_latest_contracts(deps: Deps) -> StdResult<Vec<EntryResponse>> {
     for (contract_name, version) in latest_versions {
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
         let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &version))?;
-        let metadata_response = ContractMetadataResponse {
+        let metadata_response = ContractMetadataInfo {
             kind: metadata.kind,
             code_id: metadata.code_id,
             contract_addr,
@@ -392,13 +392,13 @@ pub fn query_latest_contracts(deps: Deps) -> StdResult<Vec<EntryResponse>> {
 pub fn query_latest_contract(
     deps: Deps,
     contract_name: String,
-) -> StdResult<Option<ContractMetadataResponse>> {
+) -> StdResult<ContractMetadataResponse> {
     let latest_contract_version = LATEST_VERSIONS.may_load(deps.storage, &contract_name)?;
     latest_contract_version
         .map(|version| -> StdResult<_> {
             let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
             let metadata = CONTRACT_METADATAS.load(deps.storage, (&contract_name, &version))?;
-            Ok(ContractMetadataResponse {
+            Ok(ContractMetadataInfo {
                 kind: metadata.kind,
                 code_id: metadata.code_id,
                 contract_addr,
@@ -410,6 +410,7 @@ pub fn query_latest_contract(
             })
         })
         .transpose()
+        .map(|op| ContractMetadataResponse { metadata: op })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

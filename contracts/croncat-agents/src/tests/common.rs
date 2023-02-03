@@ -1,7 +1,7 @@
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
-    DEFAULT_NOMINATION_DURATION,
+    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+    DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_DURATION,
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
@@ -145,7 +145,7 @@ pub(crate) fn init_croncat_manager_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -154,7 +154,7 @@ pub(crate) fn init_croncat_manager_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 pub(crate) fn croncat_tasks_contract() -> Box<dyn Contract<Empty>> {
@@ -208,7 +208,7 @@ pub(crate) fn init_croncat_tasks_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -217,7 +217,7 @@ pub(crate) fn init_croncat_tasks_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
@@ -253,6 +253,7 @@ pub(crate) fn init_agents_contract(
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
@@ -275,7 +276,7 @@ pub(crate) fn init_agents_contract(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -284,7 +285,7 @@ pub(crate) fn init_agents_contract(
             },
         )
         .unwrap();
-    (code_id, metadata.unwrap().contract_addr)
+    (code_id, metadata.metadata.unwrap().contract_addr)
 }
 
 //Factory

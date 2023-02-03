@@ -56,6 +56,7 @@ optimize:
 		--platform linux/amd64 \
 		cosmwasm/workspace-optimizer:0.12.11
 
+
 gen-schema:
 	./scripts/schema.sh
 

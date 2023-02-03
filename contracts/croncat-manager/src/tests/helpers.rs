@@ -1,6 +1,7 @@
 use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::types::Config;
+
 use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 
@@ -83,7 +84,7 @@ pub(crate) fn init_manager(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -92,7 +93,7 @@ pub(crate) fn init_manager(
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -130,7 +131,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -139,7 +140,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -152,6 +153,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
+        agents_eject_threshold: None,
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
@@ -174,7 +176,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -183,7 +185,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -212,7 +214,7 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -221,7 +223,7 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 #[allow(unused)]
@@ -251,7 +253,7 @@ pub(crate) fn init_mod_generic(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -260,7 +262,7 @@ pub(crate) fn init_mod_generic(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 // Note: gonna work only with first agent, other have to get nominated

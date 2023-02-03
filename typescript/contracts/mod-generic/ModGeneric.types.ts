@@ -4,7 +4,9 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-export interface InstantiateMsg {}
+export interface InstantiateMsg {
+  version?: string | null;
+}
 export type ExecuteMsg = string;
 export type QueryMsg = {
   generic_query: GenericQuery;

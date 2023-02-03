@@ -79,6 +79,12 @@ export class ManagerClient {
 		return response;
 	}
 
+	async agentWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+		const msg = { withdraw_agent_rewards: null };
+		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		return response;
+	}
+
 	async refillTaskBalance(sender: string, contractAddr: string, gas: StdFee, task_hash: any, funds: string): Promise<ExecuteResult> {
 		const msg = { refill_task_balance: { task_hash } };
 		const response = await this.client.execute(sender, contractAddr, msg, gas, funds);
