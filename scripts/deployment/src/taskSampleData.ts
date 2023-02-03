@@ -33,6 +33,17 @@ const to_binary = (v: any) => Buffer.from(JSON.stringify(v)).toString('base64')
 //   "transforms": null
 // }
 
+// Not valid itself, but easy to swap for real data
+export const baseTask = {
+  "actions": [],
+  "boundary": null,
+  "cw20": null,
+  "interval": "Once",
+  "stop_on_fail": true,
+  "queries": null,
+  "transforms": null,
+}
+
 
 export const intervals = [
   'once',
@@ -47,8 +58,10 @@ export const intervals = [
 
 // TODO: Compute "now" before assigning the values here
 const nanos = 1_000_000
-const minute = 60
+const minute = 60 * 1000
+const fiveminute = 5 * 60 * 1000
 export const boundaries = (currentHeight: number) => [
+  null,
   {
     height: {
       start: null,
@@ -57,20 +70,20 @@ export const boundaries = (currentHeight: number) => [
   },
   {
     height: {
-      start: currentHeight,
+      start: `${currentHeight}`,
       end: null,
     }
   },
   {
     height: {
-      start: currentHeight,
-      end: currentHeight + 100,
+      start: `${currentHeight}`,
+      end: `${currentHeight + 100}`,
     }
   },
   {
     height: {
       start: null,
-      end: currentHeight + 100,
+      end: `${currentHeight + 100}`,
     }
   },
   {
@@ -81,20 +94,20 @@ export const boundaries = (currentHeight: number) => [
   },
   {
     time: {
-      start: +new Date() * nanos,
+      start: `${+new Date() * nanos}`,
       end: null,
     }
   },
   {
     time: {
-      start: +new Date() * nanos,
-      end: (+new Date() + minute) * nanos,
+      start: `${+new Date() * nanos}`,
+      end: `${(+new Date() + fiveminute) * nanos}`,
     }
   },
   {
     time: {
       start: null,
-      end: (+new Date() + minute) * nanos,
+      end: `${(+new Date() + fiveminute) * nanos}`,
     }
   },
 ]
@@ -102,11 +115,10 @@ export const boundaries = (currentHeight: number) => [
 export const actions = (options: any) => [
   {
     "msg": {
-      "wasm": {
-        "execute": {
-          "contract_addr": options.contract_addr,
-          "msg": Buffer.from(JSON.stringify({ "tick": {} })).toString('base64'),
-          "funds": []
+      "bank": {
+        "send": {
+          "to_address": options.address,
+          "amount": coins(options.amount, options.denom)
         }
       }
     },
@@ -114,10 +126,11 @@ export const actions = (options: any) => [
   },
   {
     "msg": {
-      "bank": {
-        "send": {
-          "to_address": options.contract_addr,
-          "amount": coins(options.amount, options.denom)
+      "wasm": {
+        "execute": {
+          "contract_addr": options.contract_addr,
+          "msg": to_binary({ "tick": {} }),
+          "funds": []
         }
       }
     },
@@ -333,3 +346,36 @@ export const transforms = [
 
 // TODO:
 // Generate a large set of tasks
+
+// options = { currentHeight, address, amount, denom }
+export const getIntervalTasks = (options: any) => {
+  const intervalTasks = []
+  const action = actions(options)[0]
+  intervals.forEach((int: any) => {
+    boundaries(options.currentHeight).forEach((bnd: any) => {
+      const task = {
+        ...baseTask,
+        interval: int,
+        boundary: bnd,
+        actions: [action],
+      }
+      // if ((int.block && bnd && !bnd.time) && (int.cron && bnd && !bnd.height)) {
+      if (int.block && bnd && !bnd.time) {
+        intervalTasks.push(task)
+      }
+      if (int.cron && bnd && !bnd.height) {
+        intervalTasks.push(task)
+      }
+    })
+  })
+  return intervalTasks
+}
+
+
+export const tasks: any = (options: any) => ({
+  intervalTasks: getIntervalTasks(options),
+})
+
+export const allTasks = (options: any) => [
+  getIntervalTasks(options),
+]

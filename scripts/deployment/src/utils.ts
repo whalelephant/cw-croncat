@@ -32,3 +32,17 @@ export const getGitHash = () => {
     })
   })
 }
+
+export const getTaskHashFromLogs = (data: any) => {
+  let task_hash
+
+  data.events.forEach(e => {
+    if (e.type === 'wasm') {
+      e.attributes.forEach(a => {
+        if (a.key === 'task_hash') task_hash = a.value
+      })
+    }
+  })
+
+  return task_hash
+}

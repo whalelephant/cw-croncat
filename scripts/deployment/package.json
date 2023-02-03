@@ -9,6 +9,7 @@
     "start": "node build/index.js",
     "go": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/index.js",
     "e2e": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2e.js",
+    "e2eTasks": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2eTasks.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
