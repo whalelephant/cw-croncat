@@ -480,7 +480,7 @@ fn check_task_timestamp() {
             end: Some((app.block_info().height + 10).into()),
         }),
         stop_on_fail: false,
-        actions: vec![action1.clone(), action2.clone()],
+        actions: vec![action1, action2],
         queries: None,
         transforms: None,
         cw20: None,
@@ -521,7 +521,7 @@ fn check_task_timestamp() {
     .expect("Couldn't create second task");
     latest_timestamp = app
         .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::CurrentTaskInfo {})
+        .query_wasm_smart(tasks_addr, &QueryMsg::CurrentTaskInfo {})
         .unwrap();
     expected.last_created_task = Timestamp::from_nanos(1571798085879305533);
     expected.total = Uint64::new(2u64);
