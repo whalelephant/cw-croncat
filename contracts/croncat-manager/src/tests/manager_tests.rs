@@ -778,7 +778,7 @@ fn simple_bank_transfers_block() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -791,7 +791,7 @@ fn simple_bank_transfers_block() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -921,7 +921,7 @@ fn simple_bank_transfers_block() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -934,7 +934,7 @@ fn simple_bank_transfers_block() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1056,7 +1056,7 @@ fn simple_bank_transfers_cron() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1069,7 +1069,7 @@ fn simple_bank_transfers_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1204,7 +1204,7 @@ fn simple_bank_transfers_cron() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1217,7 +1217,7 @@ fn simple_bank_transfers_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1356,7 +1356,7 @@ fn multi_coin_bank_transfers() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1369,7 +1369,7 @@ fn multi_coin_bank_transfers() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1575,7 +1575,7 @@ fn cw20_action_transfer() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1588,7 +1588,7 @@ fn cw20_action_transfer() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1724,7 +1724,7 @@ fn task_with_query() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1737,7 +1737,7 @@ fn task_with_query() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1854,7 +1854,7 @@ fn task_with_query() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1867,7 +1867,7 @@ fn task_with_query() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1998,7 +1998,7 @@ fn recurring_task_block() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2011,7 +2011,7 @@ fn recurring_task_block() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128 * 2;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -2145,7 +2145,7 @@ fn recurring_task_block() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2158,7 +2158,7 @@ fn recurring_task_block() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128 * 2;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -2289,7 +2289,7 @@ fn recurring_task_cron() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2302,7 +2302,7 @@ fn recurring_task_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128 * 2;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -2436,7 +2436,7 @@ fn recurring_task_cron() {
     );
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2449,7 +2449,7 @@ fn recurring_task_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128 * 2;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -2823,7 +2823,7 @@ fn test_withdraw_agent_success() {
     .unwrap();
 
     // Check agent reward
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2836,7 +2836,7 @@ fn test_withdraw_agent_success() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     let agent_balance_before_withdraw = app.wrap().query_balance(AGENT0, DENOM).unwrap().amount;
 
@@ -2855,7 +2855,7 @@ fn test_withdraw_agent_success() {
     // Check agent balance
     assert_eq!(
         agent_balance_before_withdraw
-            .checked_add(agent_reward.unwrap())
+            .checked_add(agent_reward)
             .unwrap(),
         agent_balance_after_withdraw
     );
@@ -2874,7 +2874,7 @@ fn test_withdraw_agent_success() {
     assert!(res.events.iter().any(|ev| {
         ev.attributes
             .iter()
-            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.unwrap().to_string())
+            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.to_string())
     }));
     // Check data
     assert_eq!(
@@ -2882,7 +2882,7 @@ fn test_withdraw_agent_success() {
         Some(
             to_binary(&WithdrawRewardsCallback {
                 agent_id: AGENT0.to_string(),
-                rewards: agent_reward.unwrap(),
+                rewards: agent_reward,
                 payable_account_id: AGENT0.to_string(),
             })
             .unwrap()
@@ -2890,7 +2890,7 @@ fn test_withdraw_agent_success() {
     );
 
     // Agent balance in manager contract is zero after withdraw
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2899,7 +2899,7 @@ fn test_withdraw_agent_success() {
             },
         )
         .unwrap();
-    assert_eq!(agent_reward, Some(Uint128::zero()));
+    assert_eq!(agent_reward, Uint128::zero());
 
     // Do the same again to check WithdrawAgentRewards with args (when agent contract calls withdraw)
 
@@ -2927,7 +2927,7 @@ fn test_withdraw_agent_success() {
 
     // Check agent reward
     // Don't calculate prices again, task is the same
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -2936,7 +2936,7 @@ fn test_withdraw_agent_success() {
             },
         )
         .unwrap();
-    assert_eq!(agent_reward, Some(expected_agent_reward.into()));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
 
     // Agent contract calls withdraw for this agent
     let payable_account_balance_before_withdraw = app
@@ -2964,7 +2964,7 @@ fn test_withdraw_agent_success() {
     // Check payable_account balance
     assert_eq!(
         payable_account_balance_before_withdraw
-            .checked_add(agent_reward.unwrap())
+            .checked_add(agent_reward)
             .unwrap(),
         payable_account_balance_after_withdraw
     );
@@ -2983,7 +2983,7 @@ fn test_withdraw_agent_success() {
     assert!(res.events.iter().any(|ev| {
         ev.attributes
             .iter()
-            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.unwrap().to_string())
+            .any(|attr| attr.key == "rewards" && attr.value == agent_reward.to_string())
     }));
     // Check data
     assert_eq!(
@@ -2991,7 +2991,7 @@ fn test_withdraw_agent_success() {
         Some(
             to_binary(&WithdrawRewardsCallback {
                 agent_id: AGENT0.to_string(),
-                rewards: agent_reward.unwrap(),
+                rewards: agent_reward,
                 payable_account_id: PARTICIPANT2.to_string(),
             })
             .unwrap()
@@ -2999,7 +2999,7 @@ fn test_withdraw_agent_success() {
     );
 
     // Agent balance in manager contract is zero after withdraw
-    let agent_reward: Option<Uint128> = app
+    let agent_reward: Uint128 = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -3008,7 +3008,7 @@ fn test_withdraw_agent_success() {
             },
         )
         .unwrap();
-    assert_eq!(agent_reward, Some(Uint128::zero()));
+    assert_eq!(agent_reward, Uint128::zero());
 
     // Agent contract can call WithdrawAgentRewards even if the reward is zero
     let payable_account_balance_before_withdraw = app

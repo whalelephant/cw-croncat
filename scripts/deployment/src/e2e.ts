@@ -23,7 +23,7 @@ const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
 // Gas vals
-const executeGas = calculateFee(555_000, defaultGasPrice)
+const executeGas = calculateFee(999_000, defaultGasPrice)
 
 const start = async () => {
 	console.info(`🏖️ Starting End 2 End Chex 🌋`)

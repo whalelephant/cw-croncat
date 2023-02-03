@@ -2,7 +2,7 @@ use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Uint128, Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
-use croncat_sdk_manager::types::TaskBalance;
+use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
@@ -237,7 +237,7 @@ fn create_task_without_query() {
     assert_eq!(total_tasks, Uint64::new(1));
 
     // check it created balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -245,7 +245,7 @@ fn create_task_without_query() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(30000),
             cw20_balance: None,
@@ -418,7 +418,7 @@ fn create_task_without_query() {
         .unwrap();
     assert_eq!(current_slot.task, expected_block_task_response.task);
 
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -426,7 +426,7 @@ fn create_task_without_query() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(60000),
             cw20_balance: None,
@@ -495,7 +495,7 @@ fn create_task_with_wasm() {
     assert_eq!(total_tasks, Uint64::new(1));
 
     // check it created balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr,
@@ -503,7 +503,7 @@ fn create_task_with_wasm() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(30000),
             cw20_balance: None,
@@ -636,7 +636,7 @@ fn create_tasks_with_queries_and_transforms() {
     assert_eq!(total_with_q, 1);
 
     // check it created balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -644,7 +644,7 @@ fn create_tasks_with_queries_and_transforms() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(50000),
             cw20_balance: None,
@@ -932,7 +932,7 @@ fn remove_tasks_with_queries_success() {
         .is_none());
 
     // check it created balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -942,7 +942,7 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(50000),
             cw20_balance: None,
@@ -1017,7 +1017,7 @@ fn remove_tasks_with_queries_success() {
         .is_none());
 
     // check it created balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1027,7 +1027,7 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     assert_eq!(
-        manager_task_balance,
+        manager_task_balance.balance,
         Some(TaskBalance {
             native_balance: Uint128::new(50000),
             cw20_balance: None,
@@ -1074,7 +1074,7 @@ fn remove_tasks_with_queries_success() {
         .unwrap()
         .is_none());
     // check it removed balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1083,7 +1083,7 @@ fn remove_tasks_with_queries_success() {
             },
         )
         .unwrap();
-    assert!(manager_task_balance.is_none());
+    assert!(manager_task_balance.balance.is_none());
 
     // remove cron task
     let res = app
@@ -1124,7 +1124,7 @@ fn remove_tasks_with_queries_success() {
         .unwrap()
         .is_none());
     // check it removed balance on the manager contract
-    let manager_task_balance: Option<TaskBalance> = app
+    let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -1133,7 +1133,7 @@ fn remove_tasks_with_queries_success() {
             },
         )
         .unwrap();
-    assert!(manager_task_balance.is_none());
+    assert!(manager_task_balance.balance.is_none());
 
     // Check all balances moved from manager contract
     let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
