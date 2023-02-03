@@ -12,7 +12,7 @@ Agents contract queries:
 
 Agents contract actions:
 
-| Query      | Description |
+| Execute      | Description |
 | ----------- | ----------- |
 | RegisterAgent      | Action registers new agent      |
 | UpdateAgent   | Action for updating agents        |

@@ -12,6 +12,7 @@
     ],
     "properties": {
       "agent_nomination_duration": {
+        "description": "Sets the amount of time opportunity for a pending agent to become active. If there is a pending queue, the longer a pending agent waits, the more pending agents can potentially become active based on this nomination window. This duration doesn't block the already nominated agent from becoming active, it only opens the door for more to become active. If a pending agent is nominated, then is lazy and beat by another agent, they get removed from pending queue and must register again.",
         "type": [
           "integer",
           "null"
@@ -20,6 +21,7 @@
         "minimum": 0.0
       },
       "agents_eject_threshold": {
+        "description": "How many slots an agent can miss before being removed from the active queue",
         "type": [
           "integer",
           "null"
@@ -28,6 +30,7 @@
         "minimum": 0.0
       },
       "croncat_manager_key": {
+        "description": "Name of the key for raw querying Manager address from the factory",
         "type": "array",
         "items": [
           {
@@ -48,6 +51,7 @@
         "minItems": 2
       },
       "croncat_tasks_key": {
+        "description": "Name of the key for raw querying Tasks address from the factory",
         "type": "array",
         "items": [
           {
@@ -68,6 +72,7 @@
         "minItems": 2
       },
       "min_coin_for_agent_registration": {
+        "description": "The required amount needed to actually execute a few tasks before withdraw profits. This helps make sure agent wont get stuck out the gate",
         "type": [
           "integer",
           "null"
@@ -76,6 +81,7 @@
         "minimum": 0.0
       },
       "min_tasks_per_agent": {
+        "description": "The ratio used to calculate active agents/tasks. Example: \"3\", requires there are 4 tasks before letting in another agent to become active. (3 tasks for agent 1, 1 task for agent 2)",
         "type": [
           "integer",
           "null"
@@ -84,12 +90,14 @@
         "minimum": 0.0
       },
       "owner_addr": {
+        "description": "Address of the contract owner, defaults to the sender",
         "type": [
           "string",
           "null"
         ]
       },
       "version": {
+        "description": "CW2 Version provided by factory",
         "type": [
           "string",
           "null"
@@ -101,8 +109,10 @@
   "execute": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "ExecuteMsg",
+    "description": "Execute messages for agent contract",
     "oneOf": [
       {
+        "description": "Action registers new agent",
         "type": "object",
         "required": [
           "register_agent"
@@ -124,6 +134,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action for updating agents",
         "type": "object",
         "required": [
           "update_agent"
@@ -145,6 +156,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action moves agent from pending to active list",
         "type": "object",
         "required": [
           "check_in_agent"
@@ -158,6 +170,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Actions for removing agent from the system",
         "type": "object",
         "required": [
           "unregister_agent"
@@ -179,6 +192,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Task contract will send message when task is created",
         "type": "object",
         "required": [
           "on_task_created"
@@ -191,6 +205,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Task contract will send message when task is completed",
         "type": "object",
         "required": [
           "on_task_completed"
@@ -203,6 +218,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action for updating agent contract configuration",
         "type": "object",
         "required": [
           "update_config"
@@ -224,6 +240,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Tick action will remove unactive agents periodically or do and any other internal cron tasks",
         "type": "object",
         "required": [
           "tick"
@@ -271,9 +288,11 @@
         "additionalProperties": false
       },
       "UpdateConfig": {
+        "description": "Updatable agents contract configuration",
         "type": "object",
         "properties": {
           "agent_nomination_duration": {
+            "description": "Duration to be passed before next agent nomination",
             "type": [
               "integer",
               "null"
@@ -282,6 +301,7 @@
             "minimum": 0.0
           },
           "agents_eject_threshold": {
+            "description": "How many slots an agent can miss before being removed from the active queue",
             "type": [
               "integer",
               "null"
@@ -290,12 +310,14 @@
             "minimum": 0.0
           },
           "croncat_factory_addr": {
+            "description": "Address of the factory contract",
             "type": [
               "string",
               "null"
             ]
           },
           "croncat_manager_key": {
+            "description": "Name of the key for raw querying Manager address from the factory",
             "type": [
               "array",
               "null"
@@ -319,6 +341,7 @@
             "minItems": 2
           },
           "croncat_tasks_key": {
+            "description": "Name of the key for raw querying Tasks address from the factory",
             "type": [
               "array",
               "null"
@@ -342,6 +365,7 @@
             "minItems": 2
           },
           "min_coins_for_agent_registration": {
+            "description": "Minimum funds to be attached for agent registration",
             "type": [
               "integer",
               "null"
@@ -350,6 +374,7 @@
             "minimum": 0.0
           },
           "min_tasks_per_agent": {
+            "description": "Minimum tasks count to be reached by agent before next agent nomination",
             "type": [
               "integer",
               "null"
@@ -358,12 +383,14 @@
             "minimum": 0.0
           },
           "owner_addr": {
+            "description": "Contract owner address",
             "type": [
               "string",
               "null"
             ]
           },
           "paused": {
+            "description": "Contract paused state, if contract is paused some action will not be available for execution",
             "type": [
               "boolean",
               "null"
@@ -377,8 +404,10 @@
   "query": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "QueryMsg",
+    "description": "Agent request response",
     "oneOf": [
       {
+        "description": "Get an agent by specified account_id, returns AgentInfo if found",
         "type": "object",
         "required": [
           "get_agent"
@@ -400,6 +429,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the id list of agents, pagination is supported",
         "type": "object",
         "required": [
           "get_agent_ids"
@@ -431,6 +461,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the specified agent tasks",
         "type": "object",
         "required": [
           "get_agent_tasks"
@@ -452,6 +483,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the agent contract configuration",
         "type": "object",
         "required": [
           "config"
@@ -584,9 +616,11 @@
     "get_agent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentResponse",
+      "description": "Agent response containing agent information",
       "type": "object",
       "properties": {
         "agent": {
+          "description": "Agent data",
           "anyOf": [
             {
               "$ref": "#/definitions/AgentInfo"
@@ -604,6 +638,7 @@
           "type": "string"
         },
         "AgentInfo": {
+          "description": "Agent data",
           "type": "object",
           "required": [
             "balance",
@@ -614,21 +649,42 @@
           ],
           "properties": {
             "balance": {
-              "$ref": "#/definitions/Uint128"
+              "description": "Agent balance",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                }
+              ]
             },
             "last_executed_slot": {
+              "description": "Last executed slot number",
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
             },
             "payable_account_id": {
-              "$ref": "#/definitions/Addr"
+              "description": "Account where agent will move all his rewards",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Addr"
+                }
+              ]
             },
             "register_start": {
-              "$ref": "#/definitions/Timestamp"
+              "description": "Registration time",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                }
+              ]
             },
             "status": {
-              "$ref": "#/definitions/AgentStatus"
+              "description": "Agent status",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AgentStatus"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -662,6 +718,7 @@
     "get_agent_ids": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "GetAgentIdsResponse",
+      "description": "Reponse containing active/pending agents",
       "type": "object",
       "required": [
         "active",
@@ -669,12 +726,14 @@
       ],
       "properties": {
         "active": {
+          "description": "Active agent list",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Addr"
           }
         },
         "pending": {
+          "description": "Pending agent list",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Addr"
@@ -692,18 +751,25 @@
     "get_agent_tasks": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentTaskResponse",
+      "description": "Agent task response for getting stats and task information",
       "type": "object",
       "required": [
         "stats"
       ],
       "properties": {
         "stats": {
-          "$ref": "#/definitions/TaskStats"
+          "description": "Agent tasks statistic information",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TaskStats"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "definitions": {
         "TaskStats": {
+          "description": "Agent statistics data",
           "type": "object",
           "required": [
             "num_block_tasks",
@@ -711,10 +777,20 @@
           ],
           "properties": {
             "num_block_tasks": {
-              "$ref": "#/definitions/Uint64"
+              "description": "Total block tasks for specified agent",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                }
+              ]
             },
             "num_cron_tasks": {
-              "$ref": "#/definitions/Uint64"
+              "description": "Total cron tasks for specified agent",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                }
+              ]
             }
           },
           "additionalProperties": false
