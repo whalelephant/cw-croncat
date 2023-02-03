@@ -1,7 +1,7 @@
+mod common;
 mod contracts;
 mod helpers;
 mod task_tests;
-mod common;
 
 pub const DENOM: &str = "atom";
 
