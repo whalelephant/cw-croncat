@@ -2510,7 +2510,6 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    // TODO: get_agent_tasks shouldn't error, but give 0 tasks instead for inactive agent
     assert_eq!(err, ContractError::NoTaskForAgent {});
 
     // agent not registered before proxy call with queries

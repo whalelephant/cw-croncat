@@ -53,8 +53,6 @@ pub enum ManagerExecuteMsg {
         // In case user somehow manages to have too many coins we don't want them to get locked funds
         limit: Option<u64>,
     },
-    /// Kick inactive agents
-    Tick {},
 
     /// Create task's balance, called by the tasks contract
     CreateTaskBalance(ManagerCreateTaskBalance),

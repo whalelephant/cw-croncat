@@ -48,7 +48,6 @@ pub enum FactoryExecuteMsg {
         msg: WasmMsg,
     },
 }
-// TODO: migrate
 
 #[cw_serde]
 #[derive(QueryResponses)]

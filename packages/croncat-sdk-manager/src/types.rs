@@ -192,7 +192,7 @@ pub struct Config {
 
     // Treasury
     pub treasury_addr: Option<Addr>,
-    pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
+    pub cw20_whitelist: Vec<Addr>,
     pub native_denom: String,
 
     // The default query limit

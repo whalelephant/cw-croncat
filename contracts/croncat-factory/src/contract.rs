@@ -48,7 +48,6 @@ fn init_save_metadata_generate_wasm_msg(
     )?;
     LATEST_VERSIONS.save(storage, &init_info.contract_name, &init_info.version)?;
 
-    // TODO: Once cosmwasm 1.2 is available, change to Instantiate2 https://github.com/CosmWasm/cosmwasm/blob/main/packages/std/src/results/cosmos_msg.rs#L169
     let msg = WasmMsg::Instantiate {
         admin: Some(factory.to_owned()),
         code_id: init_info.code_id,
