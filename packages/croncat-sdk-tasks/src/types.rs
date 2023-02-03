@@ -115,7 +115,7 @@ impl Interval {
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
+            Interval::Block(block) => get_next_block_by_offset(env.block.height, boundary, *block),
         }
     }
 
@@ -374,6 +374,7 @@ fn get_next_block_limited(env: &Env, boundary: &BoundaryValidated) -> (u64, Slot
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) if next_block_height > end => (end, SlotType::Block),
+
         // immediate needs to return this block + 1
         _ => (next_block_height + 1, SlotType::Block),
     }
@@ -382,12 +383,12 @@ fn get_next_block_limited(env: &Env, boundary: &BoundaryValidated) -> (u64, Slot
 /// Either:
 /// - Boundary specifies a start/end that block offsets can be computed from
 /// - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(
-    env: &Env,
+pub(crate) fn get_next_block_by_offset(
+    block_height: u64,
     boundary: &BoundaryValidated,
     block: u64,
 ) -> (u64, SlotType) {
-    let current_block_height = env.block.height;
+    let current_block_height = block_height;
     let modulo_block = if block > 0 {
         current_block_height.saturating_sub(current_block_height % block) + block
     } else {
@@ -411,12 +412,17 @@ fn get_next_block_by_offset(
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) => {
-            // Already checked the case block == 0
-            let rem = end.checked_rem(block).unwrap();
-            let end_height = end.saturating_sub(rem);
-            (end_height, SlotType::Block)
+            let end_height = if let Some(rem) = end.checked_rem(block) {
+                end.saturating_sub(rem)
+            } else {
+                end
+            };
+            // we ONLY want to catch if we're passed the end block height
+            (
+                std::cmp::min(next_block_height, end_height),
+                SlotType::Block,
+            )
         }
-
         None => (next_block_height, SlotType::Block),
     }
 }
@@ -802,7 +808,7 @@ mod test {
                     end: Some(12545),
                     is_block_boundary: true,
                 },
-                12500,
+                12400,
                 SlotType::Block,
             ),
             (
