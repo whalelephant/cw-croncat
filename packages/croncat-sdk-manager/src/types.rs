@@ -196,7 +196,7 @@ pub struct Config {
 
     // Treasury
     pub treasury_addr: Option<Addr>,
-    pub cw20_whitelist: Vec<Addr>, // TODO: Consider fee structure for whitelisted CW20s
+    pub cw20_whitelist: Vec<Addr>,
     pub native_denom: String,
 
     // The default query limit
@@ -213,6 +213,9 @@ pub struct UpdateConfig {
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
     pub treasury_addr: Option<String>,
+    /// Add supported cw20s
+    /// That's seems unfair to undo support of cw20's after user already created a task with it
+    pub cw20_whitelist: Option<Vec<String>>,
 }
 
 #[cfg(test)]

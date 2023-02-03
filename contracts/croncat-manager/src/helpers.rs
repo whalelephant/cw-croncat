@@ -311,16 +311,10 @@ pub(crate) fn finalize_task(
             task_hash: queue_item.task.task_hash.into_bytes(),
         }
         .into_cosmos_msg(tasks_addr)?;
-        let res = Response::new().add_message(msg);
-        // Zero transfer will fail tx
-        if !coins_transfer.is_empty() {
-            Ok(res.add_message(BankMsg::Send {
-                to_address: queue_item.task.owner_addr.into_string(),
-                amount: coins_transfer,
-            }))
-        } else {
-            Ok(res)
-        }
+        Ok(Response::new().add_message(msg).add_message(BankMsg::Send {
+            to_address: queue_item.task.owner_addr.into_string(),
+            amount: coins_transfer,
+        }))
     } else {
         let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
         TASKS_BALANCES.save(
@@ -422,7 +416,7 @@ pub(crate) fn check_for_self_calls(
             return Err(ContractError::TaskNoLongerValid {});
         } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
             // Check if it's tick
-            if !matches!(msg, croncat_sdk_manager::msg::ManagerExecuteMsg::Tick {}) {
+            if !matches!(msg, croncat_sdk_agents::msg::ExecuteMsg::Tick {}) {
                 return Err(ContractError::TaskNoLongerValid {});
             }
             // Other messages not allowed

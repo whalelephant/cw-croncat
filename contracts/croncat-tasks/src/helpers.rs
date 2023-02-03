@@ -75,7 +75,7 @@ pub(crate) fn check_for_self_calls(
             return Err(ContractError::InvalidAction {});
         } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
             // Check if it's tick
-            if !matches!(msg, croncat_sdk_manager::msg::ManagerExecuteMsg::Tick {}) {
+            if !matches!(msg, croncat_sdk_agents::msg::ExecuteMsg::Tick {}) {
                 return Err(ContractError::InvalidAction {});
             }
             // Other messages not allowed
@@ -169,6 +169,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     return Err(ContractError::InvalidAction {});
                 }
                 for coin in amount {
+                    // Zero coins will fail the transaction
                     if coin.amount.is_zero() || !amount_for_one_task.add_coin(coin.clone())? {
                         return Err(ContractError::InvalidAction {});
                     }

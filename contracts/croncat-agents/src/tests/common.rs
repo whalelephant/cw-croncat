@@ -123,6 +123,7 @@ pub(crate) fn init_croncat_manager_contract(
         owner_addr: Some(owner.unwrap_or_else(|| ADMIN.to_string())),
         gas_price: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
