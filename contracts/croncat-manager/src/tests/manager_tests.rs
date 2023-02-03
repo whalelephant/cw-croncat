@@ -4,7 +4,7 @@ use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
 
 use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
-    types::{Config, TaskBalance, UpdateConfig},
+    types::{Config, TaskBalance, UpdateConfig, TaskBalanceResponse},
 };
 use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
@@ -3195,12 +3195,12 @@ fn refill_task_balance_fail() {
     assert_eq!(err, ContractError::TooManyCoins {});
 
     // Get task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TaskBalance { task_hash })
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 600_000u64.into(),
             cw20_balance: None,
@@ -3294,12 +3294,12 @@ fn refill_task_balance_fail() {
     assert_eq!(err, ContractError::Paused {});
 
     // Check task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TaskBalance { task_hash })
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 600_000u64.into(),
             cw20_balance: None,
@@ -3402,7 +3402,7 @@ fn refill_task_balance_success() {
     }));
 
     // Check task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
@@ -3412,7 +3412,7 @@ fn refill_task_balance_success() {
         )
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 700_000u64.into(),
             cw20_balance: None,
@@ -3447,12 +3447,12 @@ fn refill_task_balance_success() {
     }));
 
     // Check task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TaskBalance { task_hash })
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 700_000u64.into(),
             cw20_balance: None,
@@ -3618,12 +3618,12 @@ fn refill_task_cw20_fail() {
     assert_eq!(err, ContractError::TooManyCoins {});
 
     // Get task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TaskBalance { task_hash })
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 600_000u64.into(),
             cw20_balance: None,
@@ -3766,7 +3766,7 @@ fn refill_task_cw20_fail() {
     assert_eq!(err, ContractError::Paused {});
 
     // Get task balance
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.to_owned(),
@@ -3774,7 +3774,7 @@ fn refill_task_cw20_fail() {
         )
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 600_000u64.into(),
             cw20_balance: Some(Cw20CoinVerified {
@@ -3897,7 +3897,7 @@ fn refill_task_cw20_success() {
         .unwrap();
 
     // Get task balance, cw20_balance increased
-    let task_balance: Option<TaskBalance> = app
+    let task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.to_owned(),
@@ -3905,7 +3905,7 @@ fn refill_task_cw20_success() {
         )
         .unwrap();
     assert_eq!(
-        task_balance.unwrap(),
+        task_balance.balance.unwrap(),
         TaskBalance {
             native_balance: 600_000u64.into(),
             cw20_balance: Some(Cw20CoinVerified {
