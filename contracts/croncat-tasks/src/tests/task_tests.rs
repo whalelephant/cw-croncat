@@ -675,7 +675,188 @@ fn create_tasks_with_queries_and_transforms() {
 }
 
 #[test]
-fn remove_tasks() {
+fn remove_tasks_fail() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let _ = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Try RemoveTask with wrong hash
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: "hash".to_string(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::NoTaskFound {});
+
+    // Create two tasks, one with queries, another without queries
+    // With query:
+    let task_with_query = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                contract_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+                check_result: true,
+            },
+            CroncatQuery {
+                contract_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+                check_result: true,
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_with_query),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Without queries
+    let task_without_query = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_without_query),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // Another user tries to remove the task
+    // With queries:
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_with_queries.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Without queries
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_without_queries.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+            paused: Some(true),
+            owner_addr: None,
+            croncat_factory_addr: None,
+            croncat_manager_key: None,
+            croncat_agents_key: None,
+            slot_granularity_time: None,
+            gas_base_fee: None,
+            gas_action_fee: None,
+            gas_query_fee: None,
+            gas_limit: None,
+        }),
+        &[],
+    )
+    .unwrap();
+
+    // With queries:
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_with_queries,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+
+    // Without queries
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr,
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_without_queries,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Paused {});
+}
+
+#[test]
+fn remove_tasks_with_queries_success() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
@@ -854,15 +1035,23 @@ fn remove_tasks() {
     );
 
     // remove block task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        tasks_addr.clone(),
-        &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_block_with_queries.clone(),
-        },
-        &[],
-    )
-    .unwrap();
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_block_with_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
 
     let task_response: TaskResponse = app
         .wrap()
@@ -896,15 +1085,23 @@ fn remove_tasks() {
     assert!(manager_task_balance.is_none());
 
     // remove cron task
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        tasks_addr.clone(),
-        &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_cron_with_queries.clone(),
-        },
-        &[],
-    )
-    .unwrap();
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_cron_with_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
 
     let task_response: TaskResponse = app
         .wrap()
@@ -932,6 +1129,207 @@ fn remove_tasks() {
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
                 task_hash: task_hash_cron_with_queries,
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // Check all balances moved from manager contract
+    let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
+    assert!(manager_balance.is_empty());
+}
+
+#[test]
+fn remove_tasks_without_queries_success() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let _ = init_agents(&mut app, &factory_addr);
+
+    // Create one block and one cron without queries and then remove one by one
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Height {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_block_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: Some(Boundary::Time {
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(1000)),
+        }),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(50000, DENOM),
+        )
+        .unwrap();
+    let task_hash_cron_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    // check it created balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        manager_task_balance,
+        Some(TaskBalance {
+            native_balance: Uint128::new(50000),
+            cw20_balance: None,
+            ibc_balance: None,
+        }),
+    );
+
+    // remove block task
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
+
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::Task {
+                task_hash: task_hash_block_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task_response.task.is_none());
+
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_block_without_queries,
+            },
+        )
+        .unwrap();
+    assert!(manager_task_balance.is_none());
+
+    // remove cron task
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::RemoveTask {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // Check attributes
+    assert!(res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "remove_task")
+    }));
+
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &QueryMsg::Task {
+                task_hash: task_hash_cron_without_queries.clone(),
+            },
+        )
+        .unwrap();
+    assert!(task_response.task.is_none());
+
+    // check it removed balance on the manager contract
+    let manager_task_balance: Option<TaskBalance> = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash_cron_without_queries,
             },
         )
         .unwrap();
