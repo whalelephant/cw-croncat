@@ -49,6 +49,12 @@ export class AgentClient {
         return [codeId, address];
     }
 
+    async getAgents(contractAddr: string): Promise<any> {
+        const q = { get_agent_ids: {} };
+        const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+        return response;
+    }
+
     async status(sender: string, contractAddr: string): Promise<any> {
         const q = { get_agent: { account_id: sender } };
         const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
