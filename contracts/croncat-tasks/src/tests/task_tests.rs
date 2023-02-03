@@ -9,7 +9,7 @@ use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
         Action, Boundary, Config, CroncatQuery, CurrentTaskInfoResponse, Interval,
-        SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform, SlotHashesResponse
+        SlotHashesResponse, SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
