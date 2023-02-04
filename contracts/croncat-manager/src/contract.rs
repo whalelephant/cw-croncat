@@ -494,7 +494,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .map(|(idx, failure)| Attribute::new(format!("action{}_failure", idx), failure))
                     .collect();
                 let config = CONFIG.load(deps.storage)?;
-                //todo: fix is_block_slot param after boundary fix
                 let complete_msg = create_task_completed_msg(
                     &deps.querier,
                     &config,

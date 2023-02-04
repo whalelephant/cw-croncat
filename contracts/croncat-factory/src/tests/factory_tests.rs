@@ -190,6 +190,7 @@ fn deploy_check() {
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
+            min_active_agent_count:None,
         })
         .unwrap(),
         contract_name: "agents".to_owned(),

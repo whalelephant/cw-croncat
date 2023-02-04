@@ -1,8 +1,8 @@
 use crate::error::ContractError;
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-    DEFAULT_NOMINATION_DURATION,
+    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
+    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_DURATION,
 };
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
@@ -26,6 +26,7 @@ fn test_contract_initialize_is_successfull() {
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
         agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
+        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
     let croncat_agents_addr = app
         .instantiate_contract(
@@ -53,6 +54,7 @@ fn test_contract_initialize_is_successfull() {
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
         agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
+        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
 
     let croncat_agents_addr = app
@@ -951,6 +953,7 @@ fn test_tick() {
             min_coins_for_agent_registration: Some(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
             agents_eject_threshold: Some(1000), // allow to miss 1000 slots
+            min_active_agent_count: Some(0),
         },
     };
     app.execute_contract(
@@ -1108,7 +1111,62 @@ fn test_tick() {
         err.downcast().unwrap()
     );
 }
+#[test]
+fn test_tick_respects_min_active_agent_count() {
+    let mut app = default_app();
+    let TestScope {
+        croncat_factory_addr: _,
+        croncat_agents_addr,
+        croncat_agents_code_id: _,
+        croncat_manager_addr: _,
+        croncat_tasks_addr,
+    } = init_test_scope(&mut app);
 
+    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
+
+    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT0).unwrap();
+    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT1).unwrap();
+    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT2).unwrap();
+    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT3).unwrap();
+    
+    app.update_block(|info| increment_block_height(info, Some(1001)));
+    app.update_block(|info| add_seconds_to_block(info, 24*60));
+
+    check_in_agent(&mut app, &croncat_agents_addr, AGENT1).unwrap();
+
+    // The agent missed 1001 blocks and he was unregistered
+    // Pending agents weren't deleted
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_agents_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(agents.active.len(), 2);
+
+    app.update_block(|info| add_seconds_to_block(info, 1000));
+
+    tick(&mut app, &croncat_agents_addr, ANYONE).unwrap();
+
+    // The agent0 missed 1000 blocks and he was unregistered, but still should not be removed
+    let agents: GetAgentIdsResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_agents_addr.clone(),
+            &QueryMsg::GetAgentIds {
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(agents.active.len() as u16, DEFAULT_MIN_ACTIVE_AGENT_COUNT);
+}
 fn register_agent(
     app: &mut App,
     croncat_agents_addr: &Addr,
@@ -1139,10 +1197,10 @@ fn unregister_agent(
 fn tick(
     app: &mut App,
     croncat_agents_addr: &Addr,
-    agent: &str,
+    sender: &str,
 ) -> Result<AppResponse, anyhow::Error> {
     app.execute_contract(
-        Addr::unchecked(agent),
+        Addr::unchecked(sender),
         croncat_agents_addr.clone(),
         &ExecuteMsg::Tick {},
         &[],

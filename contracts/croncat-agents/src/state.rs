@@ -19,3 +19,4 @@ pub const AGENTS_PENDING: Deque<Addr> = Deque::new("agents_pending");
 pub const AGENT_STATS: Map<&Addr, AgentStats> = Map::new("agent_stats");
 pub const AGENT_TASK_DISTRIBUTOR: AgentTaskDistributor = AgentTaskDistributor::new();
 pub const DEFAULT_AGENTS_EJECT_THRESHOLD: u64 = 600;
+pub const DEFAULT_MIN_ACTIVE_AGENT_COUNT: u16 = 1;

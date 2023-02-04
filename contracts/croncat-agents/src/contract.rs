@@ -40,6 +40,7 @@ pub fn instantiate(
         min_tasks_per_agent,
         min_coin_for_agent_registration,
         agents_eject_threshold,
+        min_active_agent_count,
     } = msg;
 
     let owner_addr = owner_addr
@@ -58,6 +59,7 @@ pub fn instantiate(
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
+        min_active_agent_count: min_active_agent_count.unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -341,18 +343,10 @@ fn accept_nomination_agent(
     let mut pending_queue_iter = AGENTS_PENDING.iter(deps.storage)?;
     // Agent must be in the pending queue
     // Get the position in the pending queue
-    let agent_position = if let Some(agent_position) = pending_queue_iter.position(|address| {
-        if let Ok(addr) = address {
-            addr == info.sender
-        } else {
-            false
-        }
-    }) {
-        agent_position
-    } else {
-        // Sender's address does not exist in the agent pending queue
-        return Err(ContractError::AgentNotRegistered);
-    };
+    let agent_position = pending_queue_iter
+        .position(|a| a.map_or_else(|_| false, |v| info.sender == v))
+        .ok_or(ContractError::AgentNotRegistered)?;
+
     let time_difference = if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME
         .load(deps.storage)
         .unwrap_or_default()
@@ -503,6 +497,7 @@ pub fn execute_update_config(
             agent_nomination_duration,
             min_coins_for_agent_registration,
             agents_eject_threshold,
+            min_active_agent_count,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -528,6 +523,8 @@ pub fn execute_update_config(
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agents_eject_threshold: agents_eject_threshold
                 .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
+            min_active_agent_count: min_active_agent_count
+                .unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
         };
         Ok(new_config)
     })?;
@@ -638,20 +635,25 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     let mut attributes = vec![];
     let mut submessages = vec![];
     let agents_active = AGENTS_ACTIVE.load(deps.storage)?;
-    for agent_id in agents_active {
-        let stats = AGENT_STATS
-            .may_load(deps.storage, &agent_id)?
-            .unwrap_or_default();
+    let total_remove_agents: usize = agents_active.len();
+    let mut total_removed = 0;
 
-        if block_height > stats.last_executed_slot + config.agents_eject_threshold {
-            let resp =
-                unregister_agent(deps.storage, &deps.querier, &agent_id, None).unwrap_or_default();
-            // Save attributes and messages
-            attributes.extend_from_slice(&resp.attributes);
-            submessages.extend_from_slice(&resp.messages);
+    for agent_id in agents_active {
+        let skip = (config.min_active_agent_count as usize) >= total_remove_agents - total_removed;
+        if !skip {
+            let stats = AGENT_STATS
+                .load(deps.storage, &agent_id)
+                .unwrap_or_default();
+            if block_height > stats.last_executed_slot + config.agents_eject_threshold {
+                let resp = unregister_agent(deps.storage, &deps.querier, &agent_id, None)
+                    .unwrap_or_default();
+                // Save attributes and messages
+                attributes.extend_from_slice(&resp.attributes);
+                submessages.extend_from_slice(&resp.messages);
+                total_removed += 1;
+            }
         }
     }
-
     // Check if there isn't any active or pending agents
     if AGENTS_ACTIVE.load(deps.storage)?.is_empty() && AGENTS_PENDING.is_empty(deps.storage)? {
         attributes.push(Attribute::new("lifecycle", "tick_failure"))
