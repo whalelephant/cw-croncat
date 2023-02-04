@@ -4,7 +4,7 @@ use cosmwasm_std::{
     WasmMsg,
 };
 use croncat_sdk_agents::types::Config;
-use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -97,15 +97,15 @@ pub mod croncat_manager_contract {
         payable_account_id: String,
     ) -> StdResult<CosmosMsg> {
         let addr = query_manager_addr(querier, config)?;
-        let args = WithdrawRewardsOnRemovalArgs {
+        let args = AgentWithdrawOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,
         };
         let execute = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addr.into(),
-            msg: to_binary(
-                &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawAgentRewards(Some(args)),
-            )?,
+            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::AgentWithdraw(
+                Some(args),
+            ))?,
             funds: vec![],
         });
 
