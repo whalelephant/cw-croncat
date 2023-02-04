@@ -432,10 +432,7 @@ fn execute_create_task(
     .into_cosmos_msg(manager_addr, info.funds)?;
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_new_task_msg = AgentOnTaskCreated {
-        task_hash: hash.clone(),
-    }
-    .into_cosmos_msg(agent_addr)?;
+    let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
