@@ -2216,7 +2216,7 @@ fn recurring_task_block_block_interval() {
 
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Block(3),
-        // repeat it two times
+        // repeat it three times
         boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
             end: Some((app.block_info().height + 8).into()),
