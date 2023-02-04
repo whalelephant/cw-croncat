@@ -262,7 +262,7 @@ impl Task {
     }
 
     pub fn is_evented(&self) -> bool {
-        self.queries.iter().any(|q| q.check_result == true)
+        self.queries.iter().any(|q| q.check_result)
     }
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {

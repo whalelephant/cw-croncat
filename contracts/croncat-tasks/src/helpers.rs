@@ -3,15 +3,12 @@ use cosmwasm_std::{
     Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, Task, TaskRequest,
+    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
-    state::{
-        tasks_map, tasks_with_queries_map, BLOCK_MAP_QUERIES, BLOCK_SLOTS, TASKS_TOTAL,
-        TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS,
-    },
+    state::{tasks_map, BLOCK_SLOTS, TASKS_TOTAL, TIME_SLOTS},
     ContractError,
 };
 
@@ -188,11 +185,7 @@ pub(crate) fn validate_msg_calculate_usage(
     Ok(amount_for_one_task)
 }
 
-pub(crate) fn remove_task_without_queries(
-    storage: &mut dyn Storage,
-    hash: &[u8],
-    is_block: bool,
-) -> StdResult<()> {
+pub(crate) fn remove_task(storage: &mut dyn Storage, hash: &[u8], is_block: bool) -> StdResult<()> {
     tasks_map().remove(storage, hash)?;
     TASKS_TOTAL.update(storage, |total| StdResult::Ok(total - 1))?;
     if is_block {
@@ -238,21 +231,6 @@ pub(crate) fn remove_task_without_queries(
     Ok(())
 }
 
-pub(crate) fn remove_task_with_queries(
-    storage: &mut dyn Storage,
-    hash: &[u8],
-    is_block: bool,
-) -> StdResult<()> {
-    tasks_with_queries_map().remove(storage, hash)?;
-    if is_block {
-        BLOCK_MAP_QUERIES.remove(storage, hash)
-    } else {
-        TIME_MAP_QUERIES.remove(storage, hash)
-    }
-    TASKS_WITH_QUERIES_TOTAL.update(storage, |total| StdResult::Ok(total - 1))?;
-    Ok(())
-}
-
 pub(crate) fn check_if_sender_is_manager(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
@@ -292,21 +270,4 @@ pub(crate) fn get_agents_addr(
             (agents_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
-}
-
-/// Check that this task can be executed in current slot
-pub(crate) fn task_with_queries_ready(
-    storage: &dyn Storage,
-    block_info: &BlockInfo,
-    task: &Task,
-    hash: &[u8],
-) -> StdResult<bool> {
-    let task_ready = if task.boundary.is_block_boundary {
-        let block = BLOCK_MAP_QUERIES.load(storage, hash)?;
-        block_info.height >= block
-    } else {
-        let time = TIME_MAP_QUERIES.load(storage, hash)?;
-        block_info.time.nanos() >= time
-    };
-    Ok(task_ready)
 }

@@ -38,7 +38,7 @@ pub fn owner_idx(_pk: &[u8], d: &Task) -> Addr {
 /// For filtering to tasks with queries (requiring 'check_result') that are also grouped by boundary (if any)
 pub fn evented_idx(_pk: &[u8], d: &Task) -> u64 {
     if d.is_evented() && d.boundary.is_block_boundary {
-       return d.boundary.start.into()
+        return d.boundary.start;
     }
     Uint64::zero().into()
 }

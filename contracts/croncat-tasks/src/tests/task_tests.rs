@@ -26,7 +26,7 @@ use super::{
 use crate::{
     contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_LIMIT, GAS_QUERY_FEE, SLOT_GRANULARITY_TIME},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{BLOCK_MAP_QUERIES, TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES},
+    state::TASKS_TOTAL,
     tests::{helpers::add_little_time, ANYONE},
     ContractError,
 };
@@ -389,12 +389,8 @@ fn create_task_without_query() {
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(2));
     // Check that tasks doesn't overlap with tasks_with_queries
-    let total_without_q = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
-    assert_eq!(total_without_q, 2);
-    let total_with_q = TASKS_WITH_QUERIES_TOTAL
-        .query(&app.wrap(), tasks_addr.clone())
-        .unwrap();
-    assert_eq!(total_with_q, 0);
+    let total_t = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
+    assert_eq!(total_t, 2);
 
     // Check it got queued into correct slot
     app.update_block(add_little_time);
@@ -664,7 +660,7 @@ fn create_tasks_with_queries_and_transforms() {
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
-            &QueryMsg::TasksWithQueries {
+            &QueryMsg::Tasks {
                 from_index: None,
                 limit: None,
             },
@@ -709,19 +705,6 @@ fn create_tasks_with_queries_and_transforms() {
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(1));
-    let total_tasks_with_queries: Uint64 = app
-        .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksWithQueriesTotal {})
-        .unwrap();
-    assert_eq!(total_tasks_with_queries, Uint64::new(1));
-
-    // Check that tasks doesn't overlap with tasks_with_queries
-    let total_without_q = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
-    assert_eq!(total_without_q, 0);
-    let total_with_q = TASKS_WITH_QUERIES_TOTAL
-        .query(&app.wrap(), tasks_addr.clone())
-        .unwrap();
-    assert_eq!(total_with_q, 1);
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1001,23 +984,6 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     let task_hash_block_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
-    // Scheduled exactly for block
-    let min_block_scheduled = BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap();
-    assert_eq!(min_block_scheduled, Some(app.block_info().height + 1));
-    assert!(TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1086,24 +1052,6 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
 
-    // Scheduled exactly for cron
-    let min_cron_scheduled = TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_cron_with_queries.as_bytes(),
-        )
-        .unwrap();
-    assert!(min_cron_scheduled.is_some());
-    assert!(BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_cron_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
-
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()
@@ -1153,14 +1101,6 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     assert!(task_response.task.is_none());
 
-    assert!(BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
     // check it removed balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()
@@ -1195,7 +1135,7 @@ fn remove_tasks_with_queries_success() {
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &QueryMsg::Task {
                 task_hash: task_hash_cron_with_queries.clone(),
             },
@@ -1203,14 +1143,6 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     assert!(task_response.task.is_none());
 
-    assert!(TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr,
-            task_hash_cron_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
     // check it removed balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()

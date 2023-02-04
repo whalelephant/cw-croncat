@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult, Uint64,
+    to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
+    Uint64,
 };
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -17,12 +18,11 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::helpers::{
-    check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task_with_queries,
-    remove_task_without_queries, task_with_queries_ready, validate_boundary,
+    check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task, validate_boundary,
     validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{ tasks_map, BLOCK_SLOTS, CONFIG, LAST_TASK_CREATION, TASKS_TOTAL, TIME_SLOTS };
+use crate::state::{tasks_map, BLOCK_SLOTS, CONFIG, LAST_TASK_CREATION, TASKS_TOTAL, TIME_SLOTS};
 
 const CONTRACT_NAME: &str = "crate:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -154,7 +154,7 @@ fn execute_reschedule_task(
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
-    let mut remove_task = None;
+    let mut task_to_remove = None;
     // Check default map
     let (next_id, slot_kind) = if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
         let (next_id, slot_kind) =
@@ -218,29 +218,8 @@ fn execute_reschedule_task(
                 }
             }
         } else {
-            remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
-            remove_task = Some(ManagerRemoveTask {
-                sender: task.owner_addr,
-                task_hash,
-            });
-        }
-        (next_id, slot_kind)
-    } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, &task_hash)? {
-        let (next_id, slot_kind) =
-            task.interval
-                .next(&env, &task.boundary, config.slot_granularity_time);
-        if next_id != 0 {
-            match slot_kind {
-                SlotType::Block => {
-                    BLOCK_MAP_QUERIES.save(deps.storage, &task_hash, &next_id)?;
-                }
-                SlotType::Cron => {
-                    TIME_MAP_QUERIES.save(deps.storage, &task_hash, &next_id)?;
-                }
-            }
-        } else {
-            remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
-            remove_task = Some(ManagerRemoveTask {
+            remove_task(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            task_to_remove = Some(ManagerRemoveTask {
                 sender: task.owner_addr,
                 task_hash,
             });
@@ -254,7 +233,7 @@ fn execute_reschedule_task(
         .add_attribute("action", "reschedule_task")
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
-        .set_data(to_binary(&remove_task)?))
+        .set_data(to_binary(&task_to_remove)?))
 }
 
 fn execute_remove_task_by_manager(
@@ -267,7 +246,7 @@ fn execute_remove_task_by_manager(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
-        remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+        remove_task(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -289,7 +268,7 @@ fn execute_remove_task(
         if task.owner_addr != info.sender {
             return Err(ContractError::Unauthorized {});
         }
-        remove_task_without_queries(deps.storage, hash, task.boundary.is_block_boundary)?;
+        remove_task(deps.storage, hash, task.boundary.is_block_boundary)?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -364,37 +343,30 @@ fn execute_create_task(
     }
 
     let recurring = item.recurring();
-    let with_queries = item.with_queries();
-    if with_queries {
-        match slot_kind {
-            SlotType::Block => BLOCK_MAP_QUERIES.save(deps.storage, hash.as_bytes(), &next_id),
-            SlotType::Cron => TIME_MAP_QUERIES.save(deps.storage, hash.as_bytes(), &next_id),
-        }?;
-        // Update query totals and map
-        TASKS_WITH_QUERIES_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
-        tasks_with_queries_map().update(deps.storage, hash.as_bytes(), |old| match old {
-            Some(_) => Err(ContractError::TaskExists {}),
-            None => Ok(item),
-        })?;
-    } else {
-        let hash = hash.clone().into_bytes();
-        // Update normal task totals and map
-        TASKS_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
-        tasks_map().update(deps.storage, &hash, |old| match old {
-            Some(_) => Err(ContractError::TaskExists {}),
-            None => Ok(item),
-        })?;
+    let event_based = item.is_evented();
+    let hash_vec = hash.clone().into_bytes();
+    let mut attributes: Vec<Attribute> = vec![];
+
+    // Update query totals and map
+    TASKS_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
+    tasks_map().update(deps.storage, &hash_vec, |old| match old {
+        Some(_) => Err(ContractError::TaskExists {}),
+        None => Ok(item),
+    })?;
+
+    // Only scheduled tasks get put into slots
+    if !event_based {
         // Get previous task hashes in slot, add as needed
         let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
             match d {
                 // has some data, simply push new hash
                 Some(data) => {
                     let mut s = data;
-                    s.push(hash);
+                    s.push(hash_vec.clone());
                     Ok(s)
                 }
                 // No data, push new vec & hash
-                None => Ok(vec![hash]),
+                None => Ok(vec![hash_vec.clone()]),
             }
         };
         match slot_kind {
@@ -405,6 +377,8 @@ fn execute_create_task(
                 TIME_SLOTS.update(deps.storage, next_id, update_vec_data)?;
             }
         }
+        attributes.push(Attribute::new("slot_id", next_id.to_string()));
+        attributes.push(Attribute::new("slot_kind", slot_kind.to_string()));
     }
 
     // Save the current timestamp as the last time a task was created
@@ -413,7 +387,7 @@ fn execute_create_task(
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let manager_create_task_balance_msg = ManagerCreateTaskBalance {
         sender: owner_addr,
-        task_hash: hash.as_bytes().to_owned(),
+        task_hash: hash_vec,
         recurring,
         cw20,
         amount_for_one_task,
@@ -428,8 +402,7 @@ fn execute_create_task(
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
-        .add_attribute("slot_id", next_id.to_string())
-        .add_attribute("slot_kind", slot_kind.to_string())
+        .add_attributes(attributes)
         .add_attribute("task_hash", hash)
         .add_message(manager_create_task_balance_msg)
         .add_message(agent_new_task_msg))
@@ -460,14 +433,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
         QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
-        QueryMsg::CurrentTaskWithQueries { task_hash } => {
-            to_binary(&query_current_task_with_queries(deps, env, task_hash)?)
-        }
     }
 }
 
 fn query_tasks_total(deps: Deps) -> StdResult<u64> {
-    Ok(TASKS_TOTAL.load(deps.storage)?)
+    TASKS_TOTAL.load(deps.storage)
 }
 
 fn query_current_task_info(deps: Deps, _env: Env) -> StdResult<CurrentTaskInfoResponse> {
@@ -605,12 +575,12 @@ fn query_tasks_by_owner(
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
 
-    let tasks = tasks_map().idx.owner.prefix(owner_addr.clone()).range(
-        deps.storage,
-        None,
-        None,
-        Order::Ascending,
-    );
+    let tasks =
+        tasks_map()
+            .idx
+            .owner
+            .prefix(owner_addr)
+            .range(deps.storage, None, None, Order::Ascending);
     tasks
         .skip(from_index as usize)
         .take(limit as usize)
@@ -631,12 +601,10 @@ fn query_evented_tasks(
     let limit = limit.unwrap_or(100);
 
     // NOTE: Can add .prefix(start) in future
-    let tasks = tasks_map().idx.evented.range(
-        deps.storage,
-        None,
-        None,
-        Order::Ascending,
-    );
+    let tasks = tasks_map()
+        .idx
+        .evented
+        .range(deps.storage, None, None, Order::Ascending);
     tasks
         .skip(from_index as usize)
         .take(limit as usize)
@@ -743,36 +711,5 @@ fn query_slot_ids(
     Ok(SlotIdsResponse {
         time_ids,
         block_ids,
-    })
-}
-
-/// Query task with queries,
-/// it will return None if
-/// 1 - task does not exist
-/// 2 - task is not ready
-fn query_current_task_with_queries(
-    deps: Deps,
-    env: Env,
-    task_hash: String,
-) -> StdResult<TaskResponse> {
-    let Some(task) = tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())? else {
-        return Ok(TaskResponse { task:None });
-    };
-    if !task_with_queries_ready(deps.storage, &env.block, &task, task_hash.as_bytes())? {
-        return Ok(TaskResponse { task: None });
-    }
-    Ok(TaskResponse {
-        task: Some(TaskInfo {
-            task_hash,
-            owner_addr: task.owner_addr,
-            interval: task.interval,
-            boundary: task.boundary.into(),
-            stop_on_fail: task.stop_on_fail,
-            amount_for_one_task: task.amount_for_one_task,
-            actions: task.actions,
-            queries: Some(task.queries),
-            transforms: task.transforms,
-            version: task.version,
-        }),
     })
 }

@@ -6,13 +6,12 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, BoundaryValidated, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskInfo, ArrayOfTaskResponse } from "./CroncatTasks.types";
+import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, BoundaryValidated, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, ArrayOfTaskResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskInfo } from "./CroncatTasks.types";
 export interface CroncatTasksReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
   tasksTotal: () => Promise<Uint64>;
   currentTaskInfo: () => Promise<CurrentTaskInfoResponse>;
-  tasksWithQueriesTotal: () => Promise<Uint64>;
   tasks: ({
     fromIndex,
     limit
@@ -20,7 +19,7 @@ export interface CroncatTasksReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<ArrayOfTaskInfo>;
-  tasksWithQueries: ({
+  eventedTasks: ({
     fromIndex,
     limit
   }: {
@@ -64,11 +63,6 @@ export interface CroncatTasksReadOnlyInterface {
     offset?: number;
   }) => Promise<SlotTasksTotalResponse>;
   currentTask: () => Promise<TaskResponse>;
-  currentTaskWithQueries: ({
-    taskHash
-  }: {
-    taskHash: string;
-  }) => Promise<TaskResponse>;
 }
 export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
   client: CosmWasmClient;
@@ -80,9 +74,8 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     this.config = this.config.bind(this);
     this.tasksTotal = this.tasksTotal.bind(this);
     this.currentTaskInfo = this.currentTaskInfo.bind(this);
-    this.tasksWithQueriesTotal = this.tasksWithQueriesTotal.bind(this);
     this.tasks = this.tasks.bind(this);
-    this.tasksWithQueries = this.tasksWithQueries.bind(this);
+    this.eventedTasks = this.eventedTasks.bind(this);
     this.tasksByOwner = this.tasksByOwner.bind(this);
     this.task = this.task.bind(this);
     this.taskHash = this.taskHash.bind(this);
@@ -90,7 +83,6 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     this.slotIds = this.slotIds.bind(this);
     this.slotTasksTotal = this.slotTasksTotal.bind(this);
     this.currentTask = this.currentTask.bind(this);
-    this.currentTaskWithQueries = this.currentTaskWithQueries.bind(this);
   }
 
   config = async (): Promise<Config> => {
@@ -108,11 +100,6 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
       current_task_info: {}
     });
   };
-  tasksWithQueriesTotal = async (): Promise<Uint64> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      tasks_with_queries_total: {}
-    });
-  };
   tasks = async ({
     fromIndex,
     limit
@@ -127,7 +114,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
       }
     });
   };
-  tasksWithQueries = async ({
+  eventedTasks = async ({
     fromIndex,
     limit
   }: {
@@ -135,7 +122,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     limit?: number;
   }): Promise<ArrayOfTaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
-      tasks_with_queries: {
+      evented_tasks: {
         from_index: fromIndex,
         limit
       }
@@ -219,17 +206,6 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
   currentTask = async (): Promise<TaskResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       current_task: {}
-    });
-  };
-  currentTaskWithQueries = async ({
-    taskHash
-  }: {
-    taskHash: string;
-  }): Promise<TaskResponse> => {
-    return this.client.queryContractSmart(this.contractAddress, {
-      current_task_with_queries: {
-        task_hash: taskHash
-      }
     });
   };
 }

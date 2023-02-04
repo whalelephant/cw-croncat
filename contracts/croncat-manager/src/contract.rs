@@ -245,9 +245,10 @@ fn execute_proxy_call_with_queries(
 
     // Get a task
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    // TODO: Change to only check if its ready, get regular task by hash
     let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
         tasks_addr.clone(),
-        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries {
+        &croncat_sdk_tasks::msg::TasksQueryMsg::Task {
             task_hash: task_hash.clone(),
         },
     )?;
