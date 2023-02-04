@@ -102,11 +102,7 @@ export interface CroncatAgentsInterface extends CroncatAgentsReadOnlyInterface {
   }: {
     fromBehind?: boolean;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  onTaskCreated: ({
-    taskHash
-  }: {
-    taskHash: string;
-  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  onTaskCreated: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   onTaskCompleted: ({
     agentId,
     isBlockSlotTask
@@ -179,15 +175,9 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
       }
     }, fee, memo, funds);
   };
-  onTaskCreated = async ({
-    taskHash
-  }: {
-    taskHash: string;
-  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+  onTaskCreated = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      on_task_created: {
-        task_hash: taskHash
-      }
+      on_task_created: {}
     }, fee, memo, funds);
   };
   onTaskCompleted = async ({

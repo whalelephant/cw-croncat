@@ -290,6 +290,7 @@ fn test_agent_check_in_successfull() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
+    app.update_block(|block| increment_block_height(block, Some(30)));
 
     check_in_agent(&mut app, &croncat_agents_addr, ADMIN).unwrap();
 
@@ -384,7 +385,7 @@ fn test_accept_nomination_agent() {
 
     let error_msg = check_in_res.unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         error_msg.downcast().unwrap()
     );
 
@@ -878,7 +879,7 @@ fn test_query_get_agent_tasks() {
     register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
     let failed_check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT2).unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         failed_check_in_res.downcast().unwrap()
     );
 
@@ -1049,7 +1050,7 @@ fn test_tick() {
         )
         .unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         err.downcast().unwrap()
     );
 
@@ -1109,7 +1110,7 @@ fn test_tick() {
         )
         .unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         err.downcast().unwrap()
     );
 }
