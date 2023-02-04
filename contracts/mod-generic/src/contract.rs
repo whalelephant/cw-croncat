@@ -46,7 +46,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 /// Query: GenericQuery
-/// Used for creating generic quieries
+/// Used for creating generic queries
 /// Parses the query result to receive the value according to the path, defined by `gets`
 /// Compares this result with a pre-defined value
 /// ValueOrdering allows several options for comparison:
