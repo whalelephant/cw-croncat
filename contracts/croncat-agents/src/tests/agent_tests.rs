@@ -2,8 +2,7 @@ use crate::error::ContractError;
 use crate::msg::*;
 use crate::state::{
     DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-    DEFAULT_NOMINATION_BLOCK_DURATION,
+    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
@@ -1132,13 +1131,13 @@ fn test_tick_respects_min_active_agent_count() {
     register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
     register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
 
-    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT0).unwrap();
-    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT1).unwrap();
-    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT2).unwrap();
-    create_task(&mut app, &croncat_tasks_addr.to_string(), ADMIN, PARTICIPANT3).unwrap();
-    
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT0).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT1).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT2).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT3).unwrap();
+
     app.update_block(|info| increment_block_height(info, Some(1001)));
-    app.update_block(|info| add_seconds_to_block(info, 24*60));
+    app.update_block(|info| add_seconds_to_block(info, 24 * 60));
 
     check_in_agent(&mut app, &croncat_agents_addr, AGENT1).unwrap();
 

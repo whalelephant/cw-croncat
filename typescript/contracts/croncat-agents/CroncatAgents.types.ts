@@ -9,6 +9,7 @@ export interface InstantiateMsg {
   agents_eject_threshold?: number | null;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
+  min_active_agent_count?: number | null;
   min_coin_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -51,6 +52,7 @@ export interface UpdateConfig {
   croncat_factory_addr?: string | null;
   croncat_manager_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
+  min_active_agent_count?: number | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -78,6 +80,7 @@ export interface Config {
   croncat_factory_addr: Addr;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
+  min_active_agent_count: number;
   min_coins_for_agent_registration: number;
   min_tasks_per_agent: number;
   owner_addr: Addr;

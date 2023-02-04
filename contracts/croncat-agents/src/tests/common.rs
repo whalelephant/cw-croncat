@@ -1,7 +1,8 @@
 use crate::msg::*;
 use crate::state::{
     DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_BLOCK_DURATION,
+    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
+    DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
@@ -64,7 +65,7 @@ pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,
         agents_eject_threshold: None,
-        min_active_agent_count:None,
+        min_active_agent_count: None,
     }
 }
 
