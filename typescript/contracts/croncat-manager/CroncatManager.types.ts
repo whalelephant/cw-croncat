@@ -22,8 +22,6 @@ export interface GasPrice {
 export type ExecuteMsg = {
   update_config: UpdateConfig;
 } | {
-  owner_withdraw: {};
-} | {
   proxy_call: {
     task_hash?: string | null;
   };
@@ -39,15 +37,17 @@ export type ExecuteMsg = {
 } | {
   receive: Cw20ReceiveMsg;
 } | {
-  user_withdraw: {
-    limit?: number | null;
-  };
-} | {
   create_task_balance: ManagerCreateTaskBalance;
 } | {
   remove_task: ManagerRemoveTask;
 } | {
-  withdraw_agent_rewards: WithdrawRewardsOnRemovalArgs | null;
+  owner_withdraw: {};
+} | {
+  user_withdraw: {
+    limit?: number | null;
+  };
+} | {
+  agent_withdraw: AgentWithdrawOnRemovalArgs | null;
 };
 export type Uint128 = string;
 export type Binary = string;
@@ -97,7 +97,7 @@ export interface ManagerRemoveTask {
   sender: Addr;
   task_hash: number[];
 }
-export interface WithdrawRewardsOnRemovalArgs {
+export interface AgentWithdrawOnRemovalArgs {
   agent_id: string;
   payable_account_id: string;
 }
@@ -107,9 +107,9 @@ export type QueryMsg = {
   treasury_balance: {};
 } | {
   users_balances: {
+    address: string;
     from_index?: number | null;
     limit?: number | null;
-    wallet: string;
   };
 } | {
   task_balance: {

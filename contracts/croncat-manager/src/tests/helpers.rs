@@ -341,7 +341,7 @@ pub(crate) fn query_users_manager(
         .query_wasm_smart(
             manager,
             &QueryMsg::UsersBalances {
-                wallet: wallet.into(),
+                address: wallet.into(),
                 from_index: None,
                 limit: None,
             },
