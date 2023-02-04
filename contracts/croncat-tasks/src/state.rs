@@ -1,5 +1,5 @@
-use cosmwasm_std::{Addr, Timestamp};
-use croncat_sdk_tasks::types::{Config, Task};
+use cosmwasm_std::{Addr, Timestamp, Uint64};
+use croncat_sdk_tasks::types::{Boundary, Config, Task};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -37,10 +37,14 @@ pub fn owner_idx(_pk: &[u8], d: &Task) -> Addr {
 
 /// For filtering to tasks with queries (requiring 'check_result') that are also grouped by boundary (if any)
 pub fn evented_idx(_pk: &[u8], d: &Task) -> u64 {
-    if d.is_evented() && d.boundary.is_block() {
-        // TODO: Match for Some start (height or time)
-        // return d.boundary.start;
-        return u64::default();
+    if d.is_evented() && d.clone().boundary.is_block() {
+        let v = match d.boundary.clone() {
+            Boundary::Height(h) => {
+                h.start.unwrap_or(Uint64::zero()).into()
+            },
+            _ => u64::default()
+        };
+        return v;
     }
     u64::default()
 }

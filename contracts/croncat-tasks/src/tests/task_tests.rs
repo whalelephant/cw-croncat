@@ -389,7 +389,7 @@ fn create_task_without_query() {
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(2));
-    // Check that tasks doesn't overlap with tasks_with_queries
+    // Check that tasks total compares
     let total_t = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
     assert_eq!(total_t, 2);
 
@@ -994,10 +994,43 @@ fn remove_tasks_with_queries_success() {
         },
     };
     assert!(task_raw.is_evented());
-    // test how the index will find it
     assert!(task_raw.is_evented() && task_raw.boundary.is_block());
-    // TODO: Change!!!!
-    // assert_eq!(task_raw.boundary.start, 12345);
+
+    let task_raw_non_evented = Task {
+        owner_addr: Addr::unchecked(ANYONE),
+        interval: task.interval.clone(),
+        boundary: Boundary::Height(BoundaryHeight {
+            start: Some(Uint64::new(app.block_info().height)),
+            end: None,
+        }),
+        stop_on_fail: task.stop_on_fail,
+        actions: task.actions.clone(),
+        queries: vec![
+            CroncatQuery {
+                contract_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+                check_result: false,
+            },
+        ],
+        transforms: task.transforms.clone().unwrap(),
+        version: "0.1".to_string(),
+        amount_for_one_task: AmountForOneTask {
+            gas: 50_000,
+            cw20: None,
+            coin: [Some(coin(5, DENOM)), None],
+        },
+    };
+    assert!(!task_raw_non_evented.is_evented());
+    assert!(!task_raw_non_evented.is_evented() && task_raw.boundary.is_block());
+    
+    // test how the index will find it
+    let v = match task_raw.boundary.clone() {
+        Boundary::Height(h) => {
+            h.start.unwrap_or(Uint64::zero()).into()
+        },
+        _ => u64::default()
+    };
+    assert_eq!(v, 12345);
 
     let res = app
         .execute_contract(

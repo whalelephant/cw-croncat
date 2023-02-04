@@ -96,6 +96,7 @@ pub enum TasksQueryMsg {
         start: Option<u64>,
         from_index: Option<u64>,
         limit: Option<u64>,
+        sub_index: Option<u64>,
     },
     /// Get tasks created by the given address
     #[returns(Vec<crate::types::TaskResponse>)]

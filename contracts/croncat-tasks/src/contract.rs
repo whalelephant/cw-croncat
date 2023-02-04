@@ -10,7 +10,7 @@ use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, Tasks
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse,
-    SlotType, Task, TaskInfo, TaskRequest, TaskResponse,
+    SlotType, Task, TaskInfo, TaskRequest, TaskResponse, Interval,
 };
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
@@ -160,7 +160,11 @@ fn execute_reschedule_task(
         let (next_id, slot_kind) =
             task.interval
                 .next(&env, &task.boundary, config.slot_granularity_time);
-        if next_id != 0 {
+
+        // NOTE: If task is evented, we dont want to "schedule" inside BLOCK_SLOTS
+        // but we also dont want to remove unless it was Interval::Once
+        // Since evented tasks are only Block based, no logic needed for Cron/Time
+        if next_id != 0 || (task.is_evented() && task.interval != Interval::Once) {
             // Get previous task hashes in slot, add as needed
             let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
                 match d {
@@ -177,23 +181,25 @@ fn execute_reschedule_task(
             // Based on slot kind, put into block or cron slots
             match slot_kind {
                 SlotType::Block => {
-                    BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
-                    // Don't forget to pop finished task
-                    let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
-                        .range(
-                            deps.storage,
-                            None,
-                            Some(Bound::inclusive(env.block.height)),
-                            Order::Ascending,
-                        )
-                        .take(1)
-                        .collect::<StdResult<_>>()?;
-                    let mut slot = block_slot.pop().unwrap();
-                    slot.1.pop();
-                    if slot.1.is_empty() {
-                        BLOCK_SLOTS.remove(deps.storage, slot.0)
-                    } else {
-                        BLOCK_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                    if !task.is_evented() {
+                        BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
+                        // Don't forget to pop finished task
+                        let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
+                            .range(
+                                deps.storage,
+                                None,
+                                Some(Bound::inclusive(env.block.height)),
+                                Order::Ascending,
+                            )
+                            .take(1)
+                            .collect::<StdResult<_>>()?;
+                        let mut slot = block_slot.pop().unwrap();
+                        slot.1.pop();
+                        if slot.1.is_empty() {
+                            BLOCK_SLOTS.remove(deps.storage, slot.0)
+                        } else {
+                            BLOCK_SLOTS.save(deps.storage, slot.0, &slot.1)?;
+                        }
                     }
                 }
                 SlotType::Cron => {
@@ -417,7 +423,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             start,
             from_index,
             limit,
-        } => to_binary(&query_evented_tasks(deps, start, from_index, limit)?),
+            sub_index,
+        } => to_binary(&query_evented_tasks(deps, start, from_index, limit, sub_index)?),
         QueryMsg::TasksByOwner {
             owner_addr,
             from_index,
@@ -568,18 +575,27 @@ fn query_evented_tasks(
     start: Option<u64>,
     from_index: Option<u64>,
     limit: Option<u64>,
+    sub_index: Option<u64>,
 ) -> StdResult<Vec<TaskInfo>> {
     let config = CONFIG.load(deps.storage)?;
 
     let from_index = from_index.unwrap_or_default();
+    let sub_index = sub_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
+    let to_index = from_index.saturating_add(limit);
 
+    // NOTE: Still using take & skip, in case soooo many items at specific range
     tasks_map()
         .idx
         .evented
         .prefix(start.unwrap_or_default())
-        .range_raw(deps.storage, None, None, Order::Ascending)
-        .skip(from_index as usize)
+        .range_raw(
+            deps.storage,
+            Some(Bound::inclusive(from_index)),
+            Some(Bound::exclusive(to_index)),
+            Order::Ascending
+        )
+        .skip(sub_index as usize)
         .take(limit as usize)
         .map(|task_res| {
             task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
@@ -599,13 +615,11 @@ fn query_tasks_by_owner(
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
 
-    let tasks =
-        tasks_map()
-            .idx
-            .owner
-            .prefix(owner_addr)
-            .range(deps.storage, None, None, Order::Ascending);
-    tasks
+    tasks_map()
+        .idx
+        .owner
+        .prefix(owner_addr)
+        .range(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|task_res| {
