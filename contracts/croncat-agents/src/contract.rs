@@ -10,16 +10,13 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
     QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
-use croncat_sdk_agents::msg::AgentInfo;
-use croncat_sdk_agents::msg::TaskStats;
 use croncat_sdk_agents::msg::{
-    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, TaskStats, UpdateConfig,
 };
-use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
+use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
-use std::cmp;
-use std::ops::Div;
+use std::cmp::min;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -52,7 +49,8 @@ pub fn instantiate(
         croncat_factory_addr: info.sender,
         croncat_manager_key,
         croncat_tasks_key,
-        agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
+        agent_nomination_block_duration: agent_nomination_duration
+            .unwrap_or(DEFAULT_NOMINATION_BLOCK_DURATION),
         owner_addr,
         paused: false,
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
@@ -66,6 +64,13 @@ pub fn instantiate(
         deps.storage,
         CONTRACT_NAME,
         version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
+    )?;
+    AGENT_NOMINATION_STATUS.save(
+        deps.storage,
+        &AgentNominationStatus {
+            start_height_of_nomination: None,
+            tasks_created_from_last_nomination: 0,
+        },
     )?;
 
     Ok(Response::new()
@@ -125,10 +130,9 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentR
     };
 
     let config: Config = CONFIG.load(deps.storage)?;
-    let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
     let rewards =
         croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
-    let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
+    let agent_status = get_agent_status(deps.storage, env, &account_id)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
             msg: err.to_string(),
@@ -349,34 +353,32 @@ fn accept_nomination_agent(
         // Sender's address does not exist in the agent pending queue
         return Err(ContractError::AgentNotRegistered);
     };
-    let time_difference = if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME
-        .load(deps.storage)
-        .unwrap_or_default()
-    {
-        env.block.time.seconds() - nomination_start.seconds()
-    } else {
-        // edge case if last agent left
-        if active_agents.is_empty() && agent_position == 0 {
-            active_agents.push(info.sender.clone());
-            AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
+    let agent_nomination_status = AGENT_NOMINATION_STATUS.load(deps.storage)?;
+    // edge case if last agent left
+    if active_agents.is_empty() && agent_position == 0 {
+        active_agents.push(info.sender.clone());
+        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
 
-            AGENTS_PENDING.pop_front(deps.storage)?;
-            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
-            return Ok(Response::new()
-                .add_attribute("action", "accept_nomination_agent")
-                .add_attribute("new_agent", info.sender.as_str()));
-        } else {
-            // No agents can join yet
-            return Err(ContractError::NotAcceptingNewAgents);
-        }
-    };
+        AGENTS_PENDING.pop_front(deps.storage)?;
+        AGENT_NOMINATION_STATUS.save(
+            deps.storage,
+            &AgentNominationStatus {
+                start_height_of_nomination: None,
+                tasks_created_from_last_nomination: 0,
+            },
+        )?;
+        return Ok(Response::new()
+            .add_attribute("action", "accept_nomination_agent")
+            .add_attribute("new_agent", info.sender.as_str()));
+    }
 
     // It works out such that the time difference between when this is called,
     // and the agent nomination begin time can be divided by the nomination
     // duration and we get an integer. We use that integer to determine if an
     // agent is allowed to get let in. If their position in the pending queue is
     // less than or equal to that integer, they get let in.
-    let max_index = time_difference.div(c.agent_nomination_duration as u64);
+    let max_index = max_agent_nomination_index(&c, env, agent_nomination_status)?
+        .ok_or(ContractError::TryLaterForNomination)?;
     let kicked_agents = if agent_position as u64 <= max_index {
         // Make this agent active
         // Update state removing from pending queue
@@ -400,7 +402,13 @@ fn accept_nomination_agent(
 
         // and update the config, setting the nomination begin time to None,
         // which indicates no one will be nominated until more tasks arrive
-        AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
+        AGENT_NOMINATION_STATUS.save(
+            deps.storage,
+            &AgentNominationStatus {
+                start_height_of_nomination: None,
+                tasks_created_from_last_nomination: 0,
+            },
+        )?;
         kicked_agents
     } else {
         return Err(ContractError::TryLaterForNomination);
@@ -518,8 +526,8 @@ pub fn execute_update_config(
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             paused: paused.unwrap_or(config.paused),
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
-            agent_nomination_duration: agent_nomination_duration
-                .unwrap_or(config.agent_nomination_duration),
+            agent_nomination_block_duration: agent_nomination_duration
+                .unwrap_or(config.agent_nomination_block_duration),
             min_coins_for_agent_registration: min_coins_for_agent_registration
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agents_eject_threshold: agents_eject_threshold
@@ -535,7 +543,6 @@ fn get_agent_status(
     storage: &dyn Storage,
     env: Env,
     account_id: &Addr,
-    total_tasks: u64,
 ) -> Result<AgentStatus, ContractError> {
     let c: Config = CONFIG.load(storage)?;
     let active = AGENTS_ACTIVE.load(storage)?;
@@ -568,7 +575,7 @@ fn get_agent_status(
     // Load config's task ratio, total tasks, active agents, and AGENT_NOMINATION_BEGIN_TIME.
     // Then determine if this agent is considered "Nominated" and should call CheckInAgent
     let max_agent_index =
-        max_agent_nomination_index(storage, &c, env, &(active.len() as u64), total_tasks)?;
+        max_agent_nomination_index(&c, env, AGENT_NOMINATION_STATUS.load(storage)?)?;
     let agent_status = match max_agent_index {
         Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
         _ => AgentStatus::Pending,
@@ -578,53 +585,27 @@ fn get_agent_status(
 
 /// Calculate the biggest index of nomination for pending agents
 fn max_agent_nomination_index(
-    storage: &dyn Storage,
     cfg: &Config,
     env: Env,
-    num_active_agents: &u64,
-    total_tasks: u64,
-) -> Result<Option<u64>, ContractError> {
-    let block_time = env.block.time.seconds();
+    agent_nomination_status: AgentNominationStatus,
+) -> StdResult<Option<u64>> {
+    let block_height = env.block.height;
 
-    let agent_nomination_begin_time = AGENT_NOMINATION_BEGIN_TIME
-        .load(storage)
-        .unwrap_or_default();
-
-    match agent_nomination_begin_time {
-        Some(begin_time) => {
-            let min_tasks_per_agent = cfg.min_tasks_per_agent;
-            let num_agents_to_accept =
-                agents_to_let_in(&min_tasks_per_agent, num_active_agents, &total_tasks);
-
-            if num_agents_to_accept > 0 {
-                let time_difference = block_time - begin_time.seconds();
-
-                let max_index = cmp::max(
-                    time_difference.div(cfg.agent_nomination_duration as u64),
-                    num_agents_to_accept - 1,
-                );
-                Ok(Some(max_index))
-            } else {
-                Ok(None)
-            }
-        }
-        None => Ok(None),
-    }
-}
-
-fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64) -> u64 {
-    let num_tasks_covered = num_active_agents * max_tasks;
-    if total_tasks > &num_tasks_covered {
-        // It's possible there are more "covered tasks" than total tasks,
-        // so use saturating subtraction to hit zero and not go below
-        let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
-
-        let remainder = u64::from(total_tasks_needing_agents % max_tasks != 0);
-        total_tasks_needing_agents / max_tasks + remainder
+    let agents_by_tasks_created =
+        agent_nomination_status.tasks_created_from_last_nomination / cfg.min_tasks_per_agent;
+    let agents_by_height = agent_nomination_status
+        .start_height_of_nomination
+        .map_or(0, |start_height| {
+            (block_height - start_height) / cfg.agent_nomination_block_duration as u64
+        });
+    let agents_to_pass = min(agents_by_tasks_created, agents_by_height);
+    if agents_to_pass == 0 {
+        Ok(None)
     } else {
-        0
+        Ok(Some(agents_to_pass - 1))
     }
 }
+
 pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let block_height = env.block.height;
     let config = CONFIG.load(deps.storage)?;
@@ -665,22 +646,16 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    let min_tasks_per_agent = config.min_tasks_per_agent;
-    let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let total_tasks = croncat_tasks_contract::query_total_tasks(deps.as_ref(), &config)?;
-    let num_agents_to_accept =
-        agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
-
-    // If we should allow a new agent to take over
-    if num_agents_to_accept != 0 {
-        // Don't wipe out an older timestamp
-        let begin = AGENT_NOMINATION_BEGIN_TIME
-            .load(deps.storage)
-            .unwrap_or_default();
-        if begin.is_none() {
-            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
+    AGENT_NOMINATION_STATUS.update(deps.storage, |mut status| -> StdResult<_> {
+        if status.start_height_of_nomination.is_none() {
+            status.start_height_of_nomination = Some(env.block.height)
         }
-    }
+        Ok(AgentNominationStatus {
+            start_height_of_nomination: status.start_height_of_nomination,
+            tasks_created_from_last_nomination: status.tasks_created_from_last_nomination + 1,
+        })
+    })?;
+
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }

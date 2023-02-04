@@ -218,7 +218,7 @@ fn execute_reschedule_task(
                 }
             }
         } else {
-            remove_task(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            remove_task(deps.storage, &task_hash, task.boundary.is_block())?;
             task_to_remove = Some(ManagerRemoveTask {
                 sender: task.owner_addr,
                 task_hash,
@@ -246,7 +246,7 @@ fn execute_remove_task_by_manager(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
-        remove_task(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+        remove_task(deps.storage, &task_hash, task.boundary.is_block())?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -268,7 +268,7 @@ fn execute_remove_task(
         if task.owner_addr != info.sender {
             return Err(ContractError::Unauthorized {});
         }
-        remove_task(deps.storage, hash, task.boundary.is_block_boundary)?;
+        remove_task(deps.storage, hash, task.boundary.is_block())?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -296,7 +296,7 @@ fn execute_create_task(
     let owner_addr = info.sender;
 
     // Validate boundary and interval
-    let boundary = validate_boundary(&env.block, &task.boundary, &task.interval)?;
+    let boundary = validate_boundary(&env.block, task.boundary.clone(), &task.interval)?;
     if !task.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
@@ -395,10 +395,7 @@ fn execute_create_task(
     .into_cosmos_msg(manager_addr, info.funds)?;
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_new_task_msg = AgentOnTaskCreated {
-        task_hash: hash.clone(),
-    }
-    .into_cosmos_msg(agent_addr)?;
+    let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
@@ -416,9 +413,11 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
         QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
-        QueryMsg::EventedTasks { start, from_index, limit } => {
-            to_binary(&query_evented_tasks(deps, start, from_index, limit)?)
-        }
+        QueryMsg::EventedTasks {
+            start,
+            from_index,
+            limit,
+        } => to_binary(&query_evented_tasks(deps, start, from_index, limit)?),
         QueryMsg::TasksByOwner {
             owner_addr,
             from_index,

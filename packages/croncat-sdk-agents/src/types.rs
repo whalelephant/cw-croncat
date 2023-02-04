@@ -3,6 +3,12 @@ use cosmwasm_std::{Addr, Timestamp};
 use std::fmt;
 
 #[cw_serde]
+pub struct AgentNominationStatus {
+    pub start_height_of_nomination: Option<u64>,
+    pub tasks_created_from_last_nomination: u64,
+}
+
+#[cw_serde]
 pub enum AgentStatus {
     // Default for any new agent, if tasks ratio allows
     Active,
@@ -72,7 +78,7 @@ pub struct Config {
     /// The agent at the zeroth index of the pending agent queue has this time to nominate
     /// The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue)
     /// Value is in seconds
-    pub agent_nomination_duration: u16,
+    pub agent_nomination_block_duration: u16,
     /// Min coins that should be attached to register an agent
     pub min_coins_for_agent_registration: u64,
     /// How many slots an agent can miss before being removed from the active queue

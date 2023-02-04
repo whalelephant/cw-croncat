@@ -305,30 +305,7 @@
             ],
             "properties": {
               "height": {
-                "type": "object",
-                "properties": {
-                  "end": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/definitions/Uint64"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "start": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/definitions/Uint64"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
+                "$ref": "#/definitions/BoundaryHeight"
               }
             },
             "additionalProperties": false
@@ -340,35 +317,64 @@
             ],
             "properties": {
               "time": {
-                "type": "object",
-                "properties": {
-                  "end": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/definitions/Timestamp"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "start": {
-                    "anyOf": [
-                      {
-                        "$ref": "#/definitions/Timestamp"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
+                "$ref": "#/definitions/BoundaryTime"
               }
             },
             "additionalProperties": false
           }
         ]
+      },
+      "BoundaryHeight": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Uint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Uint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BoundaryTime": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "Coin": {
         "type": "object",
@@ -511,7 +517,7 @@
             "type": "boolean"
           },
           "contract_addr": {
-            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
             "type": "string"
           },
           "msg": {
@@ -1428,7 +1434,7 @@
         "additionalProperties": false
       },
       {
-        "description": "CurrentTaskInfo",
+        "description": "returns the total task count & last task creation timestamp for agent nomination checks",
         "type": "object",
         "required": [
           "current_task_info"
@@ -1436,6 +1442,42 @@
         "properties": {
           "current_task_info": {
             "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Get next task to be done",
+        "type": "object",
+        "required": [
+          "current_task"
+        ],
+        "properties": {
+          "current_task": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Get task by the task hash",
+        "type": "object",
+        "required": [
+          "task"
+        ],
+        "properties": {
+          "task": {
+            "type": "object",
+            "required": [
+              "task_hash"
+            ],
+            "properties": {
+              "task_hash": {
+                "type": "string"
+              }
+            },
             "additionalProperties": false
           }
         },
@@ -1498,6 +1540,14 @@
                 ],
                 "format": "uint64",
                 "minimum": 0.0
+              },
+              "start": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
               }
             },
             "additionalProperties": false
@@ -1535,28 +1585,6 @@
                 "minimum": 0.0
               },
               "owner_addr": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      },
-      {
-        "description": "Get task by the task hash",
-        "type": "object",
-        "required": [
-          "task"
-        ],
-        "properties": {
-          "task": {
-            "type": "object",
-            "required": [
-              "task_hash"
-            ],
-            "properties": {
-              "task_hash": {
                 "type": "string"
               }
             },
@@ -1661,20 +1689,6 @@
                 "minimum": 0.0
               }
             },
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      },
-      {
-        "description": "Get next task to be done",
-        "type": "object",
-        "required": [
-          "current_task"
-        ],
-        "properties": {
-          "current_task": {
-            "type": "object",
             "additionalProperties": false
           }
         },
@@ -1813,28 +1827,83 @@
         "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
         "type": "string"
       },
-      "BoundaryValidated": {
+      "Boundary": {
+        "description": "Start and end block or timestamp when task should be executed for the last time",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "height"
+            ],
+            "properties": {
+              "height": {
+                "$ref": "#/definitions/BoundaryHeight"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "time"
+            ],
+            "properties": {
+              "time": {
+                "$ref": "#/definitions/BoundaryTime"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "BoundaryHeight": {
         "type": "object",
-        "required": [
-          "is_block_boundary",
-          "start"
-        ],
         "properties": {
           "end": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "uint64",
-            "minimum": 0.0
-          },
-          "is_block_boundary": {
-            "type": "boolean"
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Uint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "start": {
-            "type": "integer",
-            "format": "uint64",
-            "minimum": 0.0
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Uint64"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BoundaryTime": {
+        "type": "object",
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "start": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Timestamp"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -1980,7 +2049,7 @@
             "type": "boolean"
           },
           "contract_addr": {
-            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
             "type": "string"
           },
           "msg": {
@@ -2410,7 +2479,7 @@
             "$ref": "#/definitions/AmountForOneTask"
           },
           "boundary": {
-            "$ref": "#/definitions/BoundaryValidated"
+            "$ref": "#/definitions/Boundary"
           },
           "interval": {
             "description": "Scheduling definitions",
@@ -3013,30 +3082,7 @@
               ],
               "properties": {
                 "height": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryHeight"
                 }
               },
               "additionalProperties": false
@@ -3048,35 +3094,64 @@
               ],
               "properties": {
                 "time": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryTime"
                 }
               },
               "additionalProperties": false
             }
           ]
+        },
+        "BoundaryHeight": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "BoundaryTime": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "Coin": {
           "type": "object",
@@ -3219,7 +3294,7 @@
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "string"
             },
             "msg": {
@@ -4137,30 +4212,7 @@
               ],
               "properties": {
                 "height": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryHeight"
                 }
               },
               "additionalProperties": false
@@ -4172,35 +4224,64 @@
               ],
               "properties": {
                 "time": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryTime"
                 }
               },
               "additionalProperties": false
             }
           ]
+        },
+        "BoundaryHeight": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "BoundaryTime": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "Coin": {
           "type": "object",
@@ -4343,7 +4424,7 @@
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "string"
             },
             "msg": {
@@ -5341,30 +5422,7 @@
               ],
               "properties": {
                 "height": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryHeight"
                 }
               },
               "additionalProperties": false
@@ -5376,35 +5434,64 @@
               ],
               "properties": {
                 "time": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryTime"
                 }
               },
               "additionalProperties": false
             }
           ]
+        },
+        "BoundaryHeight": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "BoundaryTime": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "Coin": {
           "type": "object",
@@ -5547,7 +5634,7 @@
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "string"
             },
             "msg": {
@@ -6438,30 +6525,7 @@
               ],
               "properties": {
                 "height": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryHeight"
                 }
               },
               "additionalProperties": false
@@ -6473,35 +6537,64 @@
               ],
               "properties": {
                 "time": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryTime"
                 }
               },
               "additionalProperties": false
             }
           ]
+        },
+        "BoundaryHeight": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "BoundaryTime": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "Coin": {
           "type": "object",
@@ -6644,7 +6737,7 @@
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "string"
             },
             "msg": {
@@ -7530,30 +7623,7 @@
               ],
               "properties": {
                 "height": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Uint64"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryHeight"
                 }
               },
               "additionalProperties": false
@@ -7565,35 +7635,64 @@
               ],
               "properties": {
                 "time": {
-                  "type": "object",
-                  "properties": {
-                    "end": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    },
-                    "start": {
-                      "anyOf": [
-                        {
-                          "$ref": "#/definitions/Timestamp"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
-                    }
-                  },
-                  "additionalProperties": false
+                  "$ref": "#/definitions/BoundaryTime"
                 }
               },
               "additionalProperties": false
             }
           ]
+        },
+        "BoundaryHeight": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "BoundaryTime": {
+          "type": "object",
+          "properties": {
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "Coin": {
           "type": "object",
@@ -7736,7 +7835,7 @@
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nOne requirement for custom contracts: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "string"
             },
             "msg": {

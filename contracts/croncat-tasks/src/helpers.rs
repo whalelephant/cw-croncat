@@ -3,7 +3,7 @@ use cosmwasm_std::{
     Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, TaskRequest,
+    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, Interval, TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
@@ -14,43 +14,45 @@ use crate::{
 
 pub(crate) fn validate_boundary(
     block_info: &BlockInfo,
-    boundary: &Option<Boundary>,
+    boundary: Option<Boundary>,
     interval: &Interval,
-) -> Result<BoundaryValidated, ContractError> {
-    let boundary_validated = match (interval, boundary) {
-        (Interval::Cron(_), Some(Boundary::Height { .. }))
-        | (Interval::Block(_), Some(Boundary::Time { .. })) => {
-            Err(ContractError::InvalidBoundary {})
+) -> Result<Boundary, ContractError> {
+    match (interval, boundary) {
+        (Interval::Cron(_), Some(Boundary::Time(boundary_time))) => {
+            let starting_time = boundary_time.start.unwrap_or(block_info.time);
+            if boundary_time.end.map_or(false, |e| e <= starting_time) {
+                Err(ContractError::InvalidBoundary {})
+            } else {
+                Ok(Boundary::Time(boundary_time))
+            }
         }
-        (_, Some(Boundary::Height { start, end })) => Ok(BoundaryValidated {
-            start: start.map(Into::into).unwrap_or(block_info.height),
-            end: end.map(Into::into),
-            is_block_boundary: true,
-        }),
-        (_, Some(Boundary::Time { start, end })) => Ok(BoundaryValidated {
-            start: start.unwrap_or(block_info.time).nanos(),
-            end: end.map(|e| e.nanos()),
-            is_block_boundary: false,
-        }),
-        (Interval::Cron(_), None) => Ok(BoundaryValidated {
-            start: block_info.time.nanos(),
-            end: None,
-            is_block_boundary: false,
-        }),
-        // Defaults to block boundary rest
-        (_, None) => Ok(BoundaryValidated {
-            start: block_info.height,
-            end: None,
-            is_block_boundary: true,
-        }),
-    }?;
-
-    if let Some(end) = boundary_validated.end {
-        if boundary_validated.start >= end {
-            return Err(ContractError::InvalidBoundary {});
+        (
+            Interval::Block(_) | Interval::Once | Interval::Immediate,
+            Some(Boundary::Height(boundary_height)),
+        ) => {
+            let starting_height = boundary_height
+                .start
+                .map(Into::into)
+                .unwrap_or(block_info.height);
+            if boundary_height
+                .end
+                .map_or(false, |e| e.u64() <= starting_height)
+            {
+                Err(ContractError::InvalidBoundary {})
+            } else {
+                Ok(Boundary::Height(boundary_height))
+            }
         }
+        (Interval::Cron(_), None) => Ok(Boundary::Time(BoundaryTime {
+            start: None,
+            end: None,
+        })),
+        (_, None) => Ok(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: None,
+        })),
+        _ => Err(ContractError::InvalidBoundary {}),
     }
-    Ok(boundary_validated)
 }
 
 /// Check for calls of our contracts
@@ -270,4 +272,371 @@ pub(crate) fn get_agents_addr(
             (agents_name, version),
         )?
         .ok_or(ContractError::InvalidKey {})
+}
+
+#[cfg(test)]
+mod tests {
+    use cosmwasm_std::{Timestamp, Uint64};
+
+    use super::*;
+
+    #[test]
+    fn validate_boundary_cases() {
+        type ValidateBoundaryChecker = (
+            Interval,
+            Option<Boundary>,
+            // current block height
+            u64,
+            // current block timestamp
+            Timestamp,
+            // expected result
+            Result<Boundary, ContractError>,
+        );
+        let cases: Vec<ValidateBoundaryChecker> = vec![
+            // Boundary - None
+            (
+                Interval::Once,
+                None,
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Immediate,
+                None,
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Block(5),
+                None,
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                None,
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            // Boundary height, start&end - None
+            (
+                Interval::Once,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            // Boundary Time - start&end - None
+            (
+                Interval::Once,
+                Some(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: None,
+                    end: None,
+                })),
+            ),
+            // Start exactly now
+            (
+                Interval::Once,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123456)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123456)),
+                    end: None,
+                })),
+            ),
+            // Start 1 too early, we shouldn't check it
+            (
+                Interval::Once,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123455)),
+                    end: None,
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123455)),
+                    end: None,
+                })),
+            ),
+            // Ok ends
+            (
+                Interval::Once,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(124)),
+                })),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123456)),
+                    end: Some(Timestamp::from_nanos(123457)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123456)),
+                    end: Some(Timestamp::from_nanos(123457)),
+                })),
+            ),
+            // End too early
+            (
+                Interval::Once,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(123)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Immediate,
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(123)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Block(5),
+                Some(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(123)),
+                    end: Some(Uint64::new(123)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+            (
+                Interval::Cron("* * * * * *".to_owned()),
+                Some(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123456)),
+                    end: Some(Timestamp::from_nanos(123456)),
+                })),
+                123,
+                Timestamp::from_nanos(123456),
+                Err(ContractError::InvalidBoundary {}),
+            ),
+        ];
+        for (interval, boundary, height, time, expected_res) in cases {
+            let block_info = BlockInfo {
+                height,
+                time,
+                chain_id: "cron".to_owned(),
+            };
+            let res = validate_boundary(&block_info, boundary, &interval);
+            assert_eq!(res, expected_res)
+        }
+    }
 }

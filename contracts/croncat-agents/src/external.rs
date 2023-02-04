@@ -1,7 +1,6 @@
 use crate::error::ContractError;
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, Uint64,
-    WasmMsg,
+    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
@@ -12,15 +11,6 @@ use croncat_sdk_tasks::msg::TasksQueryMsg;
 use croncat_sdk_tasks::types::SlotTasksTotalResponse;
 pub mod croncat_tasks_contract {
     use super::*;
-    pub fn query_total_tasks(deps: Deps, config: &Config) -> StdResult<u64> {
-        let tasks_addr = query_tasks_addr(&deps.querier, config)?;
-        // Get the denom from the manager contract
-        let total_tasks: Uint64 = deps
-            .querier
-            .query_wasm_smart(tasks_addr, &TasksQueryMsg::TasksTotal {})?;
-
-        Ok(total_tasks.u64())
-    }
 
     pub(crate) fn assert_caller_is_tasks_contract(
         deps_queries: &QuerierWrapper<Empty>,

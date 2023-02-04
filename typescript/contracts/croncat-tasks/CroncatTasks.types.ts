@@ -164,15 +164,9 @@ export type GovMsg = {
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
 export type Boundary = {
-  height: {
-    end?: Uint64 | null;
-    start?: Uint64 | null;
-  };
+  height: BoundaryHeight;
 } | {
-  time: {
-    end?: Timestamp | null;
-    start?: Timestamp | null;
-  };
+  time: BoundaryTime;
 };
 export type Interval = "once" | "immediate" | {
   block: number;
@@ -228,6 +222,14 @@ export interface IbcTimeoutBlock {
   revision: number;
   [k: string]: unknown;
 }
+export interface BoundaryHeight {
+  end?: Uint64 | null;
+  start?: Uint64 | null;
+}
+export interface BoundaryTime {
+  end?: Timestamp | null;
+  start?: Timestamp | null;
+}
 export interface Cw20Coin {
   address: string;
   amount: Uint128;
@@ -256,6 +258,12 @@ export type QueryMsg = {
 } | {
   current_task_info: {};
 } | {
+  current_task: {};
+} | {
+  task: {
+    task_hash: string;
+  };
+} | {
   tasks: {
     from_index?: number | null;
     limit?: number | null;
@@ -264,16 +272,13 @@ export type QueryMsg = {
   evented_tasks: {
     from_index?: number | null;
     limit?: number | null;
+    start?: number | null;
   };
 } | {
   tasks_by_owner: {
     from_index?: number | null;
     limit?: number | null;
     owner_addr: string;
-  };
-} | {
-  task: {
-    task_hash: string;
   };
 } | {
   task_hash: {
@@ -292,14 +297,12 @@ export type QueryMsg = {
   slot_tasks_total: {
     offset?: number | null;
   };
-} | {
-  current_task: {};
 };
 export type Addr = string;
 export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: AmountForOneTask;
-  boundary: BoundaryValidated;
+  boundary: Boundary;
   interval: Interval;
   owner_addr: Addr;
   queries: CroncatQuery[];
@@ -315,11 +318,6 @@ export interface AmountForOneTask {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-}
-export interface BoundaryValidated {
-  end?: number | null;
-  is_block_boundary: boolean;
-  start: number;
 }
 export interface Config {
   chain_name: string;
