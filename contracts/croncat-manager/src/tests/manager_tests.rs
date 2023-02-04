@@ -2279,7 +2279,6 @@ fn recurring_task_block_block_interval() {
     app.update_block(add_little_time);
     app.update_block(add_little_time);
 
-
     let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
     app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -2333,7 +2332,7 @@ fn recurring_task_block_block_interval() {
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_tasks::msg::QueryMsg::Task { task_hash },
         )
         .unwrap();
@@ -2365,7 +2364,7 @@ fn recurring_task_block_block_interval() {
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
-        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
+        .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
     assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 * 3));
 }
