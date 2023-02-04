@@ -350,7 +350,7 @@ pub(crate) fn query_users_manager(
 }
 
 pub(crate) fn add_little_time(block: &mut BlockInfo) {
-    block.time = block.time.plus_seconds(40);
+    block.time = block.time.plus_seconds(19);
     block.height += 1;
 }
 

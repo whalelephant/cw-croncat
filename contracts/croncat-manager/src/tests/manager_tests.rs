@@ -1009,7 +1009,7 @@ fn simple_bank_transfers_cron() {
     activate_agent(&mut app, &agents_addr);
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // Making it cron on purpose
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
@@ -1132,7 +1132,7 @@ fn simple_bank_transfers_cron() {
     // Check balance fully cleared
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // Making it cron on purpose
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
@@ -2215,11 +2215,11 @@ fn recurring_task_cron() {
     activate_agent(&mut app, &agents_addr);
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // repeat it two times
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_seconds(40)),
+            end: Some(app.block_info().time.plus_seconds(20)),
         })),
         stop_on_fail: false,
         actions: vec![
@@ -2363,11 +2363,11 @@ fn recurring_task_cron() {
     .unwrap();
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // repeat it two times
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_seconds(40)),
+            end: Some(app.block_info().time.plus_seconds(20)),
         })),
         stop_on_fail: false,
         actions: vec![
@@ -3255,6 +3255,23 @@ fn refill_task_balance_fail() {
     );
 
     // Create task with ibc balance
+    // Create a task
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(46, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
     let res = app
         .execute_contract(
             Addr::unchecked(PARTICIPANT0),
@@ -3686,7 +3703,7 @@ fn refill_task_cw20_fail() {
         actions: vec![Action {
             msg: BankMsg::Send {
                 to_address: "bob".to_owned(),
-                amount: coins(45, DENOM),
+                amount: coins(46, DENOM),
             }
             .into(),
             gas_limit: None,

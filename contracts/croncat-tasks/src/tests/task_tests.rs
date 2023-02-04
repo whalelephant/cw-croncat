@@ -311,7 +311,7 @@ fn create_task_without_query() {
         gas_limit: Some(60_000),
     };
     let task = TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
@@ -365,7 +365,7 @@ fn create_task_without_query() {
         task: Some(TaskInfo {
             task_hash: task_hash.clone(),
             owner_addr: Addr::unchecked(ANYONE),
-            interval: Interval::Immediate,
+            interval: Interval::Cron("* * * * * *".to_owned()),
             boundary: Boundary::Time(BoundaryTime {
                 start: Some(app.block_info().time),
                 end: Some(app.block_info().time.plus_nanos(100)),
@@ -1040,7 +1040,7 @@ fn remove_tasks_with_queries_success() {
     );
 
     let task = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(1000)),
@@ -1082,7 +1082,7 @@ fn remove_tasks_with_queries_success() {
             &ExecuteMsg::CreateTask {
                 task: Box::new(task),
             },
-            &coins(50000, DENOM),
+            &coins(90000, DENOM),
         )
         .unwrap();
     let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
@@ -1118,7 +1118,7 @@ fn remove_tasks_with_queries_success() {
     assert_eq!(
         manager_task_balance.balance,
         Some(TaskBalance {
-            native_balance: Uint128::new(50000),
+            native_balance: Uint128::new(90000),
             cw20_balance: None,
             ibc_balance: None,
         }),
@@ -1291,7 +1291,7 @@ fn remove_tasks_without_queries_success() {
     );
 
     let task = TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(1000)),
