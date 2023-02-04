@@ -2679,7 +2679,7 @@ fn negative_proxy_call() {
     assert!(res.events.iter().any(|ev| {
         ev.attributes
             .iter()
-            .any(|attr| attr.key == "task_status" && attr.value == "invalid")
+            .any(|attr| attr.key == "lifecycle" && attr.value == "task_invalidated")
     }));
 
     // make sure it's gone after invalidation

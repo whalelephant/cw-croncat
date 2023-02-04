@@ -118,9 +118,7 @@ fn execute_update_config(deps: DepsMut, owner_addr: String) -> Result<Response, 
         owner_addr: deps.api.addr_validate(&owner_addr)?,
     };
     CONFIG.save(deps.storage, &config)?;
-    Ok(Response::new()
-        .add_attribute("action", "update_config")
-        .add_attribute("owner_addr", config.owner_addr))
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn execute_proxy(
@@ -165,27 +163,23 @@ fn execute_update_metadata(
     new_changelog: Option<String>,
     schema: Option<String>,
 ) -> Result<Response, ContractError> {
-    let metadata =
-        CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
-            match metadata_res {
-                Some(mut metadata) => {
-                    // Update only if it contains values
-                    // No reason to set it from Some(x) to None
-                    if new_changelog.is_some() {
-                        metadata.changelog_url = new_changelog;
-                    }
-                    if schema.is_some() {
-                        metadata.schema = schema;
-                    }
-                    Ok(metadata)
+    CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
+        match metadata_res {
+            Some(mut metadata) => {
+                // Update only if it contains values
+                // No reason to set it from Some(x) to None
+                if new_changelog.is_some() {
+                    metadata.changelog_url = new_changelog;
                 }
-                None => Err(ContractError::UnknownContract {}),
+                if schema.is_some() {
+                    metadata.schema = schema;
+                }
+                Ok(metadata)
             }
-        })?;
-    Ok(Response::new()
-        .add_attribute("action", "update_metadata")
-        .add_attribute("changelog_url", format!("{:?}", metadata.changelog_url))
-        .add_attribute("schema", format!("{:?}", metadata.schema)))
+            None => Err(ContractError::UnknownContract {}),
+        }
+    })?;
+    Ok(Response::new().add_attribute("action", "update_metadata"))
 }
 
 fn execute_remove(
@@ -246,7 +240,6 @@ fn execute_deploy(
 
     Ok(Response::new()
         .add_attribute("action", "deploy")
-        .add_attribute("version_kind", kind.to_string())
         .add_attribute("contract_name", temp_reply.contract_name)
         .add_submessage(msg))
 }
