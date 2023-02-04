@@ -306,7 +306,7 @@ fn execute_proxy_call_with_queries(
         };
         Ok(Response::new()
             .add_attribute("action", "remove_task")
-            .add_attribute("task_status", "invalid")
+            .add_attribute("lifecycle", "task_invalidated")
             .add_message(msg)
             .add_message(bank_send))
     } else {
@@ -333,7 +333,7 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |mut config| {
+    CONFIG.update(deps.storage, |mut config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
@@ -391,10 +391,7 @@ pub fn execute_update_config(
         Ok(new_config)
     })?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_config")
-        .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_id", new_config.owner_addr.to_string()))
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn execute_create_task_balance(

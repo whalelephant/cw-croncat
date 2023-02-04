@@ -260,7 +260,7 @@ fn register_agent(
     };
 
     let storage = deps.storage;
-    let agent = AGENTS.update(
+    AGENTS.update(
         storage,
         &account,
         |a: Option<Agent>| -> Result<_, ContractError> {
@@ -290,9 +290,7 @@ fn register_agent(
     )?;
     Ok(Response::new()
         .add_attribute("action", "register_agent")
-        .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
-        .add_attribute("register_start", agent.register_start.nanos().to_string())
-        .add_attribute("payable_account_id", agent.payable_account_id))
+        .add_attribute("agent_status", agent_status.to_string()))
 }
 
 /// Update agent details, specifically the payable account id for an agent.
@@ -308,7 +306,7 @@ fn update_agent(
         return Err(ContractError::ContractPaused);
     }
 
-    let agent = AGENTS.update(
+    AGENTS.update(
         deps.storage,
         &info.sender,
         |a: Option<Agent>| -> Result<_, ContractError> {
@@ -323,9 +321,7 @@ fn update_agent(
         },
     )?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_agent")
-        .add_attribute("payable_account_id", agent.payable_account_id))
+    Ok(Response::new().add_attribute("action", "update_agent"))
 }
 
 /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
@@ -491,7 +487,7 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |config| {
+    CONFIG.update(deps.storage, |config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
@@ -532,10 +528,7 @@ pub fn execute_update_config(
         Ok(new_config)
     })?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_config")
-        .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_addr", new_config.owner_addr.to_string()))
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn get_agent_status(
@@ -712,9 +705,6 @@ fn on_task_completed(
     }
     AGENT_STATS.save(deps.storage, &args.agent_id, &stats)?;
 
-    let response = Response::new()
-        .add_attribute("action", "on_task_completed")
-        .add_attribute("agent_id", args.agent_id.to_string())
-        .add_attribute("is_block_slot_task", args.is_block_slot_task.to_string());
+    let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
 }
