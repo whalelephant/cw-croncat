@@ -80,7 +80,7 @@ export class ManagerClient {
 	}
 
 	async agentWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
-		const msg = { withdraw_agent_rewards: null };
+		const msg = { agent_withdraw: null };
 		const response = await this.client.execute(sender, contractAddr, msg, gas);
 		return response;
 	}

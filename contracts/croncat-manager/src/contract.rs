@@ -4,10 +4,10 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
     Reply, Response, StdResult, Uint128, WasmQuery,
 };
-use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 
-use croncat_sdk_manager::msg::WithdrawRewardsCallback;
+use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::Interval;
 use cw2::set_contract_version;
@@ -128,7 +128,6 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
-        ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
         ExecuteMsg::ProxyCall {
             task_hash: Some(task_hash),
@@ -140,10 +139,11 @@ pub fn execute(
         ExecuteMsg::RefillTaskCw20Balance { task_hash, cw20 } => {
             execute_refill_task_cw20(deps, info, task_hash, cw20)
         }
-        ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
-        ExecuteMsg::WithdrawAgentRewards(args) => execute_withdraw_agent_rewards(deps, info, args),
+        ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
+        ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
+        ExecuteMsg::AgentWithdraw(args) => execute_withdraw_agent_rewards(deps, info, args),
     }
 }
 
@@ -306,7 +306,7 @@ fn execute_proxy_call_with_queries(
         };
         Ok(Response::new()
             .add_attribute("action", "remove_task")
-            .add_attribute("task_status", "invalid")
+            .add_attribute("lifecycle", "task_invalidated")
             .add_message(msg)
             .add_message(bank_send))
     } else {
@@ -333,7 +333,7 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |mut config| {
+    CONFIG.update(deps.storage, |mut config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
             owner_addr,
@@ -391,10 +391,7 @@ pub fn execute_update_config(
         Ok(new_config)
     })?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_config")
-        .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_id", new_config.owner_addr.to_string()))
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn execute_create_task_balance(
@@ -442,10 +439,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::TreasuryBalance {} => to_binary(&TREASURY_BALANCE.load(deps.storage)?),
         QueryMsg::UsersBalances {
-            wallet,
+            address,
             from_index,
             limit,
-        } => to_binary(&query_users_balances(deps, wallet, from_index, limit)?),
+        } => to_binary(&query_users_balances(deps, address, from_index, limit)?),
         QueryMsg::TaskBalance { task_hash } => to_binary(&TaskBalanceResponse {
             balance: TASKS_BALANCES.may_load(deps.storage, task_hash.as_bytes())?,
         }),
@@ -515,7 +512,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 fn execute_withdraw_agent_rewards(
     deps: DepsMut,
     info: MessageInfo,
-    args: Option<WithdrawRewardsOnRemovalArgs>,
+    args: Option<AgentWithdrawOnRemovalArgs>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
@@ -559,9 +556,9 @@ fn execute_withdraw_agent_rewards(
 
     Ok(Response::new()
         .add_messages(msgs)
-        .set_data(to_binary(&WithdrawRewardsCallback {
+        .set_data(to_binary(&AgentWithdrawCallback {
             agent_id: agent_id.to_string(),
-            rewards: agent_rewards,
+            amount: agent_rewards,
             payable_account_id: payable_account_id.to_string(),
         })?)
         .add_attribute("action", "withdraw_rewards")

@@ -1,9 +1,9 @@
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
-use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 
 use croncat_sdk_manager::{
-    msg::WithdrawRewardsCallback,
+    msg::AgentWithdrawCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
 use croncat_sdk_tasks::types::{
@@ -840,7 +840,7 @@ fn simple_bank_transfers_block() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -980,7 +980,7 @@ fn simple_bank_transfers_block() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -1118,7 +1118,7 @@ fn simple_bank_transfers_cron() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -1263,7 +1263,7 @@ fn simple_bank_transfers_cron() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -1573,7 +1573,7 @@ fn cw20_action_transfer() {
         .query_wasm_smart(
             manager_addr.clone(),
             &QueryMsg::UsersBalances {
-                wallet: PARTICIPANT0.to_owned(),
+                address: PARTICIPANT0.to_owned(),
                 from_index: None,
                 limit: None,
             },
@@ -1785,7 +1785,7 @@ fn task_with_query() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -2059,7 +2059,7 @@ fn recurring_task_block_immediate() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -2517,7 +2517,7 @@ fn recurring_task_cron() {
     app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ExecuteMsg::WithdrawAgentRewards(None),
+        &ExecuteMsg::AgentWithdraw(None),
         &[],
     )
     .unwrap();
@@ -2848,7 +2848,7 @@ fn negative_proxy_call() {
     assert!(res.events.iter().any(|ev| {
         ev.attributes
             .iter()
-            .any(|attr| attr.key == "task_status" && attr.value == "invalid")
+            .any(|attr| attr.key == "lifecycle" && attr.value == "task_invalidated")
     }));
 
     // make sure it's gone after invalidation
@@ -2877,7 +2877,7 @@ fn test_withdraw_agent_fail() {
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(None),
+            &ExecuteMsg::AgentWithdraw(None),
             &[],
         )
         .unwrap_err()
@@ -2892,7 +2892,7 @@ fn test_withdraw_agent_fail() {
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(None),
+            &ExecuteMsg::AgentWithdraw(None),
             &[],
         )
         .unwrap_err()
@@ -2900,12 +2900,12 @@ fn test_withdraw_agent_fail() {
         .unwrap();
     assert_eq!(err, ContractError::NoWithdrawRewardsAvailable {});
 
-    // Unauthorized to withdraw, only agent contracts can call WithdrawAgentRewards with args
+    // Unauthorized to withdraw, only agent contracts can call AgentWithdraw with args
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+            &ExecuteMsg::AgentWithdraw(Some(AgentWithdrawOnRemovalArgs {
                 agent_id: AGENT0.to_owned(),
                 payable_account_id: PARTICIPANT0.to_owned(),
             })),
@@ -2921,7 +2921,7 @@ fn test_withdraw_agent_fail() {
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(None),
+            &ExecuteMsg::AgentWithdraw(None),
             &[coin(1, DENOM)],
         )
         .unwrap_err()
@@ -2953,7 +2953,7 @@ fn test_withdraw_agent_fail() {
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr,
-            &ExecuteMsg::WithdrawAgentRewards(None),
+            &ExecuteMsg::AgentWithdraw(None),
             &[],
         )
         .unwrap_err()
@@ -3047,7 +3047,7 @@ fn test_withdraw_agent_success() {
         .execute_contract(
             Addr::unchecked(AGENT0),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(None),
+            &ExecuteMsg::AgentWithdraw(None),
             &[],
         )
         .unwrap();
@@ -3082,9 +3082,9 @@ fn test_withdraw_agent_success() {
     assert_eq!(
         res.data,
         Some(
-            to_binary(&WithdrawRewardsCallback {
+            to_binary(&AgentWithdrawCallback {
                 agent_id: AGENT0.to_string(),
-                rewards: agent_reward,
+                amount: agent_reward,
                 payable_account_id: AGENT0.to_string(),
             })
             .unwrap()
@@ -3103,7 +3103,7 @@ fn test_withdraw_agent_success() {
         .unwrap();
     assert_eq!(agent_reward, Uint128::zero());
 
-    // Do the same again to check WithdrawAgentRewards with args (when agent contract calls withdraw)
+    // Do the same again to check AgentWithdraw with args (when agent contract calls withdraw)
 
     // Create a task
     app.execute_contract(
@@ -3150,7 +3150,7 @@ fn test_withdraw_agent_success() {
         .execute_contract(
             Addr::unchecked(agents_addr.clone()),
             manager_addr.clone(),
-            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+            &ExecuteMsg::AgentWithdraw(Some(AgentWithdrawOnRemovalArgs {
                 agent_id: AGENT0.to_owned(),
                 payable_account_id: PARTICIPANT2.to_owned(),
             })),
@@ -3191,9 +3191,9 @@ fn test_withdraw_agent_success() {
     assert_eq!(
         res.data,
         Some(
-            to_binary(&WithdrawRewardsCallback {
+            to_binary(&AgentWithdrawCallback {
                 agent_id: AGENT0.to_string(),
-                rewards: agent_reward,
+                amount: agent_reward,
                 payable_account_id: PARTICIPANT2.to_string(),
             })
             .unwrap()
@@ -3212,7 +3212,7 @@ fn test_withdraw_agent_success() {
         .unwrap();
     assert_eq!(agent_reward, Uint128::zero());
 
-    // Agent contract can call WithdrawAgentRewards even if the reward is zero
+    // Agent contract can call AgentWithdraw even if the reward is zero
     let payable_account_balance_before_withdraw = app
         .wrap()
         .query_balance(PARTICIPANT2, DENOM)
@@ -3223,7 +3223,7 @@ fn test_withdraw_agent_success() {
         .execute_contract(
             Addr::unchecked(agents_addr),
             manager_addr,
-            &ExecuteMsg::WithdrawAgentRewards(Some(WithdrawRewardsOnRemovalArgs {
+            &ExecuteMsg::AgentWithdraw(Some(AgentWithdrawOnRemovalArgs {
                 agent_id: AGENT0.to_owned(),
                 payable_account_id: PARTICIPANT2.to_owned(),
             })),
@@ -3262,9 +3262,9 @@ fn test_withdraw_agent_success() {
     assert_eq!(
         res.data,
         Some(
-            to_binary(&WithdrawRewardsCallback {
+            to_binary(&AgentWithdrawCallback {
                 agent_id: AGENT0.to_string(),
-                rewards: Uint128::zero(),
+                amount: Uint128::zero(),
                 payable_account_id: PARTICIPANT2.to_string(),
             })
             .unwrap()

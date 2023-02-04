@@ -36,7 +36,7 @@ enum NewTaskMsg {
     OnTaskCreated(AgentOnTaskCreated),
 }
 #[cw_serde]
-pub struct WithdrawRewardsOnRemovalArgs {
+pub struct AgentWithdrawOnRemovalArgs {
     pub agent_id: String,
     pub payable_account_id: String,
 }

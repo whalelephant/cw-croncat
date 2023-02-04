@@ -442,7 +442,6 @@ fn execute_create_task(
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
         .add_attribute("task_hash", hash)
-        .add_attribute("with_queries", with_queries.to_string())
         .add_message(manager_create_task_balance_msg)
         .add_message(agent_new_task_msg))
 }
