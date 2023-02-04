@@ -6,7 +6,9 @@ use croncat_sdk_manager::{
     msg::WithdrawRewardsCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
-use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
+use croncat_sdk_tasks::types::{
+    Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
+};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_storage_plus::KeyDeserialize;
 
@@ -1009,10 +1011,10 @@ fn simple_bank_transfers_cron() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Once,
         // Making it cron on purpose
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1132,10 +1134,10 @@ fn simple_bank_transfers_cron() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Once,
         // Making it cron on purpose
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -1924,10 +1926,10 @@ fn recurring_task_block() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
             end: Some((app.block_info().height + 1).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2072,10 +2074,10 @@ fn recurring_task_block() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
             end: Some((app.block_info().height + 1).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2215,10 +2217,10 @@ fn recurring_task_cron() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_seconds(40)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2363,10 +2365,10 @@ fn recurring_task_cron() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_seconds(40)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {

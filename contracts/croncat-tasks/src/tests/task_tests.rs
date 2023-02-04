@@ -8,8 +8,9 @@ use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, Config, CroncatQuery, CurrentTaskInfoResponse, Interval,
-        SlotHashesResponse, SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform,
+        Action, Boundary, BoundaryHeight, BoundaryTime, Config, CroncatQuery,
+        CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotTasksTotalResponse, TaskInfo,
+        TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
@@ -164,10 +165,10 @@ fn create_task_without_query() {
 
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action1.clone(), action2.clone()],
         queries: None,
@@ -213,10 +214,10 @@ fn create_task_without_query() {
             task_hash: task_hash.clone(),
             owner_addr: Addr::unchecked(ANYONE),
             interval: Interval::Once,
-            boundary: Boundary::Height {
+            boundary: Boundary::Height(BoundaryHeight {
                 start: Some(app.block_info().height.into()),
                 end: Some((app.block_info().height + 10).into()),
-            },
+            }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
                 gas: GAS_BASE_FEE + action1.gas_limit.unwrap() + action2.gas_limit.unwrap(),
@@ -311,10 +312,10 @@ fn create_task_without_query() {
     };
     let task = TaskRequest {
         interval: Interval::Immediate,
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -365,10 +366,10 @@ fn create_task_without_query() {
             task_hash: task_hash.clone(),
             owner_addr: Addr::unchecked(ANYONE),
             interval: Interval::Immediate,
-            boundary: Boundary::Time {
+            boundary: Boundary::Time(BoundaryTime {
                 start: Some(app.block_info().time),
                 end: Some(app.block_info().time.plus_nanos(100)),
-            },
+            }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
                 gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
@@ -475,10 +476,10 @@ fn check_task_timestamp() {
 
     let mut task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action1, action2],
         queries: None,
@@ -553,10 +554,10 @@ fn create_task_with_wasm() {
 
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action],
         queries: None,
@@ -639,10 +640,10 @@ fn create_tasks_with_queries_and_transforms() {
 
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: Some(queries.clone()),
@@ -686,10 +687,10 @@ fn create_tasks_with_queries_and_transforms() {
             task_hash: task_hash.clone(),
             owner_addr: Addr::unchecked(ANYONE),
             interval: Interval::Once,
-            boundary: Boundary::Height {
+            boundary: Boundary::Height(BoundaryHeight {
                 start: Some(app.block_info().height.into()),
                 end: Some((app.block_info().height + 10).into()),
-            },
+            }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
                 gas: GAS_BASE_FEE + action.gas_limit.unwrap() + GAS_QUERY_FEE * 2,
@@ -957,10 +958,10 @@ fn remove_tasks_with_queries_success() {
     // Create one block and one cron with queries and then remove one by one
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1040,10 +1041,10 @@ fn remove_tasks_with_queries_success() {
 
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(1000)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1241,10 +1242,10 @@ fn remove_tasks_without_queries_success() {
     // Create one block and one cron without queries and then remove one by one
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1291,10 +1292,10 @@ fn remove_tasks_without_queries_success() {
 
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(1000)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1564,10 +1565,10 @@ fn negative_create_task() {
     };
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height + 10).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action1, action2],
         queries: None,
@@ -1599,10 +1600,10 @@ fn negative_create_task() {
     };
     let task = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some((app.block_info().height).into()),
             end: Some((app.block_info().height).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action],
         queries: None,
@@ -2446,10 +2447,10 @@ fn query_slot_hashes_test() {
     // Create several tasks
     let task1 = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2470,10 +2471,10 @@ fn query_slot_hashes_test() {
 
     let task2 = TaskRequest {
         interval: Interval::Immediate,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2494,10 +2495,10 @@ fn query_slot_hashes_test() {
 
     let task3 = TaskRequest {
         interval: Interval::Immediate,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block.saturating_add(5u64.into())),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2518,10 +2519,10 @@ fn query_slot_hashes_test() {
 
     let task4 = TaskRequest {
         interval: Interval::Block(5),
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2692,10 +2693,10 @@ fn query_slot_tasks_total_test() {
     // Create several tasks
     let task1 = TaskRequest {
         interval: Interval::Once,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2714,10 +2715,10 @@ fn query_slot_tasks_total_test() {
 
     let task2 = TaskRequest {
         interval: Interval::Immediate,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2736,10 +2737,10 @@ fn query_slot_tasks_total_test() {
 
     let task3 = TaskRequest {
         interval: Interval::Immediate,
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block.saturating_add(5u64.into())),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,
@@ -2758,10 +2759,10 @@ fn query_slot_tasks_total_test() {
 
     let task4 = TaskRequest {
         interval: Interval::Block(5),
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: Some(current_block),
             end: None,
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![action.clone()],
         queries: None,

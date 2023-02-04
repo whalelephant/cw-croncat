@@ -3,7 +3,7 @@ use cosmwasm_std::{
     Storage, WasmMsg,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryValidated, Config, Interval, Task, TaskRequest,
+    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, Interval, Task, TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
@@ -17,43 +17,48 @@ use crate::{
 
 pub(crate) fn validate_boundary(
     block_info: &BlockInfo,
-    boundary: &Option<Boundary>,
+    boundary: Option<Boundary>,
     interval: &Interval,
-) -> Result<BoundaryValidated, ContractError> {
-    let boundary_validated = match (interval, boundary) {
-        (Interval::Cron(_), Some(Boundary::Height { .. }))
-        | (Interval::Block(_), Some(Boundary::Time { .. })) => {
-            Err(ContractError::InvalidBoundary {})
+) -> Result<Boundary, ContractError> {
+    match (interval, boundary) {
+        (Interval::Cron(_), Some(Boundary::Time(boundary_time))) => {
+            let starting_time = boundary_time.start.unwrap_or(block_info.time);
+            if starting_time < block_info.time
+                || boundary_time.end.map_or(false, |e| e <= starting_time)
+            {
+                Err(ContractError::InvalidBoundary {})
+            } else {
+                Ok(Boundary::Time(boundary_time))
+            }
         }
-        (_, Some(Boundary::Height { start, end })) => Ok(BoundaryValidated {
-            start: start.map(Into::into).unwrap_or(block_info.height),
-            end: end.map(Into::into),
-            is_block_boundary: true,
-        }),
-        (_, Some(Boundary::Time { start, end })) => Ok(BoundaryValidated {
-            start: start.unwrap_or(block_info.time).nanos(),
-            end: end.map(|e| e.nanos()),
-            is_block_boundary: false,
-        }),
-        (Interval::Cron(_), None) => Ok(BoundaryValidated {
-            start: block_info.time.nanos(),
-            end: None,
-            is_block_boundary: false,
-        }),
-        // Defaults to block boundary rest
-        (_, None) => Ok(BoundaryValidated {
-            start: block_info.height,
-            end: None,
-            is_block_boundary: true,
-        }),
-    }?;
-
-    if let Some(end) = boundary_validated.end {
-        if boundary_validated.start >= end {
-            return Err(ContractError::InvalidBoundary {});
+        (
+            Interval::Block(_) | Interval::Once | Interval::Immediate,
+            Some(Boundary::Height(boundary_height)),
+        ) => {
+            let starting_height = boundary_height
+                .start
+                .map(Into::into)
+                .unwrap_or(block_info.height);
+            if starting_height < block_info.height
+                || boundary_height
+                    .end
+                    .map_or(false, |e| e.u64() <= starting_height)
+            {
+                Err(ContractError::InvalidBoundary {})
+            } else {
+                Ok(Boundary::Height(boundary_height))
+            }
         }
+        (Interval::Cron(_), None) => Ok(Boundary::Time(BoundaryTime {
+            start: None,
+            end: None,
+        })),
+        (_, None) => Ok(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: None,
+        })),
+        _ => Err(ContractError::InvalidBoundary {}),
     }
-    Ok(boundary_validated)
 }
 
 /// Check for calls of our contracts
@@ -301,7 +306,7 @@ pub(crate) fn task_with_queries_ready(
     task: &Task,
     hash: &[u8],
 ) -> StdResult<bool> {
-    let task_ready = if task.boundary.is_block_boundary {
+    let task_ready = if task.boundary.is_block() {
         let block = BLOCK_MAP_QUERIES.load(storage, hash)?;
         block_info.height >= block
     } else {
