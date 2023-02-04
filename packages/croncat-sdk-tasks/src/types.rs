@@ -261,6 +261,10 @@ impl Task {
         !self.queries.is_empty()
     }
 
+    pub fn is_evented(&self) -> bool {
+        self.queries.iter().any(|q| q.check_result == true)
+    }
+
     pub fn into_response(self, prefix: &str) -> TaskResponse {
         let task_hash = self.to_hash(prefix);
         let boundary = self.boundary.into();

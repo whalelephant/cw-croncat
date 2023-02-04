@@ -78,18 +78,15 @@ pub enum TasksQueryMsg {
     /// CurrentTaskInfo
     #[returns(crate::types::CurrentTaskInfoResponse)]
     CurrentTaskInfo {},
-    /// Get the total amount of tasks with queries
-    #[returns(cosmwasm_std::Uint64)]
-    TasksWithQueriesTotal {},
-    /// Get list of active tasks, without queries
+    /// Get list of all tasks
     #[returns(Vec<crate::types::TaskInfo>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get list of active tasks, with queries
+    /// Get list of event driven tasks
     #[returns(Vec<crate::types::TaskResponse>)]
-    TasksWithQueries {
+    EventedTasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },

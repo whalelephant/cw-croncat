@@ -22,10 +22,7 @@ use crate::helpers::{
     validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{
-    tasks_map, tasks_with_queries_map, BLOCK_MAP_QUERIES, BLOCK_SLOTS, CONFIG, LAST_TASK_CREATION,
-    TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES, TIME_SLOTS,
-};
+use crate::state::{ tasks_map, BLOCK_SLOTS, CONFIG, LAST_TASK_CREATION, TASKS_TOTAL, TIME_SLOTS };
 
 const CONTRACT_NAME: &str = "crate:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -82,7 +79,6 @@ pub fn instantiate(
     // Save initializing states
     CONFIG.save(deps.storage, &config)?;
     TASKS_TOTAL.save(deps.storage, &0)?;
-    TASKS_WITH_QUERIES_TOTAL.save(deps.storage, &0)?;
     Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
@@ -272,8 +268,6 @@ fn execute_remove_task_by_manager(
 
     if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
         remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
-    } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, &task_hash)? {
-        remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -296,11 +290,6 @@ fn execute_remove_task(
             return Err(ContractError::Unauthorized {});
         }
         remove_task_without_queries(deps.storage, hash, task.boundary.is_block_boundary)?;
-    } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, hash)? {
-        if task.owner_addr != info.sender {
-            return Err(ContractError::Unauthorized {});
-        }
-        remove_task_with_queries(deps.storage, hash, task.boundary.is_block_boundary)?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -452,12 +441,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::TasksTotal {} => to_binary(&cosmwasm_std::Uint64::from(query_tasks_total(deps)?)),
         QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
-        QueryMsg::TasksWithQueriesTotal {} => to_binary(&cosmwasm_std::Uint64::from(
-            TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?,
-        )),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
-        QueryMsg::TasksWithQueries { from_index, limit } => {
-            to_binary(&query_tasks_with_queries(deps, from_index, limit)?)
+        QueryMsg::EventedTasks { from_index, limit } => {
+            to_binary(&query_evented_tasks(deps, from_index, limit)?)
         }
         QueryMsg::TasksByOwner {
             owner_addr,
@@ -481,11 +467,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
 }
 
 fn query_tasks_total(deps: Deps) -> StdResult<u64> {
-    let total_normal: u64 = TASKS_TOTAL.load(deps.storage)?;
-    let total_queries: u64 = TASKS_WITH_QUERIES_TOTAL.load(deps.storage)?;
-
-    // Return total of both
-    Ok(total_normal.saturating_add(total_queries))
+    Ok(TASKS_TOTAL.load(deps.storage)?)
 }
 
 fn query_current_task_info(deps: Deps, _env: Env) -> StdResult<CurrentTaskInfoResponse> {
@@ -611,25 +593,6 @@ fn query_tasks(
         .collect()
 }
 
-fn query_tasks_with_queries(
-    deps: Deps,
-    from_index: Option<u64>,
-    limit: Option<u64>,
-) -> StdResult<Vec<TaskInfo>> {
-    let config = CONFIG.load(deps.storage)?;
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
-
-    tasks_with_queries_map()
-        .range(deps.storage, None, None, Order::Ascending)
-        .skip(from_index as usize)
-        .take(limit as usize)
-        .map(|task_res| {
-            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
-        })
-        .collect()
-}
-
 fn query_tasks_by_owner(
     deps: Deps,
     owner_addr: String,
@@ -648,14 +611,33 @@ fn query_tasks_by_owner(
         None,
         Order::Ascending,
     );
-    let tasks_with_queries = tasks_with_queries_map().idx.owner.prefix(owner_addr).range(
+    tasks
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| {
+            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
+        })
+        .collect()
+}
+
+fn query_evented_tasks(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskInfo>> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    // NOTE: Can add .prefix(start) in future
+    let tasks = tasks_map().idx.evented.range(
         deps.storage,
         None,
         None,
         Order::Ascending,
     );
     tasks
-        .chain(tasks_with_queries)
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|task_res| {
@@ -668,10 +650,6 @@ fn query_task(deps: Deps, task_hash: String) -> StdResult<TaskResponse> {
     let config = CONFIG.load(deps.storage)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, task_hash.as_bytes())? {
-        Ok(task.into_response(&config.chain_name))
-    } else if let Some(task) =
-        tasks_with_queries_map().may_load(deps.storage, task_hash.as_bytes())?
-    {
         Ok(task.into_response(&config.chain_name))
     } else {
         Ok(TaskResponse { task: None })
