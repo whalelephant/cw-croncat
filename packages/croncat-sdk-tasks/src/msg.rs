@@ -75,9 +75,15 @@ pub enum TasksQueryMsg {
     /// Get the total amount of tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
-    /// CurrentTaskInfo
+    /// returns the total task count & last task creation timestamp for agent nomination checks
     #[returns(crate::types::CurrentTaskInfoResponse)]
     CurrentTaskInfo {},
+    /// Get next task to be done
+    #[returns(crate::types::TaskResponse)]
+    CurrentTask {},
+    /// Get task by the task hash
+    #[returns(crate::types::TaskResponse)]
+    Task { task_hash: String },
     /// Get list of all tasks
     #[returns(Vec<crate::types::TaskInfo>)]
     Tasks {
@@ -87,6 +93,7 @@ pub enum TasksQueryMsg {
     /// Get list of event driven tasks
     #[returns(Vec<crate::types::TaskResponse>)]
     EventedTasks {
+        start: Option<u64>,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
@@ -97,9 +104,6 @@ pub enum TasksQueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get task by the task hash
-    #[returns(crate::types::TaskResponse)]
-    Task { task_hash: String },
     /// Simulate task_hash by the given task
     #[returns(String)]
     TaskHash { task: Box<crate::types::Task> },
@@ -114,7 +118,4 @@ pub enum TasksQueryMsg {
     },
     #[returns(crate::types::SlotTasksTotalResponse)]
     SlotTasksTotal { offset: Option<u64> },
-    /// Get next task to be done
-    #[returns(crate::types::TaskResponse)]
-    CurrentTask {},
 }

@@ -8,8 +8,8 @@ use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, Config, CroncatQuery, CurrentTaskInfoResponse, Interval,
-        SlotHashesResponse, SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform,
+        Action, Boundary, BoundaryValidated, Config, CroncatQuery, CurrentTaskInfoResponse, Interval,
+        SlotHashesResponse, SlotTasksTotalResponse, TaskInfo, TaskRequest, TaskResponse, Transform, Task,
     },
 };
 use cw20::Cw20ExecuteMsg;
@@ -973,6 +973,31 @@ fn remove_tasks_with_queries_success() {
         }]),
         cw20: None,
     };
+
+    let task_raw = Task {
+        owner_addr: Addr::unchecked(ANYONE),
+        interval: task.interval.clone(),
+        boundary: BoundaryValidated {
+            start: app.block_info().height,
+            end: None,
+            is_block_boundary: true,
+        },
+        stop_on_fail: task.stop_on_fail.clone(),
+        actions: task.actions.clone(),
+        queries: task.queries.clone().unwrap(),
+        transforms: task.transforms.clone().unwrap(),
+        version: "0.1".to_string(),
+        amount_for_one_task: AmountForOneTask {
+            gas: 50_000,
+            cw20: None,
+            coin: [Some(coin(5, DENOM)), None],
+        },
+    };
+    assert_eq!(task_raw.is_evented(), true);
+    // test how the index will find it
+    assert_eq!(task_raw.is_evented() && task_raw.boundary.is_block_boundary, true);
+    assert_eq!(task_raw.boundary.start, 12345);
+
     let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1051,6 +1076,20 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+
+    let evented_task_response: Vec<TaskResponse> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                start: Some(12345),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    println!("{:?}", evented_task_response);
+    // assert!(task_response.task.is_none());
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app

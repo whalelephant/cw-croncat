@@ -257,10 +257,6 @@ impl Task {
         !matches!(self.interval, Interval::Once)
     }
 
-    pub fn with_queries(&self) -> bool {
-        !self.queries.is_empty()
-    }
-
     pub fn is_evented(&self) -> bool {
         self.queries.iter().any(|q| q.check_result)
     }
@@ -298,7 +294,7 @@ pub struct CroncatQuery {
     /// This is address of the queried module contract.
     /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
     ///
-    /// One requirement for custom contracts: query return value should be formatted as a:
+    /// For queries with `check_result`: query return value should be formatted as a:
     /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub contract_addr: String,
     pub msg: Binary,

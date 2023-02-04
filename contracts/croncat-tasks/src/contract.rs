@@ -414,9 +414,10 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
         QueryMsg::TasksTotal {} => to_binary(&cosmwasm_std::Uint64::from(query_tasks_total(deps)?)),
         QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
+        QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
-        QueryMsg::EventedTasks { from_index, limit } => {
-            to_binary(&query_evented_tasks(deps, from_index, limit)?)
+        QueryMsg::EventedTasks { start, from_index, limit } => {
+            to_binary(&query_evented_tasks(deps, start, from_index, limit)?)
         }
         QueryMsg::TasksByOwner {
             owner_addr,
@@ -432,7 +433,6 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotTasksTotal { offset } => {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
-        QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
     }
 }
 
@@ -440,6 +440,7 @@ fn query_tasks_total(deps: Deps) -> StdResult<u64> {
     TASKS_TOTAL.load(deps.storage)
 }
 
+// returns the total task count & last task creation timestamp for agent nomination checks
 fn query_current_task_info(deps: Deps, _env: Env) -> StdResult<CurrentTaskInfoResponse> {
     Ok(CurrentTaskInfoResponse {
         total: Uint64::from(query_tasks_total(deps).unwrap()),
@@ -563,6 +564,31 @@ fn query_tasks(
         .collect()
 }
 
+fn query_evented_tasks(
+    deps: Deps,
+    start: Option<u64>,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<TaskInfo>> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    // NOTE: Can add .prefix(start) in future
+    tasks_map()
+        .idx
+        .evented
+        .prefix(start.unwrap_or_default())
+        .range(deps.storage, None, None, Order::Ascending)
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .map(|task_res| {
+            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
+        })
+        .collect()
+}
+
 fn query_tasks_by_owner(
     deps: Deps,
     owner_addr: String,
@@ -581,30 +607,6 @@ fn query_tasks_by_owner(
             .owner
             .prefix(owner_addr)
             .range(deps.storage, None, None, Order::Ascending);
-    tasks
-        .skip(from_index as usize)
-        .take(limit as usize)
-        .map(|task_res| {
-            task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
-        })
-        .collect()
-}
-
-fn query_evented_tasks(
-    deps: Deps,
-    from_index: Option<u64>,
-    limit: Option<u64>,
-) -> StdResult<Vec<TaskInfo>> {
-    let config = CONFIG.load(deps.storage)?;
-
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
-
-    // NOTE: Can add .prefix(start) in future
-    let tasks = tasks_map()
-        .idx
-        .evented
-        .range(deps.storage, None, None, Order::Ascending);
     tasks
         .skip(from_index as usize)
         .take(limit as usize)
