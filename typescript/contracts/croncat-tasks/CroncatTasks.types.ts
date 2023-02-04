@@ -164,15 +164,9 @@ export type GovMsg = {
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
 export type Boundary = {
-  height: {
-    end?: Uint64 | null;
-    start?: Uint64 | null;
-  };
+  height: BoundaryHeight;
 } | {
-  time: {
-    end?: Timestamp | null;
-    start?: Timestamp | null;
-  };
+  time: BoundaryTime;
 };
 export type Interval = "once" | "immediate" | {
   block: number;
@@ -227,6 +221,14 @@ export interface IbcTimeoutBlock {
   height: number;
   revision: number;
   [k: string]: unknown;
+}
+export interface BoundaryHeight {
+  end?: Uint64 | null;
+  start?: Uint64 | null;
+}
+export interface BoundaryTime {
+  end?: Timestamp | null;
+  start?: Timestamp | null;
 }
 export interface Cw20Coin {
   address: string;
@@ -305,7 +307,7 @@ export type Addr = string;
 export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: AmountForOneTask;
-  boundary: BoundaryValidated;
+  boundary: Boundary;
   interval: Interval;
   owner_addr: Addr;
   queries: CroncatQuery[];
@@ -321,11 +323,6 @@ export interface AmountForOneTask {
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
-}
-export interface BoundaryValidated {
-  end?: number | null;
-  is_block_boundary: boolean;
-  start: number;
 }
 export interface Config {
   chain_name: string;
