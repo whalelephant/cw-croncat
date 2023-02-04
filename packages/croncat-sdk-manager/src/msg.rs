@@ -1,7 +1,7 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 
 use cw20::Cw20Coin;
@@ -35,12 +35,12 @@ pub enum ManagerExecuteMsg {
     /// Note: it's shared across contracts
     // Boxing cause of large enum variant
     UpdateConfig(Box<UpdateConfig>),
-    /// Move balances from the manager to the owner address, or treasury_addr if set
-    OwnerWithdraw {},
+
     /// Execute current task in the queue or task with queries if task_hash given
     ProxyCall {
         task_hash: Option<String>,
     },
+
     /// Receive native coins to include them to the task
     RefillTaskBalance {
         task_hash: String,
@@ -49,21 +49,27 @@ pub enum ManagerExecuteMsg {
         task_hash: String,
         cw20: Cw20Coin,
     },
+
     /// Receive cw20 coin
     Receive(cw20::Cw20ReceiveMsg),
+
+    /// Create task's balance, called by the tasks contract
+    CreateTaskBalance(ManagerCreateTaskBalance),
+
+    /// Remove task's balance, called by the tasks contract
+    RemoveTask(ManagerRemoveTask),
+
+    /// Move balances from the manager to the owner address, or treasury_addr if set
+    OwnerWithdraw {},
+
     /// Withdraw temp coins for users
     UserWithdraw {
         // In case user somehow manages to have too many coins we don't want them to get locked funds
         limit: Option<u64>,
     },
 
-    /// Create task's balance, called by the tasks contract
-    CreateTaskBalance(ManagerCreateTaskBalance),
-    /// Remove task's balance, called by the tasks contract
-    RemoveTask(ManagerRemoveTask),
-
     /// Withdraw agent rewards on agent removal, this should be called only by agent contract
-    WithdrawAgentRewards(Option<WithdrawRewardsOnRemovalArgs>),
+    AgentWithdraw(Option<AgentWithdrawOnRemovalArgs>),
 }
 
 #[cw_serde]
@@ -78,7 +84,7 @@ pub enum ManagerQueryMsg {
     /// Gets Cw20 balances of the given wallet address
     #[returns(Vec<cw20::Cw20CoinVerified>)]
     UsersBalances {
-        wallet: String,
+        address: String,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
@@ -96,8 +102,8 @@ pub enum ManagerReceiveMsg {
     RefillTaskBalance { task_hash: String },
 }
 #[cw_serde]
-pub struct WithdrawRewardsCallback {
+pub struct AgentWithdrawCallback {
     pub agent_id: String,
-    pub rewards: Uint128,
+    pub amount: Uint128,
     pub payable_account_id: String,
 }

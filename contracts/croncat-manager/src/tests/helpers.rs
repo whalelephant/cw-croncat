@@ -342,7 +342,7 @@ pub(crate) fn query_users_manager(
         .query_wasm_smart(
             manager,
             &QueryMsg::UsersBalances {
-                wallet: wallet.into(),
+                address: wallet.into(),
                 from_index: None,
                 limit: None,
             },
@@ -351,7 +351,7 @@ pub(crate) fn query_users_manager(
 }
 
 pub(crate) fn add_little_time(block: &mut BlockInfo) {
-    block.time = block.time.plus_seconds(40);
+    block.time = block.time.plus_seconds(19);
     block.height += 1;
 }
 

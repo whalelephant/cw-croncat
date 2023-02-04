@@ -222,7 +222,7 @@ fn execute_reschedule_task(
                 }
             }
         } else {
-            remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block())?;
             remove_task = Some(ManagerRemoveTask {
                 sender: task.owner_addr,
                 task_hash,
@@ -243,7 +243,7 @@ fn execute_reschedule_task(
                 }
             }
         } else {
-            remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+            remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block())?;
             remove_task = Some(ManagerRemoveTask {
                 sender: task.owner_addr,
                 task_hash,
@@ -271,9 +271,9 @@ fn execute_remove_task_by_manager(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
-        remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+        remove_task_without_queries(deps.storage, &task_hash, task.boundary.is_block())?;
     } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, &task_hash)? {
-        remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block_boundary)?;
+        remove_task_with_queries(deps.storage, &task_hash, task.boundary.is_block())?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -295,12 +295,12 @@ fn execute_remove_task(
         if task.owner_addr != info.sender {
             return Err(ContractError::Unauthorized {});
         }
-        remove_task_without_queries(deps.storage, hash, task.boundary.is_block_boundary)?;
+        remove_task_without_queries(deps.storage, hash, task.boundary.is_block())?;
     } else if let Some(task) = tasks_with_queries_map().may_load(deps.storage, hash)? {
         if task.owner_addr != info.sender {
             return Err(ContractError::Unauthorized {});
         }
-        remove_task_with_queries(deps.storage, hash, task.boundary.is_block_boundary)?;
+        remove_task_with_queries(deps.storage, hash, task.boundary.is_block())?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -328,7 +328,7 @@ fn execute_create_task(
     let owner_addr = info.sender;
 
     // Validate boundary and interval
-    let boundary = validate_boundary(&env.block, &task.boundary, &task.interval)?;
+    let boundary = validate_boundary(&env.block, task.boundary.clone(), &task.interval)?;
     if !task.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
@@ -432,17 +432,13 @@ fn execute_create_task(
     .into_cosmos_msg(manager_addr, info.funds)?;
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_new_task_msg = AgentOnTaskCreated {
-        task_hash: hash.clone(),
-    }
-    .into_cosmos_msg(agent_addr)?;
+    let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
         .add_attribute("task_hash", hash)
-        .add_attribute("with_queries", with_queries.to_string())
         .add_message(manager_create_task_balance_msg)
         .add_message(agent_new_task_msg))
 }
@@ -789,7 +785,7 @@ fn query_current_task_with_queries(
             task_hash,
             owner_addr: task.owner_addr,
             interval: task.interval,
-            boundary: task.boundary.into(),
+            boundary: task.boundary,
             stop_on_fail: task.stop_on_fail,
             amount_for_one_task: task.amount_for_one_task,
             actions: task.actions,

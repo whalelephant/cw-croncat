@@ -151,20 +151,6 @@
         "additionalProperties": false
       },
       {
-        "description": "Move balances from the manager to the owner address, or treasury_addr if set",
-        "type": "object",
-        "required": [
-          "owner_withdraw"
-        ],
-        "properties": {
-          "owner_withdraw": {
-            "type": "object",
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      },
-      {
         "description": "Execute current task in the queue or task with queries if task_hash given",
         "type": "object",
         "required": [
@@ -247,30 +233,6 @@
         "additionalProperties": false
       },
       {
-        "description": "Withdraw temp coins for users",
-        "type": "object",
-        "required": [
-          "user_withdraw"
-        ],
-        "properties": {
-          "user_withdraw": {
-            "type": "object",
-            "properties": {
-              "limit": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "format": "uint64",
-                "minimum": 0.0
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "additionalProperties": false
-      },
-      {
         "description": "Create task's balance, called by the tasks contract",
         "type": "object",
         "required": [
@@ -297,16 +259,54 @@
         "additionalProperties": false
       },
       {
+        "description": "Move balances from the manager to the owner address, or treasury_addr if set",
+        "type": "object",
+        "required": [
+          "owner_withdraw"
+        ],
+        "properties": {
+          "owner_withdraw": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Withdraw temp coins for users",
+        "type": "object",
+        "required": [
+          "user_withdraw"
+        ],
+        "properties": {
+          "user_withdraw": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Withdraw agent rewards on agent removal, this should be called only by agent contract",
         "type": "object",
         "required": [
-          "withdraw_agent_rewards"
+          "agent_withdraw"
         ],
         "properties": {
-          "withdraw_agent_rewards": {
+          "agent_withdraw": {
             "anyOf": [
               {
-                "$ref": "#/definitions/WithdrawRewardsOnRemovalArgs"
+                "$ref": "#/definitions/AgentWithdrawOnRemovalArgs"
               },
               {
                 "type": "null"
@@ -321,6 +321,22 @@
       "Addr": {
         "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
         "type": "string"
+      },
+      "AgentWithdrawOnRemovalArgs": {
+        "type": "object",
+        "required": [
+          "agent_id",
+          "payable_account_id"
+        ],
+        "properties": {
+          "agent_id": {
+            "type": "string"
+          },
+          "payable_account_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "AmountForOneTask": {
         "type": "object",
@@ -631,22 +647,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "WithdrawRewardsOnRemovalArgs": {
-        "type": "object",
-        "required": [
-          "agent_id",
-          "payable_account_id"
-        ],
-        "properties": {
-          "agent_id": {
-            "type": "string"
-          },
-          "payable_account_id": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
       }
     }
   },
@@ -692,9 +692,12 @@
           "users_balances": {
             "type": "object",
             "required": [
-              "wallet"
+              "address"
             ],
             "properties": {
+              "address": {
+                "type": "string"
+              },
               "from_index": {
                 "type": [
                   "integer",
@@ -710,9 +713,6 @@
                 ],
                 "format": "uint64",
                 "minimum": 0.0
-              },
-              "wallet": {
-                "type": "string"
               }
             },
             "additionalProperties": false

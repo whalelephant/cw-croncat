@@ -1,8 +1,7 @@
 use crate::msg::*;
 use crate::state::{
     DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
-    DEFAULT_NOMINATION_DURATION,
+    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
@@ -45,7 +44,7 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
         paused: false,
         owner_addr: Addr::unchecked(ADMIN),
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
-        agent_nomination_duration: DEFAULT_NOMINATION_DURATION,
+        agent_nomination_block_duration: DEFAULT_NOMINATION_BLOCK_DURATION,
         croncat_factory_addr: Addr::unchecked(croncat_factory_addr.to_owned()),
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
@@ -59,7 +58,7 @@ pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
-        agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+        agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
         croncat_factory_addr: Some(croncat_factory_addr.to_owned()),
         croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),

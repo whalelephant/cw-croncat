@@ -7,5 +7,5 @@ repository = "https://github.com/CronCats/cw-croncat"
 
 [dependencies]
 cosmwasm-schema = { workspace = true }
-cosmwasm-std = { worskpace = true }
+cosmwasm-std = { workspace = true }
 cw20 = { workspace = true }
