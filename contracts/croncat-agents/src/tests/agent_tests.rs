@@ -2,7 +2,7 @@ use crate::error::ContractError;
 use crate::msg::*;
 use crate::state::{
     DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-    DEFAULT_NOMINATION_DURATION,
+    DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
@@ -290,6 +290,7 @@ fn test_agent_check_in_successfull() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
+    app.update_block(|block| increment_block_height(block, Some(30)));
 
     check_in_agent(&mut app, &croncat_agents_addr, ADMIN).unwrap();
 
@@ -337,7 +338,7 @@ fn test_accept_nomination_agent() {
 
     // Fast forward time a little
     app.update_block(|block| add_seconds_to_block(block, 19));
-    app.update_block(|block| increment_block_height(block, None));
+    app.update_block(|block| increment_block_height(block, Some(10)));
 
     let mut agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
         .unwrap()
@@ -384,7 +385,7 @@ fn test_accept_nomination_agent() {
 
     let error_msg = check_in_res.unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         error_msg.downcast().unwrap()
     );
 
@@ -398,12 +399,16 @@ fn test_accept_nomination_agent() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT5).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT6).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT7).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT6).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT5).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT4).unwrap();
 
     // Add another agent, since there's now the need
     register_agent(&mut app, &croncat_agents_addr, AGENT4, AGENT_BENEFICIARY).unwrap();
     // Fast forward time past the duration of the first pending agent,
     // allowing the second to nominate themselves
     app.update_block(|block| add_seconds_to_block(block, 420));
+    app.update_block(|block| increment_block_height(block, Some(100)));
 
     // Now that enough time has passed, both agents should see they're nominated
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
@@ -478,6 +483,7 @@ fn test_get_agent_status() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT4).unwrap();
 
+    app.update_block(|block| increment_block_height(block, Some(30)));
     // Agent status is nominated
     let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1);
 
@@ -873,7 +879,7 @@ fn test_query_get_agent_tasks() {
     register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
     let failed_check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT2).unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         failed_check_in_res.downcast().unwrap()
     );
 
@@ -949,7 +955,7 @@ fn test_tick() {
             paused: None,
             min_tasks_per_agent: None,
             min_coins_for_agent_registration: Some(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
-            agent_nomination_duration: Some(DEFAULT_NOMINATION_DURATION),
+            agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
             agents_eject_threshold: Some(1000), // allow to miss 1000 slots
         },
     };
@@ -1044,7 +1050,7 @@ fn test_tick() {
         )
         .unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         err.downcast().unwrap()
     );
 
@@ -1104,7 +1110,7 @@ fn test_tick() {
         )
         .unwrap_err();
     assert_eq!(
-        ContractError::NotAcceptingNewAgents,
+        ContractError::TryLaterForNomination,
         err.downcast().unwrap()
     );
 }

@@ -40,9 +40,7 @@ export type ExecuteMsg = {
   tick: {};
 };
 export type Addr = string;
-export interface AgentOnTaskCreated {
-  task_hash: string;
-}
+export interface AgentOnTaskCreated {}
 export interface AgentOnTaskCompleted {
   agent_id: Addr;
   is_block_slot_task: boolean;
@@ -75,7 +73,7 @@ export type QueryMsg = {
   config: {};
 };
 export interface Config {
-  agent_nomination_duration: number;
+  agent_nomination_block_duration: number;
   agents_eject_threshold: number;
   croncat_factory_addr: Addr;
   croncat_manager_key: [string, [number, number]];
