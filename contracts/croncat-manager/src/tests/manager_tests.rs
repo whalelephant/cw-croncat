@@ -3152,7 +3152,7 @@ fn refill_task_balance_fail() {
             Addr::unchecked(PARTICIPANT0),
             tasks_addr.clone(),
             &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
-                task: Box::new(task.clone()),
+                task: Box::new(task),
             },
             &coins(600_000, DENOM),
         )
