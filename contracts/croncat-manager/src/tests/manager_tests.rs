@@ -6,7 +6,9 @@ use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
-use croncat_sdk_tasks::types::{Action, Boundary, CroncatQuery, Interval, TaskResponse, Transform};
+use croncat_sdk_tasks::types::{
+    Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
+};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_storage_plus::KeyDeserialize;
 
@@ -1007,12 +1009,12 @@ fn simple_bank_transfers_cron() {
     activate_agent(&mut app, &agents_addr);
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // Making it cron on purpose
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
@@ -1130,12 +1132,12 @@ fn simple_bank_transfers_cron() {
     // Check balance fully cleared
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Once,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // Making it cron on purpose
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
             end: Some(app.block_info().time.plus_nanos(100)),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -1910,7 +1912,7 @@ fn task_with_query() {
 }
 
 #[test]
-fn recurring_task_block() {
+fn recurring_task_block_immediate() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
@@ -1924,10 +1926,10 @@ fn recurring_task_block() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
             end: Some((app.block_info().height + 1).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2072,10 +2074,10 @@ fn recurring_task_block() {
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Immediate,
         // repeat it two times
-        boundary: Some(Boundary::Height {
+        boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
             end: Some((app.block_info().height + 1).into()),
-        }),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2201,6 +2203,173 @@ fn recurring_task_block() {
 }
 
 #[test]
+fn recurring_task_block_block_interval() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    activate_agent(&mut app, &agents_addr);
+
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Block(3),
+        // repeat it three times
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: Some((app.block_info().height + 8).into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(123, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(321, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 321.0 + 123.0
+    } as u128;
+
+    // wait 3 blocks
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+
+    let participant_balance = app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+
+    // action done
+    let bob_balances = app.wrap().query_all_balances("bob").unwrap();
+    assert_eq!(bob_balances, vec![coin(321, DENOM)]);
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(123, DENOM));
+
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+
+    let bob_balances = app.wrap().query_all_balances("bob").unwrap();
+    assert_eq!(bob_balances, vec![coin(321 * 2, DENOM)]);
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(123 * 2, DENOM));
+
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
+
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    )
+    .unwrap();
+
+    let bob_balances = app.wrap().query_all_balances("bob").unwrap();
+    assert_eq!(bob_balances, vec![coin(321 * 3, DENOM)]);
+    let alice_balances = app.wrap().query_all_balances("alice").unwrap();
+    assert_eq!(alice_balances, coins(123 * 3, DENOM));
+
+    // check task got unregistered
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+        )
+        .unwrap();
+    assert!(task_response.task.is_none());
+
+    let after_unregister_participant_balance =
+        app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    assert_eq!(
+        600_000 - expected_gone_amount * 3,
+        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+    );
+
+    // Check agent reward
+    let agent_reward: Uint128 = app
+        .wrap()
+        .query_wasm_smart(
+            manager_addr.clone(),
+            &QueryMsg::AgentRewards {
+                agent_id: AGENT0.to_owned(),
+            },
+        )
+        .unwrap();
+    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
+    let amount_for_task = gas_needed * 0.04;
+    let amount_for_fees = gas_fees * 0.04;
+    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128 * 3;
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
+
+    // Check treasury reward
+    let treasury_balance: Uint128 = app
+        .wrap()
+        .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
+        .unwrap();
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 * 3));
+}
+
+#[test]
 fn recurring_task_cron() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
@@ -2213,12 +2382,12 @@ fn recurring_task_cron() {
     activate_agent(&mut app, &agents_addr);
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // repeat it two times
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_seconds(40)),
-        }),
+            end: Some(app.block_info().time.plus_seconds(20)),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -2361,12 +2530,12 @@ fn recurring_task_cron() {
     .unwrap();
 
     let task = croncat_sdk_tasks::types::TaskRequest {
-        interval: Interval::Immediate,
+        interval: Interval::Cron("* * * * * *".to_owned()),
         // repeat it two times
-        boundary: Some(Boundary::Time {
+        boundary: Some(Boundary::Time(BoundaryTime {
             start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_seconds(40)),
-        }),
+            end: Some(app.block_info().time.plus_seconds(20)),
+        })),
         stop_on_fail: false,
         actions: vec![
             Action {
@@ -3150,7 +3319,7 @@ fn refill_task_balance_fail() {
             Addr::unchecked(PARTICIPANT0),
             tasks_addr.clone(),
             &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
-                task: Box::new(task.clone()),
+                task: Box::new(task),
             },
             &coins(600_000, DENOM),
         )
@@ -3253,6 +3422,23 @@ fn refill_task_balance_fail() {
     );
 
     // Create task with ibc balance
+    // Create a task
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(46, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
     let res = app
         .execute_contract(
             Addr::unchecked(PARTICIPANT0),
@@ -3684,7 +3870,7 @@ fn refill_task_cw20_fail() {
         actions: vec![Action {
             msg: BankMsg::Send {
                 to_address: "bob".to_owned(),
-                amount: coins(45, DENOM),
+                amount: coins(46, DENOM),
             }
             .into(),
             gas_limit: None,

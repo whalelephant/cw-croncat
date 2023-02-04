@@ -1,6 +1,5 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use croncat_sdk_agents::types::AgentNominationStatus;
 
 use crate::distributor::*;
 use crate::error::ContractError;
@@ -11,12 +10,10 @@ use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
     QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
-use croncat_sdk_agents::msg::AgentInfo;
-use croncat_sdk_agents::msg::TaskStats;
 use croncat_sdk_agents::msg::{
-    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, TaskStats, UpdateConfig,
 };
-use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
+use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
 use std::cmp::min;
