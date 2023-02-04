@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
+license = { workspace = true }
+description = "CronCat tasks package containing CosmWasm types and messages"
 
 [dependencies]
 cosmwasm-std = { workspace = true }
