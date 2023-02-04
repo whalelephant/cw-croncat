@@ -575,12 +575,11 @@ fn query_evented_tasks(
     let from_index = from_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
 
-    // NOTE: Can add .prefix(start) in future
     tasks_map()
         .idx
         .evented
         .prefix(start.unwrap_or_default())
-        .range(deps.storage, None, None, Order::Ascending)
+        .range_raw(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
         .take(limit as usize)
         .map(|task_res| {

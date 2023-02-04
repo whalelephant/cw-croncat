@@ -1077,12 +1077,13 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
 
-    let evented_task_response: Vec<TaskResponse> = app
+    let evented_task_response: Vec<TaskInfo> = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &QueryMsg::EventedTasks {
                 start: Some(12345),
+                // start: None,
                 from_index: None,
                 limit: None,
             },

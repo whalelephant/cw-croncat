@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, Timestamp, Uint64};
+use cosmwasm_std::{Addr, Timestamp};
 use croncat_sdk_tasks::types::{Config, Task};
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
@@ -40,12 +40,12 @@ pub fn evented_idx(_pk: &[u8], d: &Task) -> u64 {
     if d.is_evented() && d.boundary.is_block_boundary {
         return d.boundary.start;
     }
-    Uint64::zero().into()
+    u64::default()
 }
 
 impl<'a> IndexList<Task> for TaskIndexes<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<Task>> + '_> {
-        let v: Vec<&dyn Index<Task>> = vec![&self.owner];
+        let v: Vec<&dyn Index<Task>> = vec![&self.owner, &self.evented];
         Box::new(v.into_iter())
     }
 }
