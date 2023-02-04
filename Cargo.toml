@@ -23,8 +23,9 @@ authors = [
   "deveusss",
 ]
 edition = "2021"
-description = "Croncat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
+description = "CronCat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
 documentation = "https://docs.cron.cat/"
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 serde = { version = "1.0" }
@@ -67,11 +68,11 @@ croncat-tasks = { path = "./contracts/croncat-tasks" }
 croncat-factory = { path = "./contracts/croncat-factory" }
 croncat-mod-balances = { path = "./contracts/mod-balances" }
 croncat-mod-dao = { path = "./contracts/mod-dao" }
-croncat-mod-generic = { path = "./contracts/mod-generic" }
+croncat-mod-generic = { path = "./contracts/mod-generic", version = "0.1.0" }
 croncat-mod-nft = { path = "./contracts/mod-nft" }
 croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
-croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
+croncat-sdk-core = { path = "./packages/croncat-sdk-core", version = "0.1.0" }
 croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }
-mod-sdk = { path = "./packages/mod-sdk" }
+mod-sdk = { path = "./packages/mod-sdk", version = "0.1.0" }
 croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }
 croncat-sdk-manager = { path = "./packages/croncat-sdk-manager" }
