@@ -23,9 +23,7 @@ pub(crate) fn validate_boundary(
     match (interval, boundary) {
         (Interval::Cron(_), Some(Boundary::Time(boundary_time))) => {
             let starting_time = boundary_time.start.unwrap_or(block_info.time);
-            if starting_time < block_info.time
-                || boundary_time.end.map_or(false, |e| e <= starting_time)
-            {
+            if boundary_time.end.map_or(false, |e| e <= starting_time) {
                 Err(ContractError::InvalidBoundary {})
             } else {
                 Ok(Boundary::Time(boundary_time))
@@ -39,10 +37,9 @@ pub(crate) fn validate_boundary(
                 .start
                 .map(Into::into)
                 .unwrap_or(block_info.height);
-            if starting_height < block_info.height
-                || boundary_height
-                    .end
-                    .map_or(false, |e| e.u64() <= starting_height)
+            if boundary_height
+                .end
+                .map_or(false, |e| e.u64() <= starting_height)
             {
                 Err(ContractError::InvalidBoundary {})
             } else {
@@ -523,7 +520,7 @@ mod tests {
                     end: None,
                 })),
             ),
-            // Start 1 too early
+            // Start 1 too early, we shouldn't check it
             (
                 Interval::Once,
                 Some(Boundary::Height(BoundaryHeight {
@@ -532,7 +529,10 @@ mod tests {
                 })),
                 123,
                 Timestamp::from_nanos(123456),
-                Err(ContractError::InvalidBoundary {}),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
             ),
             (
                 Interval::Immediate,
@@ -542,7 +542,10 @@ mod tests {
                 })),
                 123,
                 Timestamp::from_nanos(123456),
-                Err(ContractError::InvalidBoundary {}),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
             ),
             (
                 Interval::Block(5),
@@ -552,7 +555,10 @@ mod tests {
                 })),
                 123,
                 Timestamp::from_nanos(123456),
-                Err(ContractError::InvalidBoundary {}),
+                Ok(Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(122)),
+                    end: None,
+                })),
             ),
             (
                 Interval::Cron("* * * * * *".to_owned()),
@@ -562,7 +568,10 @@ mod tests {
                 })),
                 123,
                 Timestamp::from_nanos(123456),
-                Err(ContractError::InvalidBoundary {}),
+                Ok(Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(123455)),
+                    end: None,
+                })),
             ),
             // Ok ends
             (
