@@ -1024,13 +1024,19 @@ fn remove_tasks_with_queries_success() {
     assert!(!task_raw_non_evented.is_evented() && task_raw.boundary.is_block());
     
     // test how the index will find it
-    let v = match task_raw.boundary.clone() {
+    let v = match task_raw_non_evented.boundary.clone() {
         Boundary::Height(h) => {
             h.start.unwrap_or(Uint64::zero()).into()
         },
-        _ => u64::default()
+        Boundary::Time(t) => {
+            if let Some(t) = t.start {
+                u64::from(t.nanos())
+            } else {
+                u64::default()
+            }
+        }
     };
-    assert_eq!(v, 12345);
+    assert_eq!(v, app.block_info().height);
 
     let res = app
         .execute_contract(
@@ -1099,6 +1105,62 @@ fn remove_tasks_with_queries_success() {
         cw20: None,
     };
 
+    let task_no_evented = TaskRequest {
+        interval: Interval::Cron("* * * * * *".to_owned()),
+        boundary: Some(Boundary::Time(BoundaryTime {
+            start: Some(app.block_info().time),
+            end: Some(app.block_info().time.plus_nanos(1000)),
+        })),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                contract_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+                check_result: false,
+            },
+            CroncatQuery {
+                contract_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+                check_result: false,
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+
+    // test how the index will find it
+    let task_boundary_cron = Boundary::Time(BoundaryTime {
+        start: Some(app.block_info().time),
+        end: Some(app.block_info().time.plus_nanos(1000)),
+    });
+    let v = match task_boundary_cron.clone() {
+        Boundary::Height(h) => {
+            h.start.unwrap_or(Uint64::zero()).into()
+        },
+        Boundary::Time(t) => {
+            if let Some(t) = t.start {
+                u64::from(t.nanos())
+            } else {
+                u64::default()
+            }
+        }
+    };
+    println!("-------- task_boundary_cron {:?} {:?}", task_boundary_cron, v);
+    assert_eq!(v, app.block_info().time.nanos());
+
     let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1111,20 +1173,70 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
 
-    let evented_task_response: Vec<TaskInfo> = app
+    app.execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_no_evented),
+            },
+            &coins(90000, DENOM),
+        )
+        .unwrap();
+
+    // let evented_keys: Vec<Vec<u8>> = app
+    let evented_keys: Vec<u64> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedKeys {},
+        )
+        .unwrap();
+    println!("evented_keys {:?}", evented_keys);
+    // assert_eq!(evented_keys.len(), 2);
+
+    let evented_task_response_any: Vec<Option<TaskInfo>> = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
             &QueryMsg::EventedTasks {
-                start: Some(12345),
-                // start: None,
+                start: None,
                 from_index: None,
                 limit: None,
+                sub_index: None,
             },
         )
         .unwrap();
-    println!("{:?}", evented_task_response);
-    // assert!(task_response.task.is_none());
+    let evented_task_response_start_block: Vec<Option<TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                start: Some(app.block_info().height),
+                from_index: None,
+                limit: None,
+                sub_index: None,
+            },
+        )
+        .unwrap();
+    let evented_task_response_start_time: Vec<Option<TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                start: Some(app.block_info().time.nanos()),
+                from_index: None,
+                limit: None,
+                sub_index: None,
+            },
+        )
+        .unwrap();
+        // Check respone amounts!
+    println!("evented_task_response_any {:?}", evented_task_response_any);
+    assert_eq!(evented_task_response_any.len(), 2);
+    println!("evented_task_response_start_block {:?}", evented_task_response_start_block);
+    assert_eq!(evented_task_response_start_block.len(), 1);
+    println!("evented_task_response_start_time {:?}", evented_task_response_start_time);
+    assert_eq!(evented_task_response_start_time.len(), 1);
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app

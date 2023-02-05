@@ -90,6 +90,8 @@ pub enum TasksQueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    #[returns(Vec<u64>)]
+    EventedKeys {},
     /// Get list of event driven tasks
     #[returns(Vec<crate::types::TaskResponse>)]
     EventedTasks {

@@ -37,16 +37,23 @@ pub fn owner_idx(_pk: &[u8], d: &Task) -> Addr {
 
 /// For filtering to tasks with queries (requiring 'check_result') that are also grouped by boundary (if any)
 pub fn evented_idx(_pk: &[u8], d: &Task) -> u64 {
-    if d.is_evented() && d.clone().boundary.is_block() {
+    if d.is_evented() {
         let v = match d.boundary.clone() {
             Boundary::Height(h) => {
                 h.start.unwrap_or(Uint64::zero()).into()
             },
-            _ => u64::default()
+            Boundary::Time(t) => {
+                if let Some(n) = t.start {
+                    u64::from(n.nanos())
+                } else {
+                    0
+                }
+            }
         };
+        println!("-------------- evented_idx: {:?}", v);
         return v;
     }
-    u64::default()
+    0
 }
 
 impl<'a> IndexList<Task> for TaskIndexes<'a> {
