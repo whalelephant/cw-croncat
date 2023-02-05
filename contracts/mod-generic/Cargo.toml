@@ -5,7 +5,7 @@ authors = []
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
 license = { workspace = true }
-description = "Allows for CosmWasm raw queries through this module, helpful when making CronCat tasks with queries"
+description = "Allows to deserialize any CosmWasm smart contract's queue response and check the results of any fields."
 
 [lib]
 crate-type = ["cdylib", "rlib"]
