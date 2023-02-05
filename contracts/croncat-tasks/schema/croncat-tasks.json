@@ -514,10 +514,11 @@
         ],
         "properties": {
           "check_result": {
+            "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
             "type": "boolean"
           },
           "contract_addr": {
-            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
             "type": "string"
           },
           "msg": {
@@ -2116,10 +2117,11 @@
         ],
         "properties": {
           "check_result": {
+            "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
             "type": "boolean"
           },
           "contract_addr": {
-            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
             "type": "string"
           },
           "msg": {
@@ -3361,10 +3363,11 @@
           ],
           "properties": {
             "check_result": {
+              "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
               "type": "string"
             },
             "msg": {
@@ -4509,10 +4512,11 @@
           ],
           "properties": {
             "check_result": {
+              "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
               "type": "string"
             },
             "msg": {
@@ -5725,10 +5729,11 @@
           ],
           "properties": {
             "check_result": {
+              "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
               "type": "string"
             },
             "msg": {
@@ -6828,10 +6833,11 @@
           ],
           "properties": {
             "check_result": {
+              "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
               "type": "string"
             },
             "msg": {
@@ -7926,10 +7932,11 @@
           ],
           "properties": {
             "check_result": {
+              "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
               "type": "boolean"
             },
             "contract_addr": {
-              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts\n\nFor queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+              "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
               "type": "string"
             },
             "msg": {

@@ -2699,7 +2699,7 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::NoTask {});
 
     // not registered agent
     let err: ContractError = app

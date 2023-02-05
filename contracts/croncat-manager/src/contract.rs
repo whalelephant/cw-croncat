@@ -22,8 +22,8 @@ use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
     create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    parse_reply_msg, query_agent, recalculate_cw20, remove_task_balance, replace_values,
-    task_sub_msgs,
+    is_within_boundary, parse_reply_msg, query_agent, recalculate_cw20, remove_task_balance,
+    replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -128,10 +128,8 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
-        ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
-        ExecuteMsg::ProxyCall {
-            task_hash: Some(task_hash),
-        } => execute_proxy_call_with_queries(deps, env, info, task_hash),
+        // ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
+        ExecuteMsg::ProxyCall { task_hash } => execute_proxy_call(deps, env, info, task_hash),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
         ExecuteMsg::RefillTaskBalance { task_hash } => {
             execute_refill_native_balance(deps, info, task_hash)
@@ -175,59 +173,12 @@ fn execute_remove_task(
 
 fn execute_proxy_call(
     deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
-
-    // query agent to check if ready
-    let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse = deps.querier.query_wasm_smart(
-        agents_addr,
-        &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-            account_id: info.sender.to_string(),
-        },
-    )?;
-    if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero() {
-        return Err(ContractError::NoTaskForAgent {});
-    }
-
-    // execute task
-    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
-        tasks_addr,
-        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
-    )?;
-    // Note: there should be at least one task
-    // unless `get_agent_tasks` gave false positive
-    let task = current_task.task.unwrap();
-
-    let sub_msgs = task_sub_msgs(&task);
-    let queue_item = QueueItem {
-        task,
-        agent_addr: info.sender,
-        failures: Default::default(),
-    };
-
-    REPLY_QUEUE.save(deps.storage, &queue_item)?;
-
-    Ok(Response::new()
-        .add_attribute("action", "proxy_call")
-        .add_attribute("task_hash", queue_item.task.task_hash)
-        .add_submessages(sub_msgs))
-}
-
-fn execute_proxy_call_with_queries(
-    deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    task_hash: String,
+    task_hash: Option<String>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     check_ready_for_execution(&info, &config)?;
-
-    let task_balance = TASKS_BALANCES.load(deps.storage, task_hash.as_bytes())?;
 
     // Check if agent is active
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
@@ -245,84 +196,103 @@ fn execute_proxy_call_with_queries(
 
     // Get a task
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    // TODO: Change to only check if its ready, get regular task by hash
-    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
-        tasks_addr.clone(),
-        &croncat_sdk_tasks::msg::TasksQueryMsg::Task {
-            task_hash: task_hash.clone(),
-        },
-    )?;
+    let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {
+        // A hash means agent is attempting to execute evented task
+        deps.querier.query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
+        )?
+    } else {
+        // get a scheduled task
+        deps.querier.query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
+        )?
+    };
 
     let Some(mut task) = current_task.task else {
         // No task or not ready
         return Err(ContractError::NoTask {  });
     };
-    let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
-    for query in task.queries.iter().flatten() {
-        let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
-            &WasmQuery::Smart {
-                contract_addr: query.contract_addr.clone(),
-                msg: query.msg.clone(),
-            }
-            .into(),
-        )?;
-        if query.check_result && !query_res.result {
+
+    // If task is evented, check if ready between boundary (if any)
+    if let Some(queries) = task.queries.as_ref() {
+        let event_based = queries.iter().any(|q| q.check_result);
+        if event_based && !is_within_boundary(&env.block, Some(&task.boundary), &task.interval) {
             return Err(ContractError::TaskNotReady {});
         }
-        query_responses.push(query_res.data);
-    }
-    replace_values(&mut task, query_responses)?;
 
-    // Recalculate cw20 usage and re-check for self-calls
-    let invalidated_after_transform = if let Ok(amounts) =
-        recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
-    {
-        task.amount_for_one_task.cw20 = amounts;
-        false
-    } else {
-        true
-    };
-    // Need to re-check if task has enough cw20's
-    // because it could have been changed through transform
-    if invalidated_after_transform
-        || task_balance
-            .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
-            .is_err()
-    {
-        // Task is no longer valid
-        let coins_transfer = remove_task_balance(
-            deps.storage,
-            task_balance,
-            &task.owner_addr,
-            &config.native_denom,
-            task.task_hash.as_bytes(),
-        )?;
-        let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
-            task_hash: task_hash.into_bytes(),
+        // Process all the queries
+        let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
+        for query in task.queries.iter().flatten() {
+            let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
+                &WasmQuery::Smart {
+                    contract_addr: query.contract_addr.clone(),
+                    msg: query.msg.clone(),
+                }
+                .into(),
+            )?;
+            if query.check_result && !query_res.result {
+                return Err(ContractError::TaskNotReady {});
+            }
+            query_responses.push(query_res.data);
         }
-        .into_cosmos_msg(tasks_addr)?;
-        let bank_send = BankMsg::Send {
-            to_address: task.owner_addr.into_string(),
-            amount: coins_transfer,
-        };
-        Ok(Response::new()
-            .add_attribute("action", "remove_task")
-            .add_attribute("lifecycle", "task_invalidated")
-            .add_message(msg)
-            .add_message(bank_send))
-    } else {
-        let sub_msgs = task_sub_msgs(&task);
-        let queue_item = QueueItem {
-            task,
-            agent_addr: info.sender,
-            failures: Default::default(),
+        replace_values(&mut task, query_responses)?;
+
+        // Recalculate cw20 usage and re-check for self-calls
+        let invalidated_after_transform = if let Ok(amounts) =
+            recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
+        {
+            task.amount_for_one_task.cw20 = amounts;
+            false
+        } else {
+            true
         };
 
-        REPLY_QUEUE.save(deps.storage, &queue_item)?;
-        Ok(Response::new()
-            .add_attribute("action", "proxy_call_with_queries")
-            .add_submessages(sub_msgs))
+        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+
+        // Need to re-check if task has enough cw20's
+        // because it could have been changed through transform
+        if invalidated_after_transform
+            || task_balance
+                .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
+                .is_err()
+        {
+            // Task is no longer valid
+            let coins_transfer = remove_task_balance(
+                deps.storage,
+                task_balance,
+                &task.owner_addr,
+                &config.native_denom,
+                task.task_hash.as_bytes(),
+            )?;
+            let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+                task_hash: task.task_hash.into_bytes(),
+            }
+            .into_cosmos_msg(tasks_addr)?;
+            let bank_send = BankMsg::Send {
+                to_address: task.owner_addr.into_string(),
+                amount: coins_transfer,
+            };
+            return Ok(Response::new()
+                .add_attribute("action", "remove_task")
+                .add_attribute("lifecycle", "task_invalidated")
+                .add_message(msg)
+                .add_message(bank_send));
+        }
     }
+
+    let sub_msgs = task_sub_msgs(&task);
+    let queue_item = QueueItem {
+        task,
+        agent_addr: info.sender,
+        failures: Default::default(),
+    };
+
+    REPLY_QUEUE.save(deps.storage, &queue_item)?;
+    Ok(Response::new()
+        .add_attribute("action", "proxy_call")
+        .add_submessages(sub_msgs))
 }
 
 /// Execute: UpdateConfig

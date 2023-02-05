@@ -291,11 +291,10 @@ impl Task {
 pub struct CroncatQuery {
     /// This is address of the queried module contract.
     /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
-    ///
-    /// For queries with `check_result`: query return value should be formatted as a:
-    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub contract_addr: String,
     pub msg: Binary,
+    /// For queries with `check_result`: query return value should be formatted as a:
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub check_result: bool,
 }
 
