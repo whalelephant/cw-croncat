@@ -14,7 +14,7 @@ cw20 = { workspace = true }
 cron_schedule = { workspace = true }
 
 croncat-mod-generic = { workspace = true, features = ["library"]}
-croncat-sdk-core = { workspace = true, path = "../croncat-sdk-core" }
+croncat-sdk-core = { workspace = true }
 mod-sdk = { workspace = true }
 
 sha2 = { workspace = true }
