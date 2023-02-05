@@ -4479,10 +4479,10 @@ fn event_task_with_failed_check_result() {
 
     // Agent checks to see if there are tasks for them to do.
     // Note: we hit the Tasks contract for this one. Manager for regular tasks.
-    let tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+    let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
       .wrap()
       .query_wasm_smart(
-          tasks_addr,
+          tasks_addr.clone(),
           &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
               start: None,
               from_index: None,
@@ -4490,9 +4490,8 @@ fn event_task_with_failed_check_result() {
           },
       )
       .unwrap();
-    let evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
+    let mut evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
     assert_eq!(evented_task_info.len(), 1 as usize, "Should only have one evented task");
-    println!("debug {evented_task_info:?}");
 
     // Have agent call proxy call (without hash), and check how it went
     let mut proxy_call_res = app.execute_contract(
@@ -4507,7 +4506,6 @@ fn event_task_with_failed_check_result() {
 
     // Now check that the evented one returns false and doesn't complete
     let task_hash: String = evented_task_info[0].clone().task_hash;
-    println!("aloha task hash {task_hash}");
     proxy_call_res = app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
@@ -4519,5 +4517,20 @@ fn event_task_with_failed_check_result() {
         "Proxy call should fail since the check_return comes back false"
     );
     let proxy_call_err: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
-    assert_eq!(proxy_call_err, ContractError::NoTaskForAgent {});
+    assert_eq!(proxy_call_err, ContractError::TaskQueryResultFalse {});
+
+    // Check that the one tasks still exists
+    tasks_for_agent = app
+      .wrap()
+      .query_wasm_smart(
+          tasks_addr,
+          &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+              start: None,
+              from_index: None,
+              limit: None,
+          },
+      )
+      .unwrap();
+    evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info after failed proxy_call");
+    assert_eq!(evented_task_info.len(), 1 as usize, "Should still have one evented task");
 }
