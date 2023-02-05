@@ -1,17 +1,17 @@
-use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
 use cosmwasm_std::BlockInfo;
-use croncat_sdk_tasks::types::TaskRequest;
+use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
+use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
-use croncat_sdk_tasks::types::{
-    Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform
-};
-use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask;
+use croncat_sdk_tasks::types::TaskRequest;
+use croncat_sdk_tasks::types::{
+    Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
+};
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_storage_plus::KeyDeserialize;
 
@@ -29,9 +29,9 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
+use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::{BankSudo, Executor};
-use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 
 use super::{
     contracts,
@@ -4229,7 +4229,8 @@ fn scheduled_task_with_boundary_issue() {
             payable_account_id: None,
         },
         &[],
-    ).expect("Could not register agent");
+    )
+    .expect("Could not register agent");
 
     println!("Current block height: {}", app.block_info().height);
 
@@ -4245,22 +4246,23 @@ fn scheduled_task_with_boundary_issue() {
             msg: BankMsg::Send {
                 to_address: "Bob".to_owned(),
                 amount: coins(5, DENOM),
-            }.into(),
+            }
+            .into(),
             gas_limit: Some(50_000),
         }],
         queries: None,
         transforms: None,
         cw20: None,
     };
-    app
-      .execute_contract(
-          Addr::unchecked(ANYONE),
-          tasks_addr.clone(),
-          &CreateTask {
-              task: Box::new(task),
-          },
-          &coins(50_000, DENOM),
-      ).expect("Couldn't create task");
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(50_000, DENOM),
+    )
+    .expect("Couldn't create task");
 
     app.update_block(|block| add_seconds_to_block(block, 120));
     app.update_block(|block| increment_block_height(block, Some(20)));
@@ -4269,16 +4271,16 @@ fn scheduled_task_with_boundary_issue() {
 
     println!("Current block height: {}", app.block_info().height);
 
-    let proxy_call_res = app
-      .execute_contract(
-          Addr::unchecked(AGENT0),
-          manager_addr.clone(),
-          &ProxyCall {
-              task_hash: None,
-          },
-          &[] // Attach no funds
-      );
-    assert!(proxy_call_res.is_err(), "Expecting proxy_call to error because task is no longer valid");
+    let proxy_call_res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyCall { task_hash: None },
+        &[], // Attach no funds
+    );
+    assert!(
+        proxy_call_res.is_err(),
+        "Expecting proxy_call to error because task is no longer valid"
+    );
     let contract_error: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
     assert_eq!(contract_error, ContractError::NoTask {});
 }
@@ -4302,7 +4304,8 @@ fn event_task_with_boundary_issue() {
             payable_account_id: None,
         },
         &[],
-    ).expect("Could not register agent");
+    )
+    .expect("Could not register agent");
 
     println!("Current block height: {}", app.block_info().height);
 
@@ -4337,7 +4340,8 @@ fn event_task_with_boundary_issue() {
             msg: BankMsg::Send {
                 to_address: "Bob".to_owned(),
                 amount: coins(5, DENOM),
-            }.into(),
+            }
+            .into(),
             gas_limit: Some(50_000),
         }],
         queries: Some(queries),
@@ -4346,29 +4350,30 @@ fn event_task_with_boundary_issue() {
     };
 
     app.execute_contract(
-          Addr::unchecked(ANYONE),
-          tasks_addr.clone(),
-          &CreateTask {
-              task: Box::new(task),
-          },
-          &coins(500_000, DENOM),
-    ).expect("Couldn't create task");
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(500_000, DENOM),
+    )
+    .expect("Couldn't create task");
 
     app.update_block(|block| add_seconds_to_block(block, 120));
     app.update_block(|block| increment_block_height(block, Some(20)));
     println!("Current block height: {}", app.block_info().height);
 
     // Have agent call proxy call, and check how it went
-    let proxy_call_res = app
-      .execute_contract(
-          Addr::unchecked(AGENT0),
-          manager_addr.clone(),
-          &ProxyCall {
-              task_hash: None,
-          },
-          &[] // Attach no funds
-      );
-    assert!(proxy_call_res.is_err(), "Expecting proxy_call to error because task is no longer valid");
+    let proxy_call_res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyCall { task_hash: None },
+        &[], // Attach no funds
+    );
+    assert!(
+        proxy_call_res.is_err(),
+        "Expecting proxy_call to error because task is no longer valid"
+    );
     let contract_error: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
     assert_eq!(contract_error, ContractError::NoTask {});
 }
