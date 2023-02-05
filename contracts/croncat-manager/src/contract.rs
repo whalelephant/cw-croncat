@@ -179,23 +179,13 @@ fn execute_proxy_call(
     let config: Config = CONFIG.load(deps.storage)?;
     check_ready_for_execution(&info, &config)?;
 
-    // Check if agent is active
     let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    if task_hash.is_none() {
-        // For scheduled case - check only active agents that are allowed tasks
-        let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
-            deps.querier.query_wasm_smart(
-                agents_addr,
-                &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-                    account_id: agent_addr.to_string(),
-                },
-            )?;
-        if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
-        {
-            return Err(ContractError::NoTaskForAgent {});
-        }
-    } else {
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+    
+    // Check if agent is active,
+    // Then get a task
+    let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {
         // For evented case - check the agent is active, then may the best agent win
         let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
             agents_addr,
@@ -208,17 +198,26 @@ fn execute_proxy_call(
         }) {
             return Err(ContractError::NoTaskForAgent {});
         }
-    };
 
-    // Get a task
-    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {
         // A hash means agent is attempting to execute evented task
         deps.querier.query_wasm_smart(
             tasks_addr.clone(),
             &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
         )?
     } else {
+        // For scheduled case - check only active agents that are allowed tasks
+        let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
+            deps.querier.query_wasm_smart(
+                agents_addr,
+                &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
+                    account_id: agent_addr.to_string(),
+                },
+            )?;
+        if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
+        {
+            return Err(ContractError::NoTaskForAgent {});
+        }
+
         // get a scheduled task
         deps.querier.query_wasm_smart(
             tasks_addr.clone(),
