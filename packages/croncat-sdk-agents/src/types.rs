@@ -83,6 +83,8 @@ pub struct Config {
     pub min_coins_for_agent_registration: u64,
     /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: u64,
+    /// Minimum agent count in active queue to be untouched by bad agent verifier
+    pub min_active_agent_count: u16,
 }
 
 #[cfg(test)]

@@ -1,7 +1,8 @@
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-    DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_BLOCK_DURATION,
+    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
+    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
+    DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
@@ -50,6 +51,7 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coins_for_agent_registration: DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
         agents_eject_threshold: 600,
+        min_active_agent_count: DEFAULT_MIN_ACTIVE_AGENT_COUNT,
     }
 }
 pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
@@ -63,6 +65,7 @@ pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,
         agents_eject_threshold: None,
+        min_active_agent_count: None,
     }
 }
 
@@ -255,6 +258,7 @@ pub(crate) fn init_agents_contract(
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
         agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
+        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
