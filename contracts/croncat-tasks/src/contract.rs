@@ -318,9 +318,6 @@ fn execute_create_task(
 
     // Validate boundary and interval
     let boundary = validate_boundary(&env.block, task.boundary.clone(), &task.interval)?;
-    if !task.interval.is_valid() {
-        return Err(ContractError::InvalidInterval {});
-    }
 
     let amount_for_one_task = validate_msg_calculate_usage(
         deps.as_ref(),
@@ -353,6 +350,14 @@ fn execute_create_task(
         transforms: task.transforms.unwrap_or_default(),
         version: config.version.clone(),
     };
+    let event_based = item.is_evented();
+    if !item.interval.is_valid()
+        || (event_based
+            && !(item.interval == Interval::Once || item.interval == Interval::Immediate))
+    {
+        return Err(ContractError::InvalidInterval {});
+    }
+
     let hash_prefix = &config.chain_name;
     let hash = item.to_hash(hash_prefix);
 
@@ -364,7 +369,6 @@ fn execute_create_task(
     }
 
     let recurring = item.recurring();
-    let event_based = item.is_evented();
     let hash_vec = hash.clone().into_bytes();
     let mut attributes: Vec<Attribute> = vec![];
 
