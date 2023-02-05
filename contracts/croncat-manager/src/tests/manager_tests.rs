@@ -1008,6 +1008,10 @@ fn simple_bank_transfers_cron() {
 
     activate_agent(&mut app, &agents_addr);
 
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances START {:?}", manager_balances);
+
+    let coin_transfer_amount = 45;
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Cron("* * * * * *".to_owned()),
         // Making it cron on purrpose
@@ -1019,7 +1023,7 @@ fn simple_bank_transfers_cron() {
         actions: vec![Action {
             msg: BankMsg::Send {
                 to_address: "bob".to_owned(),
-                amount: coins(45, DENOM),
+                amount: coins(coin_transfer_amount, DENOM),
             }
             .into(),
             gas_limit: None,
@@ -1049,12 +1053,15 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
 
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances NEW TASK {:?}", manager_balances);
+
     let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
     let expected_gone_amount = {
         let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
         let amount_for_task = gas_needed * 0.04;
         let amount_for_fees = gas_fees * 0.04;
-        amount_for_task + amount_for_fees + 45.0
+        amount_for_task + amount_for_fees + coin_transfer_amount as f64
     } as u128;
 
     app.update_block(add_little_time);
@@ -1067,7 +1074,8 @@ fn simple_bank_transfers_cron() {
         &[],
     )
     .unwrap();
-    app.update_block(add_little_time);
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances 1 proxy done {:?}", manager_balances);
     app.update_block(add_little_time);
     app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -1076,6 +1084,8 @@ fn simple_bank_transfers_cron() {
         &[],
     )
     .unwrap();
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances 2 proxy done {:?}", manager_balances);
     // check task got unregistered
     let task_response: TaskResponse = app
         .wrap()
@@ -1085,6 +1095,8 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
     assert!(task_response.task.is_none());
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances TASK GONE {:?}", manager_balances);
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
@@ -1093,8 +1105,10 @@ fn simple_bank_transfers_cron() {
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
     assert_eq!(
-        600_000 - expected_gone_amount,
-        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+        600_000 - expected_gone_amount - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128()
+            - participant_balance.amount.u128()
+            - coin_transfer_amount
     );
 
     // Check agent reward
@@ -1118,10 +1132,16 @@ fn simple_bank_transfers_cron() {
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128) * 2)
+    );
 
     // Checking we don't get same task over and over
     // Check multi-action transfer
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances 1 {:?}", manager_balances);
+    // assert!(manager_balances.is_empty());
 
     // withdraw rewards so it's clear before second test
     app.execute_contract(
@@ -1131,6 +1151,9 @@ fn simple_bank_transfers_cron() {
         &[],
     )
     .unwrap();
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances 2 {:?}", manager_balances);
+    // assert!(manager_balances.is_empty());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         manager_addr.clone(),
@@ -1138,7 +1161,11 @@ fn simple_bank_transfers_cron() {
         &[],
     )
     .unwrap();
+
     // Check balance fully cleared
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    println!("manager_balances 3 {:?}", manager_balances);
+    assert!(manager_balances.is_empty());
 
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Cron("* * * * * *".to_owned()),
@@ -1235,7 +1262,9 @@ fn simple_bank_transfers_cron() {
         .wrap()
         .query_wasm_smart(
             tasks_addr,
-            &croncat_tasks::msg::QueryMsg::Task { task_hash },
+            &croncat_tasks::msg::QueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
         )
         .unwrap();
     assert!(task_response.task.is_none());
@@ -1251,8 +1280,10 @@ fn simple_bank_transfers_cron() {
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
     assert_eq!(
-        600_000 - expected_gone_amount,
-        after_unregister_participant_balance.amount.u128() - participant_balance.amount.u128()
+        600_000 - expected_gone_amount - expected_gone_amount,
+        after_unregister_participant_balance.amount.u128()
+            - participant_balance.amount.u128()
+            - (45 + 125 + 333)
     );
 
     // Check agent reward
@@ -1269,14 +1300,25 @@ fn simple_bank_transfers_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
+    assert_eq!(agent_reward.u128(), expected_agent_reward);
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    println!("---------treasury_balance {:?}", treasury_balance);
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128) * 2)
+    );
+
+    // Check task balance is gone
+    let task_balance: TaskBalanceResponse = app
+        .wrap()
+        .query_wasm_smart(manager_addr.clone(), &QueryMsg::TaskBalance { task_hash })
+        .unwrap();
+    assert!(task_balance.balance.is_none());
 
     // Check balance fully clears
     app.execute_contract(
@@ -1295,6 +1337,7 @@ fn simple_bank_transfers_cron() {
     .unwrap();
 
     let manager_balances = app.wrap().query_all_balances(manager_addr).unwrap();
+    println!("manager_balances {:?}", manager_balances);
     assert!(manager_balances.is_empty());
 }
 
