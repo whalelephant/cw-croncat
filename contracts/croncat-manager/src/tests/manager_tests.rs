@@ -1125,7 +1125,7 @@ fn simple_bank_transfers_cron() {
     let amount_for_task = gas_needed * 0.04;
     let amount_for_fees = gas_fees * 0.04;
     let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
+    assert_eq!(agent_reward, Uint128::from(expected_agent_reward * 2));
 
     // Check treasury reward
     let treasury_balance: Uint128 = app

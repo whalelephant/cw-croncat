@@ -265,6 +265,7 @@ pub(crate) fn finalize_task(
         config.agent_fee,
         config.treasury_fee,
     )?;
+    println!("-------- FINALIZE REWARDS ACRUED {:?}", native_for_gas_required);
 
     let original_amounts = queue_item.task.amount_for_one_task.clone();
     let amounts_without_failed_txs = amounts_without_failed_txs(&queue_item)?;

@@ -225,6 +225,7 @@ pub fn execute_user_withdraw(
         }
         msgs
     };
+    println!("-------- USER BALANCES Withdrawing {:?}", msgs);
 
     Ok(Response::new()
         .add_attribute("action", "user_withdraw")
@@ -242,6 +243,7 @@ pub fn execute_owner_withdraw(deps: DepsMut, info: MessageInfo) -> Result<Respon
 
     let withdraw = TREASURY_BALANCE.load(deps.storage)?;
     TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
+    println!("-------- TREASURY_BALANCE Withdrawing {:?}", withdraw);
 
     if withdraw.is_zero() {
         Err(ContractError::EmptyBalance {})
