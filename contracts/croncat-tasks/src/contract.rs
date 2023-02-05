@@ -391,7 +391,7 @@ fn execute_create_task(
 
     if event_based {
         EVENTED_TASKS_LOOKUP.update(deps.storage, next_id, update_vec_data)?;
-        attributes.push(Attribute::new("evented_key", next_id.to_string()));
+        attributes.push(Attribute::new("evented_id", next_id.to_string()));
     } else {
         // Only scheduled tasks get put into slots
         match slot_kind {

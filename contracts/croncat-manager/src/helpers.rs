@@ -6,9 +6,8 @@ use cosmwasm_std::{
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::{Boundary, Interval, TaskInfo};
+use croncat_sdk_tasks::types::{Boundary, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
-use std::cmp::max;
 
 use crate::{
     balances::{add_fee_rewards, add_user_cw20},
@@ -429,37 +428,29 @@ pub(crate) fn check_for_self_calls(
     Ok(())
 }
 
-// validation truth table
-// - Once - must be valid boundary
-// - Immediate - must be valid boundary
-// - Block - invalid
-// - Cron - invalid
-pub(crate) fn is_within_boundary(
-    block_info: &BlockInfo,
-    boundary: Option<&Boundary>,
-    interval: &Interval,
-) -> bool {
-    match (interval, boundary) {
-        (Interval::Once | Interval::Immediate, Some(Boundary::Time(boundary_time))) => {
-            let starting_time = boundary_time.start.unwrap_or(block_info.time);
-            let current_time = max(starting_time.nanos(), block_info.time.nanos());
-            !boundary_time
-                .end
-                .map_or(false, |e| e.nanos() <= current_time)
-        }
-        (Interval::Once | Interval::Immediate, Some(Boundary::Height(boundary_height))) => {
-            let starting_height = boundary_height
-                .start
-                .map(Into::into)
-                .unwrap_or(block_info.height);
-            let current_height = max(starting_height, block_info.height);
-            !boundary_height
-                .end
-                .map_or(false, |e| e.u64() <= current_height)
-        }
-        // only time this makes sense, is if you're doing a ton of pagination with a task or something
-        (Interval::Once | Interval::Immediate, None) => true,
-        (Interval::Block(_) | Interval::Cron(_), _) => false,
+// Check if we're before boundary start
+pub(crate) fn is_before_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .start
+            .map_or(false, |s| s.nanos() > block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .start
+            .map_or(false, |s| s.u64() > block_info.height),
+        None => false,
+    }
+}
+
+// Check if we're after boundary end
+pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .end
+            .map_or(false, |e| e.nanos() <= block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .end
+            .map_or(false, |e| e.u64() < block_info.height - 1),
+        None => false,
     }
 }
 

@@ -57,8 +57,11 @@ pub enum ContractError {
     #[error("Task is no longer valid")]
     TaskNoLongerValid {},
 
-    #[error("Task queries is not ready yet")]
+    #[error("Task is not ready yet")]
     TaskNotReady {},
+
+    #[error("Task query result says not ready yet")]
+    TaskQueryResultFalse {},
 
     #[error("This cw20 address is not supported")]
     NotSupportedCw20 {},
