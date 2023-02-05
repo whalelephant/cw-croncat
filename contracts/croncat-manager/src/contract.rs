@@ -128,7 +128,6 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
-        // ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
         ExecuteMsg::ProxyCall { task_hash } => execute_proxy_call(deps, env, info, task_hash),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
         ExecuteMsg::RefillTaskBalance { task_hash } => {
