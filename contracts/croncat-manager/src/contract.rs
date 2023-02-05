@@ -187,13 +187,14 @@ fn execute_proxy_call(
     // Then get a task
     let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {
         // For evented case - check the agent is active, then may the best agent win
-        let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
-            agents_addr,
-            &croncat_sdk_agents::msg::QueryMsg::GetAgent {
-                account_id: agent_addr.to_string(),
-            },
-        )?;
-        if agent_reponse.agent.map_or(true, |agent| {
+        let agent_response: croncat_sdk_agents::msg::AgentResponse =
+            deps.querier.query_wasm_smart(
+                agents_addr,
+                &croncat_sdk_agents::msg::QueryMsg::GetAgent {
+                    account_id: agent_addr.to_string(),
+                },
+            )?;
+        if agent_response.agent.map_or(true, |agent| {
             agent.status != croncat_sdk_agents::types::AgentStatus::Active
         }) {
             return Err(ContractError::NoTaskForAgent {});

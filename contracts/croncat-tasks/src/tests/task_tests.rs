@@ -1140,7 +1140,8 @@ fn remove_tasks_with_queries_success() {
         cw20: None,
     };
 
-    let res = app
+    // Make sure to test evented task with Cron interval doesnt work
+    let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             tasks_addr.clone(),
@@ -1149,8 +1150,10 @@ fn remove_tasks_with_queries_success() {
             },
             &coins(90000, DENOM),
         )
+        .unwrap_err()
+        .downcast()
         .unwrap();
-    let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    assert_eq!(err, ContractError::InvalidInterval {});
 
     let res = app
         .execute_contract(
@@ -1251,29 +1254,9 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     // Check respone amounts!
-    // println!("evented_task_response_any {:?}", evented_task_response_any);
     assert_eq!(evented_task_response_any.len(), 1);
     assert_eq!(evented_task_response_start_block.len(), 1);
     assert_eq!(evented_task_response_start_time.len(), 0);
-
-    // check it created balance on the manager contract
-    let manager_task_balance: TaskBalanceResponse = app
-        .wrap()
-        .query_wasm_smart(
-            manager_addr.clone(),
-            &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries.clone(),
-            },
-        )
-        .unwrap();
-    assert_eq!(
-        manager_task_balance.balance,
-        Some(TaskBalance {
-            native_balance: Uint128::new(90000),
-            cw20_balance: None,
-            ibc_balance: None,
-        }),
-    );
 
     // remove block task
     let res = app
@@ -1317,42 +1300,12 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     assert!(manager_task_balance.balance.is_none());
 
-    // remove cron task
-    let res = app
-        .execute_contract(
-            Addr::unchecked(ANYONE),
-            tasks_addr.clone(),
-            &ExecuteMsg::RemoveTask {
-                task_hash: task_hash_cron_with_queries.clone(),
-            },
-            &[],
-        )
-        .unwrap();
-
-    // Check attributes
-    assert!(res.events.iter().any(|ev| {
-        ev.attributes
-            .iter()
-            .any(|attr| attr.key == "action" && attr.value == "remove_task")
-    }));
-
-    let task_response: TaskResponse = app
-        .wrap()
-        .query_wasm_smart(
-            tasks_addr.clone(),
-            &QueryMsg::Task {
-                task_hash: task_hash_cron_with_queries.clone(),
-            },
-        )
-        .unwrap();
-    assert!(task_response.task.is_none());
-
     // remove evented cron task
     app.execute_contract(
         Addr::unchecked(ANYONE),
         tasks_addr,
         &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_cron_with_queries_evented,
+            task_hash: task_hash_cron_with_queries_evented.clone(),
         },
         &[],
     )
@@ -1364,7 +1317,7 @@ fn remove_tasks_with_queries_success() {
         .query_wasm_smart(
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries,
+                task_hash: task_hash_cron_with_queries_evented,
             },
         )
         .unwrap();
