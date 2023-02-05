@@ -291,6 +291,7 @@ dependencies = [
  "croncat-sdk-manager",
  "croncat-sdk-tasks",
  "croncat-tasks",
+ "cw-boolean-contract",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw-utils 0.16.0",
@@ -486,6 +487,20 @@ dependencies = [
  "rand_core 0.5.1",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "cw-boolean-contract"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a89630443ef265cde3000e2c72a9d18368b3e5109c0c4f1b86c1ec1812b77ea3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.16.0",
+ "cw2 0.16.0",
+ "schemars",
+ "thiserror",
 ]
 
 [[package]]

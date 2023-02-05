@@ -67,3 +67,12 @@ pub(crate) fn mod_generic_contract() -> Box<dyn Contract<Empty>> {
     );
     Box::new(contract)
 }
+
+pub(crate) fn cw_boolean_contract() -> Box<dyn Contract<Empty>> {
+    let contract = ContractWrapper::new(
+        cw_boolean_contract::entry_points::execute::execute,
+        cw_boolean_contract::entry_points::instantiate::instantiate,
+        cw_boolean_contract::entry_points::query::query,
+    );
+    Box::new(contract)
+}
