@@ -269,6 +269,17 @@ export type QueryMsg = {
     limit?: number | null;
   };
 } | {
+  evented_ids: {
+    from_index?: number | null;
+    limit?: number | null;
+  };
+} | {
+  evented_hashes: {
+    from_index?: number | null;
+    id?: number | null;
+    limit?: number | null;
+  };
+} | {
   evented_tasks: {
     from_index?: number | null;
     limit?: number | null;
@@ -352,6 +363,8 @@ export interface CurrentTaskInfoResponse {
   last_created_task: Timestamp;
   total: Uint64;
 }
+export type ArrayOfString = string[];
+export type ArrayOfUint64 = number[];
 export type ArrayOfTaskResponse = TaskResponse[];
 export interface SlotHashesResponse {
   block_id: number;
@@ -366,6 +379,7 @@ export interface SlotIdsResponse {
 export interface SlotTasksTotalResponse {
   block_tasks: number;
   cron_tasks: number;
+  evented_tasks: number;
 }
 export type String = string;
 export type ArrayOfTaskInfo = TaskInfo[];

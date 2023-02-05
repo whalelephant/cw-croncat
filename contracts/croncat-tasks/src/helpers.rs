@@ -8,7 +8,7 @@ use croncat_sdk_tasks::types::{
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
-    state::{tasks_map, BLOCK_SLOTS, TASKS_TOTAL, TIME_SLOTS},
+    state::{tasks_map, BLOCK_SLOTS, EVENTED_TASKS_LOOKUP, TASKS_TOTAL, TIME_SLOTS},
     ContractError,
 };
 
@@ -187,10 +187,34 @@ pub(crate) fn validate_msg_calculate_usage(
     Ok(amount_for_one_task)
 }
 
-pub(crate) fn remove_task(storage: &mut dyn Storage, hash: &[u8], is_block: bool) -> StdResult<()> {
+pub(crate) fn remove_task(
+    storage: &mut dyn Storage,
+    hash: &[u8],
+    is_block: bool,
+    is_evented: bool,
+) -> StdResult<()> {
     tasks_map().remove(storage, hash)?;
     TASKS_TOTAL.update(storage, |total| StdResult::Ok(total - 1))?;
-    if is_block {
+    if is_evented {
+        let hashes = EVENTED_TASKS_LOOKUP
+            .range(storage, None, None, Order::Ascending)
+            .collect::<StdResult<Vec<_>>>()?;
+        for (hid, mut all_hashes) in hashes {
+            let mut found = false;
+            all_hashes.retain(|h| {
+                found = h == hash;
+                !found
+            });
+            if found {
+                if all_hashes.is_empty() {
+                    BLOCK_SLOTS.remove(storage, hid);
+                } else {
+                    BLOCK_SLOTS.save(storage, hid, &all_hashes)?;
+                }
+                break;
+            }
+        }
+    } else if is_block {
         let blocks = BLOCK_SLOTS
             .range(storage, None, None, Order::Ascending)
             .collect::<StdResult<Vec<_>>>()?;

@@ -99,22 +99,31 @@ impl Interval {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
             (Interval::Once, Boundary::Height(boundary_height))
-            | (Interval::Immediate, Boundary::Height(boundary_height)) => {
-                (get_next_block_limited(env, boundary_height), SlotType::Block)
+            | (Interval::Immediate, Boundary::Height(boundary_height)) => (
+                get_next_block_limited(env, boundary_height),
+                SlotType::Block,
+            ),
+            // If Once, return the first time within a specific range that can be triggered 1 time.
+            // If Immediate, return the first time within a specific range that can be triggered immediately, potentially multiple times.
+            (Interval::Once, Boundary::Time(boundary_time))
+            | (Interval::Immediate, Boundary::Time(boundary_time)) => {
+                (get_next_time_in_window(env, boundary_time), SlotType::Cron)
             }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
-            (Interval::Cron(crontab), Boundary::Time(boundary_time)) => {
-                (get_next_cron_time(env, boundary_time, crontab, slot_granularity_time), SlotType::Cron)
-            }
+            (Interval::Cron(crontab), Boundary::Time(boundary_time)) => (
+                get_next_cron_time(env, boundary_time, crontab, slot_granularity_time),
+                SlotType::Cron,
+            ),
             // return the block within a specific range that can be triggered 1 or more times based on block heights.
             // Uses block offset (Example: Block(100) will trigger every 100 blocks)
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            (Interval::Block(block), Boundary::Height(boundary_height)) => {
-                (get_next_block_by_offset(env.block.height, boundary_height, *block), SlotType::Block)
-            }
+            (Interval::Block(block), Boundary::Height(boundary_height)) => (
+                get_next_block_by_offset(env.block.height, boundary_height, *block),
+                SlotType::Block,
+            ),
             // If interval is cron it means boundary is [`BoundaryTime`], and rest of the items is height
             _ => unreachable!(),
         }
@@ -294,6 +303,7 @@ pub struct CroncatQuery {
 pub struct SlotTasksTotalResponse {
     pub block_tasks: u64,
     pub cron_tasks: u64,
+    pub evented_tasks: u64,
 }
 
 #[cw_serde]
@@ -372,6 +382,28 @@ fn get_next_block_limited(env: &Env, boundary_height: &BoundaryHeight) -> u64 {
 
         // immediate needs to return this block + 1
         _ => next_block_height + 1,
+    }
+}
+
+/// Get the next time within the boundary
+/// Does not shift the timestamp, to allow better windowed event boundary
+fn get_next_time_in_window(env: &Env, boundary: &BoundaryTime) -> u64 {
+    let current_block_time = env.block.time.nanos();
+
+    let next_block_time = match boundary.start {
+        Some(id) if current_block_time < id.nanos() => id.nanos(),
+        _ => current_block_time,
+    };
+
+    match boundary.end {
+        // stop if passed end time
+        Some(end) if current_block_time > end.nanos() => 0,
+
+        // we ONLY want to catch if we're passed the end block time
+        Some(end) if next_block_time > end.nanos() => end.nanos(),
+
+        // immediate needs to return this time
+        _ => next_block_time,
     }
 }
 

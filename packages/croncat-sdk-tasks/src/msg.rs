@@ -91,14 +91,22 @@ pub enum TasksQueryMsg {
         limit: Option<u64>,
     },
     #[returns(Vec<u64>)]
-    EventedKeys {},
+    EventedIds {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    #[returns(Vec<String>)]
+    EventedHashes {
+        id: Option<u64>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
     /// Get list of event driven tasks
     #[returns(Vec<crate::types::TaskResponse>)]
     EventedTasks {
         start: Option<u64>,
         from_index: Option<u64>,
         limit: Option<u64>,
-        sub_index: Option<u64>,
     },
     /// Get tasks created by the given address
     #[returns(Vec<crate::types::TaskResponse>)]

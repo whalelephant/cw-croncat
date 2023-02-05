@@ -14,6 +14,10 @@ pub const TIME_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("time_slots");
 /// this is done instead of forcing a block height into a range of timestamps for reliability
 pub const BLOCK_SLOTS: Map<u64, Vec<Vec<u8>>> = Map::new("block_slots");
 
+/// Evented tasks, to keep track of tasks needing "check_result" to trigger tx
+/// key: Boundary Start - either height or time :: defaults to 0
+pub const EVENTED_TASKS_LOOKUP: Map<u64, Vec<Vec<u8>>> = Map::new("evented_task_lookup");
+
 /// Last task creation timestamp
 pub const LAST_TASK_CREATION: Item<Timestamp> = Item::new("last_task_creation");
 
@@ -39,18 +43,15 @@ pub fn owner_idx(_pk: &[u8], d: &Task) -> Addr {
 pub fn evented_idx(_pk: &[u8], d: &Task) -> u64 {
     if d.is_evented() {
         let v = match d.boundary.clone() {
-            Boundary::Height(h) => {
-                h.start.unwrap_or(Uint64::zero()).into()
-            },
+            Boundary::Height(h) => h.start.unwrap_or(Uint64::zero()).into(),
             Boundary::Time(t) => {
                 if let Some(n) = t.start {
-                    u64::from(n.nanos())
+                    n.nanos()
                 } else {
                     0
                 }
             }
         };
-        println!("-------------- evented_idx: {:?}", v);
         return v;
     }
     0

@@ -1516,6 +1516,76 @@
         "additionalProperties": false
       },
       {
+        "type": "object",
+        "required": [
+          "evented_ids"
+        ],
+        "properties": {
+          "evented_ids": {
+            "type": "object",
+            "properties": {
+              "from_index": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "evented_hashes"
+        ],
+        "properties": {
+          "evented_hashes": {
+            "type": "object",
+            "properties": {
+              "from_index": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Get list of event driven tasks",
         "type": "object",
         "required": [
@@ -4063,6 +4133,24 @@
         }
       }
     },
+    "evented_hashes": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_String",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evented_ids": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Array_of_uint64",
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "format": "uint64",
+        "minimum": 0.0
+      }
+    },
     "evented_tasks": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Array_of_TaskResponse",
@@ -5247,7 +5335,8 @@
       "type": "object",
       "required": [
         "block_tasks",
-        "cron_tasks"
+        "cron_tasks",
+        "evented_tasks"
       ],
       "properties": {
         "block_tasks": {
@@ -5256,6 +5345,11 @@
           "minimum": 0.0
         },
         "cron_tasks": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "evented_tasks": {
           "type": "integer",
           "format": "uint64",
           "minimum": 0.0

@@ -9,8 +9,8 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
-    Config, CurrentTaskInfoResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse,
-    SlotType, Task, TaskInfo, TaskRequest, TaskResponse, Interval,
+    Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
+    SlotTasksTotalResponse, SlotType, Task, TaskInfo, TaskRequest, TaskResponse,
 };
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
@@ -22,7 +22,10 @@ use crate::helpers::{
     validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{tasks_map, BLOCK_SLOTS, CONFIG, LAST_TASK_CREATION, TASKS_TOTAL, TIME_SLOTS};
+use crate::state::{
+    tasks_map, BLOCK_SLOTS, CONFIG, EVENTED_TASKS_LOOKUP, LAST_TASK_CREATION, TASKS_TOTAL,
+    TIME_SLOTS,
+};
 
 const CONTRACT_NAME: &str = "crate:croncat-tasks";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -221,7 +224,12 @@ fn execute_reschedule_task(
                 }
             }
         } else {
-            remove_task(deps.storage, &task_hash, task.boundary.is_block())?;
+            remove_task(
+                deps.storage,
+                &task_hash,
+                task.boundary.is_block(),
+                task.is_evented(),
+            )?;
             task_to_remove = Some(ManagerRemoveTask {
                 sender: task.owner_addr,
                 task_hash,
@@ -249,7 +257,12 @@ fn execute_remove_task_by_manager(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
-        remove_task(deps.storage, &task_hash, task.boundary.is_block())?;
+        remove_task(
+            deps.storage,
+            &task_hash,
+            task.boundary.is_block(),
+            task.is_evented(),
+        )?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -271,7 +284,12 @@ fn execute_remove_task(
         if task.owner_addr != info.sender {
             return Err(ContractError::Unauthorized {});
         }
-        remove_task(deps.storage, hash, task.boundary.is_block())?;
+        remove_task(
+            deps.storage,
+            hash,
+            task.boundary.is_block(),
+            task.is_evented(),
+        )?;
     } else {
         return Err(ContractError::NoTaskFound {});
     }
@@ -354,24 +372,28 @@ fn execute_create_task(
     TASKS_TOTAL.update(deps.storage, |amt| -> StdResult<_> { Ok(amt + 1) })?;
     tasks_map().update(deps.storage, &hash_vec, |old| match old {
         Some(_) => Err(ContractError::TaskExists {}),
-        None => Ok(item),
+        None => Ok(item.clone()),
     })?;
 
-    // Only scheduled tasks get put into slots
-    if !event_based {
-        // Get previous task hashes in slot, add as needed
-        let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
-            match d {
-                // has some data, simply push new hash
-                Some(data) => {
-                    let mut s = data;
-                    s.push(hash_vec.clone());
-                    Ok(s)
-                }
-                // No data, push new vec & hash
-                None => Ok(vec![hash_vec.clone()]),
+    // Get previous task hashes in slot, add as needed
+    let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
+        match d {
+            // has some data, simply push new hash
+            Some(data) => {
+                let mut s = data;
+                s.push(hash_vec.clone());
+                Ok(s)
             }
-        };
+            // No data, push new vec & hash
+            None => Ok(vec![hash_vec.clone()]),
+        }
+    };
+
+    if event_based {
+        EVENTED_TASKS_LOOKUP.update(deps.storage, next_id, update_vec_data)?;
+        attributes.push(Attribute::new("evented_key", next_id.to_string()));
+    } else {
+        // Only scheduled tasks get put into slots
         match slot_kind {
             SlotType::Block => {
                 BLOCK_SLOTS.update(deps.storage, next_id, update_vec_data)?;
@@ -416,13 +438,19 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
         QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),
         QueryMsg::Tasks { from_index, limit } => to_binary(&query_tasks(deps, from_index, limit)?),
-        QueryMsg::EventedKeys {} => to_binary(&query_evented_keys(deps)?),
+        QueryMsg::EventedIds { from_index, limit } => {
+            to_binary(&query_evented_ids(deps, from_index, limit)?)
+        }
+        QueryMsg::EventedHashes {
+            id,
+            from_index,
+            limit,
+        } => to_binary(&query_evented_hashes(deps, id, from_index, limit)?),
         QueryMsg::EventedTasks {
             start,
             from_index,
             limit,
-            sub_index,
-        } => to_binary(&query_evented_tasks(deps, start, from_index, limit, sub_index)?),
+        } => to_binary(&query_evented_tasks(deps, env, start, from_index, limit)?),
         QueryMsg::TasksByOwner {
             owner_addr,
             from_index,
@@ -463,6 +491,10 @@ fn query_slot_tasks_total(
             .may_load(deps.storage, env.block.height + off)?
             .unwrap_or_default()
             .len() as u64;
+        let evented_tasks = EVENTED_TASKS_LOOKUP
+            .may_load(deps.storage, env.block.height + off)?
+            .unwrap_or_default()
+            .len() as u64;
 
         let current_block_ts = env.block.time.nanos();
         let current_block_slot =
@@ -477,6 +509,7 @@ fn query_slot_tasks_total(
         Ok(SlotTasksTotalResponse {
             block_tasks,
             cron_tasks,
+            evented_tasks,
         })
     } else {
         let block_slots: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
@@ -489,6 +522,19 @@ fn query_slot_tasks_total(
             .collect::<StdResult<_>>()?;
 
         let block_tasks = block_slots
+            .iter()
+            .fold(0, |acc, (_, hashes)| acc + hashes.len()) as u64;
+
+        let evented_task_list: Vec<(u64, Vec<Vec<u8>>)> = EVENTED_TASKS_LOOKUP
+            .range(
+                deps.storage,
+                None,
+                Some(Bound::inclusive(env.block.height)),
+                Order::Ascending,
+            )
+            .collect::<StdResult<_>>()?;
+
+        let evented_tasks = evented_task_list
             .iter()
             .fold(0, |acc, (_, hashes)| acc + hashes.len()) as u64;
 
@@ -507,6 +553,7 @@ fn query_slot_tasks_total(
         Ok(SlotTasksTotalResponse {
             block_tasks,
             cron_tasks,
+            evented_tasks,
         })
     }
 }
@@ -570,80 +617,122 @@ fn query_tasks(
 
 fn query_evented_tasks(
     deps: Deps,
+    env: Env,
     start: Option<u64>,
     from_index: Option<u64>,
     limit: Option<u64>,
-    sub_index: Option<u64>,
-) -> StdResult<Vec<Option<TaskInfo>>> {
+) -> StdResult<Vec<TaskInfo>> {
     let config = CONFIG.load(deps.storage)?;
-    let begin = start.unwrap_or_default();
     let from_index = from_index.unwrap_or_default();
-    let sub_index = sub_index.unwrap_or_default();
     let limit = limit.unwrap_or(100);
-    let _to_index = from_index.saturating_add(limit);
-    let end = begin.saturating_add(limit);
     let tm = tasks_map();
-    let tq = if start.is_some() { 
-        println!("----- START IS SOME");
-        // tm.idx.evented.prefix(start.unwrap_or_default()).range_raw(
-        tm.idx
-            .evented
-            // .prefix(start.unwrap_or_default())
-            .range(
-            deps.storage,
-            Some(Bound::inclusive((begin, begin))),
-            Some(Bound::exclusive((end, end))),
-            // Some(Bound::exclusive(to_index)),
-            // Some(Bound::inclusive(from_index)),
-            // Some(Bound::exclusive(to_index)),
-            // None,
-            // None,
-            Order::Ascending
-        )
-    } else {
-        println!("----- GET ANY");
-        tm.idx.evented.range(
-            deps.storage,
-            None,
-            None,
-            Order::Ascending
-        )
-    };
 
-    // NOTE: Still using take & skip, in case soooo many items at specific range
-    tq
-        .skip(sub_index as usize)
-        .take(limit as usize)
-        .map(|task_res| {
-            // task_res.map(|(_, task)| task.into_response(&config.chain_name).task.unwrap())
-            if task_res.is_ok() {
-                let (_, t) = task_res.unwrap();
-                Ok(Some(t.into_response(&config.chain_name).task.unwrap()))
-                // Ok(Some(task_res.unwrap()))
-            } else {
-                Ok(None)
-                // Ok()
-                // None
+    let mut evented_hashes: Vec<Vec<u8>> = Vec::new();
+    let mut all_tasks: Vec<TaskInfo> = Vec::new();
+
+    // Check if start was supplied, otherwise get the next ids for block and time
+    if let Some(i) = start {
+        evented_hashes = EVENTED_TASKS_LOOKUP
+            .may_load(deps.storage, i)?
+            .unwrap_or_default();
+    } else {
+        let block_evented: Vec<(u64, _)> = EVENTED_TASKS_LOOKUP
+            .range(
+                deps.storage,
+                Some(Bound::inclusive(env.block.height)),
+                None,
+                Order::Ascending,
+            )
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+        if !block_evented.is_empty() {
+            for item in block_evented {
+                evented_hashes = [evented_hashes, item.1].concat();
             }
-        })
-        .collect()
+        }
+
+        let time_evented: Vec<(u64, _)> = EVENTED_TASKS_LOOKUP
+            .range(
+                deps.storage,
+                Some(Bound::inclusive(env.block.time.nanos())),
+                None,
+                Order::Ascending,
+            )
+            .take(1)
+            .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+        if !time_evented.is_empty() {
+            for item in time_evented {
+                evented_hashes = [evented_hashes, item.1].concat();
+            }
+        }
+    }
+
+    // Loop and get all associated tasks by hash
+    for t in evented_hashes {
+        if let Some(task) = tm.may_load(deps.storage, &t)? {
+            all_tasks.push(task.into_response(&config.chain_name).task.unwrap())
+        }
+    }
+
+    Ok(all_tasks)
 }
 
-fn query_evented_keys(
+fn query_evented_ids(
     deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
 ) -> StdResult<Vec<u64>> {
-    tasks_map()
-        .idx
-        .evented
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    let evented_ids = EVENTED_TASKS_LOOKUP
         .keys(deps.storage, None, None, Order::Ascending)
-        .map(|a| {
-            if a.is_ok() {
-                a
-            } else {
-                Ok(u64::default())
+        .skip(from_index as usize)
+        .take(limit as usize)
+        .collect::<StdResult<_>>()?;
+
+    Ok(evented_ids)
+}
+
+fn query_evented_hashes(
+    deps: Deps,
+    id: Option<u64>,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<Vec<String>> {
+    let mut evented_hashes: Vec<Vec<u8>> = Vec::new();
+    let from_index = from_index.unwrap_or_default();
+    let limit = limit.unwrap_or(100);
+
+    // Check if slot was supplied, otherwise get the next slots for block and time
+    if let Some(i) = id {
+        evented_hashes = EVENTED_TASKS_LOOKUP
+            .may_load(deps.storage, i)?
+            .unwrap_or_default();
+    } else {
+        let evented: Vec<(u64, _)> = EVENTED_TASKS_LOOKUP
+            .range(deps.storage, None, None, Order::Ascending)
+            .skip(from_index as usize)
+            .take(limit as usize)
+            .collect::<StdResult<Vec<(u64, _)>>>()?;
+
+        if !evented.is_empty() {
+            for item in evented {
+                evented_hashes = [evented_hashes, item.1].concat();
             }
-        })
-        .collect()
+        }
+    }
+
+    // Generate strings for all hashes
+    let evented_task_hashes: Vec<_> = evented_hashes
+        .iter()
+        .map(|t| String::from_utf8(t.to_vec()).unwrap_or_else(|_| "".to_string()))
+        .collect();
+
+    Ok(evented_task_hashes)
 }
 
 fn query_tasks_by_owner(
@@ -709,7 +798,6 @@ fn query_slot_hashes(deps: Deps, slot: Option<u64>) -> StdResult<SlotHashesRespo
             .collect::<StdResult<Vec<(u64, _)>>>()?;
 
         if !time.is_empty() {
-            // (time_id, time_hashes) = time[0].clone();
             let slot = time[0].clone();
             time_id = slot.0;
             time_hashes = slot.1;
@@ -721,7 +809,6 @@ fn query_slot_hashes(deps: Deps, slot: Option<u64>) -> StdResult<SlotHashesRespo
             .collect::<StdResult<Vec<(u64, _)>>>()?;
 
         if !block.is_empty() {
-            // (block_id, block_hashes) = block[0].clone();
             let slot = block[0].clone();
             block_id = slot.0;
             block_hashes = slot.1;
