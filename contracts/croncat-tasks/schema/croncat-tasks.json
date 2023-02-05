@@ -4156,10 +4156,10 @@
     },
     "evented_tasks": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Array_of_TaskResponse",
+      "title": "Array_of_TaskInfo",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/TaskResponse"
+        "$ref": "#/definitions/TaskInfo"
       },
       "definitions": {
         "Action_for_Empty": {
@@ -4976,22 +4976,6 @@
             },
             "version": {
               "type": "string"
-            }
-          },
-          "additionalProperties": false
-        },
-        "TaskResponse": {
-          "type": "object",
-          "properties": {
-            "task": {
-              "anyOf": [
-                {
-                  "$ref": "#/definitions/TaskInfo"
-                },
-                {
-                  "type": "null"
-                }
-              ]
             }
           },
           "additionalProperties": false

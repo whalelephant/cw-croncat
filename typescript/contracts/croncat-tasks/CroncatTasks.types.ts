@@ -365,7 +365,7 @@ export interface CurrentTaskInfoResponse {
 }
 export type ArrayOfString = string[];
 export type ArrayOfUint64 = number[];
-export type ArrayOfTaskResponse = TaskResponse[];
+export type ArrayOfTaskInfo = TaskInfo[];
 export interface SlotHashesResponse {
   block_id: number;
   block_task_hash: string[];
@@ -382,4 +382,4 @@ export interface SlotTasksTotalResponse {
   evented_tasks: number;
 }
 export type String = string;
-export type ArrayOfTaskInfo = TaskInfo[];
+export type ArrayOfTaskResponse = TaskResponse[];

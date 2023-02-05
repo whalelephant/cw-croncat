@@ -182,7 +182,7 @@ fn execute_proxy_call(
     let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    
+
     // Check if agent is active,
     // Then get a task
     let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {

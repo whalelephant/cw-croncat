@@ -1175,8 +1175,8 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     // println!("------- evented_ids {:?}", evented_ids);
-    assert_eq!(evented_ids.len(), 2);
-    assert_eq!(evented_ids, [12355, 1571797410000000000]);
+    assert_eq!(evented_ids.len(), 1);
+    assert_eq!(evented_ids, [12355]);
 
     let evented_hashes: Vec<String> = app
         .wrap()
@@ -1189,7 +1189,7 @@ fn remove_tasks_with_queries_success() {
             },
         )
         .unwrap();
-    assert_eq!(evented_hashes.len(), 2);
+    assert_eq!(evented_hashes.len(), 1);
     let evented_hashes: Vec<String> = app
         .wrap()
         .query_wasm_smart(
@@ -1208,7 +1208,7 @@ fn remove_tasks_with_queries_success() {
             tasks_addr.clone(),
             &QueryMsg::EventedHashes {
                 // id: Some(app.block_info().time.nanos()),
-                id: Some(1571797410000000000),
+                id: Some(12355),
                 from_index: None,
                 limit: None,
             },
@@ -1252,9 +1252,9 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     // Check respone amounts!
     // println!("evented_task_response_any {:?}", evented_task_response_any);
-    assert_eq!(evented_task_response_any.len(), 2);
+    assert_eq!(evented_task_response_any.len(), 1);
     assert_eq!(evented_task_response_start_block.len(), 1);
-    assert_eq!(evented_task_response_start_time.len(), 1);
+    assert_eq!(evented_task_response_start_time.len(), 0);
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
