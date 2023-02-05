@@ -4506,17 +4506,18 @@ fn event_task_with_failed_check_result() {
     assert_eq!(contract_error, ContractError::NoTaskForAgent {});
 
     // Now check that the evented one returns false and doesn't complete
+    let task_hash: String = evented_task_info[0].clone().task_hash;
+    println!("aloha task hash {task_hash}");
     proxy_call_res = app.execute_contract(
         Addr::unchecked(AGENT0),
         manager_addr.clone(),
-        &ProxyCall { task_hash: Some(evented_task_info[0].clone().task_hash) },
-        &[], // Attach no funds
+        &ProxyCall { task_hash: Some(task_hash) },
+        &[], // Attach no funds ofc
     );
     assert!(
         proxy_call_res.is_err(),
         "Proxy call should fail since the check_return comes back false"
     );
     let proxy_call_err: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
-    println!("debug: error {proxy_call_err:}");
     assert_eq!(proxy_call_err, ContractError::NoTaskForAgent {});
 }
