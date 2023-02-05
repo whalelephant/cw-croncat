@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = []
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
+license = { workspace = true }
+description = "Allows to deserialize any CosmWasm smart contract's queue response and check the results of any fields."
 
 [lib]
 crate-type = ["cdylib", "rlib"]

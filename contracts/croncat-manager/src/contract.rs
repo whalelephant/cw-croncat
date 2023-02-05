@@ -9,7 +9,7 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 
 use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
-use croncat_sdk_tasks::types::Interval;
+use croncat_sdk_tasks::types::{Interval, TaskInfo};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
@@ -22,8 +22,8 @@ use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
     create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    is_within_boundary, parse_reply_msg, query_agent, recalculate_cw20, remove_task_balance,
-    replace_values, task_sub_msgs,
+    is_after_boundary, is_before_boundary, parse_reply_msg, query_agent, recalculate_cw20,
+    remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -211,15 +211,33 @@ fn execute_proxy_call(
     };
 
     let Some(mut task) = current_task.task else {
-        // No task or not ready
-        return Err(ContractError::NoTask {  });
+        // No task
+        return Err(ContractError::NoTask {});
     };
 
-    // If task is evented, check if ready between boundary (if any)
+    let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+
+    // check if ready between boundary (if any)
+    if is_before_boundary(&env.block, Some(&task.boundary)) {
+        return Err(ContractError::TaskNotReady {});
+    }
+    if is_after_boundary(&env.block, Some(&task.boundary)) {
+        // End task
+        return end_task(
+            deps,
+            task,
+            config,
+            tasks_addr,
+            task_balance,
+            Some(vec![Attribute::new("lifecycle", "task_ended")]),
+        );
+    }
+
     if let Some(queries) = task.queries.as_ref() {
         let event_based = queries.iter().any(|q| q.check_result);
-        if event_based && !is_within_boundary(&env.block, Some(&task.boundary), &task.interval) {
-            return Err(ContractError::TaskNotReady {});
+        if event_based && !(task.interval == Interval::Once || task.interval == Interval::Immediate)
+        {
+            return Err(ContractError::TaskNoLongerValid {});
         }
 
         // Process all the queries
@@ -233,7 +251,7 @@ fn execute_proxy_call(
                 .into(),
             )?;
             if query.check_result && !query_res.result {
-                return Err(ContractError::TaskNotReady {});
+                return Err(ContractError::TaskQueryResultFalse {});
             }
             query_responses.push(query_res.data);
         }
@@ -249,8 +267,6 @@ fn execute_proxy_call(
             true
         };
 
-        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
-
         // Need to re-check if task has enough cw20's
         // because it could have been changed through transform
         if invalidated_after_transform
@@ -259,26 +275,14 @@ fn execute_proxy_call(
                 .is_err()
         {
             // Task is no longer valid
-            let coins_transfer = remove_task_balance(
-                deps.storage,
+            return end_task(
+                deps,
+                task,
+                config,
+                tasks_addr,
                 task_balance,
-                &task.owner_addr,
-                &config.native_denom,
-                task.task_hash.as_bytes(),
-            )?;
-            let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
-                task_hash: task.task_hash.into_bytes(),
-            }
-            .into_cosmos_msg(tasks_addr)?;
-            let bank_send = BankMsg::Send {
-                to_address: task.owner_addr.into_string(),
-                amount: coins_transfer,
-            };
-            return Ok(Response::new()
-                .add_attribute("action", "remove_task")
-                .add_attribute("lifecycle", "task_invalidated")
-                .add_message(msg)
-                .add_message(bank_send));
+                Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
+            );
         }
     }
 
@@ -293,6 +297,36 @@ fn execute_proxy_call(
     Ok(Response::new()
         .add_attribute("action", "proxy_call")
         .add_submessages(sub_msgs))
+}
+
+fn end_task(
+    deps: DepsMut,
+    task: TaskInfo,
+    config: Config,
+    tasks_addr: Addr,
+    task_balance: TaskBalance,
+    attrs: Option<Vec<Attribute>>,
+) -> Result<Response, ContractError> {
+    let coins_transfer = remove_task_balance(
+        deps.storage,
+        task_balance,
+        &task.owner_addr,
+        &config.native_denom,
+        task.task_hash.as_bytes(),
+    )?;
+    let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+        task_hash: task.task_hash.into_bytes(),
+    }
+    .into_cosmos_msg(tasks_addr)?;
+    let bank_send = BankMsg::Send {
+        to_address: task.owner_addr.into_string(),
+        amount: coins_transfer,
+    };
+    Ok(Response::new()
+        .add_attribute("action", "remove_task")
+        .add_attributes(attrs.unwrap_or_default())
+        .add_message(msg)
+        .add_message(bank_send))
 }
 
 /// Execute: UpdateConfig
@@ -404,6 +438,64 @@ fn execute_create_task_balance(
     Ok(Response::new().add_attribute("action", "create_task_balance"))
 }
 
+/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+fn execute_withdraw_agent_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    args: Option<AgentWithdrawOnRemovalArgs>,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+
+    let agent_id: Addr;
+    let payable_account_id: Addr;
+    let mut fail_on_zero_balance = true;
+
+    if let Some(arg) = args {
+        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
+        agent_id = Addr::unchecked(arg.agent_id);
+        payable_account_id = Addr::unchecked(arg.payable_account_id);
+        fail_on_zero_balance = false;
+    } else {
+        agent_id = info.sender;
+        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
+            .agent
+            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
+        payable_account_id = agent.payable_account_id;
+    }
+    let agent_rewards = AGENT_REWARDS
+        .may_load(deps.storage, &agent_id)?
+        .unwrap_or_default();
+
+    AGENT_REWARDS.remove(deps.storage, &agent_id);
+
+    let mut msgs = vec![];
+    // This will send all token balances to Agent
+    let msg = create_bank_send_message(
+        &payable_account_id,
+        &config.native_denom,
+        agent_rewards.u128(),
+    )?;
+
+    if !agent_rewards.is_zero() {
+        msgs.push(msg);
+    } else if fail_on_zero_balance {
+        return Err(ContractError::NoWithdrawRewardsAvailable {});
+    }
+
+    Ok(Response::new()
+        .add_messages(msgs)
+        .set_data(to_binary(&AgentWithdrawCallback {
+            agent_id: agent_id.to_string(),
+            amount: agent_rewards,
+            payable_account_id: payable_account_id.to_string(),
+        })?)
+        .add_attribute("action", "withdraw_rewards")
+        .add_attribute("payment_account_id", &payable_account_id)
+        .add_attribute("rewards", agent_rewards))
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -462,7 +554,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .map(|(idx, failure)| Attribute::new(format!("action{}_failure", idx), failure))
                     .collect();
                 let config = CONFIG.load(deps.storage)?;
-                //todo: fix is_block_slot param after boundary fix
                 let complete_msg = create_task_completed_msg(
                     &deps.querier,
                     &config,
@@ -477,62 +568,4 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             }
         }
     }
-}
-
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn execute_withdraw_agent_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-    args: Option<AgentWithdrawOnRemovalArgs>,
-) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    //assert if contract is ready for execution
-    check_ready_for_execution(&info, &config)?;
-
-    let agent_id: Addr;
-    let payable_account_id: Addr;
-    let mut fail_on_zero_balance = true;
-
-    if let Some(arg) = args {
-        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
-        agent_id = Addr::unchecked(arg.agent_id);
-        payable_account_id = Addr::unchecked(arg.payable_account_id);
-        fail_on_zero_balance = false;
-    } else {
-        agent_id = info.sender;
-        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
-            .agent
-            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
-        payable_account_id = agent.payable_account_id;
-    }
-    let agent_rewards = AGENT_REWARDS
-        .may_load(deps.storage, &agent_id)?
-        .unwrap_or_default();
-
-    AGENT_REWARDS.remove(deps.storage, &agent_id);
-
-    let mut msgs = vec![];
-    // This will send all token balances to Agent
-    let msg = create_bank_send_message(
-        &payable_account_id,
-        &config.native_denom,
-        agent_rewards.u128(),
-    )?;
-
-    if !agent_rewards.is_zero() {
-        msgs.push(msg);
-    } else if fail_on_zero_balance {
-        return Err(ContractError::NoWithdrawRewardsAvailable {});
-    }
-
-    Ok(Response::new()
-        .add_messages(msgs)
-        .set_data(to_binary(&AgentWithdrawCallback {
-            agent_id: agent_id.to_string(),
-            amount: agent_rewards,
-            payable_account_id: payable_account_id.to_string(),
-        })?)
-        .add_attribute("action", "withdraw_rewards")
-        .add_attribute("payment_account_id", &payable_account_id)
-        .add_attribute("rewards", agent_rewards))
 }
