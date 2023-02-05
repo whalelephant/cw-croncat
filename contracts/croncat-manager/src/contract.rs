@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdResult, Uint128, WasmQuery,
+    Reply, Response, StdError, StdResult, Uint128, WasmQuery,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -14,7 +14,7 @@ use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
 use crate::balances::{
-    execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
+    add_fee_rewards, execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
     execute_refill_task_cw20, execute_user_withdraw, query_users_balances, sub_user_cw20,
 };
 use crate::error::ContractError;
@@ -180,6 +180,7 @@ fn execute_proxy_call(
     check_ready_for_execution(&info, &config)?;
 
     // Check if agent is active
+    let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
     if task_hash.is_none() {
         // For scheduled case - check only active agents that are allowed tasks
@@ -187,7 +188,7 @@ fn execute_proxy_call(
             deps.querier.query_wasm_smart(
                 agents_addr,
                 &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-                    account_id: info.sender.to_string(),
+                    account_id: agent_addr.to_string(),
                 },
             )?;
         if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
@@ -199,7 +200,7 @@ fn execute_proxy_call(
         let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
             agents_addr,
             &croncat_sdk_agents::msg::QueryMsg::GetAgent {
-                account_id: info.sender.to_string(),
+                account_id: agent_addr.to_string(),
             },
         )?;
         if agent_reponse.agent.map_or(true, |agent| {
@@ -230,8 +231,6 @@ fn execute_proxy_call(
         return Err(ContractError::NoTask {});
     };
 
-    let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
-
     // check if ready between boundary (if any)
     if is_before_boundary(&env.block, Some(&task.boundary)) {
         return Err(ContractError::TaskNotReady {});
@@ -242,8 +241,8 @@ fn execute_proxy_call(
             deps,
             task,
             config,
+            agent_addr,
             tasks_addr,
-            task_balance,
             Some(vec![Attribute::new("lifecycle", "task_ended")]),
         );
     }
@@ -284,6 +283,7 @@ fn execute_proxy_call(
 
         // Need to re-check if task has enough cw20's
         // because it could have been changed through transform
+        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
         if invalidated_after_transform
             || task_balance
                 .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
@@ -294,8 +294,8 @@ fn execute_proxy_call(
                 deps,
                 task,
                 config,
+                agent_addr,
                 tasks_addr,
-                task_balance,
                 Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
             );
         }
@@ -304,7 +304,7 @@ fn execute_proxy_call(
     let sub_msgs = task_sub_msgs(&task);
     let queue_item = QueueItem {
         task,
-        agent_addr: info.sender,
+        agent_addr,
         failures: Default::default(),
     };
 
@@ -318,10 +318,33 @@ fn end_task(
     deps: DepsMut,
     task: TaskInfo,
     config: Config,
+    agent_addr: Addr,
     tasks_addr: Addr,
-    task_balance: TaskBalance,
     attrs: Option<Vec<Attribute>>,
 ) -> Result<Response, ContractError> {
+    // Sub gas/fee from native
+    let gas_with_fees = gas_with_fees(
+        task.amount_for_one_task.gas,
+        config.agent_fee + config.treasury_fee,
+    )?;
+    let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+    let mut task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+    task_balance.native_balance = task_balance
+        .native_balance
+        .checked_sub(Uint128::new(native_for_gas_required))
+        .map_err(StdError::overflow)?;
+
+    // Account for fees, to reimburse agent for efforts
+    add_fee_rewards(
+        deps.storage,
+        task.amount_for_one_task.gas,
+        &config.gas_price,
+        &agent_addr,
+        config.agent_fee,
+        config.treasury_fee,
+    )?;
+
+    // refund the final balances to task owner
     let coins_transfer = remove_task_balance(
         deps.storage,
         task_balance,
