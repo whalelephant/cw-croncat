@@ -180,14 +180,15 @@ fn execute_proxy_call(
     check_ready_for_execution(&info, &config)?;
 
     // Check if agent is active
+    let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
     if task_hash.is_none() {
         // For scheduled case - check only active agents that are allowed tasks
         let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
             deps.querier.query_wasm_smart(
-                agents_addr.clone(),
+                agents_addr,
                 &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-                    account_id: info.sender.to_string(),
+                    account_id: agent_addr.to_string(),
                 },
             )?;
         if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
@@ -197,9 +198,9 @@ fn execute_proxy_call(
     } else {
         // For evented case - check the agent is active, then may the best agent win
         let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
-            agents_addr.clone(),
+            agents_addr,
             &croncat_sdk_agents::msg::QueryMsg::GetAgent {
-                account_id: info.sender.to_string(),
+                account_id: agent_addr.to_string(),
             },
         )?;
         if agent_reponse.agent.map_or(true, |agent| {
@@ -224,7 +225,6 @@ fn execute_proxy_call(
             &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
         )?
     };
-    println!("------- YO  I HAZ A TASK");
 
     let Some(mut task) = current_task.task else {
         // No task
@@ -241,12 +241,11 @@ fn execute_proxy_call(
             deps,
             task,
             config,
-            agents_addr,
+            agent_addr,
             tasks_addr,
             Some(vec![Attribute::new("lifecycle", "task_ended")]),
         );
     }
-    println!("------- Boundary checked and all good");
 
     if let Some(queries) = task.queries.as_ref() {
         let event_based = queries.iter().any(|q| q.check_result);
@@ -254,7 +253,6 @@ fn execute_proxy_call(
         {
             return Err(ContractError::TaskNoLongerValid {});
         }
-        println!("------- Queries starting");
 
         // Process all the queries
         let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
@@ -272,7 +270,6 @@ fn execute_proxy_call(
             query_responses.push(query_res.data);
         }
         replace_values(&mut task, query_responses)?;
-        println!("------- Queries happened");
 
         // Recalculate cw20 usage and re-check for self-calls
         let invalidated_after_transform = if let Ok(amounts) =
@@ -283,7 +280,6 @@ fn execute_proxy_call(
         } else {
             true
         };
-        println!("------- Invalid after transform TASKKKKKKKKK");
 
         // Need to re-check if task has enough cw20's
         // because it could have been changed through transform
@@ -298,24 +294,19 @@ fn execute_proxy_call(
                 deps,
                 task,
                 config,
-                agents_addr,
+                agent_addr,
                 tasks_addr,
                 Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
             );
         }
     }
 
-    println!("----Got to bottom of proxy_call, ready for SUBMSGS");
-
     let sub_msgs = task_sub_msgs(&task);
     let queue_item = QueueItem {
         task,
-        agent_addr: info.sender,
+        agent_addr,
         failures: Default::default(),
     };
-
-    println!("---- HERES MY SUBMSGS {:?}", sub_msgs);
-    println!("---- AND MY queue_item {:?}", queue_item);
 
     REPLY_QUEUE.save(deps.storage, &queue_item)?;
     Ok(Response::new()
@@ -327,11 +318,10 @@ fn end_task(
     deps: DepsMut,
     task: TaskInfo,
     config: Config,
-    agents_addr: Addr,
+    agent_addr: Addr,
     tasks_addr: Addr,
     attrs: Option<Vec<Attribute>>,
 ) -> Result<Response, ContractError> {
-    println!("------- END TASKKKKKKKKK");
     // Sub gas/fee from native
     let gas_with_fees = gas_with_fees(
         task.amount_for_one_task.gas,
@@ -349,7 +339,7 @@ fn end_task(
         deps.storage,
         task.amount_for_one_task.gas,
         &config.gas_price,
-        &agents_addr,
+        &agent_addr,
         config.agent_fee,
         config.treasury_fee,
     )?;
@@ -525,7 +515,6 @@ fn execute_withdraw_agent_rewards(
         &config.native_denom,
         agent_rewards.u128(),
     )?;
-    println!("-------- AGENT_REWARDS Withdrawing {:?}", agent_rewards);
 
     if !agent_rewards.is_zero() {
         msgs.push(msg);
@@ -568,14 +557,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractError> {
-    println!("---- REPLY GUY {:?} {:?}", msg.id, msg);
     match msg.id {
         TASK_REPLY => {
             let execute_data = parse_reply_execute_data(msg)?;
-            println!("---- HERES MY TASK_REPLY {:?}", execute_data);
             let remove_task_msg: Option<ManagerRemoveTask> =
-            from_binary(&execute_data.data.unwrap())?;
-            println!("---- HERES MY TASK_REPLY remove_task_msg {:?}", remove_task_msg);
+                from_binary(&execute_data.data.unwrap())?;
             let Some(msg) = remove_task_msg else {
                 return Ok(Response::new())
             };
@@ -599,7 +585,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         _ => {
             let mut queue_item = REPLY_QUEUE.load(deps.storage)?;
             let last = parse_reply_msg(deps.storage, &mut queue_item, msg);
-            println!("---- HERES MY queue_item here {:?}", last);
             if last {
                 let failures: Vec<Attribute> = queue_item
                     .failures
@@ -613,7 +598,6 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     &queue_item.agent_addr,
                     !matches!(queue_item.task.interval, Interval::Cron(_)),
                 )?;
-                println!("-------- TIME TO FINALIZE TASKKKKK {:?}", queue_item);
                 Ok(finalize_task(deps, queue_item)?
                     .add_message(complete_msg)
                     .add_attributes(failures))
