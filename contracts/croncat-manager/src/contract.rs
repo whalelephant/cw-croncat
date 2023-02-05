@@ -181,17 +181,33 @@ fn execute_proxy_call(
 
     // Check if agent is active
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
-        agents_addr,
-        &croncat_sdk_agents::msg::QueryMsg::GetAgent {
-            account_id: info.sender.to_string(),
-        },
-    )?;
-    if agent_reponse.agent.map_or(true, |agent| {
-        agent.status != croncat_sdk_agents::types::AgentStatus::Active
-    }) {
-        return Err(ContractError::NoTaskForAgent {});
-    }
+    if task_hash.is_none() {
+        // For scheduled case - check only active agents that are allowed tasks
+        let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
+            deps.querier.query_wasm_smart(
+                agents_addr,
+                &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
+                    account_id: info.sender.to_string(),
+                },
+            )?;
+        if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
+        {
+            return Err(ContractError::NoTaskForAgent {});
+        }
+    } else {
+        // For evented case - check the agent is active, then may the best agent win
+        let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
+            agents_addr,
+            &croncat_sdk_agents::msg::QueryMsg::GetAgent {
+                account_id: info.sender.to_string(),
+            },
+        )?;
+        if agent_reponse.agent.map_or(true, |agent| {
+            agent.status != croncat_sdk_agents::types::AgentStatus::Active
+        }) {
+            return Err(ContractError::NoTaskForAgent {});
+        }
+    };
 
     // Get a task
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
