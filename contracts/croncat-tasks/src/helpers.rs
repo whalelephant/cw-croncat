@@ -207,9 +207,9 @@ pub(crate) fn remove_task(
             });
             if found {
                 if all_hashes.is_empty() {
-                    BLOCK_SLOTS.remove(storage, hid);
+                    EVENTED_TASKS_LOOKUP.remove(storage, hid);
                 } else {
-                    BLOCK_SLOTS.save(storage, hid, &all_hashes)?;
+                    EVENTED_TASKS_LOOKUP.save(storage, hid, &all_hashes)?;
                 }
                 break;
             }
