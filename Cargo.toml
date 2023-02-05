@@ -68,11 +68,11 @@ croncat-tasks = { path = "./contracts/croncat-tasks" }
 croncat-factory = { path = "./contracts/croncat-factory" }
 croncat-mod-balances = { path = "./contracts/mod-balances" }
 croncat-mod-dao = { path = "./contracts/mod-dao" }
-croncat-mod-generic = { path = "./contracts/mod-generic", version = "0.1.0" }
+croncat-mod-generic = { path = "./contracts/mod-generic" }
 croncat-mod-nft = { path = "./contracts/mod-nft" }
 croncat-sdk-agents = { path = "./packages/croncat-sdk-agents" }
-croncat-sdk-core = { path = "./packages/croncat-sdk-core", version = "0.1.0" }
+croncat-sdk-core = { path = "./packages/croncat-sdk-core" }
 croncat-sdk-tasks = { path = "./packages/croncat-sdk-tasks" }
-mod-sdk = { path = "./packages/mod-sdk", version = "0.1.0" }
+mod-sdk = { path = "./packages/mod-sdk" }
 croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }
 croncat-sdk-manager = { path = "./packages/croncat-sdk-manager" }
