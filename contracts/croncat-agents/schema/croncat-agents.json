@@ -71,6 +71,15 @@
         "maxItems": 2,
         "minItems": 2
       },
+      "min_active_agent_count": {
+        "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint16",
+        "minimum": 0.0
+      },
       "min_coin_for_agent_registration": {
         "description": "The required amount needed to actually execute a few tasks before withdraw profits. This helps make sure agent wont get stuck out the gate",
         "type": [
@@ -356,6 +365,15 @@
             "maxItems": 2,
             "minItems": 2
           },
+          "min_active_agent_count": {
+            "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint16",
+            "minimum": 0.0
+          },
           "min_coins_for_agent_registration": {
             "description": "Minimum funds to be attached for agent registration",
             "type": [
@@ -504,6 +522,7 @@
         "croncat_factory_addr",
         "croncat_manager_key",
         "croncat_tasks_key",
+        "min_active_agent_count",
         "min_coins_for_agent_registration",
         "min_tasks_per_agent",
         "owner_addr",
@@ -571,6 +590,12 @@
           ],
           "maxItems": 2,
           "minItems": 2
+        },
+        "min_active_agent_count": {
+          "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
         },
         "min_coins_for_agent_registration": {
           "description": "Min coins that should be attached to register an agent",

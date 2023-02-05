@@ -36,6 +36,9 @@ pub struct InstantiateMsg {
 
     /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: Option<u64>,
+
+    /// Minimum agent count in active queue to be untouched by bad agent verifier
+    pub min_active_agent_count: Option<u16>,
 }
 
 /// Execute messages for agent contract
@@ -150,4 +153,7 @@ pub struct UpdateConfig {
 
     /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: Option<u64>,
+
+    /// Minimum agent count in active queue to be untouched by bad agent verifier
+    pub min_active_agent_count: Option<u16>,
 }

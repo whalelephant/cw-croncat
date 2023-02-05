@@ -23,8 +23,9 @@ authors = [
   "deveusss",
 ]
 edition = "2021"
-description = "Croncat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
+description = "CronCat provides a general purpose, fully autonomous network that enables scheduled function calls for blockchain contract execution. It allows any application to schedule logic to get executed in the future, once or many times, triggered by an approved “agent,” in an economically stable format."
 documentation = "https://docs.cron.cat/"
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 serde = { version = "1.0" }
