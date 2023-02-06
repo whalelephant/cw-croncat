@@ -99,7 +99,15 @@ pub(crate) fn init_manager(
 pub(crate) fn init_boolean(app: &mut App) -> Addr {
     let code_id = app.store_code(contracts::cw_boolean_contract());
     let inst_msg = cw_boolean_contract::msgs::instantiate_msg::InstantiateMsg {};
-    app.instantiate_contract(code_id, Addr::unchecked(ADMIN), &inst_msg, &[], "cw-boolean-contract", None).unwrap()
+    app.instantiate_contract(
+        code_id,
+        Addr::unchecked(ADMIN),
+        &inst_msg,
+        &[],
+        "cw-boolean-contract",
+        None,
+    )
+    .unwrap()
 }
 
 pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
