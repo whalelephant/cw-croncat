@@ -75,21 +75,36 @@ pub enum TasksQueryMsg {
     /// Get the total amount of tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
-    /// CurrentTaskInfo
+    /// returns the total task count & last task creation timestamp for agent nomination checks
     #[returns(crate::types::CurrentTaskInfoResponse)]
     CurrentTaskInfo {},
-    /// Get the total amount of tasks with queries
-    #[returns(cosmwasm_std::Uint64)]
-    TasksWithQueriesTotal {},
-    /// Get list of active tasks, without queries
+    /// Get next task to be done
+    #[returns(crate::types::TaskResponse)]
+    CurrentTask {},
+    /// Get task by the task hash
+    #[returns(crate::types::TaskResponse)]
+    Task { task_hash: String },
+    /// Get list of all tasks
     #[returns(Vec<crate::types::TaskInfo>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get list of active tasks, with queries
-    #[returns(Vec<crate::types::TaskResponse>)]
-    TasksWithQueries {
+    #[returns(Vec<u64>)]
+    EventedIds {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    #[returns(Vec<String>)]
+    EventedHashes {
+        id: Option<u64>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    /// Get list of event driven tasks
+    #[returns(Vec<crate::types::TaskInfo>)]
+    EventedTasks {
+        start: Option<u64>,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
@@ -100,9 +115,6 @@ pub enum TasksQueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get task by the task hash
-    #[returns(crate::types::TaskResponse)]
-    Task { task_hash: String },
     /// Simulate task_hash by the given task
     #[returns(String)]
     TaskHash { task: Box<crate::types::Task> },
@@ -117,11 +129,4 @@ pub enum TasksQueryMsg {
     },
     #[returns(crate::types::SlotTasksTotalResponse)]
     SlotTasksTotal { offset: Option<u64> },
-    /// Get next task to be done
-    #[returns(crate::types::TaskResponse)]
-    CurrentTask {},
-    /// Get task with queries if it's ready
-    /// To get task when it's not ready query [`TasksQueryMsg::Task`] instead
-    #[returns(crate::types::TaskResponse)]
-    CurrentTaskWithQueries { task_hash: String },
 }

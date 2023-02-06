@@ -13,8 +13,8 @@ fn test_get_next_block_by_offset() {
     let mut block_height = 1665998;
     for _ in 1..20 {
         let result = get_next_block_by_offset(block_height, &boundary, interval);
-        if result.0 > 0 {
-            list.push(result.0);
+        if result > 0 {
+            list.push(result);
         }
         block_height += 1
     }
@@ -34,14 +34,14 @@ fn test_get_next_block_by_offset() {
         end: None,
     };
     let result = get_next_block_by_offset(block_height, &empty_boundary, interval);
-    assert_eq!(block_height + interval, result.0);
+    assert_eq!(block_height + interval, result);
 
     let boundary_with_start = BoundaryHeight {
         start: Some(Uint64::new(1666000)),
         end: None,
     };
     let result = get_next_block_by_offset(block_height, &empty_boundary, interval);
-    assert_eq!(boundary_with_start.start.unwrap().u64(), result.0);
+    assert_eq!(boundary_with_start.start.unwrap().u64(), result);
 
     let block_height = 1666008;
 
@@ -50,5 +50,5 @@ fn test_get_next_block_by_offset() {
         end: Some(Uint64::new(1666010)),
     };
     let result = get_next_block_by_offset(block_height, &boundary_with_end, interval);
-    assert_eq!(boundary_with_end.end.unwrap().u64(), result.0);
+    assert_eq!(boundary_with_end.end.unwrap().u64(), result);
 }

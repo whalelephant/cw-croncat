@@ -1,11 +1,12 @@
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
-    QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
+    coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
+    MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
+    WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::TaskInfo;
+use croncat_sdk_tasks::types::{Boundary, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -425,6 +426,32 @@ pub(crate) fn check_for_self_calls(
         }
     }
     Ok(())
+}
+
+// Check if we're before boundary start
+pub(crate) fn is_before_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .start
+            .map_or(false, |s| s.nanos() > block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .start
+            .map_or(false, |s| s.u64() > block_info.height),
+        None => false,
+    }
+}
+
+// Check if we're after boundary end
+pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .end
+            .map_or(false, |e| e.nanos() <= block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .end
+            .map_or(false, |e| e.u64() < block_info.height - 1),
+        None => false,
+    }
 }
 
 /// Replace values to the result value from the rules

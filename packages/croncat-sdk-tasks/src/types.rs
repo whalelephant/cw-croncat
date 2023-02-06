@@ -99,22 +99,31 @@ impl Interval {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
             (Interval::Once, Boundary::Height(boundary_height))
-            | (Interval::Immediate, Boundary::Height(boundary_height)) => {
-                get_next_block_limited(env, boundary_height)
+            | (Interval::Immediate, Boundary::Height(boundary_height)) => (
+                get_next_block_limited(env, boundary_height),
+                SlotType::Block,
+            ),
+            // If Once, return the first time within a specific range that can be triggered 1 time.
+            // If Immediate, return the first time within a specific range that can be triggered immediately, potentially multiple times.
+            (Interval::Once, Boundary::Time(boundary_time))
+            | (Interval::Immediate, Boundary::Time(boundary_time)) => {
+                (get_next_time_in_window(env, boundary_time), SlotType::Cron)
             }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
-            (Interval::Cron(crontab), Boundary::Time(boundary_time)) => {
-                get_next_cron_time(env, boundary_time, crontab, slot_granularity_time)
-            }
+            (Interval::Cron(crontab), Boundary::Time(boundary_time)) => (
+                get_next_cron_time(env, boundary_time, crontab, slot_granularity_time),
+                SlotType::Cron,
+            ),
             // return the block within a specific range that can be triggered 1 or more times based on block heights.
             // Uses block offset (Example: Block(100) will trigger every 100 blocks)
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            (Interval::Block(block), Boundary::Height(boundary_height)) => {
-                get_next_block_by_offset(env.block.height, boundary_height, *block)
-            }
+            (Interval::Block(block), Boundary::Height(boundary_height)) => (
+                get_next_block_by_offset(env.block.height, boundary_height, *block),
+                SlotType::Block,
+            ),
             // If interval is cron it means boundary is [`BoundaryTime`], and rest of the items is height
             _ => unreachable!(),
         }
@@ -247,8 +256,8 @@ impl Task {
         !matches!(self.interval, Interval::Once)
     }
 
-    pub fn with_queries(&self) -> bool {
-        !self.queries.is_empty()
+    pub fn is_evented(&self) -> bool {
+        self.queries.iter().any(|q| q.check_result)
     }
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {
@@ -282,11 +291,10 @@ impl Task {
 pub struct CroncatQuery {
     /// This is address of the queried module contract.
     /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
-    ///
-    /// One requirement for custom contracts: query return value should be formatted as a:
-    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub contract_addr: String,
     pub msg: Binary,
+    /// For queries with `check_result`: query return value should be formatted as a:
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub check_result: bool,
 }
 
@@ -294,6 +302,7 @@ pub struct CroncatQuery {
 pub struct SlotTasksTotalResponse {
     pub block_tasks: u64,
     pub cron_tasks: u64,
+    pub evented_tasks: u64,
 }
 
 #[cw_serde]
@@ -354,7 +363,7 @@ impl Display for SlotType {
 }
 
 /// Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary_height: &BoundaryHeight) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary_height: &BoundaryHeight) -> u64 {
     let current_block_height = env.block.height;
 
     let next_block_height = match boundary_height.start {
@@ -365,13 +374,35 @@ fn get_next_block_limited(env: &Env, boundary_height: &BoundaryHeight) -> (u64, 
 
     match boundary_height.end {
         // stop if passed end height
-        Some(end) if current_block_height > end.u64() => (0, SlotType::Block),
+        Some(end) if current_block_height > end.u64() => 0,
 
         // we ONLY want to catch if we're passed the end block height
-        Some(end) if next_block_height > end.u64() => (end.u64(), SlotType::Block),
+        Some(end) if next_block_height > end.u64() => end.u64(),
 
         // immediate needs to return this block + 1
-        _ => (next_block_height + 1, SlotType::Block),
+        _ => next_block_height + 1,
+    }
+}
+
+/// Get the next time within the boundary
+/// Does not shift the timestamp, to allow better windowed event boundary
+fn get_next_time_in_window(env: &Env, boundary: &BoundaryTime) -> u64 {
+    let current_block_time = env.block.time.nanos();
+
+    let next_block_time = match boundary.start {
+        Some(id) if current_block_time < id.nanos() => id.nanos(),
+        _ => current_block_time,
+    };
+
+    match boundary.end {
+        // stop if passed end time
+        Some(end) if current_block_time > end.nanos() => 0,
+
+        // we ONLY want to catch if we're passed the end block time
+        Some(end) if next_block_time > end.nanos() => end.nanos(),
+
+        // immediate needs to return this time
+        _ => next_block_time,
     }
 }
 
@@ -382,12 +413,12 @@ pub(crate) fn get_next_block_by_offset(
     block_height: u64,
     boundary_height: &BoundaryHeight,
     block: u64,
-) -> (u64, SlotType) {
+) -> u64 {
     let current_block_height = block_height;
     let modulo_block = if block > 0 {
         current_block_height.saturating_sub(current_block_height % block) + block
     } else {
-        return (0, SlotType::Block);
+        return 0;
     };
 
     let next_block_height = match boundary_height.start {
@@ -404,7 +435,7 @@ pub(crate) fn get_next_block_by_offset(
 
     match boundary_height.end {
         // stop if passed end height
-        Some(end) if current_block_height > end.u64() => (0, SlotType::Block),
+        Some(end) if current_block_height > end.u64() => 0,
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) => {
@@ -414,12 +445,9 @@ pub(crate) fn get_next_block_by_offset(
                 end.u64()
             };
             // we ONLY want to catch if we're passed the end block height
-            (
-                std::cmp::min(next_block_height, end_height),
-                SlotType::Block,
-            )
+            std::cmp::min(next_block_height, end_height)
         }
-        None => (next_block_height, SlotType::Block),
+        None => next_block_height,
     }
 }
 
@@ -430,7 +458,7 @@ fn get_next_cron_time(
     boundary: &BoundaryTime,
     crontab: &str,
     slot_granularity_time: u64,
-) -> (u64, SlotType) {
+) -> u64 {
     let current_block_ts = env.block.time.nanos();
     let current_block_slot =
         current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
@@ -454,14 +482,14 @@ fn get_next_cron_time(
     };
 
     match boundary.end {
-        Some(end) if current_block_ts > end.nanos() => (0, SlotType::Cron),
+        Some(end) if current_block_ts > end.nanos() => 0,
         Some(end) => {
             let end_slot = end
                 .nanos()
                 .saturating_sub(end.nanos() % slot_granularity_time);
-            (u64::min(end_slot, next_slot), SlotType::Cron)
+            u64::min(end_slot, next_slot)
         }
-        _ => (next_slot, SlotType::Cron),
+        _ => next_slot,
     }
 }
 

@@ -9,8 +9,8 @@ use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
         Action, Boundary, BoundaryHeight, BoundaryTime, Config, CroncatQuery,
-        CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotTasksTotalResponse, TaskInfo,
-        TaskRequest, TaskResponse, Transform,
+        CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotTasksTotalResponse, Task,
+        TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
@@ -27,7 +27,7 @@ use super::{
 use crate::{
     contract::{GAS_ACTION_FEE, GAS_BASE_FEE, GAS_LIMIT, GAS_QUERY_FEE, SLOT_GRANULARITY_TIME},
     msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
-    state::{BLOCK_MAP_QUERIES, TASKS_TOTAL, TASKS_WITH_QUERIES_TOTAL, TIME_MAP_QUERIES},
+    state::TASKS_TOTAL,
     tests::{helpers::add_little_time, ANYONE},
     ContractError,
 };
@@ -275,6 +275,7 @@ fn create_task_without_query() {
         SlotTasksTotalResponse {
             block_tasks: 1,
             cron_tasks: 0,
+            evented_tasks: 0,
         }
     );
     let current_slot: TaskResponse = app
@@ -389,13 +390,9 @@ fn create_task_without_query() {
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(2));
-    // Check that tasks doesn't overlap with tasks_with_queries
-    let total_without_q = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
-    assert_eq!(total_without_q, 2);
-    let total_with_q = TASKS_WITH_QUERIES_TOTAL
-        .query(&app.wrap(), tasks_addr.clone())
-        .unwrap();
-    assert_eq!(total_with_q, 0);
+    // Check that tasks total compares
+    let total_t = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
+    assert_eq!(total_t, 2);
 
     // Check it got queued into correct slot
     app.update_block(add_little_time);
@@ -411,6 +408,7 @@ fn create_task_without_query() {
         SlotTasksTotalResponse {
             block_tasks: 1,
             cron_tasks: 1,
+            evented_tasks: 0,
         }
     );
 
@@ -665,7 +663,7 @@ fn create_tasks_with_queries_and_transforms() {
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
-            &QueryMsg::TasksWithQueries {
+            &QueryMsg::Tasks {
                 from_index: None,
                 limit: None,
             },
@@ -710,19 +708,6 @@ fn create_tasks_with_queries_and_transforms() {
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(1));
-    let total_tasks_with_queries: Uint64 = app
-        .wrap()
-        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksWithQueriesTotal {})
-        .unwrap();
-    assert_eq!(total_tasks_with_queries, Uint64::new(1));
-
-    // Check that tasks doesn't overlap with tasks_with_queries
-    let total_without_q = TASKS_TOTAL.query(&app.wrap(), tasks_addr.clone()).unwrap();
-    assert_eq!(total_without_q, 0);
-    let total_with_q = TASKS_WITH_QUERIES_TOTAL
-        .query(&app.wrap(), tasks_addr.clone())
-        .unwrap();
-    assert_eq!(total_with_q, 1);
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -755,6 +740,7 @@ fn create_tasks_with_queries_and_transforms() {
         SlotTasksTotalResponse {
             block_tasks: 0,
             cron_tasks: 0,
+            evented_tasks: 1,
         }
     );
 
@@ -959,8 +945,8 @@ fn remove_tasks_with_queries_success() {
     let task = TaskRequest {
         interval: Interval::Once,
         boundary: Some(Boundary::Height(BoundaryHeight {
-            start: Some((app.block_info().height).into()),
-            end: Some((app.block_info().height + 10).into()),
+            start: Some((app.block_info().height + 10).into()),
+            end: Some((app.block_info().height + 20).into()),
         })),
         stop_on_fail: false,
         actions: vec![Action {
@@ -991,6 +977,66 @@ fn remove_tasks_with_queries_success() {
         }]),
         cw20: None,
     };
+
+    let task_raw = Task {
+        owner_addr: Addr::unchecked(ANYONE),
+        interval: task.interval.clone(),
+        boundary: Boundary::Height(BoundaryHeight {
+            start: Some(Uint64::new(app.block_info().height)),
+            end: None,
+        }),
+        stop_on_fail: task.stop_on_fail,
+        actions: task.actions.clone(),
+        queries: task.queries.clone().unwrap(),
+        transforms: task.transforms.clone().unwrap(),
+        version: "0.1".to_string(),
+        amount_for_one_task: AmountForOneTask {
+            gas: 50_000,
+            cw20: None,
+            coin: [Some(coin(5, DENOM)), None],
+        },
+    };
+    assert!(task_raw.is_evented());
+    assert!(task_raw.is_evented() && task_raw.boundary.is_block());
+
+    let task_raw_non_evented = Task {
+        owner_addr: Addr::unchecked(ANYONE),
+        interval: task.interval.clone(),
+        boundary: Boundary::Height(BoundaryHeight {
+            start: Some(Uint64::new(app.block_info().height + 10)),
+            end: None,
+        }),
+        stop_on_fail: task.stop_on_fail,
+        actions: task.actions.clone(),
+        queries: vec![CroncatQuery {
+            contract_addr: "aloha321".to_owned(),
+            msg: Binary::from([2, 4]),
+            check_result: false,
+        }],
+        transforms: task.transforms.clone().unwrap(),
+        version: "0.1".to_string(),
+        amount_for_one_task: AmountForOneTask {
+            gas: 50_000,
+            cw20: None,
+            coin: [Some(coin(5, DENOM)), None],
+        },
+    };
+    assert!(!task_raw_non_evented.is_evented());
+    assert!(!task_raw_non_evented.is_evented() && task_raw.boundary.is_block());
+
+    // test how the index will find it
+    let v = match task_raw_non_evented.boundary {
+        Boundary::Height(h) => h.start.unwrap_or(Uint64::zero()).into(),
+        Boundary::Time(t) => {
+            if let Some(t) = t.start {
+                t.nanos()
+            } else {
+                u64::default()
+            }
+        }
+    };
+    assert_eq!(v, app.block_info().height + 10);
+
     let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
@@ -1002,23 +1048,6 @@ fn remove_tasks_with_queries_success() {
         )
         .unwrap();
     let task_hash_block_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
-    // Scheduled exactly for block
-    let min_block_scheduled = BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap();
-    assert_eq!(min_block_scheduled, Some(app.block_info().height + 1));
-    assert!(TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1042,8 +1071,8 @@ fn remove_tasks_with_queries_success() {
     let task = TaskRequest {
         interval: Interval::Cron("* * * * * *".to_owned()),
         boundary: Some(Boundary::Time(BoundaryTime {
-            start: Some(app.block_info().time),
-            end: Some(app.block_info().time.plus_nanos(1000)),
+            start: Some(app.block_info().time.plus_nanos(10000)),
+            end: Some(app.block_info().time.plus_nanos(20000)),
         })),
         stop_on_fail: false,
         actions: vec![Action {
@@ -1075,7 +1104,44 @@ fn remove_tasks_with_queries_success() {
         cw20: None,
     };
 
-    let res = app
+    let task_no_evented = TaskRequest {
+        interval: Interval::Cron("* * * * * *".to_owned()),
+        boundary: Some(Boundary::Time(BoundaryTime {
+            start: Some(app.block_info().time.plus_nanos(10000)),
+            end: Some(app.block_info().time.plus_nanos(20000)),
+        })),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(vec![
+            CroncatQuery {
+                contract_addr: "aloha123".to_owned(),
+                msg: Binary::from([4, 2]),
+                check_result: false,
+            },
+            CroncatQuery {
+                contract_addr: "aloha321".to_owned(),
+                msg: Binary::from([2, 4]),
+                check_result: false,
+            },
+        ]),
+        transforms: Some(vec![Transform {
+            action_idx: 1,
+            query_idx: 2,
+            action_path: vec![5u64.into()].into(),
+            query_response_path: vec![5u64.into()].into(),
+        }]),
+        cw20: None,
+    };
+
+    // Make sure to test evented task with Cron interval doesnt work
+    let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             tasks_addr.clone(),
@@ -1084,45 +1150,113 @@ fn remove_tasks_with_queries_success() {
             },
             &coins(90000, DENOM),
         )
+        .unwrap_err()
+        .downcast()
         .unwrap();
-    let task_hash_cron_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    assert_eq!(err, ContractError::InvalidInterval {});
 
-    // Scheduled exactly for cron
-    let min_cron_scheduled = TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
             tasks_addr.clone(),
-            task_hash_cron_with_queries.as_bytes(),
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task_no_evented),
+            },
+            &coins(90000, DENOM),
         )
         .unwrap();
-    assert!(min_cron_scheduled.is_some());
-    assert!(BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_cron_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
+    let task_hash_cron_with_queries_evented = String::from_vec(res.data.unwrap().0).unwrap();
 
-    // check it created balance on the manager contract
-    let manager_task_balance: TaskBalanceResponse = app
+    let evented_ids: Vec<u64> = app
         .wrap()
         .query_wasm_smart(
-            manager_addr.clone(),
-            &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries.clone(),
+            tasks_addr.clone(),
+            &QueryMsg::EventedIds {
+                from_index: None,
+                limit: None,
             },
         )
         .unwrap();
-    assert_eq!(
-        manager_task_balance.balance,
-        Some(TaskBalance {
-            native_balance: Uint128::new(90000),
-            cw20_balance: None,
-            ibc_balance: None,
-        }),
-    );
+    // println!("------- evented_ids {:?}", evented_ids);
+    assert_eq!(evented_ids.len(), 1);
+    assert_eq!(evented_ids, [12355]);
+
+    let evented_hashes: Vec<String> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedHashes {
+                id: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(evented_hashes.len(), 1);
+    let evented_hashes: Vec<String> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedHashes {
+                id: Some(app.block_info().height + 10),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(evented_hashes.len(), 1);
+    let evented_hashes: Vec<String> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedHashes {
+                // id: Some(app.block_info().time.nanos()),
+                id: Some(12355),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(evented_hashes.len(), 1);
+
+    let evented_task_response_any: Vec<Option<TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let evented_task_response_start_block: Vec<Option<TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                start: Some(app.block_info().height + 10),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let evented_task_response_start_time: Vec<Option<TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::EventedTasks {
+                // id: Some(app.block_info().time.nanos()),
+                start: Some(1571797410000000000),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    // Check respone amounts!
+    assert_eq!(evented_task_response_any.len(), 1);
+    assert_eq!(evented_task_response_start_block.len(), 1);
+    assert_eq!(evented_task_response_start_time.len(), 0);
 
     // remove block task
     let res = app
@@ -1154,14 +1288,6 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     assert!(task_response.task.is_none());
 
-    assert!(BLOCK_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr.clone(),
-            task_hash_block_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
     // check it removed balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()
@@ -1174,51 +1300,24 @@ fn remove_tasks_with_queries_success() {
         .unwrap();
     assert!(manager_task_balance.balance.is_none());
 
-    // remove cron task
-    let res = app
-        .execute_contract(
-            Addr::unchecked(ANYONE),
-            tasks_addr.clone(),
-            &ExecuteMsg::RemoveTask {
-                task_hash: task_hash_cron_with_queries.clone(),
-            },
-            &[],
-        )
-        .unwrap();
+    // remove evented cron task
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr,
+        &ExecuteMsg::RemoveTask {
+            task_hash: task_hash_cron_with_queries_evented.clone(),
+        },
+        &[],
+    )
+    .unwrap();
 
-    // Check attributes
-    assert!(res.events.iter().any(|ev| {
-        ev.attributes
-            .iter()
-            .any(|attr| attr.key == "action" && attr.value == "remove_task")
-    }));
-
-    let task_response: TaskResponse = app
-        .wrap()
-        .query_wasm_smart(
-            tasks_addr.clone(),
-            &QueryMsg::Task {
-                task_hash: task_hash_cron_with_queries.clone(),
-            },
-        )
-        .unwrap();
-    assert!(task_response.task.is_none());
-
-    assert!(TIME_MAP_QUERIES
-        .query(
-            &app.wrap(),
-            tasks_addr,
-            task_hash_cron_with_queries.as_bytes(),
-        )
-        .unwrap()
-        .is_none());
     // check it removed balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries,
+                task_hash: task_hash_cron_with_queries_evented,
             },
         )
         .unwrap();
@@ -2661,7 +2760,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 0,
-            cron_tasks: 0
+            cron_tasks: 0,
+            evented_tasks: 0
         }
     );
 
@@ -2676,7 +2776,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 0,
-            cron_tasks: 0
+            cron_tasks: 0,
+            evented_tasks: 0
         }
     );
 
@@ -2813,7 +2914,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 0,
-            cron_tasks: 0
+            cron_tasks: 0,
+            evented_tasks: 0
         }
     );
 
@@ -2830,7 +2932,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 2,
-            cron_tasks: 1
+            cron_tasks: 1,
+            evented_tasks: 0
         }
     );
 
@@ -2847,7 +2950,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 2,
-            cron_tasks: 0
+            cron_tasks: 0,
+            evented_tasks: 0
         }
     );
 
@@ -2866,7 +2970,8 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 4,
-            cron_tasks: 1
+            cron_tasks: 1,
+            evented_tasks: 0
         }
     );
 }

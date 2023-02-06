@@ -2,19 +2,19 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdResult, Uint128, WasmQuery,
+    Reply, Response, StdError, StdResult, Uint128, WasmQuery,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 
 use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
-use croncat_sdk_tasks::types::Interval;
+use croncat_sdk_tasks::types::{Interval, TaskInfo};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
 use crate::balances::{
-    execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
+    add_fee_rewards, execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
     execute_refill_task_cw20, execute_user_withdraw, query_users_balances, sub_user_cw20,
 };
 use crate::error::ContractError;
@@ -22,8 +22,8 @@ use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
     create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    parse_reply_msg, query_agent, recalculate_cw20, remove_task_balance, replace_values,
-    task_sub_msgs,
+    is_after_boundary, is_before_boundary, parse_reply_msg, query_agent, recalculate_cw20,
+    remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -128,10 +128,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
-        ExecuteMsg::ProxyCall { task_hash: None } => execute_proxy_call(deps, env, info),
-        ExecuteMsg::ProxyCall {
-            task_hash: Some(task_hash),
-        } => execute_proxy_call_with_queries(deps, env, info, task_hash),
+        ExecuteMsg::ProxyCall { task_hash } => execute_proxy_call(deps, env, info, task_hash),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
         ExecuteMsg::RefillTaskBalance { task_hash } => {
             execute_refill_native_balance(deps, info, task_hash)
@@ -175,153 +172,199 @@ fn execute_remove_task(
 
 fn execute_proxy_call(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
+    task_hash: Option<String>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     check_ready_for_execution(&info, &config)?;
 
-    // query agent to check if ready
+    let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse = deps.querier.query_wasm_smart(
-        agents_addr,
-        &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
-            account_id: info.sender.to_string(),
-        },
-    )?;
-    if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero() {
-        return Err(ContractError::NoTaskForAgent {});
+    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
+
+    // Check if agent is active,
+    // Then get a task
+    let current_task: croncat_sdk_tasks::types::TaskResponse = if let Some(hash) = task_hash {
+        // For evented case - check the agent is active, then may the best agent win
+        let agent_response: croncat_sdk_agents::msg::AgentResponse =
+            deps.querier.query_wasm_smart(
+                agents_addr,
+                &croncat_sdk_agents::msg::QueryMsg::GetAgent {
+                    account_id: agent_addr.to_string(),
+                },
+            )?;
+        if agent_response.agent.map_or(true, |agent| {
+            agent.status != croncat_sdk_agents::types::AgentStatus::Active
+        }) {
+            return Err(ContractError::NoTaskForAgent {});
+        }
+
+        // A hash means agent is attempting to execute evented task
+        deps.querier.query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
+        )?
+    } else {
+        // For scheduled case - check only active agents that are allowed tasks
+        let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
+            deps.querier.query_wasm_smart(
+                agents_addr,
+                &croncat_sdk_agents::msg::QueryMsg::GetAgentTasks {
+                    account_id: agent_addr.to_string(),
+                },
+            )?;
+        if agent_tasks.stats.num_block_tasks.is_zero() && agent_tasks.stats.num_cron_tasks.is_zero()
+        {
+            return Err(ContractError::NoTaskForAgent {});
+        }
+
+        // get a scheduled task
+        deps.querier.query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
+        )?
+    };
+
+    let Some(mut task) = current_task.task else {
+        // No task
+        return Err(ContractError::NoTask {});
+    };
+
+    // check if ready between boundary (if any)
+    if is_before_boundary(&env.block, Some(&task.boundary)) {
+        return Err(ContractError::TaskNotReady {});
+    }
+    if is_after_boundary(&env.block, Some(&task.boundary)) {
+        // End task
+        return end_task(
+            deps,
+            task,
+            config,
+            agent_addr,
+            tasks_addr,
+            Some(vec![Attribute::new("lifecycle", "task_ended")]),
+        );
     }
 
-    // execute task
-    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
-        tasks_addr,
-        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
-    )?;
-    // Note: there should be at least one task
-    // unless `get_agent_tasks` gave false positive
-    let task = current_task.task.unwrap();
+    if let Some(queries) = task.queries.as_ref() {
+        let event_based = queries.iter().any(|q| q.check_result);
+        if event_based && !(task.interval == Interval::Once || task.interval == Interval::Immediate)
+        {
+            return Err(ContractError::TaskNoLongerValid {});
+        }
+
+        // Process all the queries
+        let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
+        for query in task.queries.iter().flatten() {
+            let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
+                &WasmQuery::Smart {
+                    contract_addr: query.contract_addr.clone(),
+                    msg: query.msg.clone(),
+                }
+                .into(),
+            )?;
+            if query.check_result && !query_res.result {
+                return Err(ContractError::TaskQueryResultFalse {});
+            }
+            query_responses.push(query_res.data);
+        }
+        replace_values(&mut task, query_responses)?;
+
+        // Recalculate cw20 usage and re-check for self-calls
+        let invalidated_after_transform = if let Ok(amounts) =
+            recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
+        {
+            task.amount_for_one_task.cw20 = amounts;
+            false
+        } else {
+            true
+        };
+
+        // Need to re-check if task has enough cw20's
+        // because it could have been changed through transform
+        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+        if invalidated_after_transform
+            || task_balance
+                .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
+                .is_err()
+        {
+            // Task is no longer valid
+            return end_task(
+                deps,
+                task,
+                config,
+                agent_addr,
+                tasks_addr,
+                Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
+            );
+        }
+    }
 
     let sub_msgs = task_sub_msgs(&task);
     let queue_item = QueueItem {
         task,
-        agent_addr: info.sender,
+        agent_addr,
         failures: Default::default(),
     };
 
     REPLY_QUEUE.save(deps.storage, &queue_item)?;
-
     Ok(Response::new()
         .add_attribute("action", "proxy_call")
-        .add_attribute("task_hash", queue_item.task.task_hash)
         .add_submessages(sub_msgs))
 }
 
-fn execute_proxy_call_with_queries(
+fn end_task(
     deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    task_hash: String,
+    task: TaskInfo,
+    config: Config,
+    agent_addr: Addr,
+    tasks_addr: Addr,
+    attrs: Option<Vec<Attribute>>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
-
-    let task_balance = TASKS_BALANCES.load(deps.storage, task_hash.as_bytes())?;
-
-    // Check if agent is active
-    let agents_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_reponse: croncat_sdk_agents::msg::AgentResponse = deps.querier.query_wasm_smart(
-        agents_addr,
-        &croncat_sdk_agents::msg::QueryMsg::GetAgent {
-            account_id: info.sender.to_string(),
-        },
+    // Sub gas/fee from native
+    let gas_with_fees = gas_with_fees(
+        task.amount_for_one_task.gas,
+        config.agent_fee + config.treasury_fee,
     )?;
-    if agent_reponse.agent.map_or(true, |agent| {
-        agent.status != croncat_sdk_agents::types::AgentStatus::Active
-    }) {
-        return Err(ContractError::NoTaskForAgent {});
-    }
+    let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+    let mut task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+    task_balance.native_balance = task_balance
+        .native_balance
+        .checked_sub(Uint128::new(native_for_gas_required))
+        .map_err(StdError::overflow)?;
 
-    // Get a task
-    let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-    let current_task: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
-        tasks_addr.clone(),
-        &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTaskWithQueries {
-            task_hash: task_hash.clone(),
-        },
+    // Account for fees, to reimburse agent for efforts
+    add_fee_rewards(
+        deps.storage,
+        task.amount_for_one_task.gas,
+        &config.gas_price,
+        &agent_addr,
+        config.agent_fee,
+        config.treasury_fee,
     )?;
 
-    let Some(mut task) = current_task.task else {
-        // No task or not ready
-        return Err(ContractError::NoTask {  });
-    };
-    let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
-    for query in task.queries.iter().flatten() {
-        let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
-            &WasmQuery::Smart {
-                contract_addr: query.contract_addr.clone(),
-                msg: query.msg.clone(),
-            }
-            .into(),
-        )?;
-        if query.check_result && !query_res.result {
-            return Err(ContractError::TaskNotReady {});
-        }
-        query_responses.push(query_res.data);
+    // refund the final balances to task owner
+    let coins_transfer = remove_task_balance(
+        deps.storage,
+        task_balance,
+        &task.owner_addr,
+        &config.native_denom,
+        task.task_hash.as_bytes(),
+    )?;
+    let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+        task_hash: task.task_hash.into_bytes(),
     }
-    replace_values(&mut task, query_responses)?;
-
-    // Recalculate cw20 usage and re-check for self-calls
-    let invalidated_after_transform = if let Ok(amounts) =
-        recalculate_cw20(&task, &config, deps.as_ref(), &env.contract.address)
-    {
-        task.amount_for_one_task.cw20 = amounts;
-        false
-    } else {
-        true
+    .into_cosmos_msg(tasks_addr)?;
+    let bank_send = BankMsg::Send {
+        to_address: task.owner_addr.into_string(),
+        amount: coins_transfer,
     };
-    // Need to re-check if task has enough cw20's
-    // because it could have been changed through transform
-    if invalidated_after_transform
-        || task_balance
-            .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
-            .is_err()
-    {
-        // Task is no longer valid
-        let coins_transfer = remove_task_balance(
-            deps.storage,
-            task_balance,
-            &task.owner_addr,
-            &config.native_denom,
-            task.task_hash.as_bytes(),
-        )?;
-        let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
-            task_hash: task_hash.into_bytes(),
-        }
-        .into_cosmos_msg(tasks_addr)?;
-        let bank_send = BankMsg::Send {
-            to_address: task.owner_addr.into_string(),
-            amount: coins_transfer,
-        };
-        Ok(Response::new()
-            .add_attribute("action", "remove_task")
-            .add_attribute("lifecycle", "task_invalidated")
-            .add_message(msg)
-            .add_message(bank_send))
-    } else {
-        let sub_msgs = task_sub_msgs(&task);
-        let queue_item = QueueItem {
-            task,
-            agent_addr: info.sender,
-            failures: Default::default(),
-        };
-
-        REPLY_QUEUE.save(deps.storage, &queue_item)?;
-        Ok(Response::new()
-            .add_attribute("action", "proxy_call_with_queries")
-            .add_submessages(sub_msgs))
-    }
+    Ok(Response::new()
+        .add_attribute("action", "remove_task")
+        .add_attributes(attrs.unwrap_or_default())
+        .add_message(msg)
+        .add_message(bank_send))
 }
 
 /// Execute: UpdateConfig
@@ -433,6 +476,64 @@ fn execute_create_task_balance(
     Ok(Response::new().add_attribute("action", "create_task_balance"))
 }
 
+/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
+fn execute_withdraw_agent_rewards(
+    deps: DepsMut,
+    info: MessageInfo,
+    args: Option<AgentWithdrawOnRemovalArgs>,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+
+    let agent_id: Addr;
+    let payable_account_id: Addr;
+    let mut fail_on_zero_balance = true;
+
+    if let Some(arg) = args {
+        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
+        agent_id = Addr::unchecked(arg.agent_id);
+        payable_account_id = Addr::unchecked(arg.payable_account_id);
+        fail_on_zero_balance = false;
+    } else {
+        agent_id = info.sender;
+        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
+            .agent
+            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
+        payable_account_id = agent.payable_account_id;
+    }
+    let agent_rewards = AGENT_REWARDS
+        .may_load(deps.storage, &agent_id)?
+        .unwrap_or_default();
+
+    AGENT_REWARDS.remove(deps.storage, &agent_id);
+
+    let mut msgs = vec![];
+    // This will send all token balances to Agent
+    let msg = create_bank_send_message(
+        &payable_account_id,
+        &config.native_denom,
+        agent_rewards.u128(),
+    )?;
+
+    if !agent_rewards.is_zero() {
+        msgs.push(msg);
+    } else if fail_on_zero_balance {
+        return Err(ContractError::NoWithdrawRewardsAvailable {});
+    }
+
+    Ok(Response::new()
+        .add_messages(msgs)
+        .set_data(to_binary(&AgentWithdrawCallback {
+            agent_id: agent_id.to_string(),
+            amount: agent_rewards,
+            payable_account_id: payable_account_id.to_string(),
+        })?)
+        .add_attribute("action", "withdraw_rewards")
+        .add_attribute("payment_account_id", &payable_account_id)
+        .add_attribute("rewards", agent_rewards))
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -505,62 +606,4 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
             }
         }
     }
-}
-
-/// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn execute_withdraw_agent_rewards(
-    deps: DepsMut,
-    info: MessageInfo,
-    args: Option<AgentWithdrawOnRemovalArgs>,
-) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    //assert if contract is ready for execution
-    check_ready_for_execution(&info, &config)?;
-
-    let agent_id: Addr;
-    let payable_account_id: Addr;
-    let mut fail_on_zero_balance = true;
-
-    if let Some(arg) = args {
-        assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
-        agent_id = Addr::unchecked(arg.agent_id);
-        payable_account_id = Addr::unchecked(arg.payable_account_id);
-        fail_on_zero_balance = false;
-    } else {
-        agent_id = info.sender;
-        let agent = query_agent(&deps.querier, &config, agent_id.to_string())?
-            .agent
-            .ok_or(ContractError::NoRewardsOwnerAgentFound {})?;
-        payable_account_id = agent.payable_account_id;
-    }
-    let agent_rewards = AGENT_REWARDS
-        .may_load(deps.storage, &agent_id)?
-        .unwrap_or_default();
-
-    AGENT_REWARDS.remove(deps.storage, &agent_id);
-
-    let mut msgs = vec![];
-    // This will send all token balances to Agent
-    let msg = create_bank_send_message(
-        &payable_account_id,
-        &config.native_denom,
-        agent_rewards.u128(),
-    )?;
-
-    if !agent_rewards.is_zero() {
-        msgs.push(msg);
-    } else if fail_on_zero_balance {
-        return Err(ContractError::NoWithdrawRewardsAvailable {});
-    }
-
-    Ok(Response::new()
-        .add_messages(msgs)
-        .set_data(to_binary(&AgentWithdrawCallback {
-            agent_id: agent_id.to_string(),
-            amount: agent_rewards,
-            payable_account_id: payable_account_id.to_string(),
-        })?)
-        .add_attribute("action", "withdraw_rewards")
-        .add_attribute("payment_account_id", &payable_account_id)
-        .add_attribute("rewards", agent_rewards))
 }
