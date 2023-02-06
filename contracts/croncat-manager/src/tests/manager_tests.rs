@@ -4631,7 +4631,7 @@ fn immediate_event_task_has_multiple_executions() {
         &CreateTask {
             task: Box::new(task),
         },
-        &coins(500_000, DENOM),
+        &coins(126_740, DENOM),
     )
     .expect("Couldn't create task");
 
