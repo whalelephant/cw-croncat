@@ -223,7 +223,7 @@ fn execute_reschedule_task(
                     }
                 }
             }
-        } else {
+        } else if !task.is_evented() {
             remove_task(
                 deps.storage,
                 &task_hash,
