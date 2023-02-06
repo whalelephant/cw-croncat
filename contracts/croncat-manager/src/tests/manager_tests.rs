@@ -32,6 +32,7 @@ use crate::{
 use cosmwasm_std::{coin, StdError};
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 use croncat_sdk_manager::types::GasPrice;
+use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
 use cw_multi_test::{BankSudo, Executor};
 
 use super::{
@@ -4495,10 +4496,6 @@ fn event_task_with_failed_check_result() {
     )
     .expect("Couldn't create task");
 
-    // app.update_block(|block| add_seconds_to_block(block, 10));
-    // app.update_block(|block| increment_block_height(block, Some(1)));
-    // println!("Current block height: {}", app.block_info().height);
-
     // Agent checks to see if there are tasks for them to do.
     // Note: we hit the Tasks contract for this one. Manager for regular tasks.
     let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
@@ -4566,4 +4563,137 @@ fn event_task_with_failed_check_result() {
         1usize,
         "Should still have one evented task"
     );
+}
+
+/// Checks that the creation of a task with an Immediate interval
+/// is able to execute multiple times when given sufficient funds
+#[test]
+fn immediate_event_task_has_multiple_executions() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agent_addr = init_agents(&mut app, &factory_addr);
+    let boolean_addr = init_boolean(&mut app);
+
+    // Set boolean contract to return true
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        boolean_addr.clone(),
+        &Toggle {},
+        &[],
+    )
+    .expect("Toggling boolean contract from false to true failed");
+
+    // Register an agent
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        agent_addr,
+        &RegisterAgent {
+            payable_account_id: None,
+        },
+        &[],
+    )
+    .expect("Could not register agent");
+
+    let queries = vec![CroncatQuery {
+        contract_addr: boolean_addr.to_string(),
+        // Calls `get_value` on boolean contract, which defaults to false
+        msg: to_binary(&cw_boolean_contract::msgs::query_msg::QueryMsg::GetValue {}).unwrap(),
+        // It's important to set this to true
+        check_result: true,
+    }];
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "Bob".to_owned(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: Some(queries),
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(500_000, DENOM),
+    )
+    .expect("Couldn't create task");
+
+    // Agent checks to see if there are tasks for them to do.
+    // Note: we hit the Tasks contract for this one. Manager for regular tasks.
+    let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let mut evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
+    assert_eq!(
+        &evented_task_info.len(),
+        &1usize,
+        "Should have one evented task"
+    );
+    let task_hash = evented_task_info[0].clone().task_hash;
+
+    let proxy_call_msg = ProxyCall {
+        task_hash: Some(task_hash),
+    };
+    // Have agent call proxy call (without hash), and check how it went
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &proxy_call_msg,
+        &[], // Attach no funds
+    )
+    .expect("First proxy call should succeed");
+
+    // Check that the one Immediate tasks still exists
+    tasks_for_agent = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    evented_task_info =
+        tasks_for_agent.expect("Error unwrapping evented task info after successful proxy_call");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should still have one evented task"
+    );
+
+    // Call ProxyCall again, expecting it to succeed
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr,
+        &proxy_call_msg,
+        &[], // Attach no funds
+    )
+    .expect("Second proxy call should succeed");
 }
