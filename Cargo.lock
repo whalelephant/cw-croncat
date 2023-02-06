@@ -291,13 +291,14 @@ dependencies = [
  "croncat-sdk-manager",
  "croncat-sdk-tasks",
  "croncat-tasks",
+ "cw-boolean-contract",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw-utils 0.16.0",
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk",
+ "mod-sdk 0.1.0",
  "serde-json-wasm",
  "thiserror",
 ]
@@ -313,7 +314,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk",
+ "mod-sdk 0.1.0",
 ]
 
 [[package]]
@@ -334,7 +335,7 @@ dependencies = [
  "dao-proposal-single",
  "dao-voting",
  "dao-voting-cw20-staked",
- "mod-sdk",
+ "mod-sdk 0.1.0",
  "schemars",
  "serde",
 ]
@@ -351,7 +352,7 @@ dependencies = [
  "cw20-base 0.16.0",
  "cw4",
  "cw4-group",
- "mod-sdk",
+ "mod-sdk 0.1.0",
  "serde-cw-value",
  "serde_json",
 ]
@@ -366,7 +367,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw721 0.16.0",
  "cw721-base",
- "mod-sdk",
+ "mod-sdk 0.1.0",
 ]
 
 [[package]]
@@ -420,7 +421,7 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
- "mod-sdk",
+ "mod-sdk 0.1.0",
  "sha2 0.10.6",
 ]
 
@@ -486,6 +487,21 @@ dependencies = [
  "rand_core 0.5.1",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "cw-boolean-contract"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25ad1276974b054eef7e64cb73e4f6b3a0478aac70481a86ce31ba5ccfcf7ad3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 0.16.0",
+ "cw2 0.16.0",
+ "mod-sdk 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "schemars",
+ "thiserror",
 ]
 
 [[package]]
@@ -1498,6 +1514,17 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 [[package]]
 name = "mod-sdk"
 version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "thiserror",
+]
+
+[[package]]
+name = "mod-sdk"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3ddc8342bb738b9b61be88d62bd825de3081be855ed41781afc5c75c0b86de2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

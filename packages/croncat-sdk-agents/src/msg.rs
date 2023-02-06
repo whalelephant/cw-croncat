@@ -82,7 +82,7 @@ pub enum QueryMsg {
     #[returns[crate::types::Config]]
     Config {},
 }
-/// Reponse containing active/pending agents
+/// Response containing active/pending agents
 #[cw_serde]
 pub struct GetAgentIdsResponse {
     /// Active agent list

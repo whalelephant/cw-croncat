@@ -735,7 +735,7 @@
     "get_agent_ids": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "GetAgentIdsResponse",
-      "description": "Reponse containing active/pending agents",
+      "description": "Response containing active/pending agents",
       "type": "object",
       "required": [
         "active",
