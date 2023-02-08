@@ -2,80 +2,15 @@ use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::SlotType;
 
 use crate::distro::AgentDistributor;
-use crate::tests::common::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
+use crate::state::agent_map;
+use crate::tests::common::*;
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
 };
-use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps};
+use cosmwasm_std::{coins, Addr, Empty, Env, MemoryStorage, OwnedDeps, Storage};
 
 use super::common::{mock_config, NATIVE_DENOM};
 
-///Asserts if balancer get the expected amount of tasks with specified active agents and task slots
-///
-/// # Arguments
-///
-/// * `slots` - Task slots
-/// * `act_agents` - (Address,block_tasks,cron_tasks)
-/// * `expected` - (Address,block_tasks,cron_tasks)
-fn assert_balancer_tasks(
-    deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>,
-    env: &Env,
-    _config: &mut Config,
-    slots: (Option<u64>, Option<u64>),
-    act_agents: &[(&str, u64, u64)],
-    expected: &[(&str, u64, u64)],
-) {
-    let task_distributor = AgentDistributor::new();
-    let mut result = Vec::<(&str, u64, u64)>::new();
-
-    AGENTS_ACTIVE.remove(&mut deps.storage);
-
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
-        .may_load(&deps.storage)
-        .unwrap()
-        .unwrap_or_default();
-    active_agents.extend(act_agents.iter().map(|mapped| Addr::unchecked(mapped.0)));
-
-    AGENTS_ACTIVE
-        .save(&mut deps.storage, &active_agents)
-        .unwrap();
-    act_agents.iter().for_each(|f| {
-        if f.1 > 0 {
-            task_distributor
-                .on_task_completed(
-                    &mut deps.storage,
-                    env,
-                    &Addr::unchecked(f.0),
-                    SlotType::Block,
-                )
-                .unwrap();
-        }
-        if f.2 > 0 {
-            task_distributor
-                .on_task_completed(
-                    &mut deps.storage,
-                    env,
-                    &Addr::unchecked(f.0),
-                    SlotType::Cron,
-                )
-                .unwrap();
-        }
-    });
-
-    for a in act_agents {
-        let balancer_result = task_distributor
-            .get_agent_tasks(&deps.as_ref(), &env.clone(), Addr::unchecked(a.0), slots)
-            .unwrap()
-            .stats;
-        result.push((
-            a.0,
-            balancer_result.num_block_tasks.u64(),
-            balancer_result.num_cron_tasks.u64(),
-        ));
-    }
-
-    assert_eq!(expected, &result);
-}
 //EQ Mode
 #[test]
 fn test_check_valid_agents_get_tasks_eq_mode() {
@@ -88,13 +23,9 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
     let mut config = mock_config(String::new().as_str());
 
     #[allow(clippy::type_complexity)]
-    let cases: &[(
-        (Option<u64>, Option<u64>),
-        &[(&str, u64, u64)],
-        &[(&str, u64, u64)],
-    )] = &[
+    let cases: &[((u64, u64), &[(&str, u64, u64)], &[(&str, u64, u64)])] = &[
         (
-            (Some(7), Some(7)),
+            (7, 7),
             &[
                 (AGENT0, 0, 0),
                 (AGENT1, 0, 0),
@@ -113,7 +44,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(3), Some(3)),
+            (3, 3),
             &[
                 (AGENT0, 0, 0),
                 (AGENT1, 0, 0),
@@ -132,7 +63,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(3), Some(3)),
+            (3, 3),
             &[
                 (AGENT0, 0, 0),
                 (AGENT1, 0, 0),
@@ -151,7 +82,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(3), Some(3)),
+            (3, 3),
             &[
                 (AGENT0, 0, 0),
                 (AGENT1, 1, 1),
@@ -170,7 +101,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(1), Some(1)),
+            (1, 1),
             &[
                 (AGENT0, 1, 1),
                 (AGENT1, 1, 1),
@@ -189,7 +120,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(3), Some(0)),
+            (3, 0),
             &[
                 (AGENT0, 1, 1),
                 (AGENT1, 1, 1),
@@ -208,7 +139,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(0), Some(3)),
+            (0, 3),
             &[
                 (AGENT0, 1, 1),
                 (AGENT1, 1, 1),
@@ -227,22 +158,22 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
             ],
         ),
         (
-            (Some(4), Some(6)),
+            (4, 6),
             &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
             &[(AGENT0, 2, 2), (AGENT1, 1, 2), (AGENT2, 1, 2)],
         ),
         (
-            (Some(0), Some(0)),
+            (0, 0),
             &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
             &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
         ),
         (
-            (Some(23), Some(37)),
+            (23, 37),
             &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
             &[(AGENT0, 8, 13), (AGENT1, 8, 12), (AGENT2, 7, 12)],
         ),
         (
-            (Some(345), Some(897)),
+            (345, 897),
             &[(AGENT0, 0, 0), (AGENT1, 0, 0), (AGENT2, 0, 0)],
             &[(AGENT0, 115, 299), (AGENT1, 115, 299), (AGENT2, 115, 299)],
         ),
@@ -257,32 +188,16 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
 fn test_on_task_completed() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let task_distributor = AgentDistributor::default();
-
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
-        .may_load(&deps.storage)
-        .unwrap()
-        .unwrap_or_default();
-    active_agents.extend(vec![
-        Addr::unchecked(AGENT0),
-        Addr::unchecked(AGENT1),
-        Addr::unchecked(AGENT2),
-        Addr::unchecked(AGENT3),
-        Addr::unchecked(AGENT4),
-    ]);
-
-    AGENTS_ACTIVE
-        .save(&mut deps.storage, &active_agents)
-        .unwrap();
+    let agent_distributor = AgentDistributor::new();
 
     let agent0_addr = &Addr::unchecked(AGENT0);
     for _ in 0..5 {
-        task_distributor
+        agent_distributor
             .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Block)
             .unwrap();
     }
 
-    task_distributor
+    agent_distributor
         .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Cron)
         .unwrap();
 
@@ -295,39 +210,124 @@ fn test_on_task_completed() {
 fn test_on_agent_unregister() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let task_distributor = AgentDistributor::default();
+    let agent_distributor = AgentDistributor::new();
 
-    let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
-        .may_load(&deps.storage)
-        .unwrap()
-        .unwrap_or_default();
-    active_agents.extend(vec![
-        Addr::unchecked(AGENT0),
-        Addr::unchecked(AGENT1),
-        Addr::unchecked(AGENT2),
-        Addr::unchecked(AGENT3),
-        Addr::unchecked(AGENT4),
-    ]);
-
-    AGENTS_ACTIVE
-        .save(&mut deps.storage, &active_agents)
-        .unwrap();
+    create_same_agents(&mut deps.storage, &env, &agent_distributor);
 
     let agent0_addr = &Addr::unchecked(AGENT0);
     let agent1_addr = &Addr::unchecked(AGENT1);
 
-    task_distributor
-        .on_task_completed(&mut deps.storage, &env, agent0_addr, SlotType::Block)
+    agent_distributor
+        .apply_completed(&mut deps.storage, agent0_addr.clone(), true)
         .unwrap();
-    task_distributor
-        .on_task_completed(&mut deps.storage, &env, agent1_addr, SlotType::Block)
+    agent_distributor
+        .apply_completed(&mut deps.storage, agent1_addr.clone(), true)
         .unwrap();
 
-    AGENT_STATS.remove(&mut deps.storage, agent1_addr);
+    let agent0 = agent_distributor
+        .get_agent(&mut deps.storage, &agent0_addr)
+        .unwrap();
+    let agent1 = agent_distributor
+        .get_agent(&mut deps.storage, &agent0_addr)
+        .unwrap();
 
-    let stats0 = AGENT_STATS.load(&deps.storage, agent0_addr);
-    let stats1 = AGENT_STATS.load(&deps.storage, agent1_addr);
+    agent_distributor.remove(&mut deps.storage, agent1_addr);
+    assert!(agent0.is_some());
+    assert!(agent1.is_none());
+}
 
-    assert!(stats0.is_ok());
-    assert!(stats1.is_err());
+//helper functions
+///Asserts if balancer get the expected amount of tasks with specified active agents and task slots
+///
+/// # Arguments
+///
+/// * `slots` - Task slots
+/// * `act_agents` - (Address,block_tasks,cron_tasks)
+/// * `expected` - (Address,block_tasks,cron_tasks)
+fn assert_balancer_tasks(
+    deps: &mut OwnedDeps<MockStorage, MockApi, MockQuerier, Empty>,
+    env: &Env,
+    _config: &mut Config,
+    slots: (u64, u64),
+    act_agents: &[(&str, u64, u64)],
+    expected: &[(&str, u64, u64)],
+) {
+    let agent_distributor = AgentDistributor::new();
+    let mut result = Vec::<(&str, u64, u64)>::new();
+
+    agent_map().clear(&mut deps.storage);
+    create_same_agents(&mut deps.storage, env, &agent_distributor);
+
+    act_agents.iter().for_each(|f| {
+        if f.1 > 0 {
+            agent_distributor
+                .apply_completed(&mut deps.storage, Addr::unchecked(f.0), true)
+                .unwrap();
+        }
+        if f.2 > 0 {
+            agent_distributor
+                .apply_completed(&mut deps.storage, Addr::unchecked(f.0), false)
+                .unwrap();
+        }
+    });
+
+    for a in act_agents {
+        let (block, cron) = agent_distributor
+            .get_available_tasks(&mut deps.storage, &Addr::unchecked(a.0), slots)
+            .unwrap();
+        result.push((a.0, block, cron));
+    }
+
+    assert_eq!(expected, &result);
+}
+
+fn create_same_agents(storage: &mut dyn Storage, env: &Env, agent_distributor: &AgentDistributor) {
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(PARTICIPANT0),
+        )
+        .unwrap();
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT1),
+            Addr::unchecked(PARTICIPANT1),
+        )
+        .unwrap();
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT2),
+            Addr::unchecked(PARTICIPANT2),
+        )
+        .unwrap();
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT3),
+            Addr::unchecked(PARTICIPANT3),
+        )
+        .unwrap();
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT4),
+            Addr::unchecked(PARTICIPANT4),
+        )
+        .unwrap();
+    agent_distributor
+        .add_new_agent(
+            storage,
+            &env,
+            Addr::unchecked(AGENT5),
+            Addr::unchecked(PARTICIPANT5),
+        )
+        .unwrap();
 }
