@@ -1,11 +1,21 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp};
+use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
+
 use std::fmt;
 
+/// Agent data
 #[cw_serde]
-pub struct AgentNominationStatus {
-    pub start_height_of_nomination: Option<u64>,
-    pub tasks_created_from_last_nomination: u64,
+pub struct AgentInfo {
+    /// Agent status
+    pub status: AgentStatus,
+    /// Account where agent will move all his rewards
+    pub payable_account_id: Addr,
+    /// Agent balance
+    pub balance: Uint128,
+    /// Last executed slot number
+    pub last_executed_slot: u64,
+    /// Registration time
+    pub register_start: Timestamp,
 }
 
 #[cw_serde]
@@ -19,6 +29,8 @@ pub enum AgentStatus {
     // More tasks are available, agent must checkin to become active
     Nominated,
 }
+
+
 
 impl fmt::Display for AgentStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -40,19 +52,21 @@ pub struct Agent {
     // Agent will be responsible to constantly monitor when it is their turn to join in active agent set (done as part of agent code loops)
     // Example data: 1633890060000000000 or 0
     pub register_start: Timestamp,
-}
 
-#[cw_serde]
-#[derive(Default)]
-pub struct AgentStats {
+    /// Gets agent status
+    pub status: AgentStatus,
+
+    /// Total number of block tasks completed
     pub completed_block_tasks: u64,
+
+    //Total number of cron tasks completed
     pub completed_cron_tasks: u64,
-    pub missed_blocked_tasks: u64,
-    pub missed_cron_tasks: u64,
+
     // Holds slot number of the last slot when agent called proxy_call.
     // If agent does a task, this number is set to the current block.
     pub last_executed_slot: u64,
 }
+
 /// Contract configuration state
 #[cw_serde]
 pub struct Config {
@@ -82,9 +96,11 @@ pub struct Config {
     /// Min coins that should be attached to register an agent
     pub min_coins_for_agent_registration: u64,
     /// How many slots an agent can miss before being removed from the active queue
-    pub agents_eject_threshold: u64,
+    pub max_slot_passover: u64,
     /// Minimum agent count in active queue to be untouched by bad agent verifier
-    pub min_active_agent_count: u16,
+    pub min_active_reserve: u16,
+    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
+    pub active_agents_buffer_size: u32,
 }
 
 #[cfg(test)]

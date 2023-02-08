@@ -1,6 +1,6 @@
-use crate::types::AgentStatus;
+use crate::types::*;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Uint64};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 
 #[cw_serde]
@@ -35,10 +35,13 @@ pub struct InstantiateMsg {
     pub min_coin_for_agent_registration: Option<u64>,
 
     /// How many slots an agent can miss before being removed from the active queue
-    pub agents_eject_threshold: Option<u64>,
+    pub max_slot_passover: Option<u64>,
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
-    pub min_active_agent_count: Option<u16>,
+    pub min_active_reserve: Option<u16>,
+
+    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
+    pub active_agents_buffer_size: Option<u32>,
 }
 
 /// Execute messages for agent contract
@@ -51,7 +54,7 @@ pub enum ExecuteMsg {
     /// Action moves agent from pending to active list
     CheckInAgent {},
     /// Actions for removing agent from the system
-    UnregisterAgent { from_behind: Option<bool> },
+    UnregisterAgent { },
     /// Task contract will send message when task is created
     OnTaskCreated(AgentOnTaskCreated),
     /// Task contract will send message when task is completed
@@ -76,8 +79,9 @@ pub enum QueryMsg {
         limit: Option<u64>,
     },
     /// Gets the specified agent tasks
-    #[returns[AgentTaskResponse]]
+    #[returns[AgentTasksResponse]]
     GetAgentTasks { account_id: String },
+
     /// Gets the agent contract configuration
     #[returns[crate::types::Config]]
     Config {},
@@ -90,39 +94,20 @@ pub struct GetAgentIdsResponse {
     /// Pending agent list
     pub pending: Vec<Addr>,
 }
-/// Agent data
-#[cw_serde]
-pub struct AgentInfo {
-    /// Agent status
-    pub status: AgentStatus,
-    /// Account where agent will move all his rewards
-    pub payable_account_id: Addr,
-    /// Agent balance
-    pub balance: Uint128,
-    /// Last executed slot number
-    pub last_executed_slot: u64,
-    /// Registration time
-    pub register_start: Timestamp,
-}
+
 /// Agent response containing agent information
 #[cw_serde]
 pub struct AgentResponse {
     /// Agent data
     pub agent: Option<AgentInfo>,
 }
-/// Agent statistics data
-#[cw_serde]
-pub struct TaskStats {
-    /// Total block tasks for specified agent
-    pub num_block_tasks: Uint64,
-    /// Total cron tasks for specified agent
-    pub num_cron_tasks: Uint64,
-}
 /// Agent task response for getting stats and task information
 #[cw_serde]
-pub struct AgentTaskResponse {
-    /// Agent tasks statistic information
-    pub stats: TaskStats,
+pub struct AgentTasksResponse {
+    /// Agent cron tasks
+    pub total_block_tasks: Uint64,
+    /// Agent cron tasks
+    pub total_cron_tasks: Uint64,
 }
 /// Updatable agents contract configuration
 #[cw_serde]
@@ -152,8 +137,11 @@ pub struct UpdateConfig {
     pub min_coins_for_agent_registration: Option<u64>,
 
     /// How many slots an agent can miss before being removed from the active queue
-    pub agents_eject_threshold: Option<u64>,
+    pub max_slot_passover: Option<u64>,
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
-    pub min_active_agent_count: Option<u16>,
+    pub min_active_reserve: Option<u16>,
+
+    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
+    pub active_agents_buffer_size: Option<u32>,
 }
