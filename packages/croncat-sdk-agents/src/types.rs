@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp, Uint128, Uint64};
+use cosmwasm_std::{Addr, Timestamp, Uint128};
 
 use std::fmt;
 
@@ -99,8 +99,7 @@ pub struct Config {
     pub max_slot_passover: u64,
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_reserve: u16,
-    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
-    pub active_agents_buffer_size: u32,
+    
 }
 
 #[cfg(test)]

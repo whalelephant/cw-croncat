@@ -39,9 +39,6 @@ pub struct InstantiateMsg {
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_reserve: Option<u16>,
-
-    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
-    pub active_agents_buffer_size: Option<u32>,
 }
 
 /// Execute messages for agent contract
@@ -141,7 +138,4 @@ pub struct UpdateConfig {
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_reserve: Option<u16>,
-
-    /// Size of active agents buffer, we have less tasks then agents we could reduce gas usage
-    pub active_agents_buffer_size: Option<u32>,
 }

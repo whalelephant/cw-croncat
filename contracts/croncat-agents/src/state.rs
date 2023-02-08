@@ -13,7 +13,6 @@ pub(crate) const DEFAULT_MIN_TASKS_PER_AGENT: u64 = 3;
 pub(crate) const DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION: u64 = 200_000;
 pub(crate) const DEFAULT_MAX_SLOTS_PASSOVER: u64 = 600;
 pub(crate) const DEFAULT_MIN_ACTIVE_RESERVE: u16 = 1;
-pub(crate) const DEFAULT_ACTIVE_AGENTS_BUFFER_SIZE: u32 = 20;
 
 pub(crate) const AGENT_NOMINATION_CHECKPOINT: Item<NominationCheckPoint> =
     Item::new("agent_nomination_checkpoint");

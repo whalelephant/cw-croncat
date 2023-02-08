@@ -1,12 +1,12 @@
 use crate::error::ContractError;
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
+    DEFAULT_MAX_SLOTS_PASSOVER, DEFAULT_MIN_ACTIVE_RESERVE,
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
 use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
-use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
+use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
 
@@ -25,8 +25,8 @@ fn test_contract_initialize_is_successfull() {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
-        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+        max_slot_passover: Some(DEFAULT_MAX_SLOTS_PASSOVER),
+        min_active_reserve: Some(DEFAULT_MIN_ACTIVE_RESERVE),
     };
     let croncat_agents_addr = app
         .instantiate_contract(
@@ -53,8 +53,8 @@ fn test_contract_initialize_is_successfull() {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coin_for_agent_registration: None,
-        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+        max_slot_passover: Some(DEFAULT_MAX_SLOTS_PASSOVER),
+        min_active_reserve: Some(DEFAULT_MIN_ACTIVE_RESERVE),
     };
 
     let croncat_agents_addr = app
@@ -535,7 +535,7 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
     );
 
     // Unregister agent
-    let unreg_msg = ExecuteMsg::UnregisterAgent { from_behind: None };
+    let unreg_msg = ExecuteMsg::UnregisterAgent {};
     app.execute_contract(
         Addr::unchecked(AGENT1),
         croncat_agents_addr.clone(),
@@ -647,7 +647,7 @@ fn test_removing_agent_from_any_side_is_working() {
     app.execute_contract(
         Addr::unchecked(AGENT2),
         croncat_agents_addr.clone(),
-        &ExecuteMsg::UnregisterAgent { from_behind: None },
+        &ExecuteMsg::UnregisterAgent {},
         &[],
     )
     .unwrap();
@@ -678,9 +678,7 @@ fn test_removing_agent_from_any_side_is_working() {
     app.execute_contract(
         Addr::unchecked(AGENT3),
         croncat_agents_addr.clone(),
-        &ExecuteMsg::UnregisterAgent {
-            from_behind: Some(true),
-        },
+        &ExecuteMsg::UnregisterAgent {},
         &[],
     )
     .unwrap();
@@ -707,9 +705,7 @@ fn test_removing_agent_from_any_side_is_working() {
     app.execute_contract(
         Addr::unchecked(AGENT1),
         croncat_agents_addr.clone(),
-        &ExecuteMsg::UnregisterAgent {
-            from_behind: Some(false),
-        },
+        &ExecuteMsg::UnregisterAgent {},
         &[],
     )
     .unwrap();
@@ -755,9 +751,7 @@ fn test_removing_agent_from_any_side_is_working() {
     app.execute_contract(
         Addr::unchecked(AGENT1),
         croncat_agents_addr.clone(),
-        &ExecuteMsg::UnregisterAgent {
-            from_behind: Some(true),
-        },
+        &ExecuteMsg::UnregisterAgent {},
         &[],
     )
     .unwrap();
@@ -863,11 +857,9 @@ fn test_query_get_agent_tasks() {
     // Agent gets all tasks
     assert_eq!(
         agent_tasks_res.unwrap(),
-        AgentTaskResponse {
-            stats: TaskStats {
-                num_block_tasks: 3u64.into(),
-                num_cron_tasks: 2u64.into()
-            }
+        AgentTasksResponse {
+            total_block_tasks: 3u64.into(),
+            total_cron_tasks: 2u64.into()
         }
     );
 
@@ -900,11 +892,9 @@ fn test_query_get_agent_tasks() {
     assert!(agent_tasks_res.is_ok());
     assert_eq!(
         agent_tasks_res.unwrap(),
-        AgentTaskResponse {
-            stats: TaskStats {
-                num_block_tasks: 2u64.into(),
-                num_cron_tasks: 1u64.into()
-            }
+        AgentTasksResponse {
+            total_block_tasks: 2u64.into(),
+            total_cron_tasks: 1u64.into()
         }
     );
 
@@ -913,11 +903,9 @@ fn test_query_get_agent_tasks() {
     assert!(agent_tasks_res.is_ok());
     assert_eq!(
         agent_tasks_res.unwrap(),
-        AgentTaskResponse {
-            stats: TaskStats {
-                num_block_tasks: 1u64.into(),
-                num_cron_tasks: 1u64.into()
-            }
+        AgentTasksResponse {
+            total_block_tasks: 1u64.into(),
+            total_cron_tasks: 1u64.into()
         }
     );
 
@@ -926,11 +914,9 @@ fn test_query_get_agent_tasks() {
     let result = agent_tasks_res.unwrap();
     assert_eq!(
         result,
-        AgentTaskResponse {
-            stats: TaskStats {
-                num_block_tasks: Uint64::zero(),
-                num_cron_tasks: Uint64::zero(),
-            }
+        AgentTasksResponse {
+            total_block_tasks: Uint64::zero(),
+            total_cron_tasks: Uint64::zero(),
         }
     );
 }
@@ -958,8 +944,8 @@ fn test_tick() {
             min_tasks_per_agent: None,
             min_coins_for_agent_registration: Some(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
-            agents_eject_threshold: Some(1000), // allow to miss 1000 slots
-            min_active_agent_count: Some(0),
+            max_slot_passover: Some(1000), // allow to miss 1000 slots
+            min_active_reserve: Some(0),
         },
     };
     app.execute_contract(
@@ -1171,7 +1157,7 @@ fn test_tick_respects_min_active_agent_count() {
         )
         .unwrap();
 
-    assert_eq!(agents.active.len() as u16, DEFAULT_MIN_ACTIVE_AGENT_COUNT);
+    assert_eq!(agents.active.len() as u16, DEFAULT_MIN_ACTIVE_RESERVE);
 }
 fn register_agent(
     app: &mut App,
@@ -1196,7 +1182,7 @@ fn unregister_agent(
     app.execute_contract(
         Addr::unchecked(agent),
         croncat_agents_addr.clone(),
-        &ExecuteMsg::UnregisterAgent { from_behind: None },
+        &ExecuteMsg::UnregisterAgent {},
         &[],
     )
 }
@@ -1245,8 +1231,8 @@ fn get_agent_tasks(
     app: &mut App,
     croncat_agents_addr: &Addr,
     agent: &str,
-) -> Result<AgentTaskResponse, anyhow::Error> {
-    let agent_info: AgentTaskResponse = app.wrap().query_wasm_smart(
+) -> Result<AgentTasksResponse, anyhow::Error> {
+    let agent_info: AgentTasksResponse = app.wrap().query_wasm_smart(
         croncat_agents_addr,
         &QueryMsg::GetAgentTasks {
             account_id: agent.to_string(),

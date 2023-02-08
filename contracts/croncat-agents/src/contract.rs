@@ -1,7 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 
-use crate::distro::AgentDistributor;
 use crate::error::ContractError;
 use crate::external::*;
 use crate::msg::*;
@@ -37,7 +36,6 @@ pub fn instantiate(
         min_coin_for_agent_registration,
         max_slot_passover,
         min_active_reserve,
-        active_agents_buffer_size,
     } = msg;
 
     let owner_addr = owner_addr
@@ -58,8 +56,7 @@ pub fn instantiate(
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         min_active_reserve: min_active_reserve.unwrap_or(DEFAULT_MIN_ACTIVE_RESERVE),
-        active_agents_buffer_size: active_agents_buffer_size
-            .unwrap_or(DEFAULT_ACTIVE_AGENTS_BUFFER_SIZE),
+       
     };
 
     CONFIG.save(deps.storage, config)?;
@@ -77,15 +74,13 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, env, account_id)?),
+        QueryMsg::GetAgent { account_id } => to_binary(&query_get_agent(deps, account_id)?),
         QueryMsg::GetAgentIds { from_index, limit } => {
             to_binary(&query_get_agent_ids(deps, from_index, limit)?)
         }
-        QueryMsg::GetAgentTasks { account_id } => {
-            to_binary(&query_agent_tasks(deps, env, account_id)?)
-        }
+        QueryMsg::GetAgentTasks { account_id } => to_binary(&query_agent_tasks(deps, account_id)?),
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
     }
 }
@@ -105,7 +100,7 @@ pub fn execute(
             unregister_agent(deps.storage, &deps.querier, &info.sender)
         }
         ExecuteMsg::UpdateAgent { payable_account_id } => {
-            update_agent(deps, info, env, payable_account_id)
+            update_agent(deps, info, payable_account_id)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
@@ -115,7 +110,7 @@ pub fn execute(
     }
 }
 
-fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentResponse> {
+fn query_get_agent(deps: Deps, account_id: String) -> StdResult<AgentResponse> {
     let account_id = deps.api.addr_validate(&account_id)?;
 
     let agent_result = AGENT_DISTRIBUTOR
@@ -131,7 +126,7 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentR
     let config: Config = CONFIG.load(deps.storage)?;
     let rewards =
         croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
-    let agent_status = get_agent_status(deps.storage, env, &account_id)
+    let agent_status = get_agent_status(deps.storage, &account_id)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::generic_err(err.to_string()))?;
 
@@ -160,7 +155,7 @@ fn query_get_agent_ids(
     Ok(GetAgentIdsResponse { active, pending })
 }
 
-fn query_agent_tasks(deps: Deps, env: Env, agent_id: String) -> StdResult<AgentTasksResponse> {
+fn query_agent_tasks(deps: Deps, agent_id: String) -> StdResult<AgentTasksResponse> {
     let account_id = deps.api.addr_validate(&agent_id)?;
     let cfg: Config = CONFIG.load(deps.storage)?;
 
@@ -172,11 +167,7 @@ fn query_agent_tasks(deps: Deps, env: Env, agent_id: String) -> StdResult<AgentT
         });
     }
     let result = AGENT_DISTRIBUTOR
-        .get_available_tasks(
-            deps.storage,
-            &account_id,
-            (block_slots, cron_slots),
-        )
+        .get_available_tasks(deps.storage, &account_id, (block_slots, cron_slots))
         .map_err(|err| StdError::generic_err(err.to_string()))?;
 
     return Ok(AgentTasksResponse {
@@ -241,7 +232,6 @@ fn register_agent(
 fn update_agent(
     deps: DepsMut,
     info: MessageInfo,
-    env: Env,
     payable_account_id: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -321,7 +311,6 @@ pub fn execute_update_config(
             min_coins_for_agent_registration,
             max_slot_passover,
             min_active_reserve,
-            active_agents_buffer_size,
         } = msg;
 
         if info.sender != config.owner_addr {
@@ -347,8 +336,6 @@ pub fn execute_update_config(
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             max_slot_passover: max_slot_passover.unwrap_or(DEFAULT_MAX_SLOTS_PASSOVER),
             min_active_reserve: min_active_reserve.unwrap_or(DEFAULT_MIN_ACTIVE_RESERVE),
-            active_agents_buffer_size: active_agents_buffer_size
-                .unwrap_or(DEFAULT_ACTIVE_AGENTS_BUFFER_SIZE),
         };
         Ok(new_config)
     })?;
@@ -358,14 +345,13 @@ pub fn execute_update_config(
 
 fn get_agent_status(
     storage: &dyn Storage,
-    env: Env,
     account_id: &Addr,
 ) -> Result<AgentStatus, ContractError> {
     let agent = AGENT_DISTRIBUTOR
         .get_agent(storage, account_id)
         .map_err(|err| StdError::generic_err(err.to_string()))?
         .ok_or(ContractError::AgentNotRegistered)?;
-    
+
     Ok(agent.status)
 }
 

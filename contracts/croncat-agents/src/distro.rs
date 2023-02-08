@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::{cmp::min, fmt::format};
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Env, Order, Storage};
@@ -21,26 +21,26 @@ pub(crate) struct NominationCheckPoint {
 }
 
 impl AgentDistributor {
-    pub const fn new() -> AgentDistributor {
+    pub(crate) const fn new() -> AgentDistributor {
         AgentDistributor {}
     }
-    fn agents_pending(&self, storage: &dyn Storage) -> Result<Vec<Addr>, ContractError> {
+    fn agents_pending(&self, storage: &dyn Storage) -> Result<Vec<(Addr, Agent)>, ContractError> {
         let pending: Vec<_> = agent_map()
             .idx
             .by_status
             .prefix(AgentStatus::Pending.to_string())
             .range_raw(storage, None, None, Order::Ascending)
-            .map(|x| x.map(|r| r.1 .0))
+            .map(|x| x.map(|r| r.1))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(pending)
     }
-    fn agents_active(&self, storage: &dyn Storage) -> Result<Vec<Addr>, ContractError> {
+    fn agents_active(&self, storage: &dyn Storage) -> Result<Vec<(Addr, Agent)>, ContractError> {
         let active: Vec<_> = agent_map()
             .idx
             .by_status
             .prefix(AgentStatus::Active.to_string())
             .range_raw(storage, None, None, Order::Ascending)
-            .map(|x| x.map(|r| r.1 .0))
+            .map(|x| x.map(|r| r.1))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(active)
     }
@@ -271,13 +271,13 @@ impl AgentDistributor {
         let max_index = self.max_nomination_index(config, env, checkpoint)?;
         if let Some(max) = max_index {
             let pending = self.agents_pending(storage)?;
-            
-            let agent_position = pending.iter().position(|a| a == agent_id);
+
+            let agent_position = pending.iter().position(|a| &a.0 == agent_id);
             if let Some(pos) = agent_position {
                 if pos as u64 <= max {
                     // Update state removing from pending queue
                     for i in 0..=pos {
-                        self.remove(storage,  pending.get(i).unwrap())?;
+                        self.remove(storage, &pending.get(i).unwrap().0)?;
                     }
                     // Make this agent active
                     self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
@@ -303,7 +303,7 @@ impl AgentDistributor {
         let total_remove_agents: usize = active_agents.len();
         let mut removed_agents = Vec::new();
 
-        for agent_id in active_agents {
+        for (agent_id, _) in active_agents {
             let skip =
                 (config.min_active_reserve as usize) >= total_remove_agents - removed_agents.len();
             if !skip {
@@ -346,18 +346,68 @@ impl AgentDistributor {
         }
         let (block_slots, cron_slots) = slots;
 
-        let mut equalizer = |inner: Vec<Addr>,
-                             slot_type: SlotType,
-                             total_tasks: u64|
+        let equalizer = |inner: &mut Vec<(Addr, Agent)>,
+                         slot_type: SlotType,
+                         total_tasks: u64|
          -> Result<u64, ContractError> {
             if total_tasks < 1 {
                 return Ok(u64::default());
             }
+            let ordering =
+                |left: &Agent, right: &Agent, slot_type: &SlotType| -> Option<std::cmp::Ordering> {
+                    match slot_type {
+                        SlotType::Block => {
+                            let lr: u128 = format!(
+                                "{}-{}-{}",
+                                left.last_executed_slot,
+                                left.register_start.seconds(),
+                                left.completed_block_tasks
+                            )
+                            .parse()
+                            .unwrap();
+                            let rl: u128 = format!(
+                                "{}-{}-{}",
+                                right.last_executed_slot,
+                                right.register_start.seconds(),
+                                right.completed_block_tasks
+                            )
+                            .parse()
+                            .unwrap();
+
+                            lr.partial_cmp(&rl)
+                        }
+                        SlotType::Cron => {
+                            let lr: u128 = format!(
+                                "{}-{}-{}",
+                                left.last_executed_slot,
+                                left.register_start.seconds(),
+                                left.completed_cron_tasks
+                            )
+                            .parse()
+                            .unwrap();
+                            let rl: u128 = format!(
+                                "{}-{}-{}",
+                                right.last_executed_slot,
+                                right.register_start.seconds(),
+                                right.completed_cron_tasks
+                            )
+                            .parse()
+                            .unwrap();
+                            lr.partial_cmp(&rl)
+                        }
+                    }
+                };
+            //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate),
+            //and O(n log n) worst-case.
+            //It is typically faster than stable sorting, except in a few special cases,
+            //e.g., when the slice consists of several concatenated sorted sequences.
+            inner.sort_unstable_by(|left, right| ordering(&left.1, &right.1, &slot_type).unwrap());
+
             let active_total = inner.len() as u64;
 
             let agent_position = inner
                 .iter()
-                .position(|a| agent_id == a)
+                .position(|a| agent_id == &a.0)
                 .ok_or(ContractError::AgentNotRegistered)? as u64;
 
             if total_tasks <= active_total {
@@ -376,11 +426,10 @@ impl AgentDistributor {
 
             Ok(agent_tasks_total.into())
         };
+        let mut active = self.agents_active(storage)?;
+        let total_block_tasks = equalizer(&mut active, SlotType::Block, block_slots)?;
 
-        let total_block_tasks =
-            equalizer(self.agents_active(storage)?, SlotType::Block, block_slots)?;
-
-        let total_cron_tasks = equalizer(self.agents_active(storage)?, SlotType::Cron, cron_slots)?;
+        let total_cron_tasks = equalizer(&mut active, SlotType::Cron, cron_slots)?;
 
         Ok((total_block_tasks, total_cron_tasks))
     }
