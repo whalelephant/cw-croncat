@@ -1,6 +1,6 @@
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_AGENTS_EJECT_THRESHOLD, DEFAULT_MIN_ACTIVE_AGENT_COUNT,
+    DEFAULT_MAX_SLOTS_PASSOVER, DEFAULT_MIN_ACTIVE_RESERVE,
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
     DEFAULT_NOMINATION_BLOCK_DURATION,
 };
@@ -50,8 +50,8 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
         min_coins_for_agent_registration: DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
-        agents_eject_threshold: 600,
-        min_active_agent_count: DEFAULT_MIN_ACTIVE_AGENT_COUNT,
+        max_slot_passover: 600,
+        min_active_reserve: DEFAULT_MIN_ACTIVE_RESERVE,
     }
 }
 pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
@@ -64,8 +64,8 @@ pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
         croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,
-        agents_eject_threshold: None,
-        min_active_agent_count: None,
+        max_slot_passover: None,
+        min_active_reserve: None,
     }
 }
 
@@ -257,8 +257,8 @@ pub(crate) fn init_agents_contract(
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
-        agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+        max_slot_passover: Some(DEFAULT_MAX_SLOTS_PASSOVER),
+        min_active_reserve: Some(DEFAULT_MIN_ACTIVE_RESERVE),
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,

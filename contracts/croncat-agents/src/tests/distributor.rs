@@ -1,8 +1,7 @@
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::SlotType;
 
-use crate::distributor::{AgentTaskDistributor, RoundRobinAgentTaskDistributor};
-use crate::state::{AGENTS_ACTIVE, AGENT_STATS};
+use crate::distro::AgentDistributor;
 use crate::tests::common::{AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5};
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,
@@ -26,11 +25,10 @@ fn assert_balancer_tasks(
     act_agents: &[(&str, u64, u64)],
     expected: &[(&str, u64, u64)],
 ) {
-    let task_distributor = AgentTaskDistributor::new();
+    let task_distributor = AgentDistributor::new();
     let mut result = Vec::<(&str, u64, u64)>::new();
 
     AGENTS_ACTIVE.remove(&mut deps.storage);
-    AGENT_STATS.clear(&mut deps.storage);
 
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
         .may_load(&deps.storage)
@@ -259,7 +257,7 @@ fn test_check_valid_agents_get_tasks_eq_mode() {
 fn test_on_task_completed() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let task_distributor = AgentTaskDistributor::default();
+    let task_distributor = AgentDistributor::default();
 
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
         .may_load(&deps.storage)
@@ -297,7 +295,7 @@ fn test_on_task_completed() {
 fn test_on_agent_unregister() {
     let mut deps = mock_dependencies_with_balance(&coins(200, NATIVE_DENOM));
     let env = mock_env();
-    let task_distributor = AgentTaskDistributor::default();
+    let task_distributor = AgentDistributor::default();
 
     let mut active_agents: Vec<Addr> = AGENTS_ACTIVE
         .may_load(&deps.storage)
