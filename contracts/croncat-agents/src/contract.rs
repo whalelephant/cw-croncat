@@ -56,11 +56,10 @@ pub fn instantiate(
         min_coins_for_agent_registration: min_coin_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         min_active_reserve: min_active_reserve.unwrap_or(DEFAULT_MIN_ACTIVE_RESERVE),
-       
     };
 
     CONFIG.save(deps.storage, config)?;
-    
+
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
@@ -105,7 +104,7 @@ pub fn execute(
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
-        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps,&env, info, msg),
+        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, &env, info, msg),
     }
 }
 
@@ -251,7 +250,7 @@ fn accept_nomination_agent(
 ) -> Result<Response, ContractError> {
     // Compare current time and Config's agent_nomination_begin_time to see if agent can join
     let config: Config = CONFIG.load(deps.storage)?;
-    AGENT_DISTRIBUTOR.try_nominate(deps.storage, &env, &config, info.sender.clone())?;
+    AGENT_DISTRIBUTOR.try_nominate_agent(deps.storage, &env, &config, info.sender.clone())?;
 
     // Find difference
     Ok(Response::new()
@@ -281,7 +280,7 @@ fn unregister_agent(
         agent_id.as_str(),
         agent.payable_account_id.to_string(),
     )?;
-    AGENT_DISTRIBUTOR.remove(storage, agent_id)?;
+    AGENT_DISTRIBUTOR.remove_agent(storage, agent_id)?;
 
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
@@ -387,13 +386,13 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    AGENT_DISTRIBUTOR.apply_nomination_checkpoint(deps.storage, &env,None)?;
+    AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env, None)?;
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
 fn on_task_completed(
     deps: DepsMut,
-    env:&Env,
+    env: &Env,
     info: MessageInfo,
     args: AgentOnTaskCompleted,
 ) -> Result<Response, ContractError> {
@@ -405,7 +404,12 @@ fn on_task_completed(
         &info.sender,
     )?;
 
-    AGENT_DISTRIBUTOR.apply_completed(deps.storage,env, args.agent_id, args.is_block_slot_task)?;
+    AGENT_DISTRIBUTOR.notify_task_completed(
+        deps.storage,
+        env,
+        args.agent_id,
+        args.is_block_slot_task,
+    )?;
     let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
 }

@@ -1,4 +1,4 @@
-use std::{cmp::min};
+use std::cmp::min;
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Env, Order, Storage};
@@ -154,7 +154,7 @@ impl AgentDistributor {
         })?;
         Ok(())
     }
-    fn set_status(
+    fn set_agent_status(
         &self,
         storage: &mut dyn Storage,
         agent_id: Addr,
@@ -170,7 +170,7 @@ impl AgentDistributor {
         })?;
         Ok(())
     }
-    pub(crate) fn try_nominate(
+    pub(crate) fn try_nominate_agent(
         &self,
         storage: &mut dyn Storage,
         env: &Env,
@@ -189,7 +189,7 @@ impl AgentDistributor {
 
         // edge case if last agent left
         if !self.has_active(storage)? && pending_position == 0 {
-            self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
+            self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
             self.reset_nomination_checkpoint(storage)?;
             return Ok(());
         }
@@ -198,7 +198,7 @@ impl AgentDistributor {
         Ok(())
     }
 
-    pub(crate) fn remove(
+    pub(crate) fn remove_agent(
         &self,
         storage: &mut dyn Storage,
         agent_id: &Addr,
@@ -220,7 +220,7 @@ impl AgentDistributor {
         )?;
         Ok(())
     }
-    pub(crate) fn apply_nomination_checkpoint(
+    pub(crate) fn notify_task_created(
         &self,
         storage: &mut dyn Storage,
         env: &Env,
@@ -241,7 +241,7 @@ impl AgentDistributor {
         )?;
         Ok(())
     }
-    pub(crate) fn apply_completed(
+    pub(crate) fn notify_task_completed(
         &self,
         storage: &mut dyn Storage,
         env: &Env,
@@ -289,11 +289,11 @@ impl AgentDistributor {
                 // Update state removing from pending queue
                 for i in 0..agent_position {
                     let rem = pending.get(i).unwrap();
-                    self.remove(storage, &rem.0)?;
+                    self.remove_agent(storage, &rem.0)?;
                 }
 
                 // Make this agent active
-                self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
+                self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
                 // and update the config, setting the nomination begin time to None,
                 // which indicates no one will be nominated until more tasks arrive
                 self.reset_nomination_checkpoint(storage)?;
