@@ -106,7 +106,7 @@ pub fn execute(
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
-        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
+        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps,&env, info, msg),
     }
 }
 
@@ -394,6 +394,7 @@ fn on_task_created(
 }
 fn on_task_completed(
     deps: DepsMut,
+    env:&Env,
     info: MessageInfo,
     args: AgentOnTaskCompleted,
 ) -> Result<Response, ContractError> {
@@ -405,7 +406,7 @@ fn on_task_completed(
         &info.sender,
     )?;
 
-    AGENT_DISTRIBUTOR.apply_completed(deps.storage, args.agent_id, args.is_block_slot_task)?;
+    AGENT_DISTRIBUTOR.apply_completed(deps.storage,env, args.agent_id, args.is_block_slot_task)?;
     let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
 }

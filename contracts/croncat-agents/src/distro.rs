@@ -69,7 +69,7 @@ impl AgentDistributor {
         agent_id: Addr,
         payable_account_id: Addr,
     ) -> Result<(Addr, Agent), ContractError> {
-        let agent_status = if self.has_active(storage)? {
+        let agent_status = if !self.has_active(storage)? {
             AgentStatus::Active
         } else {
             AgentStatus::Pending
@@ -83,7 +83,6 @@ impl AgentDistributor {
             completed_cron_tasks: u64::default(),
             last_executed_slot: env.block.height,
         };
-
         Ok(self.add_agent_internal(storage, agent_id, agent)?)
     }
     pub(crate) fn get_agent(
@@ -181,14 +180,7 @@ impl AgentDistributor {
 
         // edge case if last agent left
         if !self.has_active(storage)? {
-            agent_map().update(storage, &agent_id.clone().as_bytes(), |old| match old {
-                Some(value) => {
-                    let mut agent = value.1;
-                    agent.status = AgentStatus::Active;
-                    Ok((agent_id, agent))
-                }
-                None => Err(ContractError::AgentNotRegistered {}),
-            })?;
+            self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
             self.reset_checkpoint(storage)?;
             return Ok(());
         }
@@ -238,6 +230,7 @@ impl AgentDistributor {
     pub(crate) fn apply_completed(
         &self,
         storage: &mut dyn Storage,
+        env: &Env,
         agent_id: Addr,
         is_block_slot_task: bool,
     ) -> Result<(), ContractError> {
@@ -249,6 +242,7 @@ impl AgentDistributor {
                 } else {
                     agent.completed_cron_tasks += 1;
                 }
+                agent.last_executed_slot = env.block.height;
                 Ok((agent_id, agent))
             }
             None => Err(ContractError::AgentNotRegistered {}),
@@ -353,50 +347,38 @@ impl AgentDistributor {
             if total_tasks < 1 {
                 return Ok(u64::default());
             }
-            let ordering =
-                |left: &Agent, right: &Agent, slot_type: &SlotType| -> Option<std::cmp::Ordering> {
-                    match slot_type {
-                        SlotType::Block => {
-                            let lr: u128 = format!(
-                                "{}-{}-{}",
-                                left.last_executed_slot,
-                                left.register_start.seconds(),
-                                left.completed_block_tasks
-                            )
-                            .parse()
-                            .unwrap();
-                            let rl: u128 = format!(
-                                "{}-{}-{}",
-                                right.last_executed_slot,
-                                right.register_start.seconds(),
-                                right.completed_block_tasks
-                            )
-                            .parse()
-                            .unwrap();
+            let ordering = |left: &Agent,
+                            right: &Agent,
+                            slot_type: &SlotType|
+             -> Option<std::cmp::Ordering> {
+                match slot_type {
+                    SlotType::Block => {
+                        let lr: u128 =
+                            format!("{}{}", left.last_executed_slot, left.completed_block_tasks)
+                                .parse()
+                                .unwrap();
+                        let rl: u128 = format!(
+                            "{}{}",
+                            right.last_executed_slot, right.completed_block_tasks
+                        )
+                        .parse()
+                        .unwrap();
 
-                            lr.partial_cmp(&rl)
-                        }
-                        SlotType::Cron => {
-                            let lr: u128 = format!(
-                                "{}-{}-{}",
-                                left.last_executed_slot,
-                                left.register_start.seconds(),
-                                left.completed_cron_tasks
-                            )
-                            .parse()
-                            .unwrap();
-                            let rl: u128 = format!(
-                                "{}-{}-{}",
-                                right.last_executed_slot,
-                                right.register_start.seconds(),
-                                right.completed_cron_tasks
-                            )
-                            .parse()
-                            .unwrap();
-                            lr.partial_cmp(&rl)
-                        }
+                        lr.partial_cmp(&rl)
                     }
-                };
+                    SlotType::Cron => {
+                        let lr: u128 =
+                            format!("{}{}", left.last_executed_slot, left.completed_cron_tasks)
+                                .parse()
+                                .unwrap();
+                        let rl: u128 =
+                            format!("{}{}", right.last_executed_slot, right.completed_cron_tasks)
+                                .parse()
+                                .unwrap();
+                        lr.partial_cmp(&rl)
+                    }
+                }
+            };
             //This sort is unstable (i.e., may reorder equal elements), in-place (i.e., does not allocate),
             //and O(n log n) worst-case.
             //It is typically faster than stable sorting, except in a few special cases,
@@ -404,6 +386,7 @@ impl AgentDistributor {
             inner.sort_unstable_by(|left, right| ordering(&left.1, &right.1, &slot_type).unwrap());
 
             let active_total = inner.len() as u64;
+            println!("active_total {:?}", active_total);
 
             let agent_position = inner
                 .iter()
