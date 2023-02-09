@@ -25,7 +25,7 @@ pub(crate) fn agent_map<'a>() -> IndexedMap<'a, &'a [u8], (Addr, Agent), AgentIn
         //by_addr: UniqueIndex::new(addr_idx, "agents_by_addr"),
         by_status: MultiIndex::new(status_idx, "agents", "agents_by_status"),
     };
-    IndexedMap::new("tasks", indexes)
+    IndexedMap::new("agents", indexes)
 }
 
 pub(crate) struct AgentIndexes<'a> {

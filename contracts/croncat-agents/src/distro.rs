@@ -1,4 +1,4 @@
-use std::{cmp::min, fmt::format};
+use std::{cmp::min};
 
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Env, Order, Storage};
@@ -29,17 +29,20 @@ impl AgentDistributor {
             .idx
             .by_status
             .prefix(AgentStatus::Pending.to_string())
-            .range_raw(storage, None, None, Order::Ascending)
+            .range(storage, None, None, Order::Ascending)
             .map(|x| x.map(|r| r.1))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(pending)
     }
-    fn agents_active(&self, storage: &dyn Storage) -> Result<Vec<(Addr, Agent)>, ContractError> {
+    pub(crate) fn agents_active(
+        &self,
+        storage: &dyn Storage,
+    ) -> Result<Vec<(Addr, Agent)>, ContractError> {
         let active: Vec<_> = agent_map()
             .idx
             .by_status
             .prefix(AgentStatus::Active.to_string())
-            .range_raw(storage, None, None, Order::Ascending)
+            .range(storage, None, None, Order::Ascending)
             .map(|x| x.map(|r| r.1))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(active)
@@ -70,7 +73,7 @@ impl AgentDistributor {
         payable_account_id: Addr,
     ) -> Result<(Addr, Agent), ContractError> {
         let agent_status = if !self.has_active(storage)? {
-            AgentStatus::Active
+            AgentStatus::Active //No active agents for now, make agent active
         } else {
             AgentStatus::Pending
         };
@@ -177,11 +180,17 @@ impl AgentDistributor {
         // Agent must be in the pending queue
         // Get the position in the pending queue
         let checkpoint = AGENT_NOMINATION_CHECKPOINT.load(storage)?;
+        let pending = self.agents_pending(storage)?;
+        let pending_position = pending.iter().position(|a| a.0 == agent_id).ok_or(
+            ContractError::AgentIsNotInPendingStatus {
+                addr: agent_id.clone(),
+            },
+        )?;
 
         // edge case if last agent left
-        if !self.has_active(storage)? {
+        if !self.has_active(storage)? && pending_position == 0 {
             self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
-            self.reset_checkpoint(storage)?;
+            self.reset_nomination_checkpoint(storage)?;
             return Ok(());
         }
 
@@ -198,7 +207,10 @@ impl AgentDistributor {
         Ok(())
     }
 
-    pub fn reset_checkpoint(&self, storage: &mut dyn Storage) -> Result<(), ContractError> {
+    pub(crate) fn reset_nomination_checkpoint(
+        &self,
+        storage: &mut dyn Storage,
+    ) -> Result<(), ContractError> {
         AGENT_NOMINATION_CHECKPOINT.save(
             storage,
             &NominationCheckPoint {
@@ -208,10 +220,11 @@ impl AgentDistributor {
         )?;
         Ok(())
     }
-    pub(crate) fn set_checkpoint(
+    pub(crate) fn apply_nomination_checkpoint(
         &self,
         storage: &mut dyn Storage,
         env: &Env,
+        tasks_advancement: Option<u64>,
     ) -> Result<(), ContractError> {
         AGENT_NOMINATION_CHECKPOINT.update(
             storage,
@@ -221,7 +234,8 @@ impl AgentDistributor {
                 }
                 Ok(NominationCheckPoint {
                     start_block: checkpoint.start_block,
-                    tasks_advancement: checkpoint.tasks_advancement + 1,
+                    tasks_advancement: checkpoint.tasks_advancement
+                        + tasks_advancement.unwrap_or(1),
                 })
             },
         )?;
@@ -266,22 +280,26 @@ impl AgentDistributor {
         if let Some(max) = max_index {
             let pending = self.agents_pending(storage)?;
 
-            let agent_position = pending.iter().position(|a| &a.0 == agent_id);
-            if let Some(pos) = agent_position {
-                if pos as u64 <= max {
-                    // Update state removing from pending queue
-                    for i in 0..=pos {
-                        self.remove(storage, &pending.get(i).unwrap().0)?;
-                    }
-                    // Make this agent active
-                    self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
-                    // and update the config, setting the nomination begin time to None,
-                    // which indicates no one will be nominated until more tasks arrive
-                    self.reset_checkpoint(storage)?;
-                } else {
-                    return Err(ContractError::TryLaterForNomination);
-                };
-            }
+            let agent_position = pending.iter().position(|a| &a.0 == agent_id).ok_or(
+                ContractError::AgentIsNotInPendingStatus {
+                    addr: agent_id.clone(),
+                },
+            )?;
+            if agent_position as u64 <= max {
+                // Update state removing from pending queue
+                for i in 0..agent_position {
+                    let rem = pending.get(i).unwrap();
+                    self.remove(storage, &rem.0)?;
+                }
+
+                // Make this agent active
+                self.set_status(storage, agent_id.clone(), AgentStatus::Active)?;
+                // and update the config, setting the nomination begin time to None,
+                // which indicates no one will be nominated until more tasks arrive
+                self.reset_nomination_checkpoint(storage)?;
+            } else {
+                return Err(ContractError::TryLaterForNomination);
+            };
         }
         Ok(())
     }
@@ -321,6 +339,7 @@ impl AgentDistributor {
         let agents_by_height = checkpoint.start_block.map_or(0, |start_height| {
             (block_height - start_height) / cfg.agent_nomination_block_duration as u64
         });
+
         let agents_to_pass = min(agents_by_tasks_created, agents_by_height);
         if agents_to_pass == 0 {
             Ok(None)
@@ -386,20 +405,20 @@ impl AgentDistributor {
             inner.sort_unstable_by(|left, right| ordering(&left.1, &right.1, &slot_type).unwrap());
 
             let active_total = inner.len() as u64;
-            println!("active_total {:?}", active_total);
 
-            let agent_position = inner
-                .iter()
-                .position(|a| agent_id == &a.0)
-                .ok_or(ContractError::AgentNotRegistered)? as u64;
+            let agent_position = inner.iter().position(|a| agent_id == &a.0).ok_or(
+                ContractError::AgentNotActive {
+                    addr: agent_id.clone(),
+                },
+            )? as u64;
 
             if total_tasks <= active_total {
-                let agent_tasks_total =
-                    1u64.saturating_sub(active_total.saturating_sub(total_tasks.saturating_sub(1)));
+                let agent_tasks_total = 1u64
+                    .saturating_sub(agent_position.saturating_sub(total_tasks.saturating_sub(1)));
                 return Ok(agent_tasks_total);
             }
 
-            let leftover = total_tasks % agent_position;
+            let leftover = total_tasks % active_total;
             let mut extra = 0u64;
             if leftover > 0 {
                 extra =
@@ -409,6 +428,7 @@ impl AgentDistributor {
 
             Ok(agent_tasks_total.into())
         };
+
         let mut active = self.agents_active(storage)?;
         let total_block_tasks = equalizer(&mut active, SlotType::Block, block_slots)?;
 

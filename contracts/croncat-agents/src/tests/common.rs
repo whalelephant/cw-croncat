@@ -9,13 +9,13 @@ use cosmwasm_std::{coins, to_binary, Addr, Empty};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
-pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
-pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
-pub const AGENT2: &str = "agent2qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
-pub const AGENT3: &str = "agent3c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
-pub const AGENT4: &str = "agent4ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
-pub const AGENT5: &str = "agent5k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
-pub const AGENT6: &str = "agent614a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
+pub const AGENT0: &str = "agent0_a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
+pub const AGENT1: &str = "agent1_7muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
+pub const AGENT2: &str = "agent2_qxywje86amll9ptzxmla5ah52uvsd9f7drs2dl";
+pub const AGENT3: &str = "agent3_c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
+pub const AGENT4: &str = "agent4_ykfcyj8fl6xzs88tsls05x93gmq68a7km05m4j";
+pub const AGENT5: &str = "agent5_k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
+pub const AGENT6: &str = "agent6_14a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
 
 pub const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";

@@ -1,4 +1,4 @@
-use cosmwasm_std::{Coin, StdError};
+use cosmwasm_std::{Coin, StdError, Addr};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -16,7 +16,10 @@ pub enum ContractError {
     AgentNotRegistered,
 
     #[error("Agent is not active")]
-    AgentNotActive,
+    AgentNotActive{ addr: Addr },
+
+    #[error("Agent is not active")]
+    AgentIsNotInPendingStatus{ addr: Addr },
 
     #[error("Insufficient funds. Needing {amount_needed:?}")]
     InsufficientFunds { amount_needed: Coin },

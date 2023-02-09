@@ -60,13 +60,12 @@ pub fn instantiate(
     };
 
     CONFIG.save(deps.storage, config)?;
-
+    
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
         version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
     )?;
-
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("paused", config.paused.to_string())
@@ -388,7 +387,7 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    AGENT_DISTRIBUTOR.set_checkpoint(deps.storage, &env)?;
+    AGENT_DISTRIBUTOR.apply_nomination_checkpoint(deps.storage, &env,None)?;
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
