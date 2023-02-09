@@ -1,6 +1,6 @@
 use croncat_sdk_agents::types::Config;
 
-use crate::distro::AgentDistributor;
+use crate::distributor::AgentDistributor;
 use crate::tests::common::*;
 use cosmwasm_std::testing::{
     mock_dependencies_with_balance, mock_env, MockApi, MockQuerier, MockStorage,

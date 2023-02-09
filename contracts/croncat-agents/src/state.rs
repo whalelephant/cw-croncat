@@ -1,5 +1,5 @@
 
-use crate::distro::*;
+use crate::distributor::*;
 use crate::msg::*;
 use cosmwasm_std::Addr;
 use croncat_sdk_agents::types::Config;
