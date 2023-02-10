@@ -170,6 +170,44 @@ impl AgentDistributor {
         })?;
         Ok(())
     }
+    pub(crate) fn can_nominate_agent(
+        &self,
+        storage: &mut dyn Storage,
+        env: &Env,
+        config: &Config,
+        checkpoint: &NominationCheckPoint,
+        agent_id: &Addr,
+    ) -> Result<bool, ContractError> {
+        let pending = self.agents_pending(storage)?;
+        let pending_position = pending.iter().position(|a| &a.0 == agent_id).ok_or(
+            ContractError::AgentIsNotInPendingStatus {
+                addr: agent_id.clone(),
+            },
+        )?;
+        if !self.has_active(storage)? && pending_position == 0 {
+            return Ok(true);
+        }
+        // It works out such that the time difference between when this is called,
+        // and the agent nomination begin time can be divided by the nomination
+        // duration and we get an integer. We use that integer to determine if an
+        // agent is allowed to get let in. If their position in the pending queue is
+        // less than or equal to that integer, they get let in.
+        let max_index = self
+            .max_nomination_index(config, env, &checkpoint)?
+            .ok_or(ContractError::TryLaterForNomination)?;
+
+        let pending = self.agents_pending(storage)?;
+
+        let agent_position = pending.iter().position(|a| &a.0 == agent_id).ok_or(
+            ContractError::AgentIsNotInPendingStatus {
+                addr: agent_id.clone(),
+            },
+        )?;
+        if agent_position as u64 <= max_index {
+            return Ok(true);
+        }
+        Ok(false)
+    }
     pub(crate) fn try_nominate_agent(
         &self,
         storage: &mut dyn Storage,
@@ -181,20 +219,24 @@ impl AgentDistributor {
         // Get the position in the pending queue
         let checkpoint = AGENT_NOMINATION_CHECKPOINT.load(storage)?;
         let pending = self.agents_pending(storage)?;
-        let pending_position = pending.iter().position(|a| a.0 == agent_id).ok_or(
+        let pending_position = pending.iter().position(|a| &a.0 == &agent_id).ok_or(
             ContractError::AgentIsNotInPendingStatus {
                 addr: agent_id.clone(),
             },
         )?;
-
-        // edge case if last agent left
-        if !self.has_active(storage)? && pending_position == 0 {
+        if self.can_nominate_agent(storage, env, config, &checkpoint, &agent_id)? {
             self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
             self.reset_nomination_checkpoint(storage)?;
-            return Ok(());
+            // edge case if last agent left
+            if pending_position != 0 && self.has_active(storage)? {
+                for i in 0..pending_position {
+                    let rem = pending.get(i).unwrap();
+                    self.remove_agent(storage, &rem.0)?;
+                }
+            }
+        } else {
+            return Err(ContractError::TryLaterForNomination);
         }
-
-        self.cleanup_pending(storage, env, config, &checkpoint, &agent_id)?;
         Ok(())
     }
 
@@ -263,46 +305,6 @@ impl AgentDistributor {
         })?;
         Ok(())
     }
-    fn cleanup_pending(
-        &self,
-        storage: &mut dyn Storage,
-        env: &Env,
-        config: &Config,
-        checkpoint: &NominationCheckPoint,
-        agent_id: &Addr,
-    ) -> Result<(), ContractError> {
-        // It works out such that the time difference between when this is called,
-        // and the agent nomination begin time can be divided by the nomination
-        // duration and we get an integer. We use that integer to determine if an
-        // agent is allowed to get let in. If their position in the pending queue is
-        // less than or equal to that integer, they get let in.
-        let max_index = self.max_nomination_index(config, env, checkpoint)?;
-        if let Some(max) = max_index {
-            let pending = self.agents_pending(storage)?;
-
-            let agent_position = pending.iter().position(|a| &a.0 == agent_id).ok_or(
-                ContractError::AgentIsNotInPendingStatus {
-                    addr: agent_id.clone(),
-                },
-            )?;
-            if agent_position as u64 <= max {
-                // Update state removing from pending queue
-                for i in 0..agent_position {
-                    let rem = pending.get(i).unwrap();
-                    self.remove_agent(storage, &rem.0)?;
-                }
-
-                // Make this agent active
-                self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
-                // and update the config, setting the nomination begin time to None,
-                // which indicates no one will be nominated until more tasks arrive
-                self.reset_nomination_checkpoint(storage)?;
-            } else {
-                return Err(ContractError::TryLaterForNomination);
-            };
-        }
-        Ok(())
-    }
 
     pub(crate) fn cleanup(
         &self,
@@ -322,7 +324,6 @@ impl AgentDistributor {
                 let agent = self.get_agent(storage, &agent_id)?.unwrap();
                 if block_height > agent.last_executed_slot + config.max_slot_passover {
                     removed_agents.push(agent_id.clone());
-                    agent_map().remove(storage, agent_id.as_bytes())?;
                 }
             }
         }

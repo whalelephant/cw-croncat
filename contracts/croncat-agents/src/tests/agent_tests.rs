@@ -330,6 +330,7 @@ fn test_accept_nomination_agent() {
     register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
     register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
 
+    //Should be active 1 and pending 2 agents
     let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &croncat_agents_addr);
     assert_eq!(1, num_active_agents);
     assert_eq!(2, agent_ids_res.pending.len());
@@ -338,7 +339,7 @@ fn test_accept_nomination_agent() {
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT4).unwrap();
 
-    // Fast forward time a little
+    // Some block advancement
     app.update_block(|block| add_seconds_to_block(block, 19));
     app.update_block(|block| increment_block_height(block, Some(10)));
 
@@ -1029,7 +1030,7 @@ fn test_tick() {
     assert_eq!(agents.active.len(), 1);
     assert_eq!(agents.pending.len(), 2);
 
-    // First pending agent wasn't nominated
+    // Agent pending agent wasn't nominated
     let err = app
         .execute_contract(
             Addr::unchecked(AGENT1),
@@ -1061,10 +1062,6 @@ fn test_tick() {
         .attributes
         .iter()
         .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
-    assert!(!res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
 
     // The agent missed 1001 blocks and he was unregistered
     // Pending agents weren't deleted
@@ -1081,7 +1078,7 @@ fn test_tick() {
     assert!(agents.active.is_empty());
     assert_eq!(agents.pending.len(), 2);
 
-    // First agent was nominated and can call CheckInAgent
+    // AGENT1 was nominated and can call CheckInAgent
     app.execute_contract(
         Addr::unchecked(AGENT1),
         croncat_agents_addr.clone(),

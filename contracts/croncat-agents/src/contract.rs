@@ -58,6 +58,7 @@ pub fn instantiate(
         min_active_reserve: min_active_reserve.unwrap_or(DEFAULT_MIN_ACTIVE_RESERVE),
     };
 
+    AGENT_DISTRIBUTOR.reset_nomination_checkpoint(deps.storage)?;
     CONFIG.save(deps.storage, config)?;
 
     set_contract_version(
@@ -359,7 +360,7 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     let mut submessages = vec![];
     let result = AGENT_DISTRIBUTOR.cleanup(deps.storage, &env, &config)?;
     for agent_id in result {
-        let resp = unregister_agent(deps.storage, &deps.querier, &agent_id).unwrap_or_default();
+        let resp = unregister_agent(deps.storage, &deps.querier, &agent_id).unwrap();
         // Save attributes and messages
         attributes.extend_from_slice(&resp.attributes);
         submessages.extend_from_slice(&resp.messages);
