@@ -5,7 +5,7 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
-use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
+use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64, StdError};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
@@ -873,14 +873,12 @@ fn test_query_get_agent_tasks() {
 
     // Should fail for random user not in the active queue
     let agent_tasks_res = get_agent_tasks(&mut app, &croncat_agents_addr, AGENT2);
-    let result = agent_tasks_res.unwrap();
+    let result = agent_tasks_res.unwrap_err();
     assert_eq!(
-        result,
-        AgentTasksResponse {
-            total_block_tasks: Uint64::zero(),
-            total_cron_tasks: Uint64::zero(),
-        }
+        StdError::generic_err("Querier contract error: Generic error: Agent is not active"),
+        result.downcast().unwrap()
     );
+   
 }
 
 //Tick
