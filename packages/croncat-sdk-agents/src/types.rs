@@ -25,19 +25,13 @@ pub enum AgentStatus {
 
     // Default for any new agent, until more tasks come online
     Pending,
-
-    // More tasks are available, agent must checkin to become active
-    Nominated,
 }
-
-
 
 impl fmt::Display for AgentStatus {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AgentStatus::Active => write!(f, "active"),
             AgentStatus::Pending => write!(f, "pending"),
-            AgentStatus::Nominated => write!(f, "nominated"),
         }
     }
 }
@@ -110,9 +104,6 @@ mod test {
     fn agent_status_fmt() {
         let active = AgentStatus::Active;
         assert_eq!(format!("{active}"), "active");
-
-        let nominated = AgentStatus::Nominated;
-        assert_eq!(format!("{nominated}"), "nominated");
 
         let pending = AgentStatus::Pending;
         assert_eq!(format!("{pending}"), "pending");

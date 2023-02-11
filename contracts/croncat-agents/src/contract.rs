@@ -387,7 +387,7 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env, None)?;
+    AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env,&config, None)?;
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }

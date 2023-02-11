@@ -318,6 +318,8 @@ fn test_accept_nomination_agent() {
         croncat_manager_addr: _,
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
+
+
     // Register AGENT1, who immediately becomes active
     register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
 
@@ -330,31 +332,33 @@ fn test_accept_nomination_agent() {
     register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
     register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
 
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT4).unwrap();
+
     //Should be active 1 and pending 2 agents
     let (agent_ids_res, num_active_agents, _) = get_agent_ids(&app, &croncat_agents_addr);
     assert_eq!(1, num_active_agents);
     assert_eq!(2, agent_ids_res.pending.len());
 
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT4).unwrap();
-
-    // Some block advancement
-    app.update_block(|block| add_seconds_to_block(block, 19));
-    app.update_block(|block| increment_block_height(block, Some(10)));
-
-    let mut agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
+    let mut agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT1)
         .unwrap()
         .agent
         .unwrap()
         .status;
-    assert_eq!(AgentStatus::Pending, agent_status);
+    assert_eq!(AgentStatus::Active, agent_status);
     agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT2)
         .unwrap()
         .agent
         .unwrap()
         .status;
-    assert_eq!(AgentStatus::Nominated, agent_status);
+    assert_eq!(AgentStatus::Pending, agent_status);
+    agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
+        .unwrap()
+        .agent
+        .unwrap()
+        .status;
+    assert_eq!(AgentStatus::Pending, agent_status);
 
     // Attempt to accept nomination
     // First try with the agent second in line in the pending queue.
@@ -369,9 +373,16 @@ fn test_accept_nomination_agent() {
         check_in_res.unwrap_err().downcast().unwrap()
     );
 
+    //Create few tasks for next agent nomination
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT5).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT6).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, ANYONE).unwrap();
+    app.update_block(|block| increment_block_height(block, Some(20)));
+
     // Now try from person at the beginning of the pending queue
     // This agent should succeed
     check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT2);
+
     assert!(
         check_in_res.is_ok(),
         "Agent at the front of the pending queue should be allowed to nominate themselves"
@@ -399,36 +410,13 @@ fn test_accept_nomination_agent() {
         .status;
     assert_eq!(AgentStatus::Pending, agent_status);
 
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT5).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT6).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT7).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT6).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT5).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT4).unwrap();
-
-    // Add another agent, since there's now the need
-    register_agent(&mut app, &croncat_agents_addr, AGENT4, AGENT_BENEFICIARY).unwrap();
-    // Fast forward time past the duration of the first pending agent,
-    // allowing the second to nominate themselves
-    app.update_block(|block| add_seconds_to_block(block, 420));
-    app.update_block(|block| increment_block_height(block, Some(100)));
-
-    // Now that enough time has passed, both agents should see they're nominated
-    agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT3)
-        .unwrap()
-        .agent
-        .unwrap()
-        .status;
-    assert_eq!(AgentStatus::Nominated, agent_status);
-    agent_status = get_agent_status(&mut app, &croncat_agents_addr, AGENT4)
-        .unwrap()
-        .agent
-        .unwrap()
-        .status;
-    assert_eq!(AgentStatus::Nominated, agent_status);
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, ADMIN).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT0).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, AGENT2).unwrap();
+    app.update_block(|block| increment_block_height(block, Some(20)));
 
     // Agent second in line nominates themself
-    check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT4);
+    check_in_res = check_in_agent(&mut app, &croncat_agents_addr, AGENT3);
     assert!(
         check_in_res.is_ok(),
         "Agent second in line should be able to nominate themselves"
@@ -451,7 +439,7 @@ fn test_get_agent_status() {
         croncat_agents_addr,
         croncat_agents_code_id: _,
         croncat_manager_addr: _,
-        croncat_tasks_addr,
+        croncat_tasks_addr: _,
     } = init_test_scope(&mut app);
     let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1).unwrap();
     assert_eq!(None, agent_status_res.agent);
@@ -479,21 +467,6 @@ fn test_get_agent_status() {
         AgentStatus::Pending,
         agent_status_res.agent.unwrap().status,
         "New agent should be pending"
-    );
-
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT0).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT4).unwrap();
-
-    app.update_block(|block| increment_block_height(block, Some(30)));
-    // Agent status is nominated
-    let agent_status_res = get_agent_status(&mut app, &croncat_agents_addr, AGENT1);
-
-    assert_eq!(
-        AgentStatus::Nominated,
-        agent_status_res.unwrap().agent.unwrap().status,
-        "New agent should have nominated status"
     );
 }
 #[test]
@@ -565,18 +538,6 @@ fn test_last_unregistered_active_agent_promotes_first_pending() {
             ]
         }
     );
-
-    // Check if agent nominated
-    let agent_res: AgentResponse = app
-        .wrap()
-        .query_wasm_smart(
-            croncat_agents_addr.clone(),
-            &QueryMsg::GetAgent {
-                account_id: AGENT2.to_owned(),
-            },
-        )
-        .unwrap();
-    assert_eq!(agent_res.agent.unwrap().status, AgentStatus::Nominated);
 
     // Check in
     app.execute_contract(

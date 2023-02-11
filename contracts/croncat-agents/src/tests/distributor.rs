@@ -292,7 +292,7 @@ fn assert_balancer_tasks(
 
     //Some task advancement
     distributor
-        .notify_task_created(&mut deps.storage, env, Some(slots.0 + slots.1))
+        .notify_task_created(&mut deps.storage, env,&config, Some(slots.0 + slots.1))
         .unwrap();
 
     //Task completion
@@ -401,7 +401,7 @@ fn try_nominate(
 ) {
     //fake task created event for reinit nomination checkpoint
     distributor
-        .notify_task_created(storage, env, Some(20))
+        .notify_task_created(storage, env,&config, Some(20))
         .unwrap(); 
     increment_block_height(&mut env.block, Some(20));
 
