@@ -6,10 +6,10 @@
 
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
-  agents_eject_threshold?: number | null;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
-  min_active_agent_count?: number | null;
+  max_slot_passover?: number | null;
+  min_active_reserve?: number | null;
   min_coin_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -26,9 +26,7 @@ export type ExecuteMsg = {
 } | {
   check_in_agent: {};
 } | {
-  unregister_agent: {
-    from_behind?: boolean | null;
-  };
+  unregister_agent: {};
 } | {
   on_task_created: AgentOnTaskCreated;
 } | {
@@ -48,11 +46,11 @@ export interface AgentOnTaskCompleted {
 }
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
-  agents_eject_threshold?: number | null;
   croncat_factory_addr?: string | null;
   croncat_manager_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
-  min_active_agent_count?: number | null;
+  max_slot_passover?: number | null;
+  min_active_reserve?: number | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
@@ -76,11 +74,11 @@ export type QueryMsg = {
 };
 export interface Config {
   agent_nomination_block_duration: number;
-  agents_eject_threshold: number;
   croncat_factory_addr: Addr;
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
-  min_active_agent_count: number;
+  max_slot_passover: number;
+  min_active_reserve: number;
   min_coins_for_agent_registration: number;
   min_tasks_per_agent: number;
   owner_addr: Addr;
@@ -89,7 +87,7 @@ export interface Config {
 export type Uint128 = string;
 export type Timestamp = Uint64;
 export type Uint64 = string;
-export type AgentStatus = "active" | "pending" | "nominated";
+export type AgentStatus = "active" | "pending";
 export interface AgentResponse {
   agent?: AgentInfo | null;
 }
@@ -104,10 +102,7 @@ export interface GetAgentIdsResponse {
   active: Addr[];
   pending: Addr[];
 }
-export interface AgentTaskResponse {
-  stats: TaskStats;
-}
-export interface TaskStats {
-  num_block_tasks: Uint64;
-  num_cron_tasks: Uint64;
+export interface AgentTasksResponse {
+  total_block_tasks: Uint64;
+  total_cron_tasks: Uint64;
 }

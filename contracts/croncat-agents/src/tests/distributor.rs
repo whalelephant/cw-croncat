@@ -212,7 +212,7 @@ fn test_on_task_completed() {
         .unwrap();
 
     let agent0 = agent_distributor
-        .get_agent(&mut deps.storage, &agent0_addr)
+        .get_agent(&deps.storage, &agent0_addr)
         .unwrap()
         .unwrap();
 
@@ -243,10 +243,10 @@ fn test_on_agent_unregister() {
         .remove_agent(&mut deps.storage, agent1_addr)
         .unwrap();
     let agent0 = agent_distributor
-        .get_agent(&mut deps.storage, &agent0_addr)
+        .get_agent(&deps.storage, agent0_addr)
         .unwrap();
     let agent1 = agent_distributor
-        .get_agent(&mut deps.storage, &agent1_addr)
+        .get_agent(&deps.storage, agent1_addr)
         .unwrap();
 
     assert!(agent0.is_some());
@@ -273,7 +273,7 @@ fn assert_balancer_tasks(
     //Remove agent registered in prev case
     for agent_id_str in &[AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT5, AGENT6] {
         distributor
-            .remove_agent(&mut deps.storage, &Addr::unchecked(agent_id_str.clone()))
+            .remove_agent(&mut deps.storage, &Addr::unchecked(*agent_id_str))
             .unwrap();
     }
 
@@ -281,18 +281,18 @@ fn assert_balancer_tasks(
     for (aid, _, _) in act_agents {
         create_active_agent(&mut deps.storage, env, config, distributor, aid);
         if *aid != AGENT0 {
-            try_nominate(&mut deps.storage, env, config, &distributor, aid);
+            try_nominate(&mut deps.storage, env, config, distributor, aid);
         }
     }
     //Check we have all active agents
     assert_eq!(
-        distributor.agents_active(&mut deps.storage).unwrap().len(),
+        distributor.agents_active(&deps.storage).unwrap().len(),
         act_agents.len()
     );
 
     //Some task advancement
     distributor
-        .notify_task_created(&mut deps.storage, env,&config, Some(slots.0 + slots.1))
+        .notify_task_created(&mut deps.storage, env, config, Some(slots.0 + slots.1))
         .unwrap();
 
     //Task completion
@@ -300,19 +300,19 @@ fn assert_balancer_tasks(
     act_agents.iter().for_each(|f| {
         if f.1 > 0 {
             distributor
-                .notify_task_completed(&mut deps.storage, &env, Addr::unchecked(f.0), true)
+                .notify_task_completed(&mut deps.storage, env, Addr::unchecked(f.0), true)
                 .unwrap();
         }
         if f.2 > 0 {
             distributor
-                .notify_task_completed(&mut deps.storage, &env, Addr::unchecked(f.0), false)
+                .notify_task_completed(&mut deps.storage, env, Addr::unchecked(f.0), false)
                 .unwrap();
         }
     });
 
     for (agent_id, _, _) in act_agents {
         let (block, cron) = distributor
-            .get_available_tasks(&mut deps.storage, &Addr::unchecked(agent_id.clone()), slots)
+            .get_available_tasks(&deps.storage, &Addr::unchecked(*agent_id), slots)
             .unwrap();
         result.push((agent_id, block, cron));
     }
@@ -328,7 +328,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT0),
             Addr::unchecked(PARTICIPANT0),
         )
@@ -337,7 +337,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT1),
             Addr::unchecked(PARTICIPANT1),
         )
@@ -345,7 +345,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT2),
             Addr::unchecked(PARTICIPANT2),
         )
@@ -353,7 +353,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT3),
             Addr::unchecked(PARTICIPANT3),
         )
@@ -361,7 +361,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT4),
             Addr::unchecked(PARTICIPANT4),
         )
@@ -369,7 +369,7 @@ fn create_sample_agents(
     agent_distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(AGENT5),
             Addr::unchecked(PARTICIPANT5),
         )
@@ -386,7 +386,7 @@ fn create_active_agent(
     distributor
         .add_new_agent(
             storage,
-            &env,
+            env,
             Addr::unchecked(agent_id_str),
             Addr::unchecked(PARTICIPANT5),
         )
@@ -401,8 +401,8 @@ fn try_nominate(
 ) {
     //fake task created event for reinit nomination checkpoint
     distributor
-        .notify_task_created(storage, env,&config, Some(20))
-        .unwrap(); 
+        .notify_task_created(storage, env, config, Some(20))
+        .unwrap();
     increment_block_height(&mut env.block, Some(20));
 
     distributor

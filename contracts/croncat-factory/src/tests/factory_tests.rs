@@ -189,8 +189,8 @@ fn deploy_check() {
             min_coin_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
-            agents_eject_threshold: None,
-            min_active_agent_count: None,
+            max_slot_passover: None,
+            min_active_reserve: None,
         })
         .unwrap(),
         contract_name: "agents".to_owned(),

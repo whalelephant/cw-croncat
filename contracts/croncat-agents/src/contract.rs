@@ -169,10 +169,10 @@ fn query_agent_tasks(deps: Deps, agent_id: String) -> StdResult<AgentTasksRespon
         .get_available_tasks(deps.storage, &account_id, (block_slots, cron_slots))
         .map_err(|err| StdError::generic_err(err.to_string()))?;
 
-    return Ok(AgentTasksResponse {
+    Ok(AgentTasksResponse {
         total_block_tasks: Uint64::from(result.0),
         total_cron_tasks: Uint64::from(result.1),
-    });
+    })
 }
 
 /// Add any account as an agent that will be able to execute tasks.
@@ -282,7 +282,6 @@ fn unregister_agent(
         agent.payable_account_id.to_string(),
     )?;
     AGENT_DISTRIBUTOR.remove_agent(storage, agent_id)?;
-
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
         .add_message(msg)
@@ -387,7 +386,7 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env,&config, None)?;
+    AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env, &config, None)?;
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }

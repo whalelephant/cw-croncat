@@ -214,8 +214,7 @@ fn execute_proxy_call(
                     account_id: agent_addr.to_string(),
                 },
             )?;
-        if agent_tasks.total_block_tasks.is_zero() && agent_tasks.total_cron_tasks.is_zero()
-        {
+        if agent_tasks.total_block_tasks.is_zero() && agent_tasks.total_cron_tasks.is_zero() {
             return Err(ContractError::NoTaskForAgent {});
         }
 

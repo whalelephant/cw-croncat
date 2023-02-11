@@ -86,14 +86,14 @@ impl AgentDistributor {
             completed_cron_tasks: u64::default(),
             last_executed_slot: env.block.height,
         };
-        Ok(self.add_agent_internal(storage, agent_id, agent)?)
+        self.add_agent_internal(storage, agent_id, agent)
     }
     pub(crate) fn get_agent(
         &self,
         storage: &dyn Storage,
         addr: &Addr,
     ) -> Result<Option<Agent>, ContractError> {
-        let res = agent_map().may_load(storage, &addr.as_bytes())?;
+        let res = agent_map().may_load(storage, addr.as_bytes())?;
         Ok(res.map(|x| x.1))
     }
 
@@ -131,11 +131,10 @@ impl AgentDistributor {
         agent_id: Addr,
         agent: Agent,
     ) -> Result<(Addr, Agent), ContractError> {
-        let result =
-            agent_map().update(storage, &agent_id.clone().as_bytes(), |old| match old {
-                Some(_) => Err(ContractError::AgentAlreadyRegistered {}),
-                None => Ok((agent_id, agent)),
-            })?;
+        let result = agent_map().update(storage, agent_id.clone().as_bytes(), |old| match old {
+            Some(_) => Err(ContractError::AgentAlreadyRegistered {}),
+            None => Ok((agent_id, agent)),
+        })?;
         Ok(result)
     }
     pub(crate) fn set_payable_account_id(
@@ -144,7 +143,7 @@ impl AgentDistributor {
         agent_id: Addr,
         payable_account_id: Addr,
     ) -> Result<(), ContractError> {
-        agent_map().update(storage, &agent_id.clone().as_bytes(), |old| match old {
+        agent_map().update(storage, agent_id.clone().as_bytes(), |old| match old {
             Some(value) => {
                 let mut agent = value.1;
                 agent.payable_account_id = payable_account_id;
@@ -160,7 +159,7 @@ impl AgentDistributor {
         agent_id: Addr,
         status: AgentStatus,
     ) -> Result<(), ContractError> {
-        agent_map().update(storage, &agent_id.clone().as_bytes(), |old| match old {
+        agent_map().update(storage, agent_id.clone().as_bytes(), |old| match old {
             Some(value) => {
                 let mut agent = value.1;
                 agent.status = status;
@@ -186,17 +185,13 @@ impl AgentDistributor {
                 addr: agent_id.clone(),
             },
         )?;
-      
 
         // edge case if last agent left
-        if pending_position == 0 {
-            if !self.has_active(storage)? {
-                self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
-                self.reset_nomination_checkpoint(storage)?;
-                return Ok(());
-            }  
+        if pending_position == 0 && !self.has_active(storage)? {
+            self.set_agent_status(storage, agent_id, AgentStatus::Active)?;
+            self.reset_nomination_checkpoint(storage)?;
+            return Ok(());
         }
-        println!("agent_id {:?}",agent_id);
         // It works out such that the time difference between when this is called,
         // and the agent nomination begin time can be divided by the nomination
         // duration and we get an integer. We use that integer to determine if an
@@ -205,8 +200,7 @@ impl AgentDistributor {
         let max_index = self
             .max_nomination_index(config, env, &checkpoint)?
             .ok_or(ContractError::TryLaterForNomination)?;
-            
-       
+
         if pending_position as u64 <= max_index {
             // Update state removing from pending queue
             for i in 0..pending_position {
@@ -215,7 +209,7 @@ impl AgentDistributor {
             }
 
             // Make this agent active
-            self.set_agent_status(storage, agent_id.clone(), AgentStatus::Active)?;
+            self.set_agent_status(storage, agent_id, AgentStatus::Active)?;
             // and update the config, setting the nomination begin time to None,
             // which indicates no one will be nominated until more tasks arrive
             self.reset_nomination_checkpoint(storage)?;
@@ -254,7 +248,6 @@ impl AgentDistributor {
         _config: &Config,
         tasks_advancement: Option<u64>,
     ) -> Result<(), ContractError> {
-        
         //Setting new checkpoint on task advancement
         AGENT_NOMINATION_CHECKPOINT.update(
             storage,
@@ -279,7 +272,7 @@ impl AgentDistributor {
         agent_id: Addr,
         is_block_slot_task: bool,
     ) -> Result<(), ContractError> {
-        agent_map().update(storage, &agent_id.clone().as_bytes(), |old| match old {
+        agent_map().update(storage, agent_id.clone().as_bytes(), |old| match old {
             Some(value) => {
                 let mut agent = value.1;
                 if is_block_slot_task {
@@ -329,15 +322,6 @@ impl AgentDistributor {
         let agents_by_height = checkpoint.start_block.map_or(0, |start_height| {
             (block_height - start_height) / cfg.agent_nomination_block_duration as u64
         });
-
-        println!(
-            "block_height {:?} start_height {:?}",
-            block_height, checkpoint.start_block
-        );
-        println!(
-            "agents_by_tasks_created {:?} agents_by_height {:?}",
-            agents_by_tasks_created, agents_by_height
-        );
 
         let agents_to_pass = min(agents_by_tasks_created, agents_by_height);
         if agents_to_pass == 0 {
@@ -425,7 +409,7 @@ impl AgentDistributor {
             }
             let agent_tasks_total = total_tasks.saturating_div(active_total) + extra;
 
-            Ok(agent_tasks_total.into())
+            Ok(agent_tasks_total)
         };
 
         let mut active = self.agents_active(storage)?;

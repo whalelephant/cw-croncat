@@ -28,7 +28,7 @@ pub const PARTICIPANT3: &str = "cosmos3xj3xagnprtqpfnvyp7k393kmes73rpuxqgamd8";
 pub const PARTICIPANT4: &str = "cosmos4t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT5: &str = "cosmos5t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
-pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+//pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
 pub const NATIVE_DENOM: &str = "uatom";
 

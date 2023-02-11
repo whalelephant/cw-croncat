@@ -51,7 +51,7 @@ pub enum ExecuteMsg {
     /// Action moves agent from pending to active list
     CheckInAgent {},
     /// Actions for removing agent from the system
-    UnregisterAgent { },
+    UnregisterAgent {},
     /// Task contract will send message when task is created
     OnTaskCreated(AgentOnTaskCreated),
     /// Task contract will send message when task is completed

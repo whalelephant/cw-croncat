@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, Addr, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats } from "./CroncatAgents.types";
+import { InstantiateMsg, ExecuteMsg, Addr, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTasksResponse } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
@@ -25,7 +25,7 @@ export interface CroncatAgentsReadOnlyInterface {
     accountId
   }: {
     accountId: string;
-  }) => Promise<AgentTaskResponse>;
+  }) => Promise<AgentTasksResponse>;
   config: () => Promise<Config>;
 }
 export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface {
@@ -70,7 +70,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     accountId
   }: {
     accountId: string;
-  }): Promise<AgentTaskResponse> => {
+  }): Promise<AgentTasksResponse> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_agent_tasks: {
         account_id: accountId
@@ -97,11 +97,7 @@ export interface CroncatAgentsInterface extends CroncatAgentsReadOnlyInterface {
     payableAccountId: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   checkInAgent: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  unregisterAgent: ({
-    fromBehind
-  }: {
-    fromBehind?: boolean;
-  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  unregisterAgent: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   onTaskCreated: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   onTaskCompleted: ({
     agentId,
@@ -164,15 +160,9 @@ export class CroncatAgentsClient extends CroncatAgentsQueryClient implements Cro
       check_in_agent: {}
     }, fee, memo, funds);
   };
-  unregisterAgent = async ({
-    fromBehind
-  }: {
-    fromBehind?: boolean;
-  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+  unregisterAgent = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      unregister_agent: {
-        from_behind: fromBehind
-      }
+      unregister_agent: {}
     }, fee, memo, funds);
   };
   onTaskCreated = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {

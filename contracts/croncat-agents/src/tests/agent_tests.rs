@@ -5,7 +5,7 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
-use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64, StdError};
+use cosmwasm_std::{coins, Addr, BankMsg, Coin, StdError, Uint128, Uint64};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
@@ -318,7 +318,6 @@ fn test_accept_nomination_agent() {
         croncat_manager_addr: _,
         croncat_tasks_addr,
     } = init_test_scope(&mut app);
-
 
     // Register AGENT1, who immediately becomes active
     register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
@@ -706,7 +705,7 @@ fn test_removing_agent_from_any_side_is_working() {
         agent_ids,
         GetAgentIdsResponse {
             active: vec![Addr::unchecked(AGENT0)],
-            pending: vec![Addr::unchecked(AGENT4), Addr::unchecked(AGENT1)]
+            pending: vec![Addr::unchecked(AGENT1), Addr::unchecked(AGENT4)]
         }
     );
     // Or the last
@@ -878,7 +877,6 @@ fn test_query_get_agent_tasks() {
         StdError::generic_err("Querier contract error: Generic error: Agent is not active"),
         result.downcast().unwrap()
     );
-   
 }
 
 //Tick

@@ -93,7 +93,6 @@ pub struct Config {
     pub max_slot_passover: u64,
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_reserve: u16,
-    
 }
 
 #[cfg(test)]
