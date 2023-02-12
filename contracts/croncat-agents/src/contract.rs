@@ -12,7 +12,7 @@ use cosmwasm_std::{
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTasksResponse, GetAgentIdsResponse, UpdateConfig,
 };
-use croncat_sdk_agents::types::{AgentInfo, AgentStatus, Config};
+use croncat_sdk_agents::types::{AgentInfo, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
 
@@ -125,13 +125,10 @@ fn query_get_agent(deps: Deps, account_id: String) -> StdResult<AgentResponse> {
     let config: Config = CONFIG.load(deps.storage)?;
     let rewards =
         croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
-    let agent_status = get_agent_status(deps.storage, &account_id)
-        // Return wrapped error if there was a problem
-        .map_err(|err| StdError::generic_err(err.to_string()))?;
 
     let agent_response = AgentResponse {
         agent: Some(AgentInfo {
-            status: agent_status,
+            status: agent.status,
             payable_account_id: agent.payable_account_id,
             balance: rewards,
             last_executed_slot: agent.last_executed_slot,
@@ -219,9 +216,8 @@ fn register_agent(
         agent_id.clone()
     };
 
-    let agent = AGENT_DISTRIBUTOR
-        .add_new_agent(deps.storage, &env, agent_id, payable_account_id)?
-        .1;
+    let (_, agent) =
+        AGENT_DISTRIBUTOR.add_new_agent(deps.storage, &env, agent_id, payable_account_id)?;
     Ok(Response::new()
         .add_attribute("action", "register_agent")
         .add_attribute("agent_status", agent.status.to_string()))
@@ -251,6 +247,9 @@ fn accept_nomination_agent(
 ) -> Result<Response, ContractError> {
     // Compare current time and Config's agent_nomination_begin_time to see if agent can join
     let config: Config = CONFIG.load(deps.storage)?;
+    if config.paused {
+        return Err(ContractError::ContractPaused);
+    }
     AGENT_DISTRIBUTOR.try_nominate_agent(deps.storage, &env, &config, info.sender.clone())?;
 
     // Find difference
@@ -341,24 +340,12 @@ pub fn execute_update_config(
     Ok(Response::new().add_attribute("action", "update_config"))
 }
 
-fn get_agent_status(
-    storage: &dyn Storage,
-    account_id: &Addr,
-) -> Result<AgentStatus, ContractError> {
-    let agent = AGENT_DISTRIBUTOR
-        .get_agent(storage, account_id)
-        .map_err(|err| StdError::generic_err(err.to_string()))?
-        .ok_or(ContractError::AgentNotRegistered)?;
-
-    Ok(agent.status)
-}
-
 pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     let mut attributes = vec![];
     let mut submessages = vec![];
-    let result = AGENT_DISTRIBUTOR.cleanup(deps.storage, &env, &config)?;
-    for agent_id in result {
+    let agents_to_delete = AGENT_DISTRIBUTOR.cleanup(deps.storage, &env, &config)?;
+    for agent_id in agents_to_delete {
         let resp = unregister_agent(deps.storage, &deps.querier, &agent_id).unwrap();
         // Save attributes and messages
         attributes.extend_from_slice(&resp.attributes);

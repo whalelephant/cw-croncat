@@ -355,28 +355,21 @@ impl AgentDistributor {
              -> Option<std::cmp::Ordering> {
                 match slot_type {
                     SlotType::Block => {
-                        let lr: u128 =
-                            format!("{}{}", left.last_executed_slot, left.completed_block_tasks)
-                                .parse()
-                                .unwrap();
-                        let rl: u128 = format!(
+                        let lr =
+                            format!("{}{}", left.last_executed_slot, left.completed_block_tasks);
+                        let rl = format!(
                             "{}{}",
                             right.last_executed_slot, right.completed_block_tasks
-                        )
-                        .parse()
-                        .unwrap();
+                        );
 
                         lr.partial_cmp(&rl)
                     }
                     SlotType::Cron => {
-                        let lr: u128 =
-                            format!("{}{}", left.last_executed_slot, left.completed_cron_tasks)
-                                .parse()
-                                .unwrap();
-                        let rl: u128 =
-                            format!("{}{}", right.last_executed_slot, right.completed_cron_tasks)
-                                .parse()
-                                .unwrap();
+                        let lr =
+                            format!("{}{}", left.last_executed_slot, left.completed_cron_tasks);
+
+                        let rl =
+                            format!("{}{}", right.last_executed_slot, right.completed_cron_tasks);
                         lr.partial_cmp(&rl)
                     }
                 }
