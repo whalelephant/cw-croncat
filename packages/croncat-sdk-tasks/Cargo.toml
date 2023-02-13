@@ -12,7 +12,6 @@ cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw20 = { workspace = true }
 cron_schedule = { workspace = true }
-cw-controllers = { workspace = true }
 croncat-mod-generic = { workspace = true, features = ["library"] }
 croncat-sdk-core = { workspace = true }
 mod-sdk = { workspace = true }

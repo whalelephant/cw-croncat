@@ -2,8 +2,8 @@ use crate::distributor::*;
 use crate::msg::*;
 use cosmwasm_std::Addr;
 use croncat_sdk_agents::types::Config;
-use cw_controllers::Hooks;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, MultiIndex};
+use croncat_sdk_core::hooks::{hooks::*};
 
 //Contract config, just the owner address for now, preferably dao
 pub const CONFIG: Item<Config> = Item::new("agents_config");

@@ -1,9 +1,8 @@
 use crate::error::ContractError;
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
+    Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128,
 };
 use croncat_sdk_agents::types::Config;
-use croncat_sdk_core::hooks::{TaskCompletedHookMsg, TaskCreatedHookMsg};
 use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -53,7 +52,7 @@ pub mod croncat_tasks_contract {
 }
 pub mod croncat_manager_contract {
 
-    use croncat_sdk_core::hooks::WithdrawAgentRewardsHookMsg;
+    use croncat_sdk_core::hooks::{hook_messages::*};
 
     use super::*;
 

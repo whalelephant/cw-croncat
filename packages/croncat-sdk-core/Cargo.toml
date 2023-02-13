@@ -11,3 +11,5 @@ description = "Contains structs and impls useful in the operation of CronCat aut
 cosmwasm-schema = { workspace = true }
 cosmwasm-std = { workspace = true }
 cw20 = { workspace = true }
+cw-storage-plus = { workspace = true }
+thiserror = {workspace=true}

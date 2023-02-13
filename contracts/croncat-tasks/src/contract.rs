@@ -1,10 +1,10 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
-    SubMsg, Uint64, StdError,
+    to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdError,
+    StdResult, SubMsg, Uint64,
 };
-use croncat_sdk_core::hooks::*;
+use croncat_sdk_core::hooks::hook_messages::*;
 
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
@@ -102,8 +102,8 @@ pub fn execute(
         ExecuteMsg::RescheduleTaskHook(reschedule_msg) => {
             execute_reschedule_task(deps, env, info, reschedule_msg)
         }
-        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, info, addr),
-        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
+        ExecuteMsg::AddHook { prefix, addr } => execute_add_hook(deps, info, &prefix, addr),
+        ExecuteMsg::RemoveHook { prefix, addr } => execute_remove_hook(deps, info, &prefix, addr),
     }
 }
 
@@ -414,7 +414,6 @@ fn execute_create_task(
     // Save the current timestamp as the last time a task was created
     LAST_TASK_CREATION.save(deps.storage, &env.block.time)?;
 
-    let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let manager_create_task_balance_msg = CreateTaskBalanceHookMsg {
         sender: owner_addr,
         task_hash: hash_vec,
@@ -424,18 +423,26 @@ fn execute_create_task(
     };
 
     let created_task_hook_msg = TaskCreatedHookMsg {};
-    let create_messages = HOOKS.prepare_hooks(deps.storage, |h| {
-        created_task_hook_msg
-            .clone()
-            .into_cosmos_msg(h.to_string())
-            .map(SubMsg::new)
-    })?;
-    let create_balance_messages = HOOKS.prepare_hooks(deps.storage, |h| {
-        manager_create_task_balance_msg
-            .clone()
-            .into_cosmos_msg(h.to_string(),info.funds.clone())
-            .map(SubMsg::new)
-    })?;
+    let create_messages = HOOKS.prepare_hooks(
+        deps.storage,
+        TaskCreatedHookMsg::prefix(),
+        |h| {
+            created_task_hook_msg
+                .clone()
+                .into_cosmos_msg(h.to_string())
+                .map(SubMsg::new)
+        },
+    )?;
+    let create_balance_messages = HOOKS.prepare_hooks(
+        deps.storage,
+        CreateTaskBalanceHookMsg::prefix(),
+        |h| {
+            manager_create_task_balance_msg
+                .clone()
+                .into_cosmos_msg(h.to_string(), info.funds.clone())
+                .map(SubMsg::new)
+        },
+    )?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
@@ -480,7 +487,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotTasksTotal { offset } => {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
-        QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
+        QueryMsg::Hooks { prefix } => to_binary(&HOOKS.query_hooks(deps, &prefix)?),
     }
 }
 
@@ -878,6 +885,7 @@ fn query_slot_ids(
 pub fn execute_add_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -887,7 +895,7 @@ pub fn execute_add_hook(
 
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .add_hook(deps.storage, hook)
+        .add_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
 
     Ok(Response::new()
@@ -898,6 +906,7 @@ pub fn execute_add_hook(
 pub fn execute_remove_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -908,7 +917,7 @@ pub fn execute_remove_hook(
 
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .remove_hook(deps.storage, hook)
+        .remove_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
     Ok(Response::new()
         .add_attribute("action", "remove_hook")

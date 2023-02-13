@@ -143,7 +143,7 @@ fn test_register_agent_fails() {
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        croncat_factory_addr,
         croncat_agents_addr.clone(),
         &ExecuteMsg::UpdateConfig { config },
         &[],
@@ -250,7 +250,7 @@ fn test_update_agent_fails() {
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        croncat_factory_addr,
         croncat_agents_addr.clone(),
         &ExecuteMsg::UpdateConfig { config },
         &[],
@@ -907,7 +907,7 @@ fn test_tick() {
         },
     };
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        croncat_factory_addr,
         croncat_agents_addr.clone(),
         &update_config_msg,
         &[],

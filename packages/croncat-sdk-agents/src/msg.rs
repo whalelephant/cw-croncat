@@ -1,7 +1,7 @@
 use crate::types::*;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint64};
-use croncat_sdk_core::hooks::{TaskCompletedHookMsg, TaskCreatedHookMsg};
+use croncat_sdk_core::hooks::{hook_messages::*,hooks::*};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -60,6 +60,10 @@ pub enum ExecuteMsg {
     UpdateConfig { config: UpdateConfig },
     /// Tick action will remove unactive agents periodically or do and any other internal cron tasks
     Tick {},
+    /// Function for adding hooks
+    AddHook { prefix: String, addr: String },
+    /// Function for removing hooks
+    RemoveHook { prefix: String, addr: String },
 }
 
 /// Agent request response
@@ -82,6 +86,9 @@ pub enum QueryMsg {
     /// Gets the agent contract configuration
     #[returns[crate::types::Config]]
     Config {},
+
+    #[returns[HooksResponse]]
+    Hooks { prefix: String },
 }
 /// Response containing active/pending agents
 #[cw_serde]

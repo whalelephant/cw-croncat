@@ -1,14 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
-use croncat_sdk_core::hooks::*;
+use croncat_sdk_core::hooks::hook_messages::*;
 
 use crate::error::ContractError;
 use crate::helpers::*;
 use crate::msg::*;
 use crate::state::*;
 use cosmwasm_std::{
-    has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
-    QuerierWrapper, Response, StdError, StdResult, Storage, SubMsg, Uint64,
+    has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
+    StdError, StdResult, Storage, SubMsg, Uint64,
 };
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTasksResponse, GetAgentIdsResponse, UpdateConfig,
@@ -81,6 +81,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         }
         QueryMsg::GetAgentTasks { account_id } => to_binary(&query_agent_tasks(deps, account_id)?),
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Hooks { prefix } => to_binary(&HOOKS.query_hooks(deps, &prefix)?),
     }
 }
 
@@ -95,9 +96,7 @@ pub fn execute(
         ExecuteMsg::RegisterAgent { payable_account_id } => {
             register_agent(deps, info, env, payable_account_id)
         }
-        ExecuteMsg::UnregisterAgent {} => {
-            unregister_agent(deps.storage, &deps.querier, &info.sender)
-        }
+        ExecuteMsg::UnregisterAgent {} => unregister_agent(deps.storage, &info.sender),
         ExecuteMsg::UpdateAgent { payable_account_id } => {
             update_agent(deps, info, payable_account_id)
         }
@@ -106,6 +105,8 @@ pub fn execute(
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
         ExecuteMsg::TaskCompletedHook(msg) => handle_task_completed_hook(deps, &env, info, msg),
+        ExecuteMsg::AddHook { prefix, addr } => execute_add_hook(deps, info, &prefix, addr),
+        ExecuteMsg::RemoveHook { prefix, addr } => execute_remove_hook(deps, info, &prefix, addr),
     }
 }
 
@@ -261,11 +262,7 @@ fn accept_nomination_agent(
 /// Removes the agent from the active set of AGENTS.
 /// Withdraws all reward balances to the agent payable account id.
 /// In case it fails to unregister pending agent try to set `from_behind` to true
-fn unregister_agent(
-    storage: &mut dyn Storage,
-    querier: &QuerierWrapper<Empty>,
-    agent_id: &Addr,
-) -> Result<Response, ContractError> {
+fn unregister_agent(storage: &mut dyn Storage, agent_id: &Addr) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(storage)?;
     if config.paused {
         return Err(ContractError::ContractPaused);
@@ -279,7 +276,7 @@ fn unregister_agent(
             agent_id.as_str(),
             agent.payable_account_id.to_string(),
         );
-    let messages = HOOKS.prepare_hooks(storage, |h| {
+    let messages = HOOKS.prepare_hooks(storage, WITHDRAW_AGENT_HOOK_PREFIX, |h| {
         withdraw_agent_rewards_hook
             .clone()
             .into_cosmos_msg(h.to_string())
@@ -351,7 +348,7 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     let mut submessages = vec![];
     let agents_to_delete = AGENT_DISTRIBUTOR.cleanup(deps.storage, &env, &config)?;
     for agent_id in agents_to_delete {
-        let resp = unregister_agent(deps.storage, &deps.querier, &agent_id).unwrap();
+        let resp = unregister_agent(deps.storage, &agent_id).unwrap();
         // Save attributes and messages
         attributes.extend_from_slice(&resp.attributes);
         submessages.extend_from_slice(&resp.messages);
@@ -410,6 +407,7 @@ fn handle_task_completed_hook(
 pub fn execute_add_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -422,7 +420,7 @@ pub fn execute_add_hook(
 
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .add_hook(deps.storage, hook)
+        .add_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
 
     Ok(Response::new()
@@ -433,6 +431,7 @@ pub fn execute_add_hook(
 pub fn execute_remove_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -446,7 +445,7 @@ pub fn execute_remove_hook(
 
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .remove_hook(deps.storage, hook)
+        .remove_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
     Ok(Response::new()
         .add_attribute("action", "remove_hook")

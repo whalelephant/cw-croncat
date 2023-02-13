@@ -27,7 +27,6 @@ thiserror = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 cw2 = { workspace = true }
 cw-utils = { workspace = true }
-cw-controllers = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

@@ -3,7 +3,7 @@ use cosmwasm_std::Addr;
 use cosmwasm_std::StdError;
 use cosmwasm_std::WasmMsg;
 
-use crate::hooks::*;
+use crate::hooks::{hook_messages::*};
 
 #[test]
 fn tasks_remove_task_by_manager() -> Result<(), StdError> {

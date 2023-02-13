@@ -1,9 +1,8 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use croncat_sdk_core::hooks::*;
+use croncat_sdk_core::hooks::{hook_messages::*, hooks::*};
 
 use cw20::Cw20Coin;
-use cw_controllers::HooksResponse;
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
@@ -67,17 +66,14 @@ pub enum ManagerExecuteMsg {
         limit: Option<u64>,
     },
 
-    /// Withdraw agent rewards on agent removal, this should be called only by agent contract
+    /// Withdraw agent rewards on agent removal, this should be called only by agent contract if passing WithdrawAgentRewardsHookMsg,
+    /// or None for regular user call
     WithdrawAgentRewardsHook(Option<WithdrawAgentRewardsHookMsg>),
 
     /// Function for adding hooks
-    AddHook {
-        addr: String,
-    },
+    AddHook { prefix: String, addr: String },
     /// Function for removing hooks
-    RemoveHook {
-        addr: String,
-    },
+    RemoveHook { prefix: String, addr: String },
 }
 
 #[cw_serde]
@@ -104,7 +100,7 @@ pub enum ManagerQueryMsg {
     AgentRewards { agent_id: String },
 
     #[returns(HooksResponse)]
-    Hooks {  },
+    Hooks { prefix:String },
 }
 
 #[cw_serde]

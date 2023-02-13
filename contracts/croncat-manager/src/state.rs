@@ -3,8 +3,7 @@ use cosmwasm_std::{Addr, Uint128};
 pub use croncat_sdk_manager::types::Config;
 use croncat_sdk_manager::types::TaskBalance;
 use cw_storage_plus::{Item, Map};
-use cw_controllers::{Hooks};
-
+use croncat_sdk_core::hooks::{hooks::*};
 pub const CONFIG: Item<Config> = Item::new("config");
 
 // Accrued Treasury reward balance in native coin

@@ -6,6 +6,7 @@ use crate::state::{
 };
 use cosmwasm_std::{coin, BlockInfo};
 use cosmwasm_std::{coins, to_binary, Addr, Empty};
+use croncat_sdk_core::hooks::hook_messages::*;
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Contract, ContractWrapper, Executor};
 
@@ -226,13 +227,84 @@ pub(crate) fn init_croncat_tasks_contract(
 
 pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     let (_, croncat_factory_addr) = init_croncat_factory(app);
-    let (_, croncat_manager_addr) =
-        init_croncat_manager_contract(app, None, None, croncat_factory_addr.as_str());
-    let (_, croncat_tasks_addr) =
-        init_croncat_tasks_contract(app, None, None, &croncat_factory_addr);
-    let (croncat_agents_code_id, croncat_agents_addr) =
-        init_agents_contract(app, None, None, croncat_factory_addr.as_str());
+    let (_, croncat_manager_addr) = init_croncat_manager_contract(
+        app,
+        Some(ADMIN),
+        Some(croncat_factory_addr.clone().to_string()),
+        croncat_factory_addr.as_str(),
+    );
+    let (_, croncat_tasks_addr) = init_croncat_tasks_contract(
+        app,
+        Some(ADMIN),
+        Some(croncat_factory_addr.clone().to_string()),
+        &croncat_factory_addr,
+    );
+    let (croncat_agents_code_id, croncat_agents_addr) = init_agents_contract(
+        app,
+        Some(ADMIN),
+        Some(croncat_factory_addr.clone().to_string()),
+        croncat_factory_addr.as_str(),
+    );
 
+    //Add hooks
+
+    //Add hook for manager -> agents contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCreatedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCompletedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook for agents -> manager contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_agents_addr.clone(),
+        &croncat_sdk_agents::msg::ExecuteMsg::AddHook {
+            prefix: WithdrawAgentRewardsHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to tasks allowing manager -> tasks contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to manager contract for tasks -> manager contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RescheduleTaskHookMsg::prefix().to_owned(),
+            addr: croncat_tasks_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
     TestScope {
         croncat_factory_addr,
         croncat_agents_code_id: Some(croncat_agents_code_id),

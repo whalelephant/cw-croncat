@@ -1,12 +1,9 @@
 use cosmwasm_std::{
-    coin, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
-    MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
-    WasmMsg,
+    coin, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
+    QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
-use croncat_sdk_core::{
-    hooks::*, types::AmountForOneTask,
-};
+use croncat_sdk_core::{hooks::hook_messages::*, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
 use croncat_sdk_tasks::types::{Boundary, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -313,12 +310,13 @@ pub(crate) fn finalize_task(
             task_hash: queue_item.task.task_hash.into_bytes(),
             sender: None,
         };
-        let rem_task_msgs = HOOKS.prepare_hooks(deps.storage, |h| {
-            rem_message
-                .clone()
-                .into_cosmos_msg(h.to_string())
-                .map(SubMsg::new)
-        })?;
+        let rem_task_msgs =
+            HOOKS.prepare_hooks(deps.storage, RemoveTaskHookMsg::prefix(), |h| {
+                rem_message
+                    .clone()
+                    .into_cosmos_msg(h.to_string())
+                    .map(SubMsg::new)
+            })?;
         Ok(Response::new()
             .add_submessages(rem_task_msgs)
             .add_message(BankMsg::Send {
@@ -334,10 +332,12 @@ pub(crate) fn finalize_task(
         let msg = RescheduleTaskHookMsg {
             task_hash: queue_item.task.task_hash.into_bytes(),
         };
-        let reschedule_msgs = HOOKS.prepare_hooks(deps.storage, |h| {
-            msg.clone().into_cosmos_msg(h.to_string())
-            .map(|m|SubMsg::reply_always(m, TASK_REPLY))
-        })?;
+        let reschedule_msgs =
+            HOOKS.prepare_hooks(deps.storage, RescheduleTaskHookMsg::prefix(), |h| {
+                msg.clone()
+                    .into_cosmos_msg(h.to_string())
+                    .map(|m| SubMsg::reply_always(m, TASK_REPLY))
+            })?;
         Ok(Response::new().add_submessages(reschedule_msgs))
     }
 }

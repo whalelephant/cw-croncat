@@ -4,7 +4,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
     Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmQuery,
 };
-use croncat_sdk_core::hooks::*;
+use croncat_sdk_core::hooks::hook_messages::*;
 
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, TaskInfo};
@@ -141,8 +141,8 @@ pub fn execute(
         ExecuteMsg::WithdrawAgentRewardsHook(msg) => {
             execute_withdraw_agent_rewards_hook(deps, info, msg)
         }
-        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, info, addr),
-        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
+        ExecuteMsg::AddHook { prefix, addr } => execute_add_hook(deps, info, &prefix, addr),
+        ExecuteMsg::RemoveHook { prefix, addr } => execute_remove_hook(deps, info, &prefix, addr),
     }
 }
 
@@ -243,7 +243,6 @@ fn execute_proxy_call(
             task,
             config,
             agent_addr,
-            tasks_addr,
             Some(vec![Attribute::new("lifecycle", "task_ended")]),
         );
     }
@@ -296,7 +295,6 @@ fn execute_proxy_call(
                 task,
                 config,
                 agent_addr,
-                tasks_addr,
                 Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
             );
         }
@@ -320,7 +318,6 @@ fn end_task(
     task: TaskInfo,
     config: Config,
     agent_addr: Addr,
-    tasks_addr: Addr,
     attrs: Option<Vec<Attribute>>,
 ) -> Result<Response, ContractError> {
     // Sub gas/fee from native
@@ -353,15 +350,19 @@ fn end_task(
         &config.native_denom,
         task.task_hash.as_bytes(),
     )?;
-    let remove_task_hook_msg = croncat_sdk_core::hooks::RescheduleTaskHookMsg {
+    let remove_task_hook_msg = RescheduleTaskHookMsg {
         task_hash: task.task_hash.into_bytes(),
     };
-    let messages = HOOKS.prepare_hooks(deps.storage, |h| {
-        remove_task_hook_msg
-            .clone()
-            .into_cosmos_msg(h.to_string())
-            .map(SubMsg::new)
-    })?;
+    let messages = HOOKS.prepare_hooks(
+        deps.storage,
+        RescheduleTaskHookMsg::prefix(),
+        |h| {
+            remove_task_hook_msg
+                .clone()
+                .into_cosmos_msg(h.to_string())
+                .map(SubMsg::new)
+        },
+    )?;
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,
@@ -553,7 +554,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .may_load(deps.storage, &Addr::unchecked(agent_id))?
                 .unwrap_or(Uint128::zero()),
         ),
-        QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
+        QueryMsg::Hooks { prefix } => to_binary(&HOOKS.query_hooks(deps, &prefix)?),
     }
 }
 
@@ -597,12 +598,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     &queue_item.agent_addr,
                     !matches!(queue_item.task.interval, Interval::Cron(_)),
                 )?;
-                let messages = HOOKS.prepare_hooks(deps.storage, |h| {
-                    completed_hook_msg
-                        .clone()
-                        .into_cosmos_msg(h.to_string())
-                        .map(SubMsg::new)
-                })?;
+                let messages =
+                    HOOKS.prepare_hooks(deps.storage, TaskCompletedHookMsg::prefix(), |h| {
+                        completed_hook_msg
+                            .clone()
+                            .into_cosmos_msg(h.to_string())
+                            .map(SubMsg::new)
+                    })?;
                 Ok(finalize_task(deps, queue_item)?
                     .add_submessages(messages)
                     .add_attributes(failures))
@@ -617,6 +619,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
 pub fn execute_add_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -628,17 +631,19 @@ pub fn execute_add_hook(
     check_ready_for_execution(&info, &config)?;
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .add_hook(deps.storage, hook)
+        .add_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
 
     Ok(Response::new()
         .add_attribute("action", "add_hook")
+        .add_attribute("prefix", prefix)
         .add_attribute("hook", addr))
 }
 
 pub fn execute_remove_hook(
     deps: DepsMut,
     info: MessageInfo,
+    prefix: &str,
     addr: String,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
@@ -650,9 +655,10 @@ pub fn execute_remove_hook(
     check_ready_for_execution(&info, &config)?;
     let hook = deps.api.addr_validate(&addr)?;
     HOOKS
-        .remove_hook(deps.storage, hook)
+        .remove_hook(deps.storage, prefix, hook)
         .map_err(|e| StdError::generic_err(e.to_string()))?;
     Ok(Response::new()
         .add_attribute("action", "remove_hook")
+        .add_attribute("prefix", prefix)
         .add_attribute("hook", addr))
 }

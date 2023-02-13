@@ -1,7 +1,6 @@
 use crate::types::TaskRequest;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use croncat_sdk_core::hooks::*;
-use cw_controllers::HooksResponse;
+use croncat_sdk_core::hooks::{hook_messages::*, hooks::*};
 
 #[cw_serde]
 pub struct TasksInstantiateMsg {
@@ -55,7 +54,6 @@ pub enum TasksExecuteMsg {
     CreateTask {
         task: Box<TaskRequest>,
     },
-
     /// Deletes a task in its entirety, returning any remaining balance to task owner.
     RemoveTask {
         task_hash: String,
@@ -63,16 +61,16 @@ pub enum TasksExecuteMsg {
     // Methods for other internal contracts
     /// Remove task, used by the manager if task reached it's stop condition
     RemoveTaskHook(RescheduleTaskHookMsg),
-    
     /// Try to reschedule a task, if possible, used by the manager
     RescheduleTaskHook(RescheduleTaskHookMsg),
-
     /// Function for adding hooks
     AddHook {
+        prefix: String,
         addr: String,
     },
     /// Function for removing hooks
     RemoveHook {
+        prefix: String,
         addr: String,
     },
 }
@@ -141,5 +139,5 @@ pub enum TasksQueryMsg {
     SlotTasksTotal { offset: Option<u64> },
 
     #[returns(HooksResponse)]
-    Hooks {},
+    Hooks { prefix: String },
 }

@@ -245,7 +245,6 @@ dependencies = [
  "croncat-sdk-manager",
  "croncat-sdk-tasks",
  "croncat-tasks",
- "cw-controllers 1.0.1",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw-utils 0.16.0",
@@ -293,7 +292,6 @@ dependencies = [
  "croncat-sdk-tasks",
  "croncat-tasks",
  "cw-boolean-contract",
- "cw-controllers 1.0.1",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw-utils 0.16.0",
@@ -389,7 +387,9 @@ version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "cw-storage-plus 1.0.1",
  "cw20 0.16.0",
+ "thiserror",
 ]
 
 [[package]]
@@ -408,7 +408,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "croncat-sdk-core",
- "cw-controllers 1.0.1",
  "cw20 0.16.0",
  "thiserror",
 ]
@@ -422,7 +421,6 @@ dependencies = [
  "cron_schedule",
  "croncat-mod-generic",
  "croncat-sdk-core",
- "cw-controllers 1.0.1",
  "cw20 0.16.0",
  "hex",
  "mod-sdk 0.1.0",
@@ -444,7 +442,6 @@ dependencies = [
  "croncat-sdk-factory",
  "croncat-sdk-manager",
  "croncat-sdk-tasks",
- "cw-controllers 1.0.1",
  "cw-multi-test",
  "cw-storage-plus 1.0.1",
  "cw-utils 0.16.0",
