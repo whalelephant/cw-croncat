@@ -521,5 +521,4 @@ pub(crate) fn check_task_chain(app: &App, tasks_contract: &Addr, agents_contract
             },
         )
         .unwrap();
-   
 }

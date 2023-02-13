@@ -4350,7 +4350,6 @@ fn scheduled_task_with_boundary_issue() {
     )
     .expect("Could not register agent");
 
-
     // Create a Once task with a Boundary that is soon
     let task = TaskRequest {
         interval: Interval::Once,
@@ -4385,7 +4384,6 @@ fn scheduled_task_with_boundary_issue() {
     app.update_block(|block| increment_block_height(block, Some(20)));
 
     // Have agent call proxy call, and check how it went
-
 
     let proxy_call_res = app.execute_contract(
         Addr::unchecked(AGENT0),
