@@ -248,10 +248,10 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
 
     //Add hooks
 
-    //Add hook for manager -> agents contract
+    //Add hook to tasks for tasks -> agents
     app.execute_contract(
         croncat_factory_addr.clone(),
-        croncat_manager_addr.clone(),
+        croncat_tasks_addr.clone(),
         &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
             prefix: TaskCreatedHookMsg::prefix().to_owned(),
             addr: croncat_agents_addr.to_string(),
@@ -260,9 +260,10 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     )
     .unwrap();
 
+    //Add hook to manager for tasks -> agents
     app.execute_contract(
         croncat_factory_addr.clone(),
-        croncat_manager_addr.clone(),
+        croncat_tasks_addr.clone(),
         &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
             prefix: TaskCompletedHookMsg::prefix().to_owned(),
             addr: croncat_agents_addr.to_string(),
@@ -271,7 +272,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     )
     .unwrap();
 
-    //Add hook for agents -> manager contract
+    //Add hook to agents for agents -> manager contract
     app.execute_contract(
         croncat_factory_addr.clone(),
         croncat_agents_addr.clone(),
@@ -283,24 +284,24 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     )
     .unwrap();
 
-    //Add hook to tasks allowing manager -> tasks contract
-    app.execute_contract(
-        croncat_factory_addr.clone(),
-        croncat_tasks_addr.clone(),
-        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
-            prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
-            addr: croncat_manager_addr.to_string(),
-        },
-        &[],
-    )
-    .unwrap();
-    //Add hook to manager contract for tasks -> manager contract
+    //Add hook to manager allowing manager -> tasks contract
     app.execute_contract(
         croncat_factory_addr.clone(),
         croncat_manager_addr.clone(),
         &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
-            prefix: RescheduleTaskHookMsg::prefix().to_owned(),
+            prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
             addr: croncat_tasks_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to tasks contract for manager -> tasks contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RescheduleTaskHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
         },
         &[],
     )

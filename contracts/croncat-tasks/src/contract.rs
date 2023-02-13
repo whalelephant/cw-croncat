@@ -251,7 +251,7 @@ fn execute_reschedule_task(
 fn execute_remove_task_by_manager(
     deps: DepsMut,
     info: MessageInfo,
-    remove_task_msg: RescheduleTaskHookMsg,
+    remove_task_msg: RemoveTaskHookMsg,
 ) -> Result<Response, ContractError> {
     let task_hash = remove_task_msg.task_hash;
     let config = CONFIG.load(deps.storage)?;

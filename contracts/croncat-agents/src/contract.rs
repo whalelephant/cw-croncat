@@ -369,11 +369,10 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
 fn handle_task_created_hook(
     env: Env,
     deps: DepsMut,
-    info: MessageInfo,
+    _: MessageInfo,
     _: TaskCreatedHookMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
-    croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
     AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env, &config, None)?;
     let response = Response::new().add_attribute("action", "task_created_hook");

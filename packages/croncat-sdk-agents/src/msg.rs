@@ -1,7 +1,7 @@
 use crate::types::*;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint64};
-use croncat_sdk_core::hooks::{hook_messages::*,hooks::*};
+use croncat_sdk_core::hooks::{hook_messages::*};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -87,7 +87,7 @@ pub enum QueryMsg {
     #[returns[crate::types::Config]]
     Config {},
 
-    #[returns[HooksResponse]]
+    #[returns[croncat_sdk_core::hooks::hooks::HooksResponse]]
     Hooks { prefix: String },
 }
 /// Response containing active/pending agents

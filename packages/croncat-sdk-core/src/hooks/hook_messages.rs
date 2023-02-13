@@ -7,7 +7,7 @@ pub const WITHDRAW_AGENT_HOOK_PREFIX: &str = "withdraw_agent_hook";
 pub const REMOVE_TASK_HOOK_PREFIX: &str = "remove_task_hook";
 pub const TASK_CREATED_HOOK_PREFIX: &str = "task_created_hook";
 pub const TASK_COMPLETED_HOOK_PREFIX: &str = "task_completed_hook";
-pub const CREATE_TASK_BALANCE_HOOK_PREFIX: &str = "task_completed_hook";
+pub const CREATE_TASK_BALANCE_HOOK_PREFIX: &str = "create_task_balance_hook";
 pub const RESCHEDULE_TASK_HOOK_PREFIX: &str = "reschedule_task_hook";
 
 #[cw_serde]

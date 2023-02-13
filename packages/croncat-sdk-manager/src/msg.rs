@@ -1,7 +1,9 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use croncat_sdk_core::hooks::{hook_messages::*, hooks::*};
 
+use croncat_sdk_core::hooks::{
+    hook_messages::{CreateTaskBalanceHookMsg, RemoveTaskHookMsg, WithdrawAgentRewardsHookMsg},
+};
 use cw20::Cw20Coin;
 
 #[cw_serde]
@@ -71,9 +73,15 @@ pub enum ManagerExecuteMsg {
     WithdrawAgentRewardsHook(Option<WithdrawAgentRewardsHookMsg>),
 
     /// Function for adding hooks
-    AddHook { prefix: String, addr: String },
+    AddHook {
+        prefix: String,
+        addr: String,
+    },
     /// Function for removing hooks
-    RemoveHook { prefix: String, addr: String },
+    RemoveHook {
+        prefix: String,
+        addr: String,
+    },
 }
 
 #[cw_serde]
@@ -99,8 +107,8 @@ pub enum ManagerQueryMsg {
     #[returns(cosmwasm_std::Uint128)]
     AgentRewards { agent_id: String },
 
-    #[returns(HooksResponse)]
-    Hooks { prefix:String },
+    #[returns(croncat_sdk_core::hooks::hooks::HooksResponse)]
+    Hooks { prefix: String },
 }
 
 #[cw_serde]
@@ -108,4 +116,3 @@ pub enum ManagerReceiveMsg {
     RefillTempBalance {},
     RefillTaskBalance { task_hash: String },
 }
-
