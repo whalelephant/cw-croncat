@@ -69,6 +69,17 @@ const start = async () => {
     var modules = await modulesClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
     console.info(`🏗️  Modules Done`)
 
+    //add hooks
+    taskClient.addHook(userAddress,"task_created_hook",agentContractAddr,executeGas);
+    taskClient.addHook(userAddress,"create_task_balance_hook",managerAddress,executeGas);
+    taskClient.addHook(userAddress,"remove_task_hook",managerAddress,executeGas);
+
+    managerClient.addHook(userAddress,"task_completed_hook",agentContractAddr,executeGas);
+    managerClient.addHook(userAddress,"reschedule_task_hook",managerAddress,executeGas);
+    managerClient.addHook(userAddress,"remove_task_hook",taskContractAddr,executeGas);
+
+    agentClient.addHook(userAddress,"withdraw_agent_hook",managerAddress,executeGas);
+    
     // Show all
     const output = [
         { name: 'factory', code_id: factoryId, address: factoryAddress },
@@ -84,6 +95,8 @@ const start = async () => {
 
     process.exit()
 }
+
+
 
 // Start deployment
 (() => start())()

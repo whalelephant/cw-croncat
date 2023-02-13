@@ -90,4 +90,8 @@ export class ManagerClient {
 		const response = await this.client.execute(sender, contractAddr, msg, gas, funds);
 		return response;
 	}
+	async addHook(sender: string,prefix:string,contractAddr: string,gas: StdFee) {
+		const msg = { add_hook: { prefix, addr: contractAddr } };
+		await this.client.execute(sender, contractAddr, msg, gas);
+	}
 }
