@@ -1,11 +1,8 @@
-
 use thiserror::Error;
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{
-    Addr, CustomQuery, Deps, StdError, StdResult, Storage, SubMsg,
-};
-use cw_storage_plus::{Map};
+use cosmwasm_std::{Addr, CustomQuery, Deps, StdError, StdResult, Storage, SubMsg};
+use cw_storage_plus::Map;
 #[cw_serde]
 pub struct HooksResponse {
     pub hooks: Vec<String>,
@@ -37,7 +34,7 @@ impl<'a> Hooks<'a> {
         prefix: &str,
         addr: Addr,
     ) -> Result<(), HookError> {
-        let mut hooks = self.0.may_load(storage, prefix.clone())?.unwrap_or_default();
+        let mut hooks = self.0.may_load(storage, prefix)?.unwrap_or_default();
         if !hooks.iter().any(|h| h == &addr) {
             hooks.push(addr);
         } else {
@@ -48,7 +45,7 @@ impl<'a> Hooks<'a> {
 
     pub fn remove_hooks(&self, storage: &mut dyn Storage, prefix: &str) -> Result<(), HookError> {
         self.0
-            .may_load(storage, prefix.clone())?
+            .may_load(storage, prefix)?
             .ok_or(HookError::HookNotRegistered {})?;
         self.0.remove(storage, prefix); //remove all hooks by prefix
         Ok(())
@@ -61,7 +58,7 @@ impl<'a> Hooks<'a> {
     ) -> Result<(), HookError> {
         let mut hooks = self
             .0
-            .may_load(storage, prefix.clone())?
+            .may_load(storage, prefix)?
             .ok_or(HookError::HookNotRegistered {})
             .unwrap();
         if let Some(p) = hooks.iter().position(|x| x == &addr) {

@@ -28,19 +28,29 @@ export type ExecuteMsg = {
 } | {
   unregister_agent: {};
 } | {
-  on_task_created: AgentOnTaskCreated;
+  task_created_hook: TaskCreatedHookMsg;
 } | {
-  on_task_completed: AgentOnTaskCompleted;
+  task_completed_hook: TaskCompletedHookMsg;
 } | {
   update_config: {
     config: UpdateConfig;
   };
 } | {
   tick: {};
+} | {
+  add_hook: {
+    addr: string;
+    prefix: string;
+  };
+} | {
+  remove_hook: {
+    addr: string;
+    prefix: string;
+  };
 };
 export type Addr = string;
-export interface AgentOnTaskCreated {}
-export interface AgentOnTaskCompleted {
+export interface TaskCreatedHookMsg {}
+export interface TaskCompletedHookMsg {
   agent_id: Addr;
   is_block_slot_task: boolean;
 }
@@ -71,6 +81,10 @@ export type QueryMsg = {
   };
 } | {
   config: {};
+} | {
+  hooks: {
+    prefix: string;
+  };
 };
 export interface Config {
   agent_nomination_block_duration: number;
@@ -105,4 +119,7 @@ export interface GetAgentIdsResponse {
 export interface AgentTasksResponse {
   total_block_tasks: Uint64;
   total_cron_tasks: Uint64;
+}
+export interface HooksResponse {
+  hooks: string[];
 }

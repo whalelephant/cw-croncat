@@ -204,7 +204,7 @@ fn execute_proxy_call(
 
         // A hash means agent is attempting to execute evented task
         deps.querier.query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
         )?
     } else {
@@ -222,7 +222,7 @@ fn execute_proxy_call(
 
         // get a scheduled task
         deps.querier.query_wasm_smart(
-            tasks_addr.clone(),
+            tasks_addr,
             &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
         )?
     };
@@ -352,19 +352,15 @@ fn end_task(
     )?;
     let remove_task_hook_msg = RemoveTaskHookMsg {
         task_hash: task.task_hash.into_bytes(),
-        sender:None,
+        sender: None,
     };
-    let messages = HOOKS.prepare_hooks(
-        deps.storage,
-        RemoveTaskHookMsg::prefix(),
-        |h| {
-            remove_task_hook_msg
-                .clone()
-                .into_cosmos_msg(h.to_string())
-                .map(SubMsg::new)
-        },
-    )?;
-    println!("remove in manager {:?}",messages);
+    let messages = HOOKS.prepare_hooks(deps.storage, RemoveTaskHookMsg::prefix(), |h| {
+        remove_task_hook_msg
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
+    println!("remove in manager {:?}", messages);
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,

@@ -53,7 +53,8 @@ mod instantiate_tests {
         let mut app = default_app();
         let factory_addr = init_factory(&mut app);
 
-        let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+        let instantiate_msg: InstantiateMsg =
+            default_instantiate_message(Some(factory_addr.to_string()));
         let send_funds: &[Coin] = &[coin(600, DENOM)];
 
         let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
@@ -197,7 +198,8 @@ fn update_config() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
     app.sudo(
@@ -284,7 +286,8 @@ fn invalid_updates_config() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
     app.sudo(
@@ -394,7 +397,8 @@ fn cw20_receive() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
 
     let cw20_addr = init_cw20(&mut app);
@@ -414,7 +418,7 @@ fn cw20_receive() {
         .unwrap();
     assert_eq!(err, ContractError::NotSupportedCw20 {});
 
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -442,13 +446,14 @@ fn cw20_bad_messages() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
@@ -501,14 +506,15 @@ fn users_withdraws() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     // refill balances
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -566,13 +572,14 @@ fn failed_users_withdraws() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
 
     // try to withdraw empty balances
     let err: ContractError = app
@@ -622,7 +629,8 @@ fn withdraw_balances() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
 
     let attach_funds = vec![coin(2400, DENOM), coin(5000, "denom")];
     app.sudo(
@@ -638,7 +646,7 @@ fn withdraw_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -686,7 +694,8 @@ fn failed_move_balances() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
 
     let attach_funds = vec![coin(2400, DENOM), coin(5000, "denom")];
@@ -701,7 +710,7 @@ fn failed_move_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr,
@@ -733,7 +742,8 @@ fn simple_bank_transfers_block() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -1013,7 +1023,8 @@ fn simple_bank_transfers_cron() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -1343,7 +1354,8 @@ fn multi_coin_bank_transfers() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -1483,7 +1495,8 @@ fn cw20_action_transfer() {
     let factory_addr = init_factory(&mut app);
     let cw20_addr = init_cw20(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -1495,7 +1508,7 @@ fn cw20_action_transfer() {
         &tasks_addr,
         &agents_addr,
     ); // Refill balance
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         cw20_addr.clone(),
@@ -1708,7 +1721,8 @@ fn task_with_query() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -1993,7 +2007,8 @@ fn recurring_task_block_immediate() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -2296,7 +2311,8 @@ fn recurring_task_block_block_interval() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -2469,7 +2485,8 @@ fn recurring_task_cron() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -2766,7 +2783,8 @@ fn negative_proxy_call() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -2781,7 +2799,7 @@ fn negative_proxy_call() {
     let mod_balances = init_mod_balances(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
 
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
@@ -2976,7 +2994,8 @@ fn test_withdraw_agent_fail() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -3083,7 +3102,8 @@ fn test_withdraw_agent_success() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -3364,7 +3384,8 @@ fn refill_task_balance_fail() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -3637,7 +3658,8 @@ fn refill_task_balance_success() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -3793,7 +3815,8 @@ fn refill_task_cw20_fail() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -3805,7 +3828,7 @@ fn refill_task_cw20_fail() {
         &agents_addr,
     );
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
@@ -4011,7 +4034,12 @@ fn refill_task_cw20_fail() {
 
     // Try RefillTaskCw20Balance with wrong cw20 address
     let new_cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, new_cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        new_cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         new_cw20_addr.clone(),
@@ -4136,7 +4164,8 @@ fn refill_task_cw20_success() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
 
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agents_addr = init_agents(&mut app, &factory_addr);
     let tasks_addr = init_tasks(&mut app, &factory_addr);
@@ -4148,7 +4177,7 @@ fn refill_task_cw20_success() {
         &agents_addr,
     );
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app,&factory_addr, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(&mut app, &factory_addr, &manager_addr, cw20_addr.as_str());
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
@@ -4298,7 +4327,8 @@ fn scheduled_task_with_boundary_issue() {
     let factory_addr = init_factory(&mut app);
 
     // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let tasks_addr = init_tasks(&mut app, &factory_addr);
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agent_addr = init_agents(&mut app, &factory_addr);
@@ -4404,7 +4434,8 @@ fn event_task_with_boundary_issue() {
     let factory_addr = init_factory(&mut app);
 
     // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let tasks_addr = init_tasks(&mut app, &factory_addr);
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agent_addr = init_agents(&mut app, &factory_addr);
@@ -4513,7 +4544,8 @@ fn event_task_with_failed_check_result() {
     let factory_addr = init_factory(&mut app);
 
     // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let tasks_addr = init_tasks(&mut app, &factory_addr);
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agent_addr = init_agents(&mut app, &factory_addr);
@@ -4650,7 +4682,8 @@ fn immediate_event_task_has_multiple_executions() {
     let factory_addr = init_factory(&mut app);
 
     // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
-    let instantiate_msg: InstantiateMsg = default_instantiate_message(Some(factory_addr.to_string()));
+    let instantiate_msg: InstantiateMsg =
+        default_instantiate_message(Some(factory_addr.to_string()));
     let tasks_addr = init_tasks(&mut app, &factory_addr);
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agent_addr = init_agents(&mut app, &factory_addr);

@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, BoundaryHeight, BoundaryTime, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, ArrayOfString, ArrayOfUint64, ArrayOfTaskInfo, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskResponse } from "./CroncatTasks.types";
+import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, Addr, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, BoundaryHeight, BoundaryTime, Cw20Coin, CroncatQuery, Transform, RemoveTaskHookMsg, RescheduleTaskHookMsg, QueryMsg, Task, AmountForOneTask, Cw20CoinVerified, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, ArrayOfString, ArrayOfUint64, ArrayOfTaskInfo, HooksResponse, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskResponse } from "./CroncatTasks.types";
 export interface CroncatTasksReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
@@ -81,6 +81,11 @@ export interface CroncatTasksReadOnlyInterface {
   }: {
     offset?: number;
   }) => Promise<SlotTasksTotalResponse>;
+  hooks: ({
+    prefix
+  }: {
+    prefix: string;
+  }) => Promise<HooksResponse>;
 }
 export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
   client: CosmWasmClient;
@@ -103,6 +108,7 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
     this.slotHashes = this.slotHashes.bind(this);
     this.slotIds = this.slotIds.bind(this);
     this.slotTasksTotal = this.slotTasksTotal.bind(this);
+    this.hooks = this.hooks.bind(this);
   }
 
   config = async (): Promise<Config> => {
@@ -262,6 +268,17 @@ export class CroncatTasksQueryClient implements CroncatTasksReadOnlyInterface {
       }
     });
   };
+  hooks = async ({
+    prefix
+  }: {
+    prefix: string;
+  }): Promise<HooksResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      hooks: {
+        prefix
+      }
+    });
+  };
 }
 export interface CroncatTasksInterface extends CroncatTasksReadOnlyInterface {
   contractAddress: string;
@@ -299,15 +316,31 @@ export interface CroncatTasksInterface extends CroncatTasksReadOnlyInterface {
   }: {
     taskHash: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  removeTaskByManager: ({
+  removeTaskHook: ({
+    sender,
+    taskHash
+  }: {
+    sender?: Addr;
+    taskHash: number[];
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  rescheduleTaskHook: ({
     taskHash
   }: {
     taskHash: number[];
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  rescheduleTask: ({
-    taskHash
+  addHook: ({
+    addr,
+    prefix
   }: {
-    taskHash: number[];
+    addr: string;
+    prefix: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  removeHook: ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
 export class CroncatTasksClient extends CroncatTasksQueryClient implements CroncatTasksInterface {
@@ -323,8 +356,10 @@ export class CroncatTasksClient extends CroncatTasksQueryClient implements Cronc
     this.updateConfig = this.updateConfig.bind(this);
     this.createTask = this.createTask.bind(this);
     this.removeTask = this.removeTask.bind(this);
-    this.removeTaskByManager = this.removeTaskByManager.bind(this);
-    this.rescheduleTask = this.rescheduleTask.bind(this);
+    this.removeTaskHook = this.removeTaskHook.bind(this);
+    this.rescheduleTaskHook = this.rescheduleTaskHook.bind(this);
+    this.addHook = this.addHook.bind(this);
+    this.removeHook = this.removeHook.bind(this);
   }
 
   updateConfig = async ({
@@ -387,25 +422,56 @@ export class CroncatTasksClient extends CroncatTasksQueryClient implements Cronc
       }
     }, fee, memo, funds);
   };
-  removeTaskByManager = async ({
+  removeTaskHook = async ({
+    sender,
     taskHash
   }: {
+    sender?: Addr;
     taskHash: number[];
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      remove_task_by_manager: {
+      remove_task_hook: {
+        sender,
         task_hash: taskHash
       }
     }, fee, memo, funds);
   };
-  rescheduleTask = async ({
+  rescheduleTaskHook = async ({
     taskHash
   }: {
     taskHash: number[];
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      reschedule_task: {
+      reschedule_task_hook: {
         task_hash: taskHash
+      }
+    }, fee, memo, funds);
+  };
+  addHook = async ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      add_hook: {
+        addr,
+        prefix
+      }
+    }, fee, memo, funds);
+  };
+  removeHook = async ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      remove_hook: {
+        addr,
+        prefix
       }
     }, fee, memo, funds);
   };

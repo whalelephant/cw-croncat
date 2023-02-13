@@ -419,7 +419,7 @@ pub(crate) fn default_instantiate_message(owner_addr: Option<String>) -> Instant
         version: Some(VERSION.to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(owner_addr.unwrap_or(ADMIN.to_owned())),
+        owner_addr: Some(owner_addr.unwrap_or_else(|| ADMIN.to_owned())),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,

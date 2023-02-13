@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, Addr, UpdateConfig, Cw20Coin, Cw20ReceiveMsg, ManagerCreateTaskBalance, AmountForOneTask, Coin, Cw20CoinVerified, ManagerRemoveTask, AgentWithdrawOnRemovalArgs, QueryMsg, Config, TaskBalanceResponse, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
+import { InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, Addr, UpdateConfig, Cw20Coin, Cw20ReceiveMsg, CreateTaskBalanceHookMsg, AmountForOneTask, Coin, Cw20CoinVerified, RemoveTaskHookMsg, WithdrawAgentRewardsHookMsg, QueryMsg, Config, HooksResponse, TaskBalanceResponse, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
 export interface CroncatManagerReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
@@ -30,6 +30,11 @@ export interface CroncatManagerReadOnlyInterface {
   }: {
     agentId: string;
   }) => Promise<Uint128>;
+  hooks: ({
+    prefix
+  }: {
+    prefix: string;
+  }) => Promise<HooksResponse>;
 }
 export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterface {
   client: CosmWasmClient;
@@ -43,6 +48,7 @@ export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterfac
     this.usersBalances = this.usersBalances.bind(this);
     this.taskBalance = this.taskBalance.bind(this);
     this.agentRewards = this.agentRewards.bind(this);
+    this.hooks = this.hooks.bind(this);
   }
 
   config = async (): Promise<Config> => {
@@ -91,6 +97,17 @@ export class CroncatManagerQueryClient implements CroncatManagerReadOnlyInterfac
     return this.client.queryContractSmart(this.contractAddress, {
       agent_rewards: {
         agent_id: agentId
+      }
+    });
+  };
+  hooks = async ({
+    prefix
+  }: {
+    prefix: string;
+  }): Promise<HooksResponse> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      hooks: {
+        prefix
       }
     });
   };
@@ -145,7 +162,7 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
     msg: Binary;
     sender: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  createTaskBalance: ({
+  createTaskBalanceHook: ({
     amountForOneTask,
     cw20,
     recurring,
@@ -158,11 +175,11 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
     sender: Addr;
     taskHash: number[];
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  removeTask: ({
+  removeTaskHook: ({
     sender,
     taskHash
   }: {
-    sender: Addr;
+    sender?: Addr;
     taskHash: number[];
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   ownerWithdraw: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
@@ -171,7 +188,21 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
   }: {
     limit?: number;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  agentWithdraw: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  withdrawAgentRewardsHook: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  addHook: ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  removeHook: ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
 }
 export class CroncatManagerClient extends CroncatManagerQueryClient implements CroncatManagerInterface {
   client: SigningCosmWasmClient;
@@ -188,11 +219,13 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     this.refillTaskBalance = this.refillTaskBalance.bind(this);
     this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.receive = this.receive.bind(this);
-    this.createTaskBalance = this.createTaskBalance.bind(this);
-    this.removeTask = this.removeTask.bind(this);
+    this.createTaskBalanceHook = this.createTaskBalanceHook.bind(this);
+    this.removeTaskHook = this.removeTaskHook.bind(this);
     this.ownerWithdraw = this.ownerWithdraw.bind(this);
     this.userWithdraw = this.userWithdraw.bind(this);
-    this.agentWithdraw = this.agentWithdraw.bind(this);
+    this.withdrawAgentRewardsHook = this.withdrawAgentRewardsHook.bind(this);
+    this.addHook = this.addHook.bind(this);
+    this.removeHook = this.removeHook.bind(this);
   }
 
   updateConfig = async ({
@@ -283,7 +316,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
       }
     }, fee, memo, funds);
   };
-  createTaskBalance = async ({
+  createTaskBalanceHook = async ({
     amountForOneTask,
     cw20,
     recurring,
@@ -297,7 +330,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     taskHash: number[];
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      create_task_balance: {
+      create_task_balance_hook: {
         amount_for_one_task: amountForOneTask,
         cw20,
         recurring,
@@ -306,15 +339,15 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
       }
     }, fee, memo, funds);
   };
-  removeTask = async ({
+  removeTaskHook = async ({
     sender,
     taskHash
   }: {
-    sender: Addr;
+    sender?: Addr;
     taskHash: number[];
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      remove_task: {
+      remove_task_hook: {
         sender,
         task_hash: taskHash
       }
@@ -336,9 +369,37 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
       }
     }, fee, memo, funds);
   };
-  agentWithdraw = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+  withdrawAgentRewardsHook = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      agent_withdraw: {}
+      withdraw_agent_rewards_hook: {}
+    }, fee, memo, funds);
+  };
+  addHook = async ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      add_hook: {
+        addr,
+        prefix
+      }
+    }, fee, memo, funds);
+  };
+  removeHook = async ({
+    addr,
+    prefix
+  }: {
+    addr: string;
+    prefix: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      remove_hook: {
+        addr,
+        prefix
+      }
     }, fee, memo, funds);
   };
 }

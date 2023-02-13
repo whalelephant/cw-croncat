@@ -37,9 +37,9 @@ export type ExecuteMsg = {
 } | {
   receive: Cw20ReceiveMsg;
 } | {
-  create_task_balance: ManagerCreateTaskBalance;
+  create_task_balance_hook: CreateTaskBalanceHookMsg;
 } | {
-  remove_task: ManagerRemoveTask;
+  remove_task_hook: RemoveTaskHookMsg;
 } | {
   owner_withdraw: {};
 } | {
@@ -47,7 +47,17 @@ export type ExecuteMsg = {
     limit?: number | null;
   };
 } | {
-  agent_withdraw: AgentWithdrawOnRemovalArgs | null;
+  withdraw_agent_rewards_hook: WithdrawAgentRewardsHookMsg | null;
+} | {
+  add_hook: {
+    addr: string;
+    prefix: string;
+  };
+} | {
+  remove_hook: {
+    addr: string;
+    prefix: string;
+  };
 };
 export type Uint128 = string;
 export type Binary = string;
@@ -72,7 +82,7 @@ export interface Cw20ReceiveMsg {
   msg: Binary;
   sender: string;
 }
-export interface ManagerCreateTaskBalance {
+export interface CreateTaskBalanceHookMsg {
   amount_for_one_task: AmountForOneTask;
   cw20?: Cw20CoinVerified | null;
   recurring: boolean;
@@ -93,11 +103,11 @@ export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
 }
-export interface ManagerRemoveTask {
-  sender: Addr;
+export interface RemoveTaskHookMsg {
+  sender?: Addr | null;
   task_hash: number[];
 }
-export interface AgentWithdrawOnRemovalArgs {
+export interface WithdrawAgentRewardsHookMsg {
   agent_id: string;
   payable_account_id: string;
 }
@@ -119,6 +129,10 @@ export type QueryMsg = {
   agent_rewards: {
     agent_id: string;
   };
+} | {
+  hooks: {
+    prefix: string;
+  };
 };
 export interface Config {
   agent_fee: number;
@@ -133,6 +147,9 @@ export interface Config {
   paused: boolean;
   treasury_addr?: Addr | null;
   treasury_fee: number;
+}
+export interface HooksResponse {
+  hooks: string[];
 }
 export interface TaskBalanceResponse {
   balance?: TaskBalance | null;

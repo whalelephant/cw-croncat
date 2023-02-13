@@ -1,7 +1,5 @@
 use crate::error::ContractError;
-use cosmwasm_std::{
-    Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128,
-};
+use cosmwasm_std::{Addr, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
@@ -38,7 +36,7 @@ pub mod croncat_tasks_contract {
 }
 pub mod croncat_manager_contract {
 
-    use croncat_sdk_core::hooks::{hook_messages::*};
+    use croncat_sdk_core::hooks::hook_messages::*;
 
     use super::*;
 
@@ -71,11 +69,10 @@ pub mod croncat_manager_contract {
         agent_id: &str,
         payable_account_id: String,
     ) -> WithdrawAgentRewardsHookMsg {
-        let hook_msg = WithdrawAgentRewardsHookMsg {
+        WithdrawAgentRewardsHookMsg {
             agent_id: agent_id.to_owned(),
             payable_account_id,
-        };
-        hook_msg
+        }
     }
 
     pub fn query_agent_rewards(

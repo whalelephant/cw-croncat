@@ -138,6 +138,6 @@ pub enum TasksQueryMsg {
     #[returns(crate::types::SlotTasksTotalResponse)]
     SlotTasksTotal { offset: Option<u64> },
 
-    #[returns[croncat_sdk_core::hooks::hooks::HooksResponse]]
+    #[returns[croncat_sdk_core::hooks::state::HooksResponse]]
     Hooks { prefix: String },
 }

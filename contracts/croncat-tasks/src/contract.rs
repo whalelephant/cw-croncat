@@ -17,8 +17,7 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::helpers::{
-    check_if_sender_is_manager, get_manager_addr, remove_task, validate_boundary,
-    validate_msg_calculate_usage,
+    check_if_sender_is_manager, remove_task, validate_boundary, validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{

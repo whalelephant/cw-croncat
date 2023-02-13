@@ -27,9 +27,19 @@ export type ExecuteMsg = {
     task_hash: string;
   };
 } | {
-  remove_task_by_manager: TasksRemoveTaskByManager;
+  remove_task_hook: RemoveTaskHookMsg;
 } | {
-  reschedule_task: TasksRescheduleTask;
+  reschedule_task_hook: RescheduleTaskHookMsg;
+} | {
+  add_hook: {
+    addr: string;
+    prefix: string;
+  };
+} | {
+  remove_hook: {
+    addr: string;
+    prefix: string;
+  };
 };
 export type CosmosMsgForEmpty = {
   bank: BankMsg;
@@ -179,6 +189,7 @@ export type ValueIndex = {
   index: number;
 };
 export type PathToValue = ValueIndex[];
+export type Addr = string;
 export interface UpdateConfigMsg {
   croncat_agents_key?: [string, [number, number]] | null;
   croncat_factory_addr?: string | null;
@@ -245,10 +256,11 @@ export interface Transform {
   query_idx: number;
   query_response_path: PathToValue;
 }
-export interface TasksRemoveTaskByManager {
+export interface RemoveTaskHookMsg {
+  sender?: Addr | null;
   task_hash: number[];
 }
-export interface TasksRescheduleTask {
+export interface RescheduleTaskHookMsg {
   task_hash: number[];
 }
 export type QueryMsg = {
@@ -308,8 +320,11 @@ export type QueryMsg = {
   slot_tasks_total: {
     offset?: number | null;
   };
+} | {
+  hooks: {
+    prefix: string;
+  };
 };
-export type Addr = string;
 export interface Task {
   actions: ActionForEmpty[];
   amount_for_one_task: AmountForOneTask;
@@ -366,6 +381,9 @@ export interface CurrentTaskInfoResponse {
 export type ArrayOfString = string[];
 export type ArrayOfUint64 = number[];
 export type ArrayOfTaskInfo = TaskInfo[];
+export interface HooksResponse {
+  hooks: string[];
+}
 export interface SlotHashesResponse {
   block_id: number;
   block_task_hash: string[];

@@ -184,11 +184,11 @@
         "description": "Remove task, used by the manager if task reached it's stop condition",
         "type": "object",
         "required": [
-          "remove_task_by_manager"
+          "remove_task_hook"
         ],
         "properties": {
-          "remove_task_by_manager": {
-            "$ref": "#/definitions/TasksRemoveTaskByManager"
+          "remove_task_hook": {
+            "$ref": "#/definitions/RemoveTaskHookMsg"
           }
         },
         "additionalProperties": false
@@ -197,11 +197,63 @@
         "description": "Try to reschedule a task, if possible, used by the manager",
         "type": "object",
         "required": [
-          "reschedule_task"
+          "reschedule_task_hook"
         ],
         "properties": {
-          "reschedule_task": {
-            "$ref": "#/definitions/TasksRescheduleTask"
+          "reschedule_task_hook": {
+            "$ref": "#/definitions/RescheduleTaskHookMsg"
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Function for adding hooks",
+        "type": "object",
+        "required": [
+          "add_hook"
+        ],
+        "properties": {
+          "add_hook": {
+            "type": "object",
+            "required": [
+              "addr",
+              "prefix"
+            ],
+            "properties": {
+              "addr": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Function for removing hooks",
+        "type": "object",
+        "required": [
+          "remove_hook"
+        ],
+        "properties": {
+          "remove_hook": {
+            "type": "object",
+            "required": [
+              "addr",
+              "prefix"
+            ],
+            "properties": {
+              "addr": {
+                "type": "string"
+              },
+              "prefix": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false
@@ -233,6 +285,10 @@
           }
         },
         "additionalProperties": false
+      },
+      "Addr": {
+        "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+        "type": "string"
       },
       "BankMsg": {
         "description": "The message types of the bank module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/bank/v1beta1/tx.proto",
@@ -839,6 +895,50 @@
           "$ref": "#/definitions/ValueIndex"
         }
       },
+      "RemoveTaskHookMsg": {
+        "type": "object",
+        "required": [
+          "task_hash"
+        ],
+        "properties": {
+          "sender": {
+            "anyOf": [
+              {
+                "$ref": "#/definitions/Addr"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "task_hash": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "RescheduleTaskHookMsg": {
+        "type": "object",
+        "required": [
+          "task_hash"
+        ],
+        "properties": {
+          "task_hash": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "uint8",
+              "minimum": 0.0
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "StakingMsg": {
         "description": "The message types of the staking module.\n\nSee https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/tx.proto",
         "oneOf": [
@@ -981,40 +1081,6 @@
             ],
             "items": {
               "$ref": "#/definitions/Transform"
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "TasksRemoveTaskByManager": {
-        "type": "object",
-        "required": [
-          "task_hash"
-        ],
-        "properties": {
-          "task_hash": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "uint8",
-              "minimum": 0.0
-            }
-          }
-        },
-        "additionalProperties": false
-      },
-      "TasksRescheduleTask": {
-        "type": "object",
-        "required": [
-          "task_hash"
-        ],
-        "properties": {
-          "task_hash": {
-            "type": "array",
-            "items": {
-              "type": "integer",
-              "format": "uint8",
-              "minimum": 0.0
             }
           }
         },
@@ -1758,6 +1824,27 @@
                 ],
                 "format": "uint64",
                 "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "hooks"
+        ],
+        "properties": {
+          "hooks": {
+            "type": "object",
+            "required": [
+              "prefix"
+            ],
+            "properties": {
+              "prefix": {
+                "type": "string"
               }
             },
             "additionalProperties": false
@@ -5252,6 +5339,23 @@
           ]
         }
       }
+    },
+    "hooks": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HooksResponse",
+      "type": "object",
+      "required": [
+        "hooks"
+      ],
+      "properties": {
+        "hooks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "slot_hashes": {
       "$schema": "http://json-schema.org/draft-07/schema#",
