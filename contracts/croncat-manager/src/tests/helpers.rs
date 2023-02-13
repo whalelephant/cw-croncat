@@ -521,8 +521,5 @@ pub(crate) fn check_task_chain(app: &App, tasks_contract: &Addr, agents_contract
             },
         )
         .unwrap();
-    println!("current_task: {current_task:?}");
-    println!("total_tasks: {total_tasks:?}");
-    println!("agents: {agents:?}");
-    println!("tasks_for_agent: {tasks_for_agent:?}");
+   
 }

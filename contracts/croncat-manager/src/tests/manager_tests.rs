@@ -4350,7 +4350,6 @@ fn scheduled_task_with_boundary_issue() {
     )
     .expect("Could not register agent");
 
-    println!("Current block height: {}", app.block_info().height);
 
     // Create a Once task with a Boundary that is soon
     let task = TaskRequest {
@@ -4387,7 +4386,6 @@ fn scheduled_task_with_boundary_issue() {
 
     // Have agent call proxy call, and check how it went
 
-    println!("Current block height: {}", app.block_info().height);
 
     let proxy_call_res = app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -4457,8 +4455,6 @@ fn event_task_with_boundary_issue() {
     )
     .expect("Could not register agent");
 
-    println!("Current block height: {}", app.block_info().height);
-
     let queries = vec![
         CroncatQuery {
             contract_addr: "aloha123".to_owned(),
@@ -4511,7 +4507,6 @@ fn event_task_with_boundary_issue() {
 
     app.update_block(|block| add_seconds_to_block(block, 120));
     app.update_block(|block| increment_block_height(block, Some(20)));
-    println!("Current block height: {}", app.block_info().height);
 
     // Have agent call proxy call, and check how it went
     let proxy_call_res = app.execute_contract(

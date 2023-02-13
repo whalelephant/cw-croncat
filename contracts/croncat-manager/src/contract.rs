@@ -360,7 +360,6 @@ fn end_task(
             .into_cosmos_msg(h.to_string())
             .map(SubMsg::new)
     })?;
-    println!("remove in manager {:?}", messages);
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,
