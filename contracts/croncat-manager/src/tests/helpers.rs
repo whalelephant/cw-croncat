@@ -114,10 +114,10 @@ pub(crate) fn add_hooks(
     //Add hook to tasks contract for manager -> tasks contract
     app.execute_contract(
         croncat_factory_addr.clone(),
-        croncat_tasks_addr.clone(),
+        croncat_manager_addr.clone(),
         &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
             prefix: RescheduleTaskHookMsg::prefix().to_owned(),
-            addr: croncat_manager_addr.to_string(),
+            addr: croncat_tasks_addr.to_string(),
         },
         &[],
     )

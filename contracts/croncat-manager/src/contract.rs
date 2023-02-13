@@ -364,7 +364,7 @@ fn end_task(
                 .map(SubMsg::new)
         },
     )?;
-    println!("reschedule {:?}",messages);
+    println!("remove in manager {:?}",messages);
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,

@@ -61,7 +61,7 @@ mod instantiate_tests {
 
         let expected_config = Config {
             paused: false,
-            owner_addr: Addr::unchecked(ADMIN),
+            owner_addr: factory_addr.clone(),
             croncat_factory_addr: factory_addr,
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -345,7 +345,7 @@ fn invalid_updates_config() {
     };
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ADMIN),
+            factory_addr.clone(),
             manager_addr.clone(),
             &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
@@ -373,7 +373,7 @@ fn invalid_updates_config() {
     };
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ADMIN),
+            factory_addr,
             manager_addr,
             &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
@@ -659,7 +659,7 @@ fn withdraw_balances() {
 
     // Withdraw all of balances
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -669,7 +669,7 @@ fn withdraw_balances() {
     // Can't withdraw empty
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ADMIN),
+            factory_addr,
             manager_addr,
             &ExecuteMsg::OwnerWithdraw {},
             &[],
@@ -857,7 +857,7 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -997,7 +997,7 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1155,7 +1155,7 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1327,7 +1327,7 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1867,7 +1867,7 @@ fn task_with_query() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -2153,7 +2153,7 @@ fn recurring_task_block_immediate() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -2623,7 +2623,7 @@ fn recurring_task_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -3059,7 +3059,7 @@ fn test_withdraw_agent_fail() {
     };
 
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
         &[],
@@ -3584,7 +3584,7 @@ fn refill_task_balance_fail() {
     };
 
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
         &[],
@@ -4071,7 +4071,7 @@ fn refill_task_cw20_fail() {
     };
 
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr,
         manager_addr.clone(),
         &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
         &[],
