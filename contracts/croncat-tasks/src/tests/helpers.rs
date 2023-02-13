@@ -6,6 +6,7 @@ use super::{
 use crate::msg::InstantiateMsg;
 
 use cosmwasm_std::{coins, to_binary, Addr, BlockInfo};
+use croncat_sdk_core::hooks::hook_messages::*;
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Executor};
 
@@ -137,7 +138,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         version: Some("0.1".to_owned()),
         croncat_manager_key: ("manager".to_string(), [0, 1]),
         croncat_tasks_key: ("tasks".to_string(), [0, 1]),
-        owner_addr: None,
+        owner_addr: Some(ADMIN.to_owned()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
@@ -181,7 +182,7 @@ pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
     InstantiateMsg {
         chain_name: "atom".to_owned(),
         version: Some("0.1".to_owned()),
-        owner_addr: None,
+        owner_addr: Some(ADMIN.to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         slot_granularity_time: None,
@@ -191,7 +192,97 @@ pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
         gas_limit: None,
     }
 }
+pub(crate) fn add_hooks(
+    app: &mut App,
+    _croncat_factory_addr: &Addr,
+    croncat_manager_addr: &Addr,
+    croncat_tasks_addr: &Addr,
+    croncat_agents_addr: &Addr,
+) {
+    //Add hooks
 
+    //Add hook to tasks for tasks -> agents
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCreatedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager for manager -> agents
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCompletedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to agents for agents -> manager contract
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_agents_addr.clone(),
+        &croncat_sdk_agents::msg::ExecuteMsg::AddHook {
+            prefix: WithdrawAgentRewardsHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager allowing manager -> tasks contract
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to tasks contract for manager -> tasks contract
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RescheduleTaskHookMsg::prefix().to_owned(),
+            addr: croncat_tasks_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to tasks contract for manager -> tasks contract
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RemoveTaskHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager contract for tasks -> manager
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RemoveTaskHookMsg::prefix().to_owned(),
+            addr: croncat_tasks_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
 pub fn add_little_time(block: &mut BlockInfo) {
     block.time = block.time.plus_seconds(19);
     block.height += 1;

@@ -1,4 +1,4 @@
-use crate::tests::common::add_seconds_to_block;
+use crate::tests::{common::add_seconds_to_block, helpers::add_hooks};
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp, Uint128,
     Uint64, WasmMsg,
@@ -49,7 +49,7 @@ mod instantiate_tests {
         let expected_config = Config {
             paused: false,
             version: "0.1".to_owned(),
-            owner_addr: factory_addr.clone(),
+            owner_addr: Addr::unchecked(ADMIN.to_owned()),
             croncat_factory_addr: factory_addr,
             chain_name: "atom".to_owned(),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
@@ -143,8 +143,14 @@ fn create_task_without_query() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
-
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    add_hooks(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        &tasks_addr,
+        &agents_addr,
+    );
     let action1 = Action {
         msg: BankMsg::Send {
             to_address: "Bob".to_owned(),
@@ -534,12 +540,18 @@ fn check_task_timestamp() {
 fn create_task_with_wasm() {
     let mut app = default_app();
     let factory_addr = init_factory(&mut app);
-
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
+    let agent_addr = init_agents(&mut app, &factory_addr);
 
+    add_hooks(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        &tasks_addr,
+        &agent_addr,
+    );
     let action = Action {
         msg: WasmMsg::Execute {
             contract_addr: manager_addr.to_string(),
@@ -607,7 +619,14 @@ fn create_tasks_with_queries_and_transforms() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    add_hooks(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        &tasks_addr,
+        &agents_addr,
+    );
 
     let action = Action {
         msg: BankMsg::Send {
@@ -939,8 +958,14 @@ fn remove_tasks_with_queries_success() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
-
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    add_hooks(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        &tasks_addr,
+        &agents_addr,
+    );
     // Create one block and one cron with queries and then remove one by one
     let task = TaskRequest {
         interval: Interval::Once,
@@ -1336,8 +1361,14 @@ fn remove_tasks_without_queries_success() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
-
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    add_hooks(
+        &mut app,
+        &factory_addr,
+        &manager_addr,
+        &tasks_addr,
+        &agents_addr,
+    );
     // Create one block and one cron without queries and then remove one by one
     let task = TaskRequest {
         interval: Interval::Once,
