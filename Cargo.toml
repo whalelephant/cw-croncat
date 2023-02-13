@@ -39,6 +39,7 @@ rusty-hook = "0.11.2"
 cw20 = { version = "0.16.0" }
 cw-multi-test = { version = "0.16.0" }
 cw20-base = { version = "0.16.0" }
+cw-controllers = "1.0.1"
 cw-storage-plus = "1.0.1"
 cron_schedule = "0.2.3"
 cw2 = "1.0.1"

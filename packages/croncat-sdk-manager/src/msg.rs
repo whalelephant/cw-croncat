@@ -1,10 +1,9 @@
 use crate::types::{GasPrice, UpdateConfig};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
-use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
-use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+use croncat_sdk_core::hooks::*;
 
 use cw20::Cw20Coin;
+use cw_controllers::HooksResponse;
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
@@ -54,10 +53,10 @@ pub enum ManagerExecuteMsg {
     Receive(cw20::Cw20ReceiveMsg),
 
     /// Create task's balance, called by the tasks contract
-    CreateTaskBalance(ManagerCreateTaskBalance),
+    CreateTaskBalanceHook(CreateTaskBalanceHookMsg),
 
     /// Remove task's balance, called by the tasks contract
-    RemoveTask(ManagerRemoveTask),
+    RemoveTaskHook(RemoveTaskHookMsg),
 
     /// Move balances from the manager to the owner address, or treasury_addr if set
     OwnerWithdraw {},
@@ -69,7 +68,16 @@ pub enum ManagerExecuteMsg {
     },
 
     /// Withdraw agent rewards on agent removal, this should be called only by agent contract
-    AgentWithdraw(Option<AgentWithdrawOnRemovalArgs>),
+    WithdrawAgentRewardsHook(Option<WithdrawAgentRewardsHookMsg>),
+
+    /// Function for adding hooks
+    AddHook {
+        addr: String,
+    },
+    /// Function for removing hooks
+    RemoveHook {
+        addr: String,
+    },
 }
 
 #[cw_serde]
@@ -94,6 +102,9 @@ pub enum ManagerQueryMsg {
 
     #[returns(cosmwasm_std::Uint128)]
     AgentRewards { agent_id: String },
+
+    #[returns(HooksResponse)]
+    Hooks {  },
 }
 
 #[cw_serde]
@@ -101,9 +112,4 @@ pub enum ManagerReceiveMsg {
     RefillTempBalance {},
     RefillTaskBalance { task_hash: String },
 }
-#[cw_serde]
-pub struct AgentWithdrawCallback {
-    pub agent_id: String,
-    pub amount: Uint128,
-    pub payable_account_id: String,
-}
+

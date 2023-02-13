@@ -3,7 +3,7 @@ use cosmwasm_std::{
     to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::types::Config;
-use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
+use croncat_sdk_core::hooks::{TaskCompletedHookMsg, TaskCreatedHookMsg};
 use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -53,6 +53,8 @@ pub mod croncat_tasks_contract {
 }
 pub mod croncat_manager_contract {
 
+    use croncat_sdk_core::hooks::WithdrawAgentRewardsHookMsg;
+
     use super::*;
 
     pub fn query_manager_config(deps: &Deps, config: &Config) -> StdResult<ManagerConfig> {
@@ -80,27 +82,17 @@ pub mod croncat_manager_contract {
             })
     }
 
-    pub fn create_withdraw_rewards_submsg(
-        querier: &QuerierWrapper<Empty>,
-        config: &Config,
+    pub fn create_withdraw_agent_rewards_hook_msg(
         agent_id: &str,
         payable_account_id: String,
-    ) -> StdResult<CosmosMsg> {
-        let addr = query_manager_addr(querier, config)?;
-        let args = AgentWithdrawOnRemovalArgs {
+    ) -> WithdrawAgentRewardsHookMsg {
+        let hook_msg = WithdrawAgentRewardsHookMsg {
             agent_id: agent_id.to_owned(),
             payable_account_id,
         };
-        let execute = CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: addr.into(),
-            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::AgentWithdraw(
-                Some(args),
-            ))?,
-            funds: vec![],
-        });
-
-        Ok(execute)
+        hook_msg
     }
+
     pub fn query_agent_rewards(
         querier: &QuerierWrapper<Empty>,
         config: &Config,

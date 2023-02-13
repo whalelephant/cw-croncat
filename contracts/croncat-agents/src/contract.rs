@@ -1,19 +1,19 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use croncat_sdk_core::hooks::*;
 
 use crate::error::ContractError;
-use crate::external::*;
+use crate::helpers::*;
 use crate::msg::*;
 use crate::state::*;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
-    QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
+    QuerierWrapper, Response, StdError, StdResult, Storage, SubMsg, Uint64,
 };
 use croncat_sdk_agents::msg::{
     AgentResponse, AgentTasksResponse, GetAgentIdsResponse, UpdateConfig,
 };
 use croncat_sdk_agents::types::{AgentInfo, Config};
-use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
@@ -102,10 +102,10 @@ pub fn execute(
             update_agent(deps, info, payable_account_id)
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
-        ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
+        ExecuteMsg::TaskCreatedHook(msg) => handle_task_created_hook(env, deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
-        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, &env, info, msg),
+        ExecuteMsg::TaskCompletedHook(msg) => handle_task_completed_hook(deps, &env, info, msg),
     }
 }
 
@@ -274,16 +274,21 @@ fn unregister_agent(
         .get_agent(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered)?;
 
-    let msg = croncat_manager_contract::create_withdraw_rewards_submsg(
-        querier,
-        &config,
-        agent_id.as_str(),
-        agent.payable_account_id.to_string(),
-    )?;
+    let withdraw_agent_rewards_hook =
+        croncat_manager_contract::create_withdraw_agent_rewards_hook_msg(
+            agent_id.as_str(),
+            agent.payable_account_id.to_string(),
+        );
+    let messages = HOOKS.prepare_hooks(storage, |h| {
+        withdraw_agent_rewards_hook
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
     AGENT_DISTRIBUTOR.remove_agent(storage, agent_id)?;
     let responses = Response::new()
         //Send withdraw rewards message to manager contract
-        .add_message(msg)
+        .add_submessages(messages)
         .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
 
@@ -364,24 +369,24 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     Ok(response)
 }
 
-fn on_task_created(
+fn handle_task_created_hook(
     env: Env,
     deps: DepsMut,
     info: MessageInfo,
-    _: AgentOnTaskCreated,
+    _: TaskCreatedHookMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
     AGENT_DISTRIBUTOR.notify_task_created(deps.storage, &env, &config, None)?;
-    let response = Response::new().add_attribute("action", "on_task_created");
+    let response = Response::new().add_attribute("action", "task_created_hook");
     Ok(response)
 }
-fn on_task_completed(
+fn handle_task_completed_hook(
     deps: DepsMut,
     env: &Env,
     info: MessageInfo,
-    args: AgentOnTaskCompleted,
+    msg: TaskCompletedHookMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.may_load(deps.storage)?.unwrap();
 
@@ -394,9 +399,56 @@ fn on_task_completed(
     AGENT_DISTRIBUTOR.notify_task_completed(
         deps.storage,
         env,
-        args.agent_id,
-        args.is_block_slot_task,
+        msg.agent_id,
+        msg.is_block_slot_task,
     )?;
-    let response = Response::new().add_attribute("action", "on_task_completed");
+    let response = Response::new().add_attribute("action", "task_completed_hook");
     Ok(response)
+}
+
+// Hooks
+pub fn execute_add_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+    if config.paused {
+        return Err(ContractError::ContractPaused);
+    }
+
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .add_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+
+    Ok(Response::new()
+        .add_attribute("action", "add_hook")
+        .add_attribute("hook", addr))
+}
+
+pub fn execute_remove_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+    if config.paused {
+        return Err(ContractError::ContractPaused);
+    }
+
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .remove_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+    Ok(Response::new()
+        .add_attribute("action", "remove_hook")
+        .add_attribute("hook", addr))
 }

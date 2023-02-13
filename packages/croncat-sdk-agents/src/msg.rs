@@ -1,7 +1,7 @@
 use crate::types::*;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint64};
-use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
+use croncat_sdk_core::hooks::{TaskCompletedHookMsg, TaskCreatedHookMsg};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -53,9 +53,9 @@ pub enum ExecuteMsg {
     /// Actions for removing agent from the system
     UnregisterAgent {},
     /// Task contract will send message when task is created
-    OnTaskCreated(AgentOnTaskCreated),
-    /// Task contract will send message when task is completed
-    OnTaskCompleted(AgentOnTaskCompleted),
+    TaskCreatedHook(TaskCreatedHookMsg),
+    /// Task contract will send message when task is created
+    TaskCompletedHook(TaskCompletedHookMsg),
     /// Action for updating agent contract configuration
     UpdateConfig { config: UpdateConfig },
     /// Tick action will remove unactive agents periodically or do and any other internal cron tasks

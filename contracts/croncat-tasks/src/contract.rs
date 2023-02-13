@@ -2,11 +2,10 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Attribute, Binary, Deps, DepsMut, Env, MessageInfo, Order, Response, StdResult,
-    Uint64,
+    SubMsg, Uint64, StdError,
 };
-use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
-use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
-use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
+use croncat_sdk_core::hooks::*;
+
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
@@ -18,12 +17,12 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::helpers::{
-    check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task, validate_boundary,
+    check_if_sender_is_manager, get_manager_addr, remove_task, validate_boundary,
     validate_msg_calculate_usage,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    tasks_map, BLOCK_SLOTS, CONFIG, EVENTED_TASKS_LOOKUP, LAST_TASK_CREATION, TASKS_TOTAL,
+    tasks_map, BLOCK_SLOTS, CONFIG, EVENTED_TASKS_LOOKUP, HOOKS, LAST_TASK_CREATION, TASKS_TOTAL,
     TIME_SLOTS,
 };
 
@@ -97,12 +96,14 @@ pub fn execute(
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, *task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
-        ExecuteMsg::RemoveTaskByManager(remove_task_msg) => {
+        ExecuteMsg::RemoveTaskHook(remove_task_msg) => {
             execute_remove_task_by_manager(deps, info, remove_task_msg)
         }
-        ExecuteMsg::RescheduleTask(reschedule_msg) => {
+        ExecuteMsg::RescheduleTaskHook(reschedule_msg) => {
             execute_reschedule_task(deps, env, info, reschedule_msg)
         }
+        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, info, addr),
+        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
     }
 }
 
@@ -151,7 +152,7 @@ fn execute_reschedule_task(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    reschedule_msg: TasksRescheduleTask,
+    reschedule_msg: RescheduleTaskHookMsg,
 ) -> Result<Response, ContractError> {
     let task_hash = reschedule_msg.task_hash;
     let config = CONFIG.load(deps.storage)?;
@@ -230,8 +231,8 @@ fn execute_reschedule_task(
                 task.boundary.is_block(),
                 task.is_evented(),
             )?;
-            task_to_remove = Some(ManagerRemoveTask {
-                sender: task.owner_addr,
+            task_to_remove = Some(RemoveTaskHookMsg {
+                sender: Some(task.owner_addr),
                 task_hash,
             });
         }
@@ -250,7 +251,7 @@ fn execute_reschedule_task(
 fn execute_remove_task_by_manager(
     deps: DepsMut,
     info: MessageInfo,
-    remove_task_msg: TasksRemoveTaskByManager,
+    remove_task_msg: RescheduleTaskHookMsg,
 ) -> Result<Response, ContractError> {
     let task_hash = remove_task_msg.task_hash;
     let config = CONFIG.load(deps.storage)?;
@@ -294,8 +295,8 @@ fn execute_remove_task(
         return Err(ContractError::NoTaskFound {});
     }
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
-    let remove_task_msg = ManagerRemoveTask {
-        sender: info.sender,
+    let remove_task_msg = RemoveTaskHookMsg {
+        sender: Some(info.sender),
         task_hash: task_hash.into_bytes(),
     }
     .into_cosmos_msg(manager_addr)?;
@@ -414,24 +415,34 @@ fn execute_create_task(
     LAST_TASK_CREATION.save(deps.storage, &env.block.time)?;
 
     let manager_addr = get_manager_addr(&deps.querier, &config)?;
-    let manager_create_task_balance_msg = ManagerCreateTaskBalance {
+    let manager_create_task_balance_msg = CreateTaskBalanceHookMsg {
         sender: owner_addr,
         task_hash: hash_vec,
         recurring,
         cw20,
         amount_for_one_task,
-    }
-    .into_cosmos_msg(manager_addr, info.funds)?;
+    };
 
-    let agent_addr = get_agents_addr(&deps.querier, &config)?;
-    let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
+    let created_task_hook_msg = TaskCreatedHookMsg {};
+    let create_messages = HOOKS.prepare_hooks(deps.storage, |h| {
+        created_task_hook_msg
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
+    let create_balance_messages = HOOKS.prepare_hooks(deps.storage, |h| {
+        manager_create_task_balance_msg
+            .clone()
+            .into_cosmos_msg(h.to_string(),info.funds.clone())
+            .map(SubMsg::new)
+    })?;
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")
         .add_attributes(attributes)
         .add_attribute("task_hash", hash)
-        .add_message(manager_create_task_balance_msg)
-        .add_message(agent_new_task_msg))
+        .add_submessages(create_messages)
+        .add_submessages(create_balance_messages))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -469,6 +480,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::SlotTasksTotal { offset } => {
             to_binary(&query_slot_tasks_total(deps, env, offset)?)
         }
+        QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
     }
 }
 
@@ -860,4 +872,45 @@ fn query_slot_ids(
         time_ids,
         block_ids,
     })
+}
+
+// Hooks
+pub fn execute_add_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .add_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+
+    Ok(Response::new()
+        .add_attribute("action", "add_hook")
+        .add_attribute("hook", addr))
+}
+
+pub fn execute_remove_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .remove_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+    Ok(Response::new()
+        .add_attribute("action", "remove_hook")
+        .add_attribute("hook", addr))
 }

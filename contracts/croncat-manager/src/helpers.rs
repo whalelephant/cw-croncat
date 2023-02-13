@@ -1,10 +1,12 @@
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
+    coin, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
     MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
     WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
-use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
+use croncat_sdk_core::{
+    hooks::*, types::AmountForOneTask,
+};
 use croncat_sdk_manager::types::{Config, TaskBalance};
 use croncat_sdk_tasks::types::{Boundary, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
@@ -12,7 +14,7 @@ use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use crate::{
     balances::{add_fee_rewards, add_user_cw20},
     contract::TASK_REPLY,
-    state::{QueueItem, CONFIG, REPLY_QUEUE, TASKS_BALANCES},
+    state::{QueueItem, CONFIG, HOOKS, REPLY_QUEUE, TASKS_BALANCES},
     ContractError,
 };
 
@@ -307,27 +309,36 @@ pub(crate) fn finalize_task(
             queue_item.task.task_hash.as_bytes(),
         )?;
         // Remove task on tasks contract
-        let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
-        let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+        let rem_message = RemoveTaskHookMsg {
             task_hash: queue_item.task.task_hash.into_bytes(),
-        }
-        .into_cosmos_msg(tasks_addr)?;
-        Ok(Response::new().add_message(msg).add_message(BankMsg::Send {
-            to_address: queue_item.task.owner_addr.into_string(),
-            amount: coins_transfer,
-        }))
+            sender: None,
+        };
+        let rem_task_msgs = HOOKS.prepare_hooks(deps.storage, |h| {
+            rem_message
+                .clone()
+                .into_cosmos_msg(h.to_string())
+                .map(SubMsg::new)
+        })?;
+        Ok(Response::new()
+            .add_submessages(rem_task_msgs)
+            .add_message(BankMsg::Send {
+                to_address: queue_item.task.owner_addr.into_string(),
+                amount: coins_transfer,
+            }))
     } else {
-        let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
         TASKS_BALANCES.save(
             deps.storage,
             queue_item.task.task_hash.as_bytes(),
             &task_balance,
         )?;
-        let msg = croncat_sdk_core::internal_messages::tasks::TasksRescheduleTask {
+        let msg = RescheduleTaskHookMsg {
             task_hash: queue_item.task.task_hash.into_bytes(),
-        }
-        .into_cosmos_msg(tasks_addr)?;
-        Ok(Response::new().add_submessage(SubMsg::reply_always(msg, TASK_REPLY)))
+        };
+        let reschedule_msgs = HOOKS.prepare_hooks(deps.storage, |h| {
+            msg.clone().into_cosmos_msg(h.to_string())
+            .map(|m|SubMsg::reply_always(m, TASK_REPLY))
+        })?;
+        Ok(Response::new().add_submessages(reschedule_msgs))
     }
 }
 
@@ -584,22 +595,13 @@ pub(crate) fn check_if_sender_is_task_owner(
     Ok(())
 }
 
-pub fn create_task_completed_msg(
-    querier: &QuerierWrapper<Empty>,
-    config: &Config,
+pub fn create_task_completed_hook_msg(
     agent_id: &Addr,
     is_block_slot_task: bool,
-) -> Result<CosmosMsg, ContractError> {
-    let addr = query_agent_addr(querier, config)?;
-    let args = AgentOnTaskCompleted {
+) -> Result<TaskCompletedHookMsg, ContractError> {
+    let msg = TaskCompletedHookMsg {
         agent_id: agent_id.to_owned(),
         is_block_slot_task,
     };
-    let execute = CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: addr.into(),
-        msg: to_binary(&croncat_sdk_agents::msg::ExecuteMsg::OnTaskCompleted(args))?,
-        funds: vec![],
-    });
-
-    Ok(execute)
+    Ok(msg)
 }

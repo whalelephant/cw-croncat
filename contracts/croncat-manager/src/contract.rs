@@ -2,12 +2,10 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdError, StdResult, Uint128, WasmQuery,
+    Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmQuery,
 };
-use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
-use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+use croncat_sdk_core::hooks::*;
 
-use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, TaskInfo};
 use cw2::set_contract_version;
@@ -21,13 +19,13 @@ use crate::error::ContractError;
 use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
-    create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
+    create_task_completed_hook_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
     is_after_boundary, is_before_boundary, parse_reply_msg, query_agent, recalculate_cw20,
     remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, QueueItem, AGENT_REWARDS, CONFIG, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
+    Config, QueueItem, AGENT_REWARDS, CONFIG, HOOKS, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
 };
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-manager";
@@ -136,22 +134,26 @@ pub fn execute(
         ExecuteMsg::RefillTaskCw20Balance { task_hash, cw20 } => {
             execute_refill_task_cw20(deps, info, task_hash, cw20)
         }
-        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
-        ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
+        ExecuteMsg::CreateTaskBalanceHook(msg) => execute_create_task_balance(deps, info, msg),
+        ExecuteMsg::RemoveTaskHook(msg) => execute_remove_task(deps, info, msg),
         ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
-        ExecuteMsg::AgentWithdraw(args) => execute_withdraw_agent_rewards(deps, info, args),
+        ExecuteMsg::WithdrawAgentRewardsHook(msg) => {
+            execute_withdraw_agent_rewards_hook(deps, info, msg)
+        }
+        ExecuteMsg::AddHook { addr } => execute_add_hook(deps, info, addr),
+        ExecuteMsg::RemoveHook { addr } => execute_remove_hook(deps, info, addr),
     }
 }
 
 fn execute_remove_task(
     deps: DepsMut,
     info: MessageInfo,
-    msg: ManagerRemoveTask,
+    msg: RemoveTaskHookMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_tasks(&deps.querier, &config, &info.sender)?;
-    let task_owner = msg.sender;
+    let task_owner = msg.sender.unwrap();
     let task_balance = TASKS_BALANCES.load(deps.storage, &msg.task_hash)?;
     let coins_transfer = remove_task_balance(
         deps.storage,
@@ -351,10 +353,15 @@ fn end_task(
         &config.native_denom,
         task.task_hash.as_bytes(),
     )?;
-    let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
+    let remove_task_hook_msg = croncat_sdk_core::hooks::RescheduleTaskHookMsg {
         task_hash: task.task_hash.into_bytes(),
-    }
-    .into_cosmos_msg(tasks_addr)?;
+    };
+    let messages = HOOKS.prepare_hooks(deps.storage, |h| {
+        remove_task_hook_msg
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,
@@ -362,7 +369,7 @@ fn end_task(
     Ok(Response::new()
         .add_attribute("action", "remove_task")
         .add_attributes(attrs.unwrap_or_default())
-        .add_message(msg)
+        .add_submessages(messages)
         .add_message(bank_send))
 }
 
@@ -439,7 +446,7 @@ pub fn execute_update_config(
 fn execute_create_task_balance(
     deps: DepsMut,
     info: MessageInfo,
-    msg: ManagerCreateTaskBalance,
+    msg: CreateTaskBalanceHookMsg,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     check_if_sender_is_tasks(&deps.querier, &config, &info.sender)?;
@@ -476,10 +483,10 @@ fn execute_create_task_balance(
 }
 
 /// Allows an agent to withdraw all rewards, paid to the specified payable account id.
-fn execute_withdraw_agent_rewards(
+fn execute_withdraw_agent_rewards_hook(
     deps: DepsMut,
     info: MessageInfo,
-    args: Option<AgentWithdrawOnRemovalArgs>,
+    msg: Option<WithdrawAgentRewardsHookMsg>,
 ) -> Result<Response, ContractError> {
     let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
@@ -489,7 +496,7 @@ fn execute_withdraw_agent_rewards(
     let payable_account_id: Addr;
     let mut fail_on_zero_balance = true;
 
-    if let Some(arg) = args {
+    if let Some(arg) = msg {
         assert_caller_is_agent_contract(&deps.querier, &config, &info.sender)?;
         agent_id = Addr::unchecked(arg.agent_id);
         payable_account_id = Addr::unchecked(arg.payable_account_id);
@@ -523,11 +530,6 @@ fn execute_withdraw_agent_rewards(
 
     Ok(Response::new()
         .add_messages(msgs)
-        .set_data(to_binary(&AgentWithdrawCallback {
-            agent_id: agent_id.to_string(),
-            amount: agent_rewards,
-            payable_account_id: payable_account_id.to_string(),
-        })?)
         .add_attribute("action", "withdraw_rewards")
         .add_attribute("payment_account_id", &payable_account_id)
         .add_attribute("rewards", agent_rewards))
@@ -551,6 +553,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
                 .may_load(deps.storage, &Addr::unchecked(agent_id))?
                 .unwrap_or(Uint128::zero()),
         ),
+        QueryMsg::Hooks {} => to_binary(&HOOKS.query_hooks(deps)?),
     }
 }
 
@@ -559,13 +562,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     match msg.id {
         TASK_REPLY => {
             let execute_data = parse_reply_execute_data(msg)?;
-            let remove_task_msg: Option<ManagerRemoveTask> =
+            let remove_task_msg: Option<RemoveTaskHookMsg> =
                 from_binary(&execute_data.data.unwrap())?;
             let Some(msg) = remove_task_msg else {
                 return Ok(Response::new())
             };
             let config = CONFIG.load(deps.storage)?;
-            let task_owner = msg.sender;
+            let task_owner = msg.sender.unwrap();
             let task_balance = TASKS_BALANCES.load(deps.storage, &msg.task_hash)?;
             let coins_transfer = remove_task_balance(
                 deps.storage,
@@ -590,19 +593,66 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                     .iter()
                     .map(|(idx, failure)| Attribute::new(format!("action{}_failure", idx), failure))
                     .collect();
-                let config = CONFIG.load(deps.storage)?;
-                let complete_msg = create_task_completed_msg(
-                    &deps.querier,
-                    &config,
+                let completed_hook_msg = create_task_completed_hook_msg(
                     &queue_item.agent_addr,
                     !matches!(queue_item.task.interval, Interval::Cron(_)),
                 )?;
+                let messages = HOOKS.prepare_hooks(deps.storage, |h| {
+                    completed_hook_msg
+                        .clone()
+                        .into_cosmos_msg(h.to_string())
+                        .map(SubMsg::new)
+                })?;
                 Ok(finalize_task(deps, queue_item)?
-                    .add_message(complete_msg)
+                    .add_submessages(messages)
                     .add_attributes(failures))
             } else {
                 Ok(Response::new())
             }
         }
     }
+}
+
+// Hooks
+pub fn execute_add_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .add_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+
+    Ok(Response::new()
+        .add_attribute("action", "add_hook")
+        .add_attribute("hook", addr))
+}
+
+pub fn execute_remove_hook(
+    deps: DepsMut,
+    info: MessageInfo,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let config: Config = CONFIG.load(deps.storage)?;
+
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+    //assert if contract is ready for execution
+    check_ready_for_execution(&info, &config)?;
+    let hook = deps.api.addr_validate(&addr)?;
+    HOOKS
+        .remove_hook(deps.storage, hook)
+        .map_err(|e| StdError::generic_err(e.to_string()))?;
+    Ok(Response::new()
+        .add_attribute("action", "remove_hook")
+        .add_attribute("hook", addr))
 }

@@ -65,4 +65,5 @@ pub enum ContractError {
 
     #[error("This cw20 address is not supported")]
     NotSupportedCw20 {},
+    
 }

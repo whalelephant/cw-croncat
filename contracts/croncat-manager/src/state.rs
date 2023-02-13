@@ -1,9 +1,9 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
+pub use croncat_sdk_manager::types::Config;
 use croncat_sdk_manager::types::TaskBalance;
 use cw_storage_plus::{Item, Map};
-
-pub use croncat_sdk_manager::types::Config;
+use cw_controllers::{Hooks};
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
@@ -20,6 +20,8 @@ pub const TEMP_BALANCES_CW20: Map<(&Addr, &Addr), Uint128> = Map::new("temp_bala
 pub const TASKS_BALANCES: Map<&[u8], TaskBalance> = Map::new("tasks_balances");
 
 pub const REPLY_QUEUE: Item<QueueItem> = Item::new("reply_queue");
+
+pub(crate) const HOOKS: Hooks = Hooks::new("manager_hooks");
 
 /// This struct will keep the task and who is doing it until the last action
 #[cw_serde]

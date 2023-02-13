@@ -1,5 +1,6 @@
 use cosmwasm_std::{Addr, Timestamp, Uint64};
 use croncat_sdk_tasks::types::{Boundary, Config, Task};
+use cw_controllers::Hooks;
 use cw_storage_plus::{Index, IndexList, IndexedMap, Item, Map, MultiIndex};
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -20,6 +21,9 @@ pub const EVENTED_TASKS_LOOKUP: Map<u64, Vec<Vec<u8>>> = Map::new("evented_task_
 
 /// Last task creation timestamp
 pub const LAST_TASK_CREATION: Item<Timestamp> = Item::new("last_task_creation");
+
+// Hooks
+pub(crate) const HOOKS: Hooks = Hooks::new("task_hooks");
 
 // TODO: make IndexedMap's const as soon as cw_storage_plus new version arrives
 pub fn tasks_map<'a>() -> IndexedMap<'a, &'a [u8], Task, TaskIndexes<'a>> {
