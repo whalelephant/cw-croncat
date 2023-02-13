@@ -1,4 +1,5 @@
 use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
+use croncat_sdk_core::hooks::hook_messages::*;
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::types::{Config, UpdateConfig};
 
@@ -54,7 +55,97 @@ pub(crate) fn init_factory(app: &mut App) -> Addr {
     )
     .unwrap()
 }
+pub(crate) fn add_hooks(
+    app: &mut App,
+    croncat_factory_addr: &Addr,
+    croncat_manager_addr: &Addr,
+    croncat_tasks_addr: &Addr,
+    croncat_agents_addr: &Addr,
+) {
+    //Add hooks
 
+    //Add hook to tasks for tasks -> agents
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCreatedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager for manager -> agents
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
+            prefix: TaskCompletedHookMsg::prefix().to_owned(),
+            addr: croncat_agents_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to agents for agents -> manager contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_agents_addr.clone(),
+        &croncat_sdk_agents::msg::ExecuteMsg::AddHook {
+            prefix: WithdrawAgentRewardsHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager allowing manager -> tasks contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to tasks contract for manager -> tasks contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RescheduleTaskHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    //Add hook to tasks contract for manager -> tasks contract
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RemoveTaskHookMsg::prefix().to_owned(),
+            addr: croncat_manager_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    //Add hook to manager contract for tasks -> manager
+    app.execute_contract(
+        croncat_factory_addr.clone(),
+        croncat_manager_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
+            prefix: RemoveTaskHookMsg::prefix().to_owned(),
+            addr: croncat_tasks_addr.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+}
 pub(crate) fn init_manager(
     app: &mut App,
     msg: &InstantiateMsg,
@@ -115,7 +206,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
     let msg = croncat_tasks::msg::InstantiateMsg {
         version: Some(VERSION.to_owned()),
         chain_name: "atom".to_owned(),
-        owner_addr: None,
+        owner_addr: Some(factory_addr.to_string()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         slot_granularity_time: None,
@@ -163,7 +254,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         version: Some(VERSION.to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-        owner_addr: None,
+        owner_addr: Some(factory_addr.to_string()),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coin_for_agent_registration: None,
@@ -322,13 +413,13 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
     .unwrap()
 }
 
-pub(crate) fn default_instantiate_message() -> InstantiateMsg {
+pub(crate) fn default_instantiate_message(owner_addr: Option<String>) -> InstantiateMsg {
     InstantiateMsg {
         denom: DENOM.to_owned(),
         version: Some(VERSION.to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(ADMIN.to_owned()),
+        owner_addr: Some(owner_addr.unwrap_or(ADMIN.to_owned())),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,
@@ -369,9 +460,14 @@ pub(crate) fn add_little_time(block: &mut BlockInfo) {
     block.height += 1;
 }
 
-pub(crate) fn support_new_cw20(app: &mut App, manager_addr: &Addr, new_cw20_addr: &str) {
+pub(crate) fn support_new_cw20(
+    app: &mut App,
+    factory_addr: &Addr,
+    manager_addr: &Addr,
+    new_cw20_addr: &str,
+) {
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
         manager_addr.to_owned(),
         &ExecuteMsg::UpdateConfig(Box::new(UpdateConfig {
             owner_addr: None,

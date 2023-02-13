@@ -294,15 +294,19 @@ fn execute_remove_task(
     } else {
         return Err(ContractError::NoTaskFound {});
     }
-    let manager_addr = get_manager_addr(&deps.querier, &config)?;
     let remove_task_msg = RemoveTaskHookMsg {
         sender: Some(info.sender),
         task_hash: task_hash.into_bytes(),
-    }
-    .into_cosmos_msg(manager_addr)?;
+    };
+    let remove_messages = HOOKS.prepare_hooks(deps.storage, RemoveTaskHookMsg::prefix(), |h| {
+        remove_task_msg
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
     Ok(Response::new()
         .add_attribute("action", "remove_task")
-        .add_message(remove_task_msg))
+        .add_submessages(remove_messages))
 }
 
 fn execute_create_task(
@@ -423,26 +427,21 @@ fn execute_create_task(
     };
 
     let created_task_hook_msg = TaskCreatedHookMsg {};
-    let create_messages = HOOKS.prepare_hooks(
-        deps.storage,
-        TaskCreatedHookMsg::prefix(),
-        |h| {
-            created_task_hook_msg
-                .clone()
-                .into_cosmos_msg(h.to_string())
-                .map(SubMsg::new)
-        },
-    )?;
-    let create_balance_messages = HOOKS.prepare_hooks(
-        deps.storage,
-        CreateTaskBalanceHookMsg::prefix(),
-        |h| {
+    let create_messages = HOOKS.prepare_hooks(deps.storage, TaskCreatedHookMsg::prefix(), |h| {
+        created_task_hook_msg
+            .clone()
+            .into_cosmos_msg(h.to_string())
+            .map(SubMsg::new)
+    })?;
+
+    let create_balance_messages =
+        HOOKS.prepare_hooks(deps.storage, CreateTaskBalanceHookMsg::prefix(), |h| {
             manager_create_task_balance_msg
                 .clone()
                 .into_cosmos_msg(h.to_string(), info.funds.clone())
                 .map(SubMsg::new)
-        },
-    )?;
+        })?;
+
     Ok(Response::new()
         .set_data(hash.as_bytes())
         .add_attribute("action", "create_task")

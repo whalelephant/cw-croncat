@@ -350,12 +350,13 @@ fn end_task(
         &config.native_denom,
         task.task_hash.as_bytes(),
     )?;
-    let remove_task_hook_msg = RescheduleTaskHookMsg {
+    let remove_task_hook_msg = RemoveTaskHookMsg {
         task_hash: task.task_hash.into_bytes(),
+        sender:None,
     };
     let messages = HOOKS.prepare_hooks(
         deps.storage,
-        RescheduleTaskHookMsg::prefix(),
+        RemoveTaskHookMsg::prefix(),
         |h| {
             remove_task_hook_msg
                 .clone()
@@ -363,6 +364,7 @@ fn end_task(
                 .map(SubMsg::new)
         },
     )?;
+    println!("reschedule {:?}",messages);
     let bank_send = BankMsg::Send {
         to_address: task.owner_addr.into_string(),
         amount: coins_transfer,
@@ -605,6 +607,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                             .into_cosmos_msg(h.to_string())
                             .map(SubMsg::new)
                     })?;
+
                 Ok(finalize_task(deps, queue_item)?
                     .add_submessages(messages)
                     .add_attributes(failures))

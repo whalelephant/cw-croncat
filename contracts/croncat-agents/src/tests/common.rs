@@ -260,10 +260,10 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     )
     .unwrap();
 
-    //Add hook to manager for tasks -> agents
+    //Add hook to manager for manager -> agents
     app.execute_contract(
         croncat_factory_addr.clone(),
-        croncat_tasks_addr.clone(),
+        croncat_manager_addr.clone(),
         &croncat_sdk_manager::msg::ManagerExecuteMsg::AddHook {
             prefix: TaskCompletedHookMsg::prefix().to_owned(),
             addr: croncat_agents_addr.to_string(),
@@ -287,10 +287,10 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
     //Add hook to manager allowing manager -> tasks contract
     app.execute_contract(
         croncat_factory_addr.clone(),
-        croncat_manager_addr.clone(),
+        croncat_tasks_addr.clone(),
         &croncat_sdk_tasks::msg::TasksExecuteMsg::AddHook {
             prefix: CreateTaskBalanceHookMsg::prefix().to_owned(),
-            addr: croncat_tasks_addr.to_string(),
+            addr: croncat_manager_addr.to_string(),
         },
         &[],
     )
