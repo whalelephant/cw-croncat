@@ -215,7 +215,7 @@ fn execute_proxy_call(
                 stop_on_fail: task.stop_on_fail,
                 amount_for_one_task: task.amount_for_one_task,
                 actions: task.actions,
-                queries: task.queries.unwrap(),
+                queries: task.queries.unwrap_or_default(),
                 transforms: task.transforms,
                 version: task.version,
             };
