@@ -5,6 +5,7 @@ use cosmwasm_std::{
 };
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
+use croncat_sdk_factory::msg::FactoryExecuteMsg;
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
@@ -1812,10 +1813,10 @@ fn negative_create_task() {
     assert_eq!(err, ContractError::TaskExists {});
     // contract paused
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.clone().to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
             croncat_factory_addr: None,
@@ -1826,10 +1827,17 @@ fn negative_create_task() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        }),
-        &[],
-    )
-    .unwrap();
+        })).unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy {
+            msg,
+        },
+        &[]
+    ).unwrap();
 
     let action = Action {
         msg: BankMsg::Send {
