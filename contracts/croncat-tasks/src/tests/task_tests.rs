@@ -4,6 +4,7 @@ use cosmwasm_std::{
     Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
+use croncat_sdk_factory::msg::FactoryExecuteMsg;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
@@ -881,10 +882,10 @@ fn remove_tasks_fail() {
         .unwrap();
     assert_eq!(err, ContractError::Unauthorized {});
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
             croncat_factory_addr: None,
@@ -895,7 +896,14 @@ fn remove_tasks_fail() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        }),
+        }))
+        .unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy { msg },
         &[],
     )
     .unwrap();
@@ -1537,12 +1545,12 @@ fn update_cfg() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
-            owner_addr: Some(ANYONE.to_owned()),
+            owner_addr: None,
             croncat_factory_addr: Some("fixed_croncat_factory_addr".to_owned()),
             croncat_manager_key: Some(("manager2".to_owned(), [2, 2])),
             croncat_agents_key: Some(("agents2".to_owned(), [2, 2])),
@@ -1551,10 +1559,18 @@ fn update_cfg() {
             gas_action_fee: Some(2),
             gas_query_fee: Some(3),
             gas_limit: Some(4),
-        }),
+        }))
+        .unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy { msg },
         &[],
     )
     .unwrap();
+
     let config: Config = app
         .wrap()
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::Config {})
@@ -1562,7 +1578,7 @@ fn update_cfg() {
     let expected_config = Config {
         paused: true,
         version: "0.1".to_owned(),
-        owner_addr: Addr::unchecked(ANYONE),
+        owner_addr: Addr::unchecked("contract0"),
         croncat_factory_addr: Addr::unchecked("fixed_croncat_factory_addr"),
         chain_name: "atom".to_owned(),
         croncat_manager_key: ("manager2".to_owned(), [2, 2]),
@@ -1577,10 +1593,10 @@ fn update_cfg() {
     assert_eq!(config, expected_config);
 
     // None's shouldn't impact any of the fields
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: None,
             owner_addr: None,
             croncat_factory_addr: None,
@@ -1591,7 +1607,15 @@ fn update_cfg() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        }),
+        }))
+        .unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        // It was recently changed owners, remember
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy { msg },
         &[],
     )
     .unwrap();
@@ -1812,10 +1836,10 @@ fn negative_create_task() {
     assert_eq!(err, ContractError::TaskExists {});
     // contract paused
 
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
             croncat_factory_addr: None,
@@ -1826,7 +1850,14 @@ fn negative_create_task() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        }),
+        }))
+        .unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy { msg },
         &[],
     )
     .unwrap();
@@ -1975,11 +2006,10 @@ fn remove_task_negative() {
 
     assert_eq!(err, ContractError::NoTaskFound {});
 
-    // contract is paused
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        tasks_addr.clone(),
-        &ExecuteMsg::UpdateConfig(UpdateConfigMsg {
+    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
+    let msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
             croncat_factory_addr: None,
@@ -1990,7 +2020,14 @@ fn remove_task_negative() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        }),
+        }))
+        .unwrap(),
+        funds: vec![],
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &FactoryExecuteMsg::Proxy { msg },
         &[],
     )
     .unwrap();
