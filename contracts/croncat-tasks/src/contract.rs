@@ -93,7 +93,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, msg),
+        ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, msg),
         ExecuteMsg::CreateTask { task } => execute_create_task(deps, env, info, *task),
         ExecuteMsg::RemoveTask { task_hash } => execute_remove_task(deps, info, task_hash),
         // Methods for other contracts
@@ -106,8 +106,13 @@ pub fn execute(
     }
 }
 
-fn execute_update_config(deps: DepsMut, msg: UpdateConfigMsg) -> Result<Response, ContractError> {
+fn execute_update_config(deps: DepsMut, info: MessageInfo, msg: UpdateConfigMsg) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+
     // Destruct so we won't forget to update if if new fields added
     let UpdateConfigMsg {
         paused,
