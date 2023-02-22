@@ -62,7 +62,7 @@ pub(crate) fn check_for_self_calls(
     agents_addr: &Addr,
     manager_owner_addr: &Addr,
     sender: &Addr,
-    contract_addr: &String,
+    contract_addr: &Addr,
     msg: &Binary,
 ) -> Result<(), ContractError> {
     // If it one of the our contracts it should be a manager
@@ -127,12 +127,12 @@ pub(crate) fn validate_msg_calculate_usage(
                     }
                 }
                 check_for_self_calls(
-                    self_addr,
-                    &manager_addr,
-                    &agents_addr,
-                    &manager_conf.owner_addr,
-                    sender,
-                    contract_addr,
+                    &deps.api.addr_validate(self_addr.as_str())?,
+                    &deps.api.addr_validate(manager_addr.as_str())?,
+                    &deps.api.addr_validate(agents_addr.as_str())?,
+                    &deps.api.addr_validate(manager_conf.owner_addr.as_str())?,
+                    &deps.api.addr_validate(sender.as_str())?,
+                    &deps.api.addr_validate(contract_addr.as_str())?,
                     msg,
                 )?;
                 if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {

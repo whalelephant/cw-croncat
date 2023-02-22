@@ -1,11 +1,16 @@
-use crate::tests::common::add_seconds_to_block;
+use crate::tests::{
+    common::add_seconds_to_block, helpers::increment_block_height, AGENT0, AGENT1, PARTICIPANT0,
+};
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp, Uint128,
     Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
 use croncat_sdk_factory::msg::FactoryExecuteMsg;
-use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
+use croncat_sdk_manager::{
+    msg::ManagerExecuteMsg,
+    types::{TaskBalance, TaskBalanceResponse},
+};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
@@ -21,7 +26,8 @@ use cw_storage_plus::KeyDeserialize;
 use super::{
     contracts,
     helpers::{
-        default_app, default_instantiate_msg, init_agents, init_factory, init_manager, init_tasks,
+        activate_agent, default_app, default_instantiate_msg, init_agents, init_factory,
+        init_manager, init_mod_balances, init_tasks,
     },
     ADMIN, DENOM,
 };
@@ -3010,5 +3016,402 @@ fn query_slot_tasks_total_test() {
             cron_tasks: 1,
             evented_tasks: 0
         }
+    );
+}
+
+#[test]
+fn poc_case1_case2() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let task2: Addr = tasks_addr.clone();
+
+    const DEFAULT_FEE: u64 = 5;
+
+    activate_agent(&mut app, &agents_addr);
+
+    //init agent 2
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        agents_addr.clone(),
+        &croncat_agents::msg::ExecuteMsg::RegisterAgent {
+            payable_account_id: None,
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Check in - will error but force for later
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        agents_addr.clone(),
+        &croncat_agents::msg::ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap_err();
+
+    // wait 100 blocks - simply added this function to /helpers.rs to add 100
+    // blocks and 1900 seconds
+    app.update_block(|block| add_seconds_to_block(block, 3600));
+    app.update_block(|block| increment_block_height(block, Some(100)));
+
+    // Add random task #1
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    // Add random task #2
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob1".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    // Add random task #3
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob2".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    // random task 4
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "bob3".to_owned(),
+                amount: coins(45, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    // Add TARGET BLOCK TASK 1
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Block(3),
+        // repeat it three times
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: Some((app.block_info().height + 8).into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(123, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(321, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let _t2: String = task_hash.clone();
+    let task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::Task {
+                task_hash: task_hash.clone(),
+            },
+        )
+        .unwrap();
+    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let _expected_gone_amount = {
+        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
+        let amount_for_task = gas_needed * 0.04;
+        let amount_for_fees = gas_fees * 0.04;
+        amount_for_task + amount_for_fees + 321.0 + 123.0
+    } as u128;
+
+    // Add more time to pass agent nomination
+    app.update_block(|block| add_seconds_to_block(block, 3600));
+    app.update_block(|block| increment_block_height(block, Some(100)));
+
+    // Check in - this will pass
+    app.execute_contract(
+        Addr::unchecked(AGENT1),
+        agents_addr.clone(),
+        &croncat_agents::msg::ExecuteMsg::CheckInAgent {},
+        &[],
+    )
+    .unwrap();
+
+    // ###### END SETUP ###
+
+    let current_task: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::CurrentTask {},
+        )
+        .unwrap();
+
+    // random task 4 from above - only
+    let _current_hash: String = current_task.task.unwrap().task_hash;
+
+    // Agent 0 legitimately calls the tasks contract to execute a task
+    let _res0 = app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ManagerExecuteMsg::ProxyCall { task_hash: None },
+            &[],
+        )
+        .unwrap();
+
+    // ### CASE 1 ###
+    // Prove no evented tasks
+    let tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    assert!(tasks_for_agent.unwrap().is_empty());
+
+    // Agent 1 is able to call a block task directly by its hash
+    // TARGET BLOCK TASK 1 from above
+    // this is not evented so it should not be able to be called directly by any agent
+    let _res1 = app
+        .execute_contract(
+            Addr::unchecked(AGENT1),
+            manager_addr.clone(),
+            &ManagerExecuteMsg::ProxyCall {
+                task_hash: Some(task_hash),
+            },
+            &[],
+        )
+        .unwrap();
+
+    // ### CASE 2 ##
+    // Add TARGET BLOCK TASK 1
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Block(3),
+        // repeat it three times
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: Some((app.block_info().height + 8).into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "alice".to_owned(),
+                    amount: coins(123, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(321, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            task2.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let _t2: String = task_hash.clone();
+    let _task_response: TaskResponse = app
+        .wrap()
+        .query_wasm_smart(
+            task2.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash },
+        )
+        .unwrap();
+
+    // create a task with the owner address - should error
+    // Actions message unsupported or invalid message data
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: WasmMsg::Execute {
+                contract_addr: manager_addr.to_string(),
+                msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::OwnerWithdraw {})
+                    .unwrap(),
+                funds: Default::default(),
+            }
+            .into(),
+            gas_limit: Some(250_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+
+    // passing message with uppercase manager address
+    let _mod_balances = init_mod_balances(&mut app, &factory_addr);
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            task2.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap_err();
+    let malicious_task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: WasmMsg::Execute {
+                contract_addr: manager_addr.to_string().to_uppercase(),
+                msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::OwnerWithdraw {})
+                    .unwrap(),
+                funds: Default::default(),
+            }
+            .into(),
+            gas_limit: Some(250_000),
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+
+    // Need this to fail to check correct coverage
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            task2,
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(malicious_task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        error,
+        ContractError::Std(StdError::generic_err(
+            "Invalid input: address not normalized"
+        ))
     );
 }
