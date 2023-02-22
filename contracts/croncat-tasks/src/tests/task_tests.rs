@@ -4,8 +4,8 @@ use cosmwasm_std::{
     Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::AmountForOneTask;
-use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_factory::msg::FactoryExecuteMsg;
+use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse};
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
@@ -884,7 +884,7 @@ fn remove_tasks_fail() {
 
     // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
     let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.clone().to_string(),
+        contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
@@ -896,17 +896,17 @@ fn remove_tasks_fail() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        })).unwrap(),
+        }))
+        .unwrap(),
         funds: vec![],
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
         factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy {
-            msg,
-        },
-        &[]
-    ).unwrap();
+        &FactoryExecuteMsg::Proxy { msg },
+        &[],
+    )
+    .unwrap();
 
     // With queries:
     let err: ContractError = app
@@ -1544,10 +1544,10 @@ fn update_cfg() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
-    
+
     // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
     let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.clone().to_string(),
+        contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
@@ -1559,17 +1559,17 @@ fn update_cfg() {
             gas_action_fee: Some(2),
             gas_query_fee: Some(3),
             gas_limit: Some(4),
-        })).unwrap(),
+        }))
+        .unwrap(),
         funds: vec![],
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
         factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy {
-            msg,
-        },
-        &[]
-    ).unwrap();
+        &FactoryExecuteMsg::Proxy { msg },
+        &[],
+    )
+    .unwrap();
 
     let config: Config = app
         .wrap()
@@ -1595,7 +1595,7 @@ fn update_cfg() {
     // None's shouldn't impact any of the fields
     // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
     let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.clone().to_string(),
+        contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: None,
             owner_addr: None,
@@ -1607,18 +1607,18 @@ fn update_cfg() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        })).unwrap(),
+        }))
+        .unwrap(),
         funds: vec![],
     };
     app.execute_contract(
         // It was recently changed owners, remember
         Addr::unchecked(ADMIN),
         factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy {
-            msg,
-        },
-        &[]
-    ).unwrap();
+        &FactoryExecuteMsg::Proxy { msg },
+        &[],
+    )
+    .unwrap();
 
     let not_updated_config: Config = app
         .wrap()
@@ -1838,7 +1838,7 @@ fn negative_create_task() {
 
     // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
     let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.clone().to_string(),
+        contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
@@ -1850,17 +1850,17 @@ fn negative_create_task() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        })).unwrap(),
+        }))
+        .unwrap(),
         funds: vec![],
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
         factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy {
-            msg,
-        },
-        &[]
-    ).unwrap();
+        &FactoryExecuteMsg::Proxy { msg },
+        &[],
+    )
+    .unwrap();
 
     let action = Action {
         msg: BankMsg::Send {
@@ -2008,7 +2008,7 @@ fn remove_task_negative() {
 
     // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
     let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.clone().to_string(),
+        contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
             paused: Some(true),
             owner_addr: None,
@@ -2020,17 +2020,17 @@ fn remove_task_negative() {
             gas_action_fee: None,
             gas_query_fee: None,
             gas_limit: None,
-        })).unwrap(),
+        }))
+        .unwrap(),
         funds: vec![],
     };
     app.execute_contract(
         Addr::unchecked(ADMIN),
         factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy {
-            msg,
-        },
-        &[]
-    ).unwrap();
+        &FactoryExecuteMsg::Proxy { msg },
+        &[],
+    )
+    .unwrap();
 
     let err: ContractError = app
         .execute_contract(
