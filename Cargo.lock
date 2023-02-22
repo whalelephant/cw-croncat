@@ -435,6 +435,7 @@ dependencies = [
  "croncat-agents",
  "croncat-factory",
  "croncat-manager",
+ "croncat-mod-balances",
  "croncat-sdk-agents",
  "croncat-sdk-core",
  "croncat-sdk-factory",
