@@ -1,14 +1,16 @@
 use crate::msg::*;
 use crate::state::{
-    DEFAULT_MIN_ACTIVE_AGENT_COUNT,
-    DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_MIN_TASKS_PER_AGENT,
-    DEFAULT_NOMINATION_BLOCK_DURATION,
+    DEFAULT_MIN_ACTIVE_AGENT_COUNT, DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION,
+    DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
+use crate::tests::contracts;
 use cosmwasm_std::BlockInfo;
 use cosmwasm_std::{coins, to_binary, Addr};
-use croncat_sdk_factory::msg::{ContractMetadataResponse, FactoryExecuteMsg, FactoryInstantiateMsg, ModuleInstantiateInfo, VersionKind};
+use croncat_sdk_factory::msg::{
+    ContractMetadataResponse, FactoryExecuteMsg, FactoryInstantiateMsg, ModuleInstantiateInfo,
+    VersionKind,
+};
 use cw_multi_test::{App, AppBuilder, Executor};
-use crate::tests::contracts;
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
@@ -104,15 +106,15 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
         owner_addr: Some(ADMIN.to_owned()),
     };
     let croncat_factory_addr = app
-      .instantiate_contract(
-          factory_code_id,
-          Addr::unchecked(ADMIN),
-          &init_msg,
-          &[],
-          "factory",
-          None,
-      )
-      .unwrap();
+        .instantiate_contract(
+            factory_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
 
     // Manager
     let manager_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
@@ -132,7 +134,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             treasury_addr: None,
             cw20_whitelist: None,
         })
-          .unwrap(),
+        .unwrap(),
         contract_name: "manager".to_owned(),
     };
     app.execute_contract(
@@ -143,18 +145,22 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             module_instantiate_info: manager_module_instantiate_info,
         },
         &[],
-    ).unwrap();
+    )
+    .unwrap();
 
     let manager_contracts: ContractMetadataResponse = app
-      .wrap()
-      .query_wasm_smart(
-          croncat_factory_addr.clone(),
-          &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
-              contract_name: "manager".to_string(),
-          },
-      )
-      .unwrap();
-    assert!(manager_contracts.metadata.is_some(), "Should be contract metadata");
+        .wrap()
+        .query_wasm_smart(
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
+                contract_name: "manager".to_string(),
+            },
+        )
+        .unwrap();
+    assert!(
+        manager_contracts.metadata.is_some(),
+        "Should be contract metadata"
+    );
     let croncat_manager_addr = manager_contracts.metadata.unwrap().contract_addr;
 
     // Agents
@@ -176,7 +182,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             agents_eject_threshold: None,
             min_active_agent_count: None,
         })
-          .unwrap(),
+        .unwrap(),
         contract_name: "agents".to_owned(),
     };
     app.execute_contract(
@@ -187,18 +193,22 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             module_instantiate_info: agents_module_instantiate_info,
         },
         &[],
-    ).unwrap();
+    )
+    .unwrap();
 
     let agent_contracts: ContractMetadataResponse = app
-      .wrap()
-      .query_wasm_smart(
-          croncat_factory_addr.clone(),
-          &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
-              contract_name: "agents".to_string(),
-          },
-      )
-      .unwrap();
-    assert!(agent_contracts.metadata.is_some(), "Should be contract metadata");
+        .wrap()
+        .query_wasm_smart(
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
+                contract_name: "agents".to_string(),
+            },
+        )
+        .unwrap();
+    assert!(
+        agent_contracts.metadata.is_some(),
+        "Should be contract metadata"
+    );
     let agent_metadata = agent_contracts.metadata.unwrap();
     let croncat_agents_addr = agent_metadata.contract_addr;
     let croncat_agents_code_id = agent_metadata.code_id;
@@ -223,7 +233,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             owner_addr: None,
             gas_limit: None,
         })
-          .unwrap(),
+        .unwrap(),
         contract_name: "tasks".to_owned(),
     };
     app.execute_contract(
@@ -234,18 +244,22 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             module_instantiate_info: tasks_module_instantiate_info,
         },
         &[],
-    ).unwrap();
+    )
+    .unwrap();
 
     let task_contracts: ContractMetadataResponse = app
-      .wrap()
-      .query_wasm_smart(
-          croncat_factory_addr.clone(),
-          &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
-              contract_name: "tasks".to_string(),
-          },
-      )
-      .unwrap();
-    assert!(task_contracts.metadata.is_some(), "Should be contract metadata");
+        .wrap()
+        .query_wasm_smart(
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
+                contract_name: "tasks".to_string(),
+            },
+        )
+        .unwrap();
+    assert!(
+        task_contracts.metadata.is_some(),
+        "Should be contract metadata"
+    );
     let croncat_tasks_addr = task_contracts.metadata.unwrap().contract_addr;
 
     TestScope {

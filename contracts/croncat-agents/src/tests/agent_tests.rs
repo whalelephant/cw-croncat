@@ -5,13 +5,13 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
-use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64, to_binary, WasmMsg};
+use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, Uint128, Uint64, WasmMsg};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
 
-use cw_multi_test::{App, AppResponse, Executor};
 use crate::tests::contracts::croncat_agents_contract;
+use cw_multi_test::{App, AppResponse, Executor};
 
 #[test]
 fn test_contract_initialize_is_successful() {
@@ -143,19 +143,20 @@ fn test_register_agent_fails() {
     // Check contract is paused and failing
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
-    
+
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_factory_addr.clone(),
+        croncat_factory_addr,
         &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
             msg: WasmMsg::Execute {
-                contract_addr: croncat_agents_addr.clone().to_string(),
+                contract_addr: croncat_agents_addr.to_string(),
                 msg: to_binary(&ExecuteMsg::UpdateConfig { config }).unwrap(),
                 funds: vec![],
             },
         },
-        &vec![]
-    ).unwrap();
+        &[],
+    )
+    .unwrap();
 
     let error: ContractError = app
         .execute_contract(
@@ -259,16 +260,17 @@ fn test_update_agent_fails() {
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_factory_addr.clone(),
+        croncat_factory_addr,
         &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
             msg: WasmMsg::Execute {
-                contract_addr: croncat_agents_addr.clone().to_string(),
+                contract_addr: croncat_agents_addr.to_string(),
                 msg: to_binary(&ExecuteMsg::UpdateConfig { config }).unwrap(),
                 funds: vec![],
             },
         },
-        &[]
-    ).unwrap();
+        &[],
+    )
+    .unwrap();
 
     let error: ContractError = app
         .execute_contract(
@@ -979,7 +981,7 @@ fn test_tick() {
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_factory_addr.clone(),
+        croncat_factory_addr,
         &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
             msg: WasmMsg::Execute {
                 contract_addr: croncat_agents_addr.clone().to_string(),
@@ -987,8 +989,9 @@ fn test_tick() {
                 funds: vec![],
             },
         },
-        &[]
-    ).unwrap();
+        &[],
+    )
+    .unwrap();
 
     register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
 
@@ -1075,10 +1078,7 @@ fn test_tick() {
         .downcast()
         .unwrap();
 
-    assert_eq!(
-        err,
-        ContractError::TryLaterForNomination
-    );
+    assert_eq!(err, ContractError::TryLaterForNomination);
 
     // Add enough blocks to call tick
     app.update_block(|info| increment_block_height(info, Some(1001)));
