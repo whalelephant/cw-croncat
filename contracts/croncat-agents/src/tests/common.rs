@@ -58,6 +58,7 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
         min_active_agent_count: DEFAULT_MIN_ACTIVE_AGENT_COUNT,
     }
 }
+
 pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
     UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),

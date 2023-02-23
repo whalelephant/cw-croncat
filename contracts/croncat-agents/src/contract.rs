@@ -41,11 +41,8 @@ pub fn instantiate(
         min_active_agent_count,
     } = msg;
 
-    if min_tasks_per_agent == Some(0u64) {
-        return Err(InvalidConfigurationValue {
-            field: "min_tasks_per_agent".to_string(),
-        });
-    }
+    validate_agent_nomination_duration(agent_nomination_duration)?;
+    validate_min_tasks_per_agent(min_tasks_per_agent)?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -510,6 +507,9 @@ pub fn execute_update_config(
             min_active_agent_count,
         } = msg;
 
+        validate_min_tasks_per_agent(min_tasks_per_agent)?;
+        validate_agent_nomination_duration(agent_nomination_duration)?;
+
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
         }
@@ -691,4 +691,28 @@ fn on_task_completed(
 
     let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
+}
+
+/// Ensure min_tasks_per_agent does not accept zero during
+/// instantiate or update config assignments
+fn validate_min_tasks_per_agent(val: Option<u64>) -> Result<(), ContractError> {
+    if val == Some(0u64) {
+        Err(InvalidConfigurationValue {
+            field: "min_tasks_per_agent".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Ensure min_tasks_per_agent does not accept zero during
+/// instantiate or update config assignments
+fn validate_agent_nomination_duration(val: Option<u16>) -> Result<(), ContractError> {
+    if val == Some(0u16) {
+        Err(InvalidConfigurationValue {
+            field: "agent_nomination_duration".to_string(),
+        })
+    } else {
+        Ok(())
+    }
 }
