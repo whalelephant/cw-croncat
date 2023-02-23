@@ -17,6 +17,7 @@ use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Confi
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
 use cw2::set_contract_version;
 use std::cmp::min;
+use crate::error::ContractError::InvalidConfigurationValue;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -39,6 +40,12 @@ pub fn instantiate(
         agents_eject_threshold,
         min_active_agent_count,
     } = msg;
+
+    if min_tasks_per_agent == Some(0u64) {
+        return Err(InvalidConfigurationValue {
+            field: "min_tasks_per_agent".to_string(),
+        })
+    }
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -588,7 +595,7 @@ fn max_agent_nomination_index(
     let block_height = env.block.height;
 
     let agents_by_tasks_created =
-        agent_nomination_status.tasks_created_from_last_nomination / cfg.min_tasks_per_agent;
+        agent_nomination_status.tasks_created_from_last_nomination.saturating_div(cfg.min_tasks_per_agent);
     let agents_by_height = agent_nomination_status
         .start_height_of_nomination
         .map_or(0, |start_height| {

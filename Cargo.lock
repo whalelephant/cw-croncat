@@ -237,6 +237,7 @@ dependencies = [
  "anyhow",
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-agents",
  "croncat-factory",
  "croncat-manager",
  "croncat-sdk-agents",

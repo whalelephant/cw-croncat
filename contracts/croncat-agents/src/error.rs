@@ -56,4 +56,9 @@ pub enum ContractError {
 
     #[error("No rewards available for withdraw")]
     NoWithdrawRewardsAvailable {},
+
+    #[error("No rewards available for withdraw")]
+    InvalidConfigurationValue {
+        field: String
+    },
 }

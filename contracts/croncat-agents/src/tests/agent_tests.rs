@@ -5,15 +5,16 @@ use crate::state::{
     DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::common::*;
-use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64};
+use cosmwasm_std::{coins, Addr, BankMsg, Coin, Uint128, Uint64, to_binary, WasmMsg};
 use croncat_sdk_agents::msg::{AgentResponse, GetAgentIdsResponse, TaskStats};
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
 
 use cw_multi_test::{App, AppResponse, Executor};
+use crate::tests::contracts::croncat_agents_contract;
 
 #[test]
-fn test_contract_initialize_is_successfull() {
+fn test_contract_initialize_is_successful() {
     let mut app = default_app();
     let contract_code_id = app.store_code(croncat_agents_contract());
 
@@ -77,7 +78,7 @@ fn test_contract_initialize_is_successfull() {
 
 //RegisterAgent
 #[test]
-fn test_register_agent_is_successfull() {
+fn test_register_agent_is_successful() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -139,16 +140,22 @@ fn test_register_agent_fails() {
         .unwrap();
     assert_eq!(error, ContractError::NoFundsShouldBeAttached);
 
-    //Check contract is paused and failing
+    // Check contract is paused and failing
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
+    
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_agents_addr.clone(),
-        &ExecuteMsg::UpdateConfig { config },
-        &[],
-    )
-    .unwrap();
+        croncat_factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: croncat_agents_addr.clone().to_string(),
+                msg: to_binary(&ExecuteMsg::UpdateConfig { config }).unwrap(),
+                funds: vec![],
+            },
+        },
+        &vec![]
+    ).unwrap();
 
     let error: ContractError = app
         .execute_contract(
@@ -166,7 +173,7 @@ fn test_register_agent_fails() {
 }
 
 #[test]
-fn test_update_agent_is_successfull() {
+fn test_update_agent_is_successful() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -249,13 +256,19 @@ fn test_update_agent_fails() {
     //Check contract is paused and failing
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
+
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_agents_addr.clone(),
-        &ExecuteMsg::UpdateConfig { config },
-        &[],
-    )
-    .unwrap();
+        croncat_factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: croncat_agents_addr.clone().to_string(),
+                msg: to_binary(&ExecuteMsg::UpdateConfig { config }).unwrap(),
+                funds: vec![],
+            },
+        },
+        &[]
+    ).unwrap();
 
     let error: ContractError = app
         .execute_contract(
@@ -273,9 +286,9 @@ fn test_update_agent_fails() {
     assert_eq!(error, ContractError::ContractPaused);
 }
 
-//UpdateAgent tests
+// Update Agent tests
 #[test]
-fn test_agent_check_in_successfull() {
+fn test_agent_check_in_successful() {
     let mut app = default_app();
     let TestScope {
         croncat_factory_addr: _,
@@ -935,10 +948,11 @@ fn test_query_get_agent_tasks() {
     );
 }
 
-//Tick
+// Tick
 #[test]
 fn test_tick() {
     let mut app = default_app();
+
     let TestScope {
         croncat_factory_addr,
         croncat_agents_addr,
@@ -962,13 +976,19 @@ fn test_tick() {
             min_active_agent_count: Some(0),
         },
     };
+
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        croncat_agents_addr.clone(),
-        &update_config_msg,
-        &[],
-    )
-    .unwrap();
+        croncat_factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: croncat_agents_addr.clone().to_string(),
+                msg: to_binary(&update_config_msg).unwrap(),
+                funds: vec![],
+            },
+        },
+        &[]
+    ).unwrap();
 
     register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
 
@@ -1044,17 +1064,20 @@ fn test_tick() {
     assert_eq!(agents.pending.len(), 2);
 
     // First pending agent wasn't nominated
-    let err = app
+    let err: ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT1),
             croncat_agents_addr.clone(),
             &ExecuteMsg::CheckInAgent {},
             &[],
         )
-        .unwrap_err();
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
     assert_eq!(
-        ContractError::TryLaterForNomination,
-        err.downcast().unwrap()
+        err,
+        ContractError::TryLaterForNomination
     );
 
     // Add enough blocks to call tick
@@ -1113,10 +1136,11 @@ fn test_tick() {
         )
         .unwrap_err();
     assert_eq!(
-        ContractError::TryLaterForNomination,
+        ContractError::TryLaterForNomination {},
         err.downcast().unwrap()
     );
 }
+
 #[test]
 fn test_tick_respects_min_active_agent_count() {
     let mut app = default_app();
