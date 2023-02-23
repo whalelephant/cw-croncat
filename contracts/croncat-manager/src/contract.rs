@@ -9,7 +9,7 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 
 use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
-use croncat_sdk_tasks::types::{Interval, TaskInfo};
+use croncat_sdk_tasks::types::{Interval, Task, TaskInfo};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
@@ -201,10 +201,29 @@ fn execute_proxy_call(
         }
 
         // A hash means agent is attempting to execute evented task
-        deps.querier.query_wasm_smart(
+        let task_data: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
             tasks_addr.clone(),
             &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
-        )?
+        )?;
+
+        // Check the task is evented
+        if let Some(task) = task_data.clone().task {
+            let t = Task {
+                owner_addr: task.owner_addr,
+                interval: task.interval,
+                boundary: task.boundary,
+                stop_on_fail: task.stop_on_fail,
+                amount_for_one_task: task.amount_for_one_task,
+                actions: task.actions,
+                queries: task.queries.unwrap_or_default(),
+                transforms: task.transforms,
+                version: task.version,
+            };
+            if !t.is_evented() {
+                return Err(ContractError::NoTaskForAgent {});
+            }
+        }
+        task_data
     } else {
         // For scheduled case - check only active agents that are allowed tasks
         let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =

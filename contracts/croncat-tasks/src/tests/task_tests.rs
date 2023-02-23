@@ -3280,7 +3280,7 @@ fn poc_case1_case2() {
     // Agent 1 is able to call a block task directly by its hash
     // TARGET BLOCK TASK 1 from above
     // this is not evented so it should not be able to be called directly by any agent
-    let _res1 = app
+    let res1_error: croncat_manager::ContractError = app
         .execute_contract(
             Addr::unchecked(AGENT1),
             manager_addr.clone(),
@@ -3289,7 +3289,13 @@ fn poc_case1_case2() {
             },
             &[],
         )
+        .unwrap_err()
+        .downcast()
         .unwrap();
+    assert_eq!(
+        res1_error,
+        croncat_manager::ContractError::NoTaskForAgent {}
+    );
 
     // ### CASE 2 ##
     // Add TARGET BLOCK TASK 1
