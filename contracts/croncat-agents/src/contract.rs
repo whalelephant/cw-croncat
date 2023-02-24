@@ -43,6 +43,7 @@ pub fn instantiate(
 
     validate_agent_nomination_duration(agent_nomination_duration)?;
     validate_min_tasks_per_agent(min_tasks_per_agent)?;
+    validate_agents_eject_threshold(agents_eject_threshold)?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -509,6 +510,7 @@ pub fn execute_update_config(
 
         validate_min_tasks_per_agent(min_tasks_per_agent)?;
         validate_agent_nomination_duration(agent_nomination_duration)?;
+        validate_agents_eject_threshold(agents_eject_threshold)?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
@@ -699,6 +701,18 @@ fn validate_min_tasks_per_agent(val: Option<u64>) -> Result<(), ContractError> {
     if val == Some(0u64) {
         Err(InvalidConfigurationValue {
             field: "min_tasks_per_agent".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Ensure agents_eject_threshold does not accept zero during
+/// instantiate or update config assignments
+fn validate_agents_eject_threshold(val: Option<u64>) -> Result<(), ContractError> {
+    if val == Some(0u64) {
+        Err(InvalidConfigurationValue {
+            field: "agents_eject_threshold".to_string(),
         })
     } else {
         Ok(())

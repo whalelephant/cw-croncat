@@ -1282,7 +1282,7 @@ fn check_validation_instantiate() {
     err = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            croncat_factory_addr,
+            croncat_factory_addr.clone(),
             &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
                 kind: croncat_sdk_factory::msg::VersionKind::Agents,
                 module_instantiate_info: agents_module_instantiate_info,
@@ -1296,6 +1296,40 @@ fn check_validation_instantiate() {
         err,
         ContractError::InvalidConfigurationValue {
             field: "min_tasks_per_agent".to_string(),
+        }
+    );
+
+    // Now check agents_eject_threshold
+    instantiate_msg.min_tasks_per_agent = None;
+    instantiate_msg.agents_eject_threshold = Some(0u64);
+
+    agents_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
+        code_id: agents_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "agents".to_owned(),
+    };
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr,
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+                kind: croncat_sdk_factory::msg::VersionKind::Agents,
+                module_instantiate_info: agents_module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::InvalidConfigurationValue {
+            field: "agents_eject_threshold".to_string(),
         }
     );
 }
@@ -1417,9 +1451,40 @@ fn check_validation_update_config() {
     );
 
     // Now check min_tasks_per_agent
-
     update_config_msg.agent_nomination_duration = None;
     update_config_msg.min_tasks_per_agent = Some(0u64);
+
+    update_config_exec_msg = ExecuteMsg::UpdateConfig {
+        config: update_config_msg.clone(),
+    };
+
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: croncat_agents_addr.to_string(),
+                    msg: to_binary(&update_config_exec_msg).unwrap(),
+                    funds: vec![],
+                },
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(
+        err,
+        ContractError::InvalidConfigurationValue {
+            field: "min_tasks_per_agent".to_string(),
+        }
+    );
+
+    // Now check agents_eject_threshold
+    update_config_msg.min_tasks_per_agent = None;
+    update_config_msg.agents_eject_threshold = Some(0u64);
 
     update_config_exec_msg = ExecuteMsg::UpdateConfig {
         config: update_config_msg,
@@ -1445,7 +1510,7 @@ fn check_validation_update_config() {
     assert_eq!(
         err,
         ContractError::InvalidConfigurationValue {
-            field: "min_tasks_per_agent".to_string(),
+            field: "agents_eject_threshold".to_string(),
         }
     );
 }
