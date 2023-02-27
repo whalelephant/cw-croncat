@@ -92,19 +92,22 @@ pub(crate) fn validate_msg_calculate_usage(
     sender: &Addr,
     config: &Config,
 ) -> Result<AmountForOneTask, ContractError> {
-    let mut amount_for_one_task = AmountForOneTask {
-        gas: config.gas_base_fee,
-        cw20: None,
-        coin: [None, None],
-    };
-
     let manager_addr = get_manager_addr(&deps.querier, config)?;
     let agents_addr = get_agents_addr(&deps.querier, config)?;
 
-    let manager_conf: croncat_sdk_manager::types::Config = deps.querier.query_wasm_smart(
+    let manager_config: croncat_sdk_manager::types::Config = deps.querier.query_wasm_smart(
         &manager_addr,
         &croncat_sdk_manager::msg::ManagerQueryMsg::Config {},
     )?;
+
+    let mut amount_for_one_task = AmountForOneTask {
+        cw20: None,
+        coin: [None, None],
+        gas: config.gas_base_fee,
+        agent_fee: manager_config.agent_fee,
+        treasury_fee: manager_config.treasury_fee,
+        gas_price: manager_config.gas_price,
+    };
 
     if task.actions.is_empty() {
         return Err(ContractError::InvalidAction {});
@@ -130,7 +133,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     &deps.api.addr_validate(self_addr.as_str())?,
                     &deps.api.addr_validate(manager_addr.as_str())?,
                     &deps.api.addr_validate(agents_addr.as_str())?,
-                    &deps.api.addr_validate(manager_conf.owner_addr.as_str())?,
+                    &deps.api.addr_validate(manager_config.owner_addr.as_str())?,
                     &deps.api.addr_validate(sender.as_str())?,
                     &deps.api.addr_validate(contract_addr.as_str())?,
                     msg,

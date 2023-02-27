@@ -5,7 +5,7 @@ use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp, Uint128,
     Uint64, WasmMsg,
 };
-use croncat_sdk_core::types::AmountForOneTask;
+use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
 use croncat_sdk_factory::msg::FactoryExecuteMsg;
 use croncat_sdk_manager::{
     msg::ManagerExecuteMsg,
@@ -227,9 +227,16 @@ fn create_task_without_query() {
             }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
-                gas: GAS_BASE_FEE + action1.gas_limit.unwrap() + action2.gas_limit.unwrap(),
                 cw20: None,
                 coin: [Some(coin(15, DENOM)), None],
+                gas: GAS_BASE_FEE + action1.gas_limit.unwrap() + action2.gas_limit.unwrap(),
+                agent_fee: 5,
+                treasury_fee: 5,
+                gas_price: GasPrice {
+                    numerator: 4,
+                    denominator: 100,
+                    gas_adjustment_numerator: 150,
+                },
             },
             actions: vec![action1, action2],
             queries: None,
@@ -237,6 +244,7 @@ fn create_task_without_query() {
             version: "0.1".to_owned(),
         }),
     };
+    println!("task_response.task {:?}", task_response.task);
     assert_eq!(task_response.task, expected_block_task_response.task);
 
     // check total tasks
@@ -380,9 +388,16 @@ fn create_task_without_query() {
             }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
-                gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
                 cw20: None,
                 coin: [Some(coin(10, DENOM)), Some(coin(5, "test_coins"))],
+                gas: GAS_BASE_FEE + action.gas_limit.unwrap(),
+                agent_fee: 5,
+                treasury_fee: 5,
+                gas_price: GasPrice {
+                    numerator: 4,
+                    denominator: 100,
+                    gas_adjustment_numerator: 150,
+                },
             },
             actions: vec![action],
             queries: None,
@@ -698,9 +713,16 @@ fn create_tasks_with_queries_and_transforms() {
             }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
-                gas: GAS_BASE_FEE + action.gas_limit.unwrap() + GAS_QUERY_FEE * 2,
                 cw20: None,
                 coin: [Some(coin(5, DENOM)), None],
+                gas: GAS_BASE_FEE + action.gas_limit.unwrap() + GAS_QUERY_FEE * 2,
+                agent_fee: 5,
+                treasury_fee: 5,
+                gas_price: GasPrice {
+                    numerator: 4,
+                    denominator: 100,
+                    gas_adjustment_numerator: 150,
+                },
             },
             actions: vec![action],
             queries: Some(queries),
@@ -1005,9 +1027,12 @@ fn remove_tasks_with_queries_success() {
         transforms: task.transforms.clone().unwrap(),
         version: "0.1".to_string(),
         amount_for_one_task: AmountForOneTask {
-            gas: 50_000,
             cw20: None,
             coin: [Some(coin(5, DENOM)), None],
+            gas: 50_000,
+            agent_fee: u64::default(),
+            treasury_fee: u64::default(),
+            gas_price: GasPrice::default(),
         },
     };
     assert!(task_raw.is_evented());
@@ -1030,9 +1055,12 @@ fn remove_tasks_with_queries_success() {
         transforms: task.transforms.clone().unwrap(),
         version: "0.1".to_string(),
         amount_for_one_task: AmountForOneTask {
-            gas: 50_000,
             cw20: None,
             coin: [Some(coin(5, DENOM)), None],
+            gas: 50_000,
+            agent_fee: u64::default(),
+            treasury_fee: u64::default(),
+            gas_price: GasPrice::default(),
         },
     };
     assert!(!task_raw_non_evented.is_evented());

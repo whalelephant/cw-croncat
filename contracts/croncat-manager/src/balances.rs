@@ -2,7 +2,8 @@ use cosmwasm_std::{
     coins, from_binary, to_binary, Addr, BankMsg, Deps, DepsMut, MessageInfo, Order, Response,
     StdError, StdResult, Storage, Uint128, WasmMsg,
 };
-use croncat_sdk_manager::types::{Config, GasPrice};
+use croncat_sdk_core::types::GasPrice;
+use croncat_sdk_manager::types::Config;
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 use crate::{
@@ -67,14 +68,14 @@ pub(crate) fn add_fee_rewards(
         |agent_balance| -> Result<_, ContractError> {
             // Adding base gas and agent_fee here
             let gas_fee = gas_fee(gas, agent_fee)? + gas;
-            let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+            let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
             Ok(agent_balance.unwrap_or_default() + amount)
         },
     )?;
 
     TREASURY_BALANCE.update(storage, |balance| -> Result<_, ContractError> {
         let gas_fee = gas_fee(gas, treasury_fee)?;
-        let amount: Uint128 = gas_price.calculate(gas_fee)?.into();
+        let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
         Ok(balance + amount)
     })?;
     Ok(())

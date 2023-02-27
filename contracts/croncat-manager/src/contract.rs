@@ -136,7 +136,7 @@ pub fn execute(
         ExecuteMsg::RefillTaskCw20Balance { task_hash, cw20 } => {
             execute_refill_task_cw20(deps, info, task_hash, cw20)
         }
-        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
+        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, *msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
         ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
@@ -346,7 +346,7 @@ fn end_task(
         task.amount_for_one_task.gas,
         config.agent_fee + config.treasury_fee,
     )?;
-    let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+    let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
     let mut task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
     task_balance.native_balance = task_balance
         .native_balance
@@ -357,10 +357,10 @@ fn end_task(
     add_fee_rewards(
         deps.storage,
         task.amount_for_one_task.gas,
-        &config.gas_price,
+        &task.amount_for_one_task.gas_price,
         &agent_addr,
-        config.agent_fee,
-        config.treasury_fee,
+        task.amount_for_one_task.agent_fee,
+        task.amount_for_one_task.treasury_fee,
     )?;
 
     // refund the final balances to task owner
@@ -479,7 +479,7 @@ fn execute_create_task_balance(
             msg.amount_for_one_task.gas,
             config.agent_fee + config.treasury_fee,
         )?;
-        let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+        let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
         let (native_for_sends_required, ibc_required) =
             calculate_required_natives(msg.amount_for_one_task.coin, &config.native_denom)?;
         tasks_balance.verify_enough_attached(
