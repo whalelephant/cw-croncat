@@ -188,6 +188,13 @@ pub fn execute_refill_task_cw20(
 /// Used by users to withdraw back their cw20 tokens
 ///
 /// Returns updated balances
+///
+/// NOTE: During paused configuration, all funds will be temporarily locked. 
+/// This is currently to safeguard all execution paths. All funds (not just user funds)
+/// are locked, until any pause concern has been addressed or finished. In many cases,
+/// this will occur for simple contract upgrades, but could be caused from DAO identified
+/// security risks. The pause-lock will be removed as future contract testing proves
+/// mature enough, deemed ready by DAO. We expect this to be several months post-launch.
 pub fn execute_user_withdraw(
     deps: DepsMut,
     info: MessageInfo,
