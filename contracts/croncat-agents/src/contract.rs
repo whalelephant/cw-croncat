@@ -36,7 +36,7 @@ pub fn instantiate(
         croncat_tasks_key,
         agent_nomination_duration,
         min_tasks_per_agent,
-        min_coin_for_agent_registration,
+        min_coins_for_agent_registration,
         agents_eject_threshold,
         min_active_agent_count,
     } = msg;
@@ -44,6 +44,7 @@ pub fn instantiate(
     validate_agent_nomination_duration(agent_nomination_duration)?;
     validate_min_tasks_per_agent(min_tasks_per_agent)?;
     validate_agents_eject_threshold(agents_eject_threshold)?;
+    validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -60,7 +61,7 @@ pub fn instantiate(
         owner_addr,
         paused: false,
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_coins_for_agent_registration: min_coin_for_agent_registration
+        min_coins_for_agent_registration: min_coins_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         min_active_agent_count: min_active_agent_count.unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
@@ -511,6 +512,7 @@ pub fn execute_update_config(
         validate_min_tasks_per_agent(min_tasks_per_agent)?;
         validate_agent_nomination_duration(agent_nomination_duration)?;
         validate_agents_eject_threshold(agents_eject_threshold)?;
+        validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
@@ -701,6 +703,18 @@ fn validate_min_tasks_per_agent(val: Option<u64>) -> Result<(), ContractError> {
     if val == Some(0u64) {
         Err(InvalidConfigurationValue {
             field: "min_tasks_per_agent".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Ensure min_coins_for_agent_registration does not accept zero during
+/// instantiate or update config assignments
+fn validate_min_coins_for_agent_registration(val: Option<u64>) -> Result<(), ContractError> {
+    if val == Some(0u64) {
+        Err(InvalidConfigurationValue {
+            field: "min_coins_for_agent_registration".to_string(),
         })
     } else {
         Ok(())

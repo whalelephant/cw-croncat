@@ -32,7 +32,7 @@ pub struct InstantiateMsg {
 
     /// The required amount needed to actually execute a few tasks before withdraw profits.
     /// This helps make sure agent wont get stuck out the gate
-    pub min_coin_for_agent_registration: Option<u64>,
+    pub min_coins_for_agent_registration: Option<u64>,
 
     /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: Option<u64>,

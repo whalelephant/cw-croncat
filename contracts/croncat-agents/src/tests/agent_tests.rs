@@ -26,7 +26,7 @@ fn test_contract_initialize_is_successful() {
         min_tasks_per_agent: None,
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
-        min_coin_for_agent_registration: None,
+        min_coins_for_agent_registration: None,
         agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
         min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
@@ -54,7 +54,7 @@ fn test_contract_initialize_is_successful() {
         min_tasks_per_agent: None,
         croncat_manager_key: ("manager".to_owned(), [4, 2]),
         croncat_tasks_key: ("tasks".to_owned(), [42, 0]),
-        min_coin_for_agent_registration: None,
+        min_coins_for_agent_registration: None,
         agents_eject_threshold: Some(DEFAULT_AGENTS_EJECT_THRESHOLD),
         min_active_agent_count: Some(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
@@ -1226,7 +1226,7 @@ fn check_validation_instantiate() {
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         owner_addr: None,
-        min_coin_for_agent_registration: None,
+        min_coins_for_agent_registration: None,
         // Note: this should not allow 0 here
         agent_nomination_duration: Some(0u16),
         min_tasks_per_agent: None,
@@ -1369,7 +1369,7 @@ fn check_validation_update_config() {
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             owner_addr: None,
-            min_coin_for_agent_registration: None,
+            min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
