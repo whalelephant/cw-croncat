@@ -162,10 +162,11 @@ pub(crate) fn validate_msg_calculate_usage(
                     }
                 }
             }
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: _,
-                amount,
-            }) => {
+            CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+                // Only valid addresses
+                if deps.api.addr_validate(to_address).is_err() {
+                    return Err(ContractError::InvalidAddress {});
+                }
                 // Restrict no-coin transfer
                 if amount.is_empty() {
                     return Err(ContractError::InvalidAction {});
