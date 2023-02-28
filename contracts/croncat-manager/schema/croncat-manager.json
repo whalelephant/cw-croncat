@@ -341,10 +341,18 @@
       "AmountForOneTask": {
         "type": "object",
         "required": [
+          "agent_fee",
           "coin",
-          "gas"
+          "gas",
+          "gas_price",
+          "treasury_fee"
         ],
         "properties": {
+          "agent_fee": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
           "coin": {
             "type": "array",
             "items": {
@@ -371,6 +379,14 @@
             ]
           },
           "gas": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0.0
+          },
+          "gas_price": {
+            "$ref": "#/definitions/GasPrice"
+          },
+          "treasury_fee": {
             "type": "integer",
             "format": "uint64",
             "minimum": 0.0

@@ -30,8 +30,8 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
+use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
-use croncat_sdk_manager::types::GasPrice;
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
 use cw_multi_test::{BankSudo, Executor};
 

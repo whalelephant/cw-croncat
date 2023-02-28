@@ -209,8 +209,6 @@ pub struct Task {
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
 
-    pub amount_for_one_task: AmountForOneTask,
-
     /// The cosmos message to call, if time or rules are met
     pub actions: Vec<Action>,
     /// A prioritized list of messages that can be chained decision matrix
@@ -218,7 +216,13 @@ pub struct Task {
     /// Rules MUST return the ResolverResponse type
     pub queries: Vec<CroncatQuery>,
     pub transforms: Vec<Transform>,
+
+    // allows future backward compat
     pub version: String,
+
+    // computed amounts / fees
+    pub amount_for_one_task: AmountForOneTask,
+    // pub
 }
 
 impl Task {
@@ -496,7 +500,7 @@ fn get_next_cron_time(
 #[cfg(test)]
 mod test {
     use cosmwasm_std::{testing::mock_env, Addr, CosmosMsg, Timestamp, Uint64, WasmMsg};
-    use croncat_sdk_core::types::AmountForOneTask;
+    use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
     use hex::ToHex;
     use sha2::{Digest, Sha256};
 
@@ -535,9 +539,12 @@ mod test {
             }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
-                gas: 100,
                 cw20: None,
                 coin: [None, None],
+                gas: 100,
+                agent_fee: u64::default(),
+                treasury_fee: u64::default(),
+                gas_price: GasPrice::default(),
             },
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {

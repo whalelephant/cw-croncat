@@ -1,9 +1,9 @@
 use cosmwasm_std::{to_binary, Addr, Binary, StdError, WasmMsg};
+use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_factory::msg::{
     Config, ContractMetadataInfo, ContractMetadataResponse, EntryResponse, FactoryExecuteMsg,
     ModuleInstantiateInfo, VersionKind,
 };
-use croncat_sdk_manager::types::GasPrice;
 use cw_multi_test::Executor;
 
 use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, DENOM};

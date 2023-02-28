@@ -80,9 +80,12 @@ export interface ManagerCreateTaskBalance {
   task_hash: number[];
 }
 export interface AmountForOneTask {
+  agent_fee: number;
   coin: [Coin | null, Coin | null];
   cw20?: Cw20CoinVerified | null;
   gas: number;
+  gas_price: GasPrice;
+  treasury_fee: number;
 }
 export interface Coin {
   amount: Uint128;
