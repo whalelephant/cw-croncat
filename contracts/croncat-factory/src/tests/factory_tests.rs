@@ -378,7 +378,7 @@ fn failure_deploy() {
     let err: StdError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            contract_addr,
+            contract_addr.clone(),
             &FactoryExecuteMsg::Deploy {
                 kind: VersionKind::Manager,
                 module_instantiate_info: bad_module_instantiate_info,
@@ -395,7 +395,62 @@ fn failure_deploy() {
             target_type: "croncat_sdk_manager::msg::ManagerInstantiateMsg".to_owned(),
             msg: "EOF while parsing a JSON value.".to_owned()
         }
+    );
+
+    // Test to make sure deploys can't be overwritten
+    let manager_module_instantiate_info_2 = ModuleInstantiateInfo {
+        code_id: manager_code_id,
+        version: [0, 2],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&croncat_manager::msg::InstantiateMsg {
+            denom: "cron".to_owned(),
+            version: Some("0.1".to_owned()),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            croncat_agents_key: ("agents".to_owned(), [0, 1]),
+            owner_addr: Some(ANYONE.to_owned()),
+            gas_price: Some(GasPrice {
+                numerator: 10,
+                denominator: 20,
+                gas_adjustment_numerator: 30,
+            }),
+            treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT0.to_owned()]),
+        })
+        .unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+
+    // expect 1 success here
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::Deploy {
+            kind: VersionKind::Manager,
+            module_instantiate_info: manager_module_instantiate_info_2.clone(),
+        },
+        &[],
     )
+    .expect("first deploy went well thank you");
+
+    // Can't redeploy same version
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr,
+            &FactoryExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: manager_module_instantiate_info_2,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::VersionExists {})
 }
 
 #[test]

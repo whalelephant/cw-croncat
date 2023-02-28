@@ -224,6 +224,16 @@ fn execute_deploy(
     kind: VersionKind,
     module_instantiate_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
+    if CONTRACT_METADATAS.has(
+        deps.storage,
+        (
+            module_instantiate_info.contract_name.as_str(),
+            &module_instantiate_info.version.clone(),
+        ),
+    ) {
+        return Err(ContractError::VersionExists {});
+    }
+
     let contract_name = module_instantiate_info.contract_name.clone();
     let wasm = init_save_metadata_generate_wasm_msg(
         deps.storage,
