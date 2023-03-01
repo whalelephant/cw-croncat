@@ -1090,7 +1090,6 @@ fn test_tick() {
     assert_eq!(agents.active.len(), 1);
     assert_eq!(agents.pending.len(), 3);
 
-    // trying stuff before meeting, can remove
     create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT4).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT5).unwrap();
 
