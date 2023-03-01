@@ -34,4 +34,5 @@ anyhow = { workspace = true }
 croncat-manager = { workspace = true }
 croncat-tasks = { workspace = true }
 croncat-factory = { workspace = true }
+croncat-agents = { workspace = true }
 croncat-sdk-factory = { workspace = true }
