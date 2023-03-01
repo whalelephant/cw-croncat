@@ -1020,7 +1020,8 @@ fn test_tick() {
         croncat_agents_addr.clone(),
         &ExecuteMsg::CheckInAgent {},
         &[],
-    ).unwrap();
+    )
+    .unwrap();
 
     app.update_block(|info| increment_block_height(info, Some(1001)));
     app.update_block(|info| add_seconds_to_block(info, 19));
@@ -1112,12 +1113,16 @@ fn test_tick() {
     app.update_block(|info| increment_block_height(info, Some(1001)));
 
     // Proxy call to remove some tasks since they're immediate
-    assert!(app.execute_contract(
-        Addr::unchecked(AGENT0),
-        Addr::unchecked(croncat_manager_addr),
-        &croncat_manager::msg::ExecuteMsg::ProxyCall { task_hash: None },
-        &[],
-    ).is_ok(), "Proxy call should succeed");
+    assert!(
+        app.execute_contract(
+            Addr::unchecked(AGENT0),
+            Addr::unchecked(croncat_manager_addr),
+            &croncat_manager::msg::ExecuteMsg::ProxyCall { task_hash: None },
+            &[],
+        )
+        .is_ok(),
+        "Proxy call should succeed"
+    );
 
     app.update_block(|info| increment_block_height(info, Some(1001)));
     check_in_agent(&mut app, &croncat_agents_addr, AGENT1).unwrap();
