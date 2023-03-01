@@ -940,7 +940,7 @@ fn test_query_get_agent_tasks() {
 fn test_tick() {
     let mut app = default_app();
     let TestScope {
-        croncat_factory_addr,
+        croncat_factory_addr: _,
         croncat_agents_addr,
         croncat_agents_code_id: _,
         croncat_manager_addr: _,
@@ -951,7 +951,6 @@ fn test_tick() {
     let update_config_msg = ExecuteMsg::UpdateConfig {
         config: UpdateConfig {
             owner_addr: Some(ADMIN.to_owned()),
-            croncat_factory_addr: Some(croncat_factory_addr.to_string()),
             croncat_manager_key: Some(("manager".to_owned(), [0, 1])),
             croncat_tasks_key: Some(("tasks".to_owned(), [0, 1])),
             paused: None,

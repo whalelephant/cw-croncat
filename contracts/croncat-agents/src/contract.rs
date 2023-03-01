@@ -493,7 +493,6 @@ pub fn execute_update_config(
         let UpdateConfig {
             owner_addr,
             paused,
-            croncat_factory_addr,
             croncat_manager_key,
             croncat_tasks_key,
             min_tasks_per_agent,
@@ -512,10 +511,7 @@ pub fn execute_update_config(
                 .map(|human| deps.api.addr_validate(&human))
                 .transpose()?
                 .unwrap_or(config.owner_addr),
-            croncat_factory_addr: croncat_factory_addr
-                .map(|human| deps.api.addr_validate(&human))
-                .transpose()?
-                .unwrap_or(config.croncat_factory_addr),
+            croncat_factory_addr: config.croncat_factory_addr,
             croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             paused: paused.unwrap_or(config.paused),

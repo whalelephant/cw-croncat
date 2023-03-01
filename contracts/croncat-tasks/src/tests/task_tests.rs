@@ -245,7 +245,6 @@ fn create_task_without_query() {
             version: "0.1".to_owned(),
         }),
     };
-    println!("task_response.task {:?}", task_response.task);
     assert_eq!(task_response.task, expected_block_task_response.task);
 
     // check total tasks
