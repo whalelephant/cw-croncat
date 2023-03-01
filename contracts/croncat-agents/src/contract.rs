@@ -41,11 +41,11 @@ pub fn instantiate(
         min_active_agent_count,
     } = msg;
 
-    validate_agent_nomination_duration(agent_nomination_duration)?;
-    validate_min_tasks_per_agent(min_tasks_per_agent)?;
-    validate_agents_eject_threshold(agents_eject_threshold)?;
-    validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
-    validate_min_active_agent_count(min_active_agent_count)?;
+    validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+    validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+    validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+    validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+    validate_config_non_zero_u64(min_coins_for_agent_registration, "min_coins_for_agent_registration")?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -509,11 +509,11 @@ pub fn execute_update_config(
             min_active_agent_count,
         } = msg;
 
-        validate_min_tasks_per_agent(min_tasks_per_agent)?;
-        validate_agent_nomination_duration(agent_nomination_duration)?;
-        validate_agents_eject_threshold(agents_eject_threshold)?;
-        validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
-        validate_min_active_agent_count(min_active_agent_count)?;
+        validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+        validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+        validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+        validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+        validate_config_non_zero_u64(min_coins_for_agent_registration, "min_coins_for_agent_registration")?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
@@ -696,61 +696,30 @@ fn on_task_completed(
     Ok(response)
 }
 
-/// Ensure min_tasks_per_agent does not accept zero during
-/// instantiate or update config assignments
-fn validate_min_tasks_per_agent(val: Option<u64>) -> Result<(), ContractError> {
-    if val == Some(0u64) {
+/// Validating a non-zero value for u64
+fn validate_non_zero(num: u64, field_name: &str) -> Result<(), ContractError> {
+    if num == 0u64 {
         Err(InvalidConfigurationValue {
-            field: "min_tasks_per_agent".to_string(),
+            field: field_name.to_string(),
         })
     } else {
         Ok(())
     }
 }
 
-/// Ensure min_coins_for_agent_registration does not accept zero during
-/// instantiate or update config assignments
-fn validate_min_coins_for_agent_registration(val: Option<u64>) -> Result<(), ContractError> {
-    if val == Some(0u64) {
-        Err(InvalidConfigurationValue {
-            field: "min_coins_for_agent_registration".to_string(),
-        })
+/// Resources indicate that trying to use generics in this case is not the correct path
+/// This will cast into a u64 and proceed to validate
+fn validate_config_non_zero_u16(opt_num: Option<u16>, field_name: &str) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num as u64, field_name)
     } else {
         Ok(())
     }
 }
 
-/// Ensure min_active_agent_count does not accept zero during
-/// instantiate or update config assignments
-fn validate_min_active_agent_count(val: Option<u16>) -> Result<(), ContractError> {
-    if val == Some(0u16) {
-        Err(InvalidConfigurationValue {
-            field: "min_active_agent_count".to_string(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
-/// Ensure agents_eject_threshold does not accept zero during
-/// instantiate or update config assignments
-fn validate_agents_eject_threshold(val: Option<u64>) -> Result<(), ContractError> {
-    if val == Some(0u64) {
-        Err(InvalidConfigurationValue {
-            field: "agents_eject_threshold".to_string(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
-/// Ensure min_tasks_per_agent does not accept zero during
-/// instantiate or update config assignments
-fn validate_agent_nomination_duration(val: Option<u16>) -> Result<(), ContractError> {
-    if val == Some(0u16) {
-        Err(InvalidConfigurationValue {
-            field: "agent_nomination_duration".to_string(),
-        })
+fn validate_config_non_zero_u64(opt_num: Option<u64>, field_name: &str) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num, field_name)
     } else {
         Ok(())
     }
