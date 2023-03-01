@@ -263,6 +263,7 @@ fn execute_proxy_call(
             agent_addr,
             tasks_addr,
             Some(vec![Attribute::new("lifecycle", "task_ended")]),
+            true,
         );
     }
 
@@ -316,6 +317,7 @@ fn execute_proxy_call(
                 agent_addr,
                 tasks_addr,
                 Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
+                false,
             );
         }
     }
@@ -340,13 +342,22 @@ fn end_task(
     agent_addr: Addr,
     tasks_addr: Addr,
     attrs: Option<Vec<Attribute>>,
+    reimburse_only: bool,
 ) -> Result<Response, ContractError> {
     // Sub gas/fee from native
-    let gas_with_fees = gas_with_fees(
-        task.amount_for_one_task.gas,
-        config.agent_fee + config.treasury_fee,
-    )?;
-    let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
+    let gas_with_fees = if reimburse_only {
+        gas_with_fees(task.amount_for_one_task.gas, 0u64)?
+    } else {
+        gas_with_fees(
+            task.amount_for_one_task.gas,
+            task.amount_for_one_task.agent_fee + task.amount_for_one_task.treasury_fee,
+        )?
+    };
+    let native_for_gas_required = task
+        .amount_for_one_task
+        .gas_price
+        .calculate(gas_with_fees)
+        .unwrap();
     let mut task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
     task_balance.native_balance = task_balance
         .native_balance
@@ -354,6 +365,7 @@ fn end_task(
         .map_err(StdError::overflow)?;
 
     // Account for fees, to reimburse agent for efforts
+    // TODO: Need to NOT add fee for non-reimberse
     add_fee_rewards(
         deps.storage,
         task.amount_for_one_task.gas,
@@ -361,6 +373,7 @@ fn end_task(
         &agent_addr,
         task.amount_for_one_task.agent_fee,
         task.amount_for_one_task.treasury_fee,
+        reimburse_only,
     )?;
 
     // refund the final balances to task owner

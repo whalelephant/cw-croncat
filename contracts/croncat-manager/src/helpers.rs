@@ -249,9 +249,15 @@ pub(crate) fn finalize_task(
     // Sub native for gas
     let gas_with_fees = gas_with_fees(
         queue_item.task.amount_for_one_task.gas,
-        config.agent_fee + config.treasury_fee,
+        queue_item.task.amount_for_one_task.agent_fee
+            + queue_item.task.amount_for_one_task.treasury_fee,
     )?;
-    let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
+    let native_for_gas_required = queue_item
+        .task
+        .amount_for_one_task
+        .gas_price
+        .calculate(gas_with_fees)
+        .unwrap();
     task_balance.native_balance = task_balance
         .native_balance
         .checked_sub(Uint128::new(native_for_gas_required))
@@ -264,6 +270,7 @@ pub(crate) fn finalize_task(
         &queue_item.agent_addr,
         queue_item.task.amount_for_one_task.agent_fee,
         queue_item.task.amount_for_one_task.treasury_fee,
+        false,
     )?;
 
     let original_amounts = queue_item.task.amount_for_one_task.clone();
