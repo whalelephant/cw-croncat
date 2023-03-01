@@ -302,15 +302,21 @@ fn test_agent_check_in_successful() {
     } = init_test_scope(&mut app);
 
     register_agent(&mut app, &croncat_agents_addr, ANYONE, PARTICIPANT0).unwrap();
-    register_agent(&mut app, &croncat_agents_addr, ADMIN, PARTICIPANT0).unwrap();
     app.update_block(|block| add_seconds_to_block(block, 500));
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT0).unwrap();
-    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
+    app.update_block(|block| increment_block_height(block, Some(30)));
+    register_agent(&mut app, &croncat_agents_addr, ADMIN, PARTICIPANT0).unwrap();
+
+    // Agent shouldn't be able to check in yet
+    assert!(check_in_agent(&mut app, &croncat_agents_addr, ADMIN).is_err());
+
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT2).unwrap();
     create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT3).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_str(), ADMIN, PARTICIPANT1).unwrap();
     app.update_block(|block| increment_block_height(block, Some(30)));
 
-    check_in_agent(&mut app, &croncat_agents_addr, ADMIN).unwrap();
+    // Agent should now be able to check in
+    assert!(check_in_agent(&mut app, &croncat_agents_addr, ADMIN).is_ok());
 
     let agent_response: AgentResponse = app
         .wrap()
@@ -324,6 +330,7 @@ fn test_agent_check_in_successful() {
 
     assert_eq!(agent_response.agent.unwrap().status, AgentStatus::Active);
 }
+
 #[test]
 fn test_accept_nomination_agent() {
     let mut app = default_app();
@@ -960,8 +967,8 @@ fn test_tick() {
         croncat_factory_addr,
         croncat_agents_addr,
         croncat_agents_code_id: _,
-        croncat_manager_addr: _,
-        croncat_tasks_addr: _,
+        croncat_manager_addr,
+        croncat_tasks_addr,
     } = init_test_scope(&mut app);
 
     // Change settings, the agent can miss 1000 blocks
@@ -972,11 +979,11 @@ fn test_tick() {
             croncat_manager_key: Some(("manager".to_owned(), [0, 1])),
             croncat_tasks_key: Some(("tasks".to_owned(), [0, 1])),
             paused: None,
-            min_tasks_per_agent: None,
+            min_tasks_per_agent: Some(2),
             min_coins_for_agent_registration: Some(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
             agents_eject_threshold: Some(1000), // allow to miss 1000 slots
-            min_active_agent_count: Some(0),
+            min_active_agent_count: Some(1),
         },
     };
 
@@ -994,7 +1001,26 @@ fn test_tick() {
     )
     .unwrap();
 
+    // The first agent will get let in automatically since there are zero
+    register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT1).unwrap();
+
+    // Before we can register the second agent, we need to make sure there are enough tasks
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT0).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT1).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT2).unwrap();
+
     register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
+
+    app.update_block(|info| increment_block_height(info, Some(30)));
+    app.update_block(|info| add_seconds_to_block(info, 180));
+
+    // Let them in by checking in
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        croncat_agents_addr.clone(),
+        &ExecuteMsg::CheckInAgent {},
+        &[],
+    ).unwrap();
 
     app.update_block(|info| increment_block_height(info, Some(1001)));
     app.update_block(|info| add_seconds_to_block(info, 19));
@@ -1012,11 +1038,7 @@ fn test_tick() {
     assert!(res.events.iter().any(|ev| ev
         .attributes
         .iter()
-        .any(|attr| attr.key == "account_id" && attr.value == AGENT0)));
-    assert!(res.events.iter().any(|ev| ev
-        .attributes
-        .iter()
-        .any(|attr| attr.key == "lifecycle" && attr.value == "tick_failure")));
+        .any(|attr| attr.key == "account_id" && attr.value == AGENT1)));
 
     // The agent missed 1001 blocks and he was unregistered
     // Pending agents weren't deleted
@@ -1030,15 +1052,16 @@ fn test_tick() {
             },
         )
         .unwrap();
-    assert!(agents.active.is_empty());
+    assert_eq!(agents.active.len(), 1);
     assert!(agents.pending.is_empty());
 
-    register_agent(&mut app, &croncat_agents_addr, AGENT0, AGENT_BENEFICIARY).unwrap();
     register_agent(&mut app, &croncat_agents_addr, AGENT1, AGENT_BENEFICIARY).unwrap();
     register_agent(&mut app, &croncat_agents_addr, AGENT2, AGENT_BENEFICIARY).unwrap();
+    register_agent(&mut app, &croncat_agents_addr, AGENT3, AGENT_BENEFICIARY).unwrap();
 
     // need block advancement
-    app.update_block(|info| add_seconds_to_block(info, 19));
+    app.update_block(|info| increment_block_height(info, Some(1001)));
+    app.update_block(|info| add_seconds_to_block(info, 6000));
 
     // Call tick
     // Not enough time passed to delete the agent
@@ -1065,7 +1088,11 @@ fn test_tick() {
         )
         .unwrap();
     assert_eq!(agents.active.len(), 1);
-    assert_eq!(agents.pending.len(), 2);
+    assert_eq!(agents.pending.len(), 3);
+
+    // trying stuff before meeting, can remove
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT4).unwrap();
+    create_task(&mut app, croncat_tasks_addr.as_ref(), ADMIN, PARTICIPANT5).unwrap();
 
     // First pending agent wasn't nominated
     let err: ContractError = app
@@ -1084,6 +1111,18 @@ fn test_tick() {
     // Add enough blocks to call tick
     app.update_block(|info| increment_block_height(info, Some(1001)));
 
+    // Proxy call to remove some tasks since they're immediate
+    assert!(app.execute_contract(
+        Addr::unchecked(AGENT0),
+        Addr::unchecked(croncat_manager_addr),
+        &croncat_manager::msg::ExecuteMsg::ProxyCall { task_hash: None },
+        &[],
+    ).is_ok(), "Proxy call should succeed");
+
+    app.update_block(|info| increment_block_height(info, Some(1001)));
+    check_in_agent(&mut app, &croncat_agents_addr, AGENT1).unwrap();
+
+    // Then tick to remove some agents
     let res = tick(&mut app, &croncat_agents_addr, ANYONE).unwrap();
 
     // Check attributes
@@ -1116,17 +1155,9 @@ fn test_tick() {
             },
         )
         .unwrap();
-    assert!(agents.active.is_empty());
+    assert_eq!(agents.active.len(), 1);
     assert_eq!(agents.pending.len(), 2);
 
-    // First agent was nominated and can call CheckInAgent
-    app.execute_contract(
-        Addr::unchecked(AGENT1),
-        croncat_agents_addr.clone(),
-        &ExecuteMsg::CheckInAgent {},
-        &[],
-    )
-    .unwrap();
     // Second agent wasn't nominated
     let err = app
         .execute_contract(
