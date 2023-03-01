@@ -21,6 +21,9 @@ pub enum ContractError {
     #[error("Actions message unsupported or invalid message data")]
     InvalidAction {},
 
+    #[error("Supplied address is not valid address")]
+    InvalidAddress {},
+
     #[error("Invalid gas input")]
     InvalidGas {},
 
