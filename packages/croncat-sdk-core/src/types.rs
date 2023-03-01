@@ -63,8 +63,8 @@ pub struct AmountForOneTask {
 
     // to stabilize deposited fees against point-in-time configured fees
     pub gas: u64,
-    pub agent_fee: u8,
-    pub treasury_fee: u8,
+    pub agent_fee: u16,
+    pub treasury_fee: u16,
     pub gas_price: GasPrice,
 }
 

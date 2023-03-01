@@ -542,8 +542,8 @@ mod test {
                 cw20: None,
                 coin: [None, None],
                 gas: 100,
-                agent_fee: u8::default(),
-                treasury_fee: u8::default(),
+                agent_fee: u16::default(),
+                treasury_fee: u16::default(),
                 gas_price: GasPrice::default(),
             },
             actions: vec![Action {

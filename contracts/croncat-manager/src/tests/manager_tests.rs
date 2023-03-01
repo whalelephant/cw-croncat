@@ -4709,7 +4709,7 @@ fn config_invalid_percentage_updates() {
     let mut update_cfg_msg = UpdateConfig {
         owner_addr: Some("new_owner".to_string()),
         paused: Some(true),
-        agent_fee: Some(101), // Above 100
+        agent_fee: Some(10_001), // Above 10_000
         treasury_fee: Some(0),
         gas_price: Some(GasPrice {
             numerator: 555,
@@ -4741,7 +4741,7 @@ fn config_invalid_percentage_updates() {
 
     // Now check the same for the treasury_fee
     update_cfg_msg.agent_fee = Some(5);
-    update_cfg_msg.treasury_fee = Some(222); // Above 100
+    update_cfg_msg.treasury_fee = Some(22_222); // Above 10_000
 
     err = app
         .execute_contract(

@@ -34,7 +34,7 @@ use crate::ContractError::InvalidPercentage;
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub(crate) const DEFAULT_FEE: u8 = 5;
+pub(crate) const DEFAULT_FEE: u16 = 5;
 
 /// reply id from tasks contract
 pub(crate) const TASK_REPLY: u64 = u64::from_be_bytes(*b"croncat1");
@@ -644,10 +644,13 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     }
 }
 
-/// Validate when a given value should be between 0 - 100.
+/// Validate when a given value should be a reasonable percentage.
+/// Due to low native token prices on some chains, we must allow for
+/// greater than 100% in order to be sustainable, and have gone with
+/// a max of 10,000% after internal discussion and looking at the numbers.
 /// Since it's unsigned, don't check for negatives
-fn validate_percentage_value(val: &u8, field_name: &str) -> Result<(), ContractError> {
-    if val > &100u8 {
+fn validate_percentage_value(val: &u16, field_name: &str) -> Result<(), ContractError> {
+    if val > &10_000u16 {
         Err(InvalidPercentage {
             field: field_name.to_string(),
         })

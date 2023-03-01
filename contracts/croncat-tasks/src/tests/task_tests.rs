@@ -23,7 +23,6 @@ use croncat_sdk_tasks::{
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{BankSudo, Executor};
 use cw_storage_plus::KeyDeserialize;
-use std::u8;
 
 use super::{
     contracts,
@@ -1031,8 +1030,8 @@ fn remove_tasks_with_queries_success() {
             cw20: None,
             coin: [Some(coin(5, DENOM)), None],
             gas: 50_000,
-            agent_fee: u8::default(),
-            treasury_fee: u8::default(),
+            agent_fee: u16::default(),
+            treasury_fee: u16::default(),
             gas_price: GasPrice::default(),
         },
     };
@@ -1059,8 +1058,8 @@ fn remove_tasks_with_queries_success() {
             cw20: None,
             coin: [Some(coin(5, DENOM)), None],
             gas: 50_000,
-            agent_fee: u8::default(),
-            treasury_fee: u8::default(),
+            agent_fee: u16::default(),
+            treasury_fee: u16::default(),
             gas_price: GasPrice::default(),
         },
     };

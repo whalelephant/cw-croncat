@@ -59,8 +59,8 @@ pub(crate) fn add_fee_rewards(
     gas: u64,
     gas_price: &GasPrice,
     agent_addr: &Addr,
-    agent_fee: u8,
-    treasury_fee: u8,
+    agent_fee: u16,
+    treasury_fee: u16,
 ) -> Result<(), ContractError> {
     AGENT_REWARDS.update(
         storage,
