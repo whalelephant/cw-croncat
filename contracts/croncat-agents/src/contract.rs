@@ -45,7 +45,10 @@ pub fn instantiate(
     validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
     validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
     validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
-    validate_config_non_zero_u64(min_coins_for_agent_registration, "min_coins_for_agent_registration")?;
+    validate_config_non_zero_u64(
+        min_coins_for_agent_registration,
+        "min_coins_for_agent_registration",
+    )?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -513,7 +516,10 @@ pub fn execute_update_config(
         validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
         validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
         validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
-        validate_config_non_zero_u64(min_coins_for_agent_registration, "min_coins_for_agent_registration")?;
+        validate_config_non_zero_u64(
+            min_coins_for_agent_registration,
+            "min_coins_for_agent_registration",
+        )?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
@@ -709,7 +715,10 @@ fn validate_non_zero(num: u64, field_name: &str) -> Result<(), ContractError> {
 
 /// Resources indicate that trying to use generics in this case is not the correct path
 /// This will cast into a u64 and proceed to validate
-fn validate_config_non_zero_u16(opt_num: Option<u16>, field_name: &str) -> Result<(), ContractError> {
+fn validate_config_non_zero_u16(
+    opt_num: Option<u16>,
+    field_name: &str,
+) -> Result<(), ContractError> {
     if let Some(num) = opt_num {
         validate_non_zero(num as u64, field_name)
     } else {
@@ -717,7 +726,10 @@ fn validate_config_non_zero_u16(opt_num: Option<u16>, field_name: &str) -> Resul
     }
 }
 
-fn validate_config_non_zero_u64(opt_num: Option<u64>, field_name: &str) -> Result<(), ContractError> {
+fn validate_config_non_zero_u64(
+    opt_num: Option<u64>,
+    field_name: &str,
+) -> Result<(), ContractError> {
     if let Some(num) = opt_num {
         validate_non_zero(num, field_name)
     } else {
