@@ -1809,7 +1809,7 @@
         "properties": {
           "agent_fee": {
             "type": "integer",
-            "format": "uint64",
+            "format": "uint8",
             "minimum": 0.0
           },
           "coin": {
@@ -1847,7 +1847,7 @@
           },
           "treasury_fee": {
             "type": "integer",
-            "format": "uint64",
+            "format": "uint8",
             "minimum": 0.0
           }
         },
@@ -3099,7 +3099,7 @@
           "properties": {
             "agent_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             },
             "coin": {
@@ -3137,7 +3137,7 @@
             },
             "treasury_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             }
           },
@@ -4292,7 +4292,7 @@
           "properties": {
             "agent_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             },
             "coin": {
@@ -4330,7 +4330,7 @@
             },
             "treasury_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             }
           },
@@ -5537,7 +5537,7 @@
           "properties": {
             "agent_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             },
             "coin": {
@@ -5575,7 +5575,7 @@
             },
             "treasury_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             }
           },
@@ -6685,7 +6685,7 @@
           "properties": {
             "agent_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             },
             "coin": {
@@ -6723,7 +6723,7 @@
             },
             "treasury_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             }
           },
@@ -7828,7 +7828,7 @@
           "properties": {
             "agent_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             },
             "coin": {
@@ -7866,7 +7866,7 @@
             },
             "treasury_fee": {
               "type": "integer",
-              "format": "uint64",
+              "format": "uint8",
               "minimum": 0.0
             }
           },
