@@ -18,8 +18,8 @@ fn amount_for_one_task_add_gas() {
         cw20: None,
         coin: [None, None],
         gas: 0,
-        agent_fee: u64::default(),
-        treasury_fee: u64::default(),
+        agent_fee: u8::default(),
+        treasury_fee: u8::default(),
         gas_price: GasPrice::default(),
     };
 
@@ -39,8 +39,8 @@ fn amount_for_one_task_add_coin() {
         cw20: None,
         coin: [None, None],
         gas: 0,
-        agent_fee: u64::default(),
-        treasury_fee: u64::default(),
+        agent_fee: u8::default(),
+        treasury_fee: u8::default(),
         gas_price: GasPrice::default(),
     };
 
@@ -91,8 +91,8 @@ fn amount_for_one_task_add_cw20() {
         cw20: None,
         coin: [None, None],
         gas: 0,
-        agent_fee: u64::default(),
-        treasury_fee: u64::default(),
+        agent_fee: u8::default(),
+        treasury_fee: u8::default(),
         gas_price: GasPrice::default(),
     };
 
@@ -139,8 +139,8 @@ fn amount_for_one_task_sub_coin() {
         cw20: None,
         coin: [None, None],
         gas: 0,
-        agent_fee: u64::default(),
-        treasury_fee: u64::default(),
+        agent_fee: u8::default(),
+        treasury_fee: u8::default(),
         gas_price: GasPrice::default(),
     };
 
@@ -152,8 +152,8 @@ fn amount_for_one_task_sub_coin() {
             cw20: None,
             coin: [None, None],
             gas: 0,
-            agent_fee: u64::default(),
-            treasury_fee: u64::default(),
+            agent_fee: u8::default(),
+            treasury_fee: u8::default(),
             gas_price: GasPrice::default(),
         }
     );
@@ -230,8 +230,8 @@ fn amount_for_one_task_sub_cw20() {
         cw20: None,
         coin: [None, None],
         gas: 0,
-        agent_fee: u64::default(),
-        treasury_fee: u64::default(),
+        agent_fee: u8::default(),
+        treasury_fee: u8::default(),
         gas_price: GasPrice::default(),
     };
 

@@ -59,22 +59,22 @@ pub(crate) fn add_fee_rewards(
     gas: u64,
     gas_price: &GasPrice,
     agent_addr: &Addr,
-    agent_fee: u64,
-    treasury_fee: u64,
+    agent_fee: u8,
+    treasury_fee: u8,
 ) -> Result<(), ContractError> {
     AGENT_REWARDS.update(
         storage,
         agent_addr,
         |agent_balance| -> Result<_, ContractError> {
             // Adding base gas and agent_fee here
-            let gas_fee = gas_fee(gas, agent_fee)? + gas;
+            let gas_fee = gas_fee(gas, agent_fee.into())? + gas;
             let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
             Ok(agent_balance.unwrap_or_default() + amount)
         },
     )?;
 
     TREASURY_BALANCE.update(storage, |balance| -> Result<_, ContractError> {
-        let gas_fee = gas_fee(gas, treasury_fee)?;
+        let gas_fee = gas_fee(gas, treasury_fee.into())?;
         let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
         Ok(balance + amount)
     })?;

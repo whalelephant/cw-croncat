@@ -61,10 +61,10 @@ pub struct AmountForOneTask {
     pub cw20: Option<Cw20CoinVerified>,
     pub coin: [Option<Coin>; 2],
 
-    // to stablize deposited fees against point-in-time configured fees
+    // to stabilize deposited fees against point-in-time configured fees
     pub gas: u64,
-    pub agent_fee: u64,
-    pub treasury_fee: u64,
+    pub agent_fee: u8,
+    pub treasury_fee: u8,
     pub gas_price: GasPrice,
 }
 

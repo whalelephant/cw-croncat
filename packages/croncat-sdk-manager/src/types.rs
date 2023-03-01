@@ -140,8 +140,8 @@ pub struct Config {
     pub croncat_agents_key: (String, [u8; 2]),
 
     // Economics
-    pub agent_fee: u64,
-    pub treasury_fee: u64,
+    pub agent_fee: u8,
+    pub treasury_fee: u8,
     pub gas_price: GasPrice,
 
     // Treasury
@@ -157,8 +157,8 @@ pub struct Config {
 pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
-    pub agent_fee: Option<u64>,
-    pub treasury_fee: Option<u64>,
+    pub agent_fee: Option<u8>,
+    pub treasury_fee: Option<u8>,
     pub gas_price: Option<GasPrice>,
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
