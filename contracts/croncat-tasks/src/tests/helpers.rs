@@ -1,7 +1,7 @@
 use super::{
     contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERY_RICH,
+    PARTICIPANT6, VERSION, VERY_RICH,
 };
 use crate::msg::InstantiateMsg;
 
@@ -195,4 +195,58 @@ pub(crate) fn default_instantiate_msg() -> InstantiateMsg {
 pub fn add_little_time(block: &mut BlockInfo) {
     block.time = block.time.plus_seconds(19);
     block.height += 1;
+}
+pub(crate) fn increment_block_height(block: &mut BlockInfo, inc_value: Option<u64>) {
+    block.height += inc_value.unwrap_or(1);
+}
+
+// Note: gonna work only with first agent, other have to get nominated
+pub(crate) fn activate_agent(app: &mut App, agents_contract: &Addr) {
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        agents_contract.clone(),
+        &croncat_agents::msg::ExecuteMsg::RegisterAgent {
+            payable_account_id: None,
+        },
+        &[],
+    )
+    .unwrap();
+}
+
+pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
+    let code_id = app.store_code(contracts::mod_balances_contract());
+    let msg = croncat_mod_balances::msg::InstantiateMsg {
+        version: Some(VERSION.to_owned()),
+    };
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&msg).unwrap(),
+        contract_name: "mod-balances".to_owned(),
+    };
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.to_owned(),
+        &croncat_factory::msg::ExecuteMsg::Deploy {
+            kind: VersionKind::Library,
+            module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    let metadata: ContractMetadataResponse = app
+        .wrap()
+        .query_wasm_smart(
+            factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "mod-balances".to_owned(),
+            },
+        )
+        .unwrap();
+    metadata.metadata.unwrap().contract_addr
 }

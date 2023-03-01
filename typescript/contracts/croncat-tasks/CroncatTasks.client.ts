@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, BoundaryHeight, BoundaryTime, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, ArrayOfString, ArrayOfUint64, ArrayOfTaskInfo, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskResponse } from "./CroncatTasks.types";
+import { InstantiateMsg, ExecuteMsg, CosmosMsgForEmpty, BankMsg, Uint128, StakingMsg, DistributionMsg, Binary, IbcMsg, Timestamp, Uint64, WasmMsg, GovMsg, VoteOption, Boundary, Interval, ValueIndex, PathToValue, UpdateConfigMsg, TaskRequest, ActionForEmpty, Coin, Empty, IbcTimeout, IbcTimeoutBlock, BoundaryHeight, BoundaryTime, Cw20Coin, CroncatQuery, Transform, TasksRemoveTaskByManager, TasksRescheduleTask, QueryMsg, Addr, Task, AmountForOneTask, Cw20CoinVerified, GasPrice, Config, TaskResponse, TaskInfo, CurrentTaskInfoResponse, ArrayOfString, ArrayOfUint64, ArrayOfTaskInfo, SlotHashesResponse, SlotIdsResponse, SlotTasksTotalResponse, String, ArrayOfTaskResponse } from "./CroncatTasks.types";
 export interface CroncatTasksReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;

@@ -59,13 +59,12 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
     }
 }
 
-pub(crate) fn mock_update_config(croncat_factory_addr: &str) -> UpdateConfig {
+pub(crate) fn mock_update_config(_croncat_factory_addr: &str) -> UpdateConfig {
     UpdateConfig {
         owner_addr: Some(ADMIN.to_string()),
         paused: Some(false),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
-        croncat_factory_addr: Some(croncat_factory_addr.to_owned()),
         croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
         croncat_tasks_key: Some(("tasks".to_owned(), [42, 0])),
         min_coins_for_agent_registration: None,

@@ -9,7 +9,7 @@ use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, Man
 
 use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
-use croncat_sdk_tasks::types::{Interval, TaskInfo};
+use croncat_sdk_tasks::types::{Interval, Task, TaskInfo};
 use cw2::set_contract_version;
 use cw_utils::parse_reply_execute_data;
 
@@ -136,7 +136,7 @@ pub fn execute(
         ExecuteMsg::RefillTaskCw20Balance { task_hash, cw20 } => {
             execute_refill_task_cw20(deps, info, task_hash, cw20)
         }
-        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, msg),
+        ExecuteMsg::CreateTaskBalance(msg) => execute_create_task_balance(deps, info, *msg),
         ExecuteMsg::RemoveTask(msg) => execute_remove_task(deps, info, msg),
         ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
@@ -201,10 +201,29 @@ fn execute_proxy_call(
         }
 
         // A hash means agent is attempting to execute evented task
-        deps.querier.query_wasm_smart(
+        let task_data: croncat_sdk_tasks::types::TaskResponse = deps.querier.query_wasm_smart(
             tasks_addr.clone(),
             &croncat_sdk_tasks::msg::TasksQueryMsg::Task { task_hash: hash },
-        )?
+        )?;
+
+        // Check the task is evented
+        if let Some(task) = task_data.clone().task {
+            let t = Task {
+                owner_addr: task.owner_addr,
+                interval: task.interval,
+                boundary: task.boundary,
+                stop_on_fail: task.stop_on_fail,
+                amount_for_one_task: task.amount_for_one_task,
+                actions: task.actions,
+                queries: task.queries.unwrap_or_default(),
+                transforms: task.transforms,
+                version: task.version,
+            };
+            if !t.is_evented() {
+                return Err(ContractError::NoTaskForAgent {});
+            }
+        }
+        task_data
     } else {
         // For scheduled case - check only active agents that are allowed tasks
         let agent_tasks: croncat_sdk_agents::msg::AgentTaskResponse =
@@ -327,7 +346,7 @@ fn end_task(
         task.amount_for_one_task.gas,
         config.agent_fee + config.treasury_fee,
     )?;
-    let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+    let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
     let mut task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
     task_balance.native_balance = task_balance
         .native_balance
@@ -338,10 +357,10 @@ fn end_task(
     add_fee_rewards(
         deps.storage,
         task.amount_for_one_task.gas,
-        &config.gas_price,
+        &task.amount_for_one_task.gas_price,
         &agent_addr,
-        config.agent_fee,
-        config.treasury_fee,
+        task.amount_for_one_task.agent_fee,
+        task.amount_for_one_task.treasury_fee,
     )?;
 
     // refund the final balances to task owner
@@ -460,7 +479,7 @@ fn execute_create_task_balance(
             msg.amount_for_one_task.gas,
             config.agent_fee + config.treasury_fee,
         )?;
-        let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+        let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
         let (native_for_sends_required, ibc_required) =
             calculate_required_natives(msg.amount_for_one_task.coin, &config.native_denom)?;
         tasks_balance.verify_enough_attached(

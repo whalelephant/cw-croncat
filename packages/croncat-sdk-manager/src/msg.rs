@@ -1,8 +1,9 @@
-use crate::types::{GasPrice, UpdateConfig};
+use crate::types::UpdateConfig;
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
+use croncat_sdk_core::types::GasPrice;
 
 use cw20::Cw20Coin;
 
@@ -54,7 +55,7 @@ pub enum ManagerExecuteMsg {
     Receive(cw20::Cw20ReceiveMsg),
 
     /// Create task's balance, called by the tasks contract
-    CreateTaskBalance(ManagerCreateTaskBalance),
+    CreateTaskBalance(Box<ManagerCreateTaskBalance>),
 
     /// Remove task's balance, called by the tasks contract
     RemoveTask(ManagerRemoveTask),

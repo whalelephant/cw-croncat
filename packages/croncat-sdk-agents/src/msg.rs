@@ -133,9 +133,6 @@ pub struct UpdateConfig {
     /// Contract paused state, if contract is paused some action will not be available for execution
     pub paused: Option<bool>,
 
-    /// Address of the factory contract
-    pub croncat_factory_addr: Option<String>,
-
     /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: Option<(String, [u8; 2])>,
 

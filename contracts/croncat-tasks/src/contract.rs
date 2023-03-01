@@ -573,6 +573,14 @@ fn query_slot_tasks_total(
 
 /// Get the slot with lowest height/timestamp
 /// NOTE: This prioritizes blocks over timestamps
+/// Why blocks over timestamps? Time-based tasks have a wider granularity than blocks.
+/// For example, the default configuration for time granularity is 10 seconds. This means
+/// on average a time-based task could occur on 1 of 2 blocks. This configuration is aimed
+/// at a larger window of time because timestamp guarantees are virtually impossible, without
+/// protocol level mechanisms. Since this is the case, timestamps should be considered more
+/// flexible in execution windows. Future versions of this contract can ensure better
+/// execution guarantees, based on whether the timestamp is nearing the end of its block-span
+/// window (timestamp end is closer to 2nd block than 1st).
 fn query_current_task(deps: Deps, env: Env) -> StdResult<TaskResponse> {
     let config = CONFIG.load(deps.storage)?;
     let mut block_slot: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS

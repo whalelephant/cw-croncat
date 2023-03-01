@@ -30,15 +30,15 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
+use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
-use croncat_sdk_manager::types::GasPrice;
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
 use cw_multi_test::{BankSudo, Executor};
 
 use super::{
     contracts,
     helpers::{init_agents, init_boolean, init_tasks},
-    PARTICIPANT0,
+    PARTICIPANT0, PARTICIPANT1,
 };
 use super::{
     helpers::{activate_agent, add_little_time, init_cw20, query_users_manager},
@@ -4267,7 +4267,7 @@ fn scheduled_task_with_boundary_issue() {
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
-                to_address: "Bob".to_owned(),
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
                 amount: coins(5, DENOM),
             }
             .into(),
@@ -4386,7 +4386,7 @@ fn event_task_with_boundary_issue() {
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
-                to_address: "Bob".to_owned(),
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
                 amount: coins(5, DENOM),
             }
             .into(),
@@ -4474,7 +4474,7 @@ fn event_task_with_failed_check_result() {
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
-                to_address: "Bob".to_owned(),
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
                 amount: coins(5, DENOM),
             }
             .into(),
@@ -4614,7 +4614,7 @@ fn immediate_event_task_has_multiple_executions() {
         stop_on_fail: false,
         actions: vec![Action {
             msg: BankMsg::Send {
-                to_address: "Bob".to_owned(),
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
                 amount: coins(5, DENOM),
             }
             .into(),
@@ -4625,15 +4625,16 @@ fn immediate_event_task_has_multiple_executions() {
         cw20: None,
     };
 
-    app.execute_contract(
-        Addr::unchecked(ANYONE),
-        tasks_addr.clone(),
-        &CreateTask {
-            task: Box::new(task),
-        },
-        &coins(126_740, DENOM),
-    )
-    .expect("Couldn't create task");
+    let _res = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            tasks_addr.clone(),
+            &CreateTask {
+                task: Box::new(task),
+            },
+            &coins(126_740, DENOM),
+        )
+        .expect("Couldn't create task");
 
     // Agent checks to see if there are tasks for them to do.
     // Note: we hit the Tasks contract for this one. Manager for regular tasks.

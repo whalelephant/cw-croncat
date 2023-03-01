@@ -49,7 +49,6 @@ export interface AgentOnTaskCompleted {
 export interface UpdateConfig {
   agent_nomination_duration?: number | null;
   agents_eject_threshold?: number | null;
-  croncat_factory_addr?: string | null;
   croncat_manager_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
   min_active_agent_count?: number | null;

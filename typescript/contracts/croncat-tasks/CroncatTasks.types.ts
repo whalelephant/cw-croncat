@@ -322,13 +322,21 @@ export interface Task {
   version: string;
 }
 export interface AmountForOneTask {
+  agent_fee: number;
   coin: [Coin | null, Coin | null];
   cw20?: Cw20CoinVerified | null;
   gas: number;
+  gas_price: GasPrice;
+  treasury_fee: number;
 }
 export interface Cw20CoinVerified {
   address: Addr;
   amount: Uint128;
+}
+export interface GasPrice {
+  denominator: number;
+  gas_adjustment_numerator: number;
+  numerator: number;
 }
 export interface Config {
   chain_name: string;
