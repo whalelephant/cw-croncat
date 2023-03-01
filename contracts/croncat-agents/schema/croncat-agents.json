@@ -310,13 +310,6 @@
             "format": "uint64",
             "minimum": 0.0
           },
-          "croncat_factory_addr": {
-            "description": "Address of the factory contract",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "croncat_manager_key": {
             "description": "Name of the key for raw querying Manager address from the factory",
             "type": [
