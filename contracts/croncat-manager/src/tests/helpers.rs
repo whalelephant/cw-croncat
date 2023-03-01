@@ -31,10 +31,7 @@ pub(crate) fn default_app() -> App {
             (5_000_000, PARTICIPANT5.to_string()),
             (5_000_000, PARTICIPANT6.to_string()),
             (2_000_000, AGENT_BENEFICIARY.to_string()),
-            (
-                u128::max_value().saturating_sub(1000),
-                VERY_RICH.to_string(),
-            ),
+            (u128::MAX.saturating_sub(1000), VERY_RICH.to_string()),
         ];
         for (amt, address) in accounts {
             router

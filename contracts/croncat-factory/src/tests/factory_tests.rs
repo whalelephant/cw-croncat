@@ -114,7 +114,7 @@ fn deploy_check() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
+            denom: DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -329,7 +329,7 @@ fn failure_deploy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
+            denom: DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -406,7 +406,7 @@ fn failure_deploy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
+            denom: DENOM.to_string(), //"cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -971,7 +971,7 @@ fn fail_and_success_proxy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
+            denom: DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),

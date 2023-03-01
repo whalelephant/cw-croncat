@@ -4,6 +4,7 @@ use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmM
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
+use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
@@ -83,7 +84,7 @@ mod instantiate_tests {
         let factory_addr = init_factory(&mut app);
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            denom: "cron".to_owned(),
+            denom: DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
@@ -96,11 +97,7 @@ mod instantiate_tests {
             treasury_addr: Some(AGENT2.to_owned()),
             cw20_whitelist: Some(vec![PARTICIPANT3.to_owned()]),
         };
-        let attach_funds = vec![
-            coin(5000, "denom"),
-            coin(2400, DENOM),
-            coin(600, instantiate_msg.denom.clone()),
-        ];
+        let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
 
         app.sudo(
             BankSudo::Mint {
@@ -128,14 +125,14 @@ mod instantiate_tests {
                 gas_adjustment_numerator: 30,
             },
             cw20_whitelist: vec![Addr::unchecked(PARTICIPANT3)],
-            native_denom: "cron".to_owned(),
+            native_denom: DENOM.to_string(),
             limit: 100,
             treasury_addr: Some(Addr::unchecked(AGENT2)),
         };
         assert_eq!(config, expected_config);
 
         let manager_balances = query_manager_balances(&app, &manager_addr);
-        assert_eq!(manager_balances, Uint128::new(600));
+        assert_eq!(manager_balances, Uint128::new(2400));
     }
 
     #[test]
@@ -4697,4 +4694,71 @@ fn immediate_event_task_has_multiple_executions() {
         &[], // Attach no funds
     )
     .expect("Second proxy call should succeed");
+}
+
+/// We test that the denom provided matches the validated, bonded denom value
+#[test]
+fn invalid_denom() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    let mut instantiate_msg: InstantiateMsg = default_instantiate_message();
+    // Test different, invalid denom
+    instantiate_msg.denom = "mochi".to_string();
+
+    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
+
+    let mut module_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.to_owned(),
+            &croncat_factory::msg::ExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: module_instantiate_info.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::InvalidDenom {
+            expected_denom: DENOM.to_string(),
+        }
+    );
+
+    // Test case insensitivity, should succeed
+    instantiate_msg.denom = "TOKEn".to_string();
+    module_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+    assert!(app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr,
+            &croncat_factory::msg::ExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info,
+            },
+            &[],
+        )
+        .is_ok());
 }

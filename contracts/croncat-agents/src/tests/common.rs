@@ -30,7 +30,9 @@ pub const PARTICIPANT5: &str = "cosmos5t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
-pub const NATIVE_DENOM: &str = "uatom";
+/// We set this to "TOKEN" to match the denom here:
+/// https://github.com/CosmWasm/cosmwasm/blob/32f308a1a56ae5b8278947891306f7a374c3df94/packages/vm/src/environment.rs#L383
+pub const NATIVE_DENOM: &str = "TOKEN";
 
 #[allow(dead_code)]
 pub(crate) struct TestScope {
