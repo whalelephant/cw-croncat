@@ -45,6 +45,7 @@ pub fn instantiate(
     validate_min_tasks_per_agent(min_tasks_per_agent)?;
     validate_agents_eject_threshold(agents_eject_threshold)?;
     validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
+    validate_min_active_agent_count(min_active_agent_count)?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -513,6 +514,7 @@ pub fn execute_update_config(
         validate_agent_nomination_duration(agent_nomination_duration)?;
         validate_agents_eject_threshold(agents_eject_threshold)?;
         validate_min_coins_for_agent_registration(min_coins_for_agent_registration)?;
+        validate_min_active_agent_count(min_active_agent_count)?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
@@ -639,6 +641,7 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
             }
         }
     }
+
     // Check if there isn't any active or pending agents
     if AGENTS_ACTIVE.load(deps.storage)?.is_empty() && AGENTS_PENDING.is_empty(deps.storage)? {
         attributes.push(Attribute::new("lifecycle", "tick_failure"))
@@ -715,6 +718,18 @@ fn validate_min_coins_for_agent_registration(val: Option<u64>) -> Result<(), Con
     if val == Some(0u64) {
         Err(InvalidConfigurationValue {
             field: "min_coins_for_agent_registration".to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Ensure min_active_agent_count does not accept zero during
+/// instantiate or update config assignments
+fn validate_min_active_agent_count(val: Option<u16>) -> Result<(), ContractError> {
+    if val == Some(0u16) {
+        Err(InvalidConfigurationValue {
+            field: "min_active_agent_count".to_string(),
         })
     } else {
         Ok(())
