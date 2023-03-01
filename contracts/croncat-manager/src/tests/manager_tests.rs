@@ -4698,3 +4698,65 @@ fn immediate_event_task_has_multiple_executions() {
     )
     .expect("Second proxy call should succeed");
 }
+
+#[test]
+fn config_invalid_percentage_updates() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let manager_addr = init_manager(&mut app, &default_instantiate_message(), &factory_addr, &[]);
+
+    // Check that agent_fee of 101 (above 100%) is invalid
+    let mut update_cfg_msg = UpdateConfig {
+        owner_addr: Some("new_owner".to_string()),
+        paused: Some(true),
+        agent_fee: Some(101), // Above 100
+        treasury_fee: Some(0),
+        gas_price: Some(GasPrice {
+            numerator: 555,
+            denominator: 666,
+            gas_adjustment_numerator: 777,
+        }),
+        croncat_tasks_key: Some(("new_key_tasks".to_owned(), [0, 1])),
+        croncat_agents_key: Some(("new_key_agents".to_owned(), [0, 1])),
+        treasury_addr: Some(ANYONE.to_owned()),
+        cw20_whitelist: Some(vec!["randomcw20".to_owned()]),
+    };
+
+    let mut err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr.clone(),
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg.clone())),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::InvalidPercentage {
+            field: "agent_fee".to_string()
+        }
+    );
+
+    // Now check the same for the treasury_fee
+    update_cfg_msg.agent_fee = Some(5);
+    update_cfg_msg.treasury_fee = Some(222); // Above 100
+
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr,
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::InvalidPercentage {
+            field: "treasury_fee".to_string()
+        }
+    );
+}
