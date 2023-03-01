@@ -964,7 +964,7 @@ fn test_tick() {
     let mut app = default_app();
 
     let TestScope {
-        croncat_factory_addr: _,
+        croncat_factory_addr,
         croncat_agents_addr,
         croncat_agents_code_id: _,
         croncat_manager_addr,
@@ -1487,7 +1487,6 @@ fn check_validation_update_config() {
         min_tasks_per_agent: None,
         agents_eject_threshold: None,
         min_active_agent_count: None,
-        croncat_factory_addr: None,
         min_coins_for_agent_registration: None,
     };
 
