@@ -219,7 +219,7 @@ fn test_update_agent_is_successful() {
     );
 }
 
-//UpdateAgent tests
+// Update agent tests
 #[test]
 fn test_update_agent_fails() {
     let mut app = default_app();
@@ -255,9 +255,54 @@ fn test_update_agent_fails() {
 
     assert_eq!(error, ContractError::AgentNotRegistered);
 
-    //Check contract is paused and failing
+    // Check contract is paused and failing
     let mut config = mock_update_config(croncat_factory_addr.as_str());
     config.paused = Some(true);
+
+    // Factory called by non-admin should not update config
+    let factory_err: croncat_factory::ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: croncat_agents_addr.to_string(),
+                    msg: to_binary(&ExecuteMsg::UpdateConfig {
+                        config: config.clone(),
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                },
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        factory_err,
+        croncat_factory::ContractError::Unauthorized {},
+        "Only factory admin can update config"
+    );
+
+    // Direct call to update config should also fail
+    let mut agents_err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_agents_addr.clone(),
+            &ExecuteMsg::UpdateConfig {
+                config: config.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        agents_err,
+        ContractError::Unauthorized,
+        "Only factory proxy call should update config"
+    );
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -273,7 +318,7 @@ fn test_update_agent_fails() {
     )
     .unwrap();
 
-    let error: ContractError = app
+    agents_err = app
         .execute_contract(
             Addr::unchecked(ADMIN),
             croncat_agents_addr,
@@ -286,7 +331,7 @@ fn test_update_agent_fails() {
         .downcast()
         .unwrap();
 
-    assert_eq!(error, ContractError::ContractPaused);
+    assert_eq!(agents_err, ContractError::ContractPaused);
 }
 
 // Update Agent tests
