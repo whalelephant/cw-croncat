@@ -1,3 +1,4 @@
+use crate::ContractError::InvalidZeroValue;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -58,6 +59,8 @@ pub fn instantiate(
         gas_query_fee,
     } = msg;
 
+    validate_non_zero_value(slot_granularity_time, "slot_granularity_time")?;
+
     let contract_version = version.unwrap_or_else(|| CONTRACT_VERSION.to_string());
     set_contract_version(deps.storage, CONTRACT_NAME, &contract_version)?;
 
@@ -79,6 +82,10 @@ pub fn instantiate(
         gas_query_fee: gas_query_fee.unwrap_or(GAS_QUERY_FEE),
         gas_limit: gas_limit.unwrap_or(GAS_LIMIT),
     };
+
+    // Ensure the new gas limit will work
+    validate_gas_limit(&config)?;
+
     // Save initializing states
     CONFIG.save(deps.storage, &config)?;
     TASKS_TOTAL.save(deps.storage, &0)?;
@@ -151,6 +158,10 @@ fn execute_update_config(
         gas_query_fee: gas_query_fee.unwrap_or(config.gas_query_fee),
         gas_limit: gas_limit.unwrap_or(config.gas_limit),
     };
+
+    // Ensure the new gas limit will work
+    validate_gas_limit(&new_config)?;
+    validate_non_zero_value(slot_granularity_time, "slot_granularity_time")?;
 
     CONFIG.save(deps.storage, &new_config)?;
     Ok(Response::new().add_attribute("action", "update_config"))
@@ -877,4 +888,29 @@ fn query_slot_ids(
         time_ids,
         block_ids,
     })
+}
+
+fn validate_non_zero_value(opt_num: Option<u64>, field_name: &str) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        if num == 0u64 {
+            Err(InvalidZeroValue {
+                field: field_name.to_string(),
+            })
+        } else {
+            Ok(())
+        }
+    } else {
+        Ok(())
+    }
+}
+
+/// Before changing the configuration's gas_limit, ensure it's a reasonable
+/// value, meaning higher than the sum of its needed parts
+fn validate_gas_limit(config: &Config) -> Result<(), ContractError> {
+    if config.gas_limit > config.gas_base_fee + config.gas_action_fee + config.gas_query_fee {
+        Ok(())
+    } else {
+        // Must be greater than those params
+        Err(ContractError::InvalidGas {})
+    }
 }

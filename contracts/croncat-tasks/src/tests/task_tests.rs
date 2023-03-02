@@ -7,7 +7,9 @@ use cosmwasm_std::{
     Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
-use croncat_sdk_factory::msg::FactoryExecuteMsg;
+use croncat_sdk_factory::msg::{
+    ContractMetadataResponse, FactoryExecuteMsg, ModuleInstantiateInfo, VersionKind,
+};
 use croncat_sdk_manager::{
     msg::ManagerExecuteMsg,
     types::{TaskBalance, TaskBalanceResponse},
@@ -1591,7 +1593,7 @@ fn update_cfg() {
             gas_base_fee: Some(1),
             gas_action_fee: Some(2),
             gas_query_fee: Some(3),
-            gas_limit: Some(4),
+            gas_limit: Some(42),
         }))
         .unwrap(),
         funds: vec![],
@@ -1620,7 +1622,7 @@ fn update_cfg() {
         gas_base_fee: 1,
         gas_action_fee: 2,
         gas_query_fee: 3,
-        gas_limit: 4,
+        gas_limit: 42,
     };
 
     assert_eq!(config, expected_config);
@@ -3480,4 +3482,171 @@ fn poc_case1_case2() {
         .downcast()
         .unwrap();
     assert_eq!(error, ContractError::InvalidAddress {});
+}
+
+#[test]
+fn invalid_gas_config() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let code_id = app.store_code(contracts::croncat_tasks_contract());
+
+    let mut instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    // We introduce an invalid value to the Task instantiate message
+    instantiate_msg.slot_granularity_time = Some(0);
+
+    // Set up errors we'll check against
+    let err_slot_granularity_time = ContractError::InvalidZeroValue {
+        field: "slot_granularity_time".to_string(),
+    };
+    let err_invalid_gas = ContractError::InvalidGas {};
+
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    let mut err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.to_owned(),
+            &croncat_factory::msg::ExecuteMsg::Deploy {
+                kind: VersionKind::Tasks,
+                module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, err_slot_granularity_time);
+
+    // Reset the slot_granularity_time and check an invalid value for gas_limit
+    instantiate_msg.slot_granularity_time = None;
+    // This value is too low
+    instantiate_msg.gas_limit = Some(1);
+
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.to_owned(),
+            &croncat_factory::msg::ExecuteMsg::Deploy {
+                kind: VersionKind::Tasks,
+                module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, err_invalid_gas);
+
+    // Now we allow for successful instantiation by setting it back to a working instantiate message
+    instantiate_msg.gas_limit = None;
+
+    let module_instantiate_info = ModuleInstantiateInfo {
+        code_id,
+        version: [0, 1],
+        commit_id: "commit1".to_owned(),
+        checksum: "checksum2".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&instantiate_msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    assert!(
+        app.execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.to_owned(),
+            &croncat_factory::msg::ExecuteMsg::Deploy {
+                kind: VersionKind::Tasks,
+                module_instantiate_info,
+            },
+            &[],
+        )
+        .is_ok(),
+        "Tasks contract should instantiate successfully"
+    );
+
+    // Get the Tasks contract address
+    let metadata: ContractMetadataResponse = app
+        .wrap()
+        .query_wasm_smart(
+            &factory_addr,
+            &croncat_factory::msg::QueryMsg::LatestContract {
+                contract_name: "tasks".to_owned(),
+            },
+        )
+        .unwrap();
+    let tasks_addr = metadata.metadata.unwrap().contract_addr;
+
+    // Ensure that invalid config updates fail
+    // Test failure when gas_limit is too low (should be more than the sum of other gas_* values)
+    let mut update_msg = UpdateConfigMsg {
+        paused: Some(true),
+        owner_addr: None,
+        croncat_factory_addr: Some("fixed_croncat_factory_addr".to_owned()),
+        croncat_manager_key: Some(("manager2".to_owned(), [2, 2])),
+        croncat_agents_key: Some(("agents2".to_owned(), [2, 2])),
+        slot_granularity_time: Some(54),
+        gas_base_fee: Some(1),
+        gas_action_fee: Some(2),
+        gas_query_fee: Some(3),
+        // This should be higher and will fail
+        gas_limit: Some(4),
+    };
+
+    let mut msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(update_msg.clone())).unwrap(),
+        funds: vec![],
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.clone(),
+            &FactoryExecuteMsg::Proxy { msg },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, err_invalid_gas);
+
+    // Reset gas_limit and set invalid value for slot_granularity_time
+    update_msg.gas_limit = None;
+    update_msg.slot_granularity_time = Some(0);
+
+    msg = WasmMsg::Execute {
+        contract_addr: tasks_addr.to_string(),
+        msg: to_binary(&ExecuteMsg::UpdateConfig(update_msg)).unwrap(),
+        funds: vec![],
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr,
+            &FactoryExecuteMsg::Proxy { msg },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, err_slot_granularity_time);
 }

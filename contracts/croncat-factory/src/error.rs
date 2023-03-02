@@ -27,4 +27,7 @@ pub enum ContractError {
 
     #[error("Can't remove contract unless it's paused or library")]
     NotPaused {},
+
+    #[error("Provided URL has exceeded the maximum allowable length")]
+    UrlExceededMaxLength {},
 }

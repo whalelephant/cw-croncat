@@ -50,4 +50,7 @@ pub enum ContractError {
 
     #[error("Invalid version key, please update it")]
     InvalidKey {},
+
+    #[error("Field must be non-zero: {field}")]
+    InvalidZeroValue { field: String },
 }

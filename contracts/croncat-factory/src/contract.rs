@@ -16,7 +16,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_ADDRS_LOOKUP, CONTRACT_METADATAS,
-    LATEST_ADDRS, LATEST_VERSIONS, TEMP_REPLY,
+    LATEST_ADDRS, LATEST_VERSIONS, MAX_URL_LENGTH, TEMP_REPLY,
 };
 
 // version info for migration info
@@ -163,6 +163,9 @@ fn execute_update_metadata(
     new_changelog: Option<String>,
     schema: Option<String>,
 ) -> Result<Response, ContractError> {
+    // Validate new_changelog
+    check_changelog_length(&new_changelog)?;
+
     CONTRACT_METADATAS.update(deps.storage, (&contract_name, &version), |metadata_res| {
         match metadata_res {
             Some(mut metadata) => {
@@ -224,6 +227,9 @@ fn execute_deploy(
     kind: VersionKind,
     module_instantiate_info: ModuleInstantiateInfo,
 ) -> Result<Response, ContractError> {
+    // Validate changelog_url
+    check_changelog_length(&module_instantiate_info.changelog_url)?;
+
     if CONTRACT_METADATAS.has(
         deps.storage,
         (
@@ -435,4 +441,16 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
     CONTRACT_ADDRS_LOOKUP.save(deps.storage, contract_address, &contract_name)?;
 
     Ok(Response::new())
+}
+
+fn check_changelog_length(changelog_url: &Option<String>) -> Result<(), ContractError> {
+    if let Some(url) = changelog_url {
+        if url.len() > MAX_URL_LENGTH as usize {
+            Err(ContractError::UrlExceededMaxLength {})
+        } else {
+            Ok(())
+        }
+    } else {
+        Ok(())
+    }
 }
