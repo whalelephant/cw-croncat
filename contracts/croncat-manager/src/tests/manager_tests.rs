@@ -83,7 +83,6 @@ mod instantiate_tests {
         let factory_addr = init_factory(&mut app);
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            denom: "cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
@@ -96,11 +95,7 @@ mod instantiate_tests {
             treasury_addr: Some(AGENT2.to_owned()),
             cw20_whitelist: Some(vec![PARTICIPANT3.to_owned()]),
         };
-        let attach_funds = vec![
-            coin(5000, "denom"),
-            coin(2400, DENOM),
-            coin(600, instantiate_msg.denom.clone()),
-        ];
+        let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
 
         app.sudo(
             BankSudo::Mint {
@@ -128,14 +123,14 @@ mod instantiate_tests {
                 gas_adjustment_numerator: 30,
             },
             cw20_whitelist: vec![Addr::unchecked(PARTICIPANT3)],
-            native_denom: "cron".to_owned(),
+            native_denom: DENOM.to_string(),
             limit: 100,
             treasury_addr: Some(Addr::unchecked(AGENT2)),
         };
         assert_eq!(config, expected_config);
 
         let manager_balances = query_manager_balances(&app, &manager_addr);
-        assert_eq!(manager_balances, Uint128::new(600));
+        assert_eq!(manager_balances, Uint128::new(2400));
     }
 
     #[test]
@@ -444,7 +439,7 @@ fn cw20_bad_messages() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -503,7 +498,7 @@ fn users_withdraws() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     // refill balances
@@ -568,7 +563,7 @@ fn failed_users_withdraws() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);

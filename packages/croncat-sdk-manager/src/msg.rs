@@ -9,8 +9,6 @@ use cw20::Cw20Coin;
 
 #[cw_serde]
 pub struct ManagerInstantiateMsg {
-    /// The native denominator of current chain
-    pub denom: String,
     /// CW2 Version provided by factory
     pub version: Option<String>,
     /// Name of the key for raw querying Tasks address from the factory

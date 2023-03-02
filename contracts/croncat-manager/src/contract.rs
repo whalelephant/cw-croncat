@@ -54,7 +54,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
-        denom,
         version,
         croncat_tasks_key,
         croncat_agents_key,
@@ -63,6 +62,9 @@ pub fn instantiate(
         treasury_addr,
         cw20_whitelist,
     } = msg;
+
+    // Query for the denom
+    let denom = deps.querier.query_bonded_denom()?;
 
     let gas_price = gas_price.unwrap_or_default();
     // Make sure gas_price is valid

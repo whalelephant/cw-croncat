@@ -6,7 +6,7 @@ use croncat_sdk_factory::msg::{
 };
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, DENOM};
+use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE};
 use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
@@ -114,7 +114,6 @@ fn deploy_check() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -329,7 +328,6 @@ fn failure_deploy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -406,7 +404,6 @@ fn failure_deploy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -673,7 +670,6 @@ fn remove_paused_checks() {
 
     let manager_id = app.store_code(contracts::croncat_manager_contract());
     let manager_init_msg = croncat_manager::msg::InstantiateMsg {
-        denom: DENOM.to_owned(),
         version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
@@ -971,7 +967,6 @@ fn fail_and_success_proxy() {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: "cron".to_owned(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),

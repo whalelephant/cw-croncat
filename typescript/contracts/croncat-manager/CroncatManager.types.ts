@@ -8,7 +8,6 @@ export interface InstantiateMsg {
   croncat_agents_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
   cw20_whitelist?: string[] | null;
-  denom: string;
   gas_price?: GasPrice | null;
   owner_addr?: string | null;
   treasury_addr?: string | null;
