@@ -110,7 +110,7 @@ pub(crate) fn attached_natives(
             if f.denom == ibc.denom {
                 ibc.amount += f.amount
             } else {
-                return Err(ContractError::TooManyCoins {});
+                return Err(ContractError::InvalidAttachedCoins {});
             }
         } else {
             ibc = Some(f);
@@ -130,7 +130,7 @@ pub(crate) fn calculate_required_natives(
             } else if c2.denom == native_denom {
                 (c2.amount, Some(c1))
             } else {
-                return Err(ContractError::TooManyCoins {});
+                return Err(ContractError::InvalidAttachedCoins {});
             }
         }
         [Some(c1), None] => {
@@ -417,19 +417,19 @@ pub(crate) fn check_for_self_calls(
 ) -> Result<(), ContractError> {
     // If it one of the our contracts it should be a manager
     if contract_addr == tasks_addr || contract_addr == agents_addr {
-        return Err(ContractError::TaskNoLongerValid {});
+        return Err(ContractError::UnauthorizedMethod {});
     } else if contract_addr == manager_addr {
         // Check if caller is manager owner
         if sender != manager_owner_addr {
-            return Err(ContractError::TaskNoLongerValid {});
+            return Err(ContractError::UnauthorizedMethod {});
         } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
             // Check if it's tick
             if !matches!(msg, croncat_sdk_agents::msg::ExecuteMsg::Tick {}) {
-                return Err(ContractError::TaskNoLongerValid {});
+                return Err(ContractError::UnauthorizedMethod {});
             }
             // Other messages not allowed
         } else {
-            return Err(ContractError::TaskNoLongerValid {});
+            return Err(ContractError::UnauthorizedMethod {});
         }
     }
     Ok(())

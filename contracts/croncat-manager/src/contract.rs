@@ -198,7 +198,7 @@ fn execute_proxy_call(
         if agent_response.agent.map_or(true, |agent| {
             agent.status != croncat_sdk_agents::types::AgentStatus::Active
         }) {
-            return Err(ContractError::NoTaskForAgent {});
+            return Err(ContractError::AgentNotActive {});
         }
 
         // A hash means agent is attempting to execute evented task
