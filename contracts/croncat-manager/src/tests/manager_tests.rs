@@ -1051,11 +1051,19 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
 
-    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    // Using the task configured fee amounts
+    let amt_for_one_task = task_response.task.unwrap().amount_for_one_task;
+    let agent_fee = amt_for_one_task.agent_fee;
+    let treasury_fee = amt_for_one_task.treasury_fee;
+    let gas_price =
+        amt_for_one_task.gas_price.numerator as f64 / amt_for_one_task.gas_price.denominator as f64;
+    let gas_multiplier = amt_for_one_task.gas_price.gas_adjustment_numerator as f64
+        / amt_for_one_task.gas_price.denominator as f64;
+    let gas_needed = amt_for_one_task.gas as f64 * gas_multiplier;
+    let gas_fees = gas_needed * (agent_fee + treasury_fee) as f64 / 100.0;
+    let amount_for_fees = gas_fees * gas_price;
     let expected_gone_amount = {
-        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
-        let amount_for_task = gas_needed * 0.04;
-        let amount_for_fees = gas_fees * 0.04;
+        let amount_for_task = gas_needed * gas_price; //0.04;
         amount_for_task + amount_for_fees + coin_transfer_amount as f64
     } as u128;
 
@@ -1089,15 +1097,21 @@ fn simple_bank_transfers_cron() {
 
     // action done
     let bob_balances = app.wrap().query_all_balances("bob").unwrap();
-    assert_eq!(bob_balances, coins(45, DENOM));
+    // bob balance is only 1 bank send amount, since second proxy_call is outside boundary
+    assert_eq!(bob_balances, coins(coin_transfer_amount, DENOM));
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    let fee_profit = unsafe { amount_for_fees.to_int_unchecked::<u128>() };
     assert_eq!(
+        // since there are 2 proxy_call above, we subtract 2 expected_gone_amount
         600_000 - expected_gone_amount - expected_gone_amount,
+        // since boundary is exceeded the second time we call proxy_call,
+        // need to deduct profit fees for second call
         after_unregister_participant_balance.amount.u128()
             - participant_balance.amount.u128()
             - coin_transfer_amount
+            - fee_profit
     );
 
     // Check agent reward
@@ -1110,11 +1124,13 @@ fn simple_bank_transfers_cron() {
             },
         )
         .unwrap();
-    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
-    let amount_for_task = gas_needed * 0.04;
-    let amount_for_fees = gas_fees * 0.04;
-    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Uint128::from(expected_agent_reward * 2));
+    assert_eq!(
+        agent_reward,
+        Uint128::from(
+            ((expected_gone_amount * 2) - fee_profit - (fee_profit / 2))
+                - (coin_transfer_amount * 2)
+        )
+    );
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1123,11 +1139,16 @@ fn simple_bank_transfers_cron() {
         .unwrap();
     assert_eq!(
         treasury_balance,
-        Uint128::new((amount_for_fees as u128) * 2)
+        // amount_for_fees is enough for 2 executions, so we adjust
+        Uint128::new(amount_for_fees as u128 - (fee_profit / 2))
     );
 
-    // Checking we don't get same task over and over
-    // Check multi-action transfer
+    // Check manager balances accounts for both agent & treasury
+    let manager_balances = app.wrap().query_all_balances(manager_addr.clone()).unwrap();
+    assert_eq!(
+        manager_balances,
+        coins(agent_reward.saturating_add(treasury_balance).into(), DENOM)
+    );
 
     // withdraw rewards so it's clear before second test
     app.execute_contract(
@@ -1208,11 +1229,18 @@ fn simple_bank_transfers_cron() {
         )
         .unwrap();
 
-    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
+    let amt_for_one_task = task_response.task.unwrap().amount_for_one_task;
+    let agent_fee = amt_for_one_task.agent_fee;
+    let treasury_fee = amt_for_one_task.treasury_fee;
+    let gas_price =
+        amt_for_one_task.gas_price.numerator as f64 / amt_for_one_task.gas_price.denominator as f64;
+    let gas_multiplier = amt_for_one_task.gas_price.gas_adjustment_numerator as f64
+        / amt_for_one_task.gas_price.denominator as f64;
+    let gas_needed = amt_for_one_task.gas as f64 * gas_multiplier;
+    let gas_fees = gas_needed * (agent_fee + treasury_fee) as f64 / 100.0;
+    let amount_for_fees = gas_fees * gas_price;
     let expected_gone_amount = {
-        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
-        let amount_for_task = gas_needed * 0.04;
-        let amount_for_fees = gas_fees * 0.04;
+        let amount_for_task = gas_needed * gas_price; //0.04;
         amount_for_task + amount_for_fees + 45.0 + 125.0 + 333.0
     } as u128;
 
@@ -1261,11 +1289,13 @@ fn simple_bank_transfers_cron() {
 
     let after_unregister_participant_balance =
         app.wrap().query_balance(PARTICIPANT0, DENOM).unwrap();
+    let fee_profit = unsafe { amount_for_fees.to_int_unchecked::<u128>() };
     assert_eq!(
         600_000 - expected_gone_amount - expected_gone_amount,
         after_unregister_participant_balance.amount.u128()
             - participant_balance.amount.u128()
             - (45 + 125 + 333)
+            - fee_profit
     );
 
     // Check agent reward
@@ -1278,11 +1308,12 @@ fn simple_bank_transfers_cron() {
             },
         )
         .unwrap();
-    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
-    let amount_for_task = gas_needed * 0.04;
-    let amount_for_fees = gas_fees * 0.04;
-    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward.u128(), expected_agent_reward * 2);
+    assert_eq!(
+        agent_reward,
+        Uint128::from(
+            ((expected_gone_amount * 2) - fee_profit - (fee_profit / 2)) - ((45 + 125 + 333) * 2)
+        )
+    );
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
@@ -1291,7 +1322,8 @@ fn simple_bank_transfers_cron() {
         .unwrap();
     assert_eq!(
         treasury_balance,
-        Uint128::new((amount_for_fees as u128) * 2)
+        // amount_for_fees is enough for 2 executions, so we adjust
+        Uint128::new(amount_for_fees as u128 - (fee_profit / 2))
     );
 
     // Check task balance is gone
@@ -1333,6 +1365,7 @@ fn multi_coin_bank_transfers() {
 
     activate_agent(&mut app, &agents_addr);
 
+    let coin_transfer_amount: u128 = 321;
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Once,
         boundary: None,
@@ -1349,7 +1382,7 @@ fn multi_coin_bank_transfers() {
             Action {
                 msg: BankMsg::Send {
                     to_address: "bob".to_owned(),
-                    amount: vec![coin(321, DENOM), coin(1001, "denom")],
+                    amount: vec![coin(coin_transfer_amount, DENOM), coin(1001, "denom")],
                 }
                 .into(),
                 gas_limit: None,
@@ -1389,13 +1422,19 @@ fn multi_coin_bank_transfers() {
         )
         .unwrap();
 
-    let gas_needed = task_response.task.unwrap().amount_for_one_task.gas as f64 * 1.5;
-    let expected_gone_amount = {
-        let gas_fees = gas_needed * (DEFAULT_FEE + DEFAULT_FEE) as f64 / 100.0;
-        let amount_for_task = gas_needed * 0.04;
-        let amount_for_fees = gas_fees * 0.04;
-        amount_for_task + amount_for_fees + 321.0
-    } as u128;
+    let amt_for_one_task = task_response.task.unwrap().amount_for_one_task;
+    let agent_fee = amt_for_one_task.agent_fee;
+    let treasury_fee = amt_for_one_task.treasury_fee;
+    let gas_price =
+        amt_for_one_task.gas_price.numerator as f64 / amt_for_one_task.gas_price.denominator as f64;
+    let gas_multiplier = amt_for_one_task.gas_price.gas_adjustment_numerator as f64
+        / amt_for_one_task.gas_price.denominator as f64;
+    let gas_needed = amt_for_one_task.gas as f64 * gas_multiplier;
+    let gas_fees = gas_needed * (agent_fee + treasury_fee) as f64 / 100.0;
+    let amount_for_fees = gas_fees * gas_price;
+    let amount_for_task = gas_needed * gas_price; //0.04;
+    let expected_gone_amount =
+        { amount_for_task + amount_for_fees + coin_transfer_amount as f64 } as u128;
 
     app.update_block(add_little_time);
 
@@ -1440,18 +1479,17 @@ fn multi_coin_bank_transfers() {
             },
         )
         .unwrap();
-    let gas_fees = gas_needed * DEFAULT_FEE as f64 / 100.0;
-    let amount_for_task = gas_needed * 0.04;
-    let amount_for_fees = gas_fees * 0.04;
-    let expected_agent_reward = (amount_for_task + amount_for_fees) as u128;
-    assert_eq!(agent_reward, Uint128::from(expected_agent_reward));
+    assert_eq!(
+        agent_reward,
+        Uint128::from(amount_for_task as u128 + (amount_for_fees as u128 / 2))
+    );
 
     // Check treasury reward
     let treasury_balance: Uint128 = app
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 / 2));
 }
 
 #[test]
@@ -2831,7 +2869,7 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::AgentNotActive {});
 
     // Agent not active
     // register agent1 first
@@ -2856,7 +2894,7 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::AgentNotActive {});
 
     // active agent(agent0), but task not ready
     let err: ContractError = app
@@ -3427,7 +3465,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // RefillTaskBalance with wrong denom, task doesn't have ibc coins
     let err: ContractError = app
@@ -3442,7 +3480,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Get task balance
     let task_balance: TaskBalanceResponse = app
@@ -3523,7 +3561,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Pause
     let update_cfg_msg = UpdateConfig {
@@ -3884,7 +3922,7 @@ fn refill_task_cw20_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Get task balance
     let task_balance: TaskBalanceResponse = app
@@ -3997,7 +4035,7 @@ fn refill_task_cw20_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Pause
     let update_cfg_msg = UpdateConfig {
