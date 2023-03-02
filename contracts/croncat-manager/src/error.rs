@@ -76,4 +76,7 @@ pub enum ContractError {
 
     #[error("This cw20 address is not supported")]
     NotSupportedCw20 {},
+
+    #[error("Must provide percentage value (0-100) for field: {field}")]
+    InvalidPercentage { field: String },
 }

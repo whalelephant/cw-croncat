@@ -186,7 +186,7 @@ fn deploy_check() {
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             owner_addr: Some(ADMIN.to_owned()),
-            min_coin_for_agent_registration: None,
+            min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
             agents_eject_threshold: None,

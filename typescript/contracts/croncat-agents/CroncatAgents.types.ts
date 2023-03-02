@@ -10,7 +10,7 @@ export interface InstantiateMsg {
   croncat_manager_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
   min_active_agent_count?: number | null;
-  min_coin_for_agent_registration?: number | null;
+  min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
   owner_addr?: string | null;
   version?: string | null;
