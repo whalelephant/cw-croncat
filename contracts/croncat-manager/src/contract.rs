@@ -29,11 +29,12 @@ use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     Config, QueueItem, AGENT_REWARDS, CONFIG, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
 };
+use crate::ContractError::InvalidPercentage;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-manager";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub(crate) const DEFAULT_FEE: u64 = 5;
+pub(crate) const DEFAULT_FEE: u16 = 5;
 
 /// reply id from tasks contract
 pub(crate) const TASK_REPLY: u64 = u64::from_be_bytes(*b"croncat1");
@@ -74,7 +75,7 @@ pub fn instantiate(
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
 
-    //Check if we attached some funds in native denom, add them into treasury
+    // Check if we attached some funds in native denom, add them into treasury
     let treasury_funds = info.funds.iter().find(|coin| coin.denom == denom);
     if let Some(funds) = treasury_funds {
         TREASURY_BALANCE.save(deps.storage, &funds.amount)?;
@@ -350,7 +351,7 @@ fn end_task(
     } else {
         gas_with_fees(
             task.amount_for_one_task.gas,
-            task.amount_for_one_task.agent_fee + task.amount_for_one_task.treasury_fee,
+            (task.amount_for_one_task.agent_fee + task.amount_for_one_task.treasury_fee) as u64,
         )?
     };
     let native_for_gas_required = task
@@ -422,6 +423,22 @@ pub fn execute_update_config(
             cw20_whitelist,
         } = msg;
 
+        let updated_agent_fee = if let Some(agent_fee) = agent_fee {
+            // Validate it
+            validate_percentage_value(&agent_fee, "agent_fee")?;
+            agent_fee
+        } else {
+            // Use current value in config
+            config.agent_fee
+        };
+
+        let updated_treasury_fee = if let Some(treasury_fee) = treasury_fee {
+            validate_percentage_value(&treasury_fee, "treasury_fee")?;
+            treasury_fee
+        } else {
+            config.treasury_fee
+        };
+
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
         }
@@ -455,8 +472,8 @@ pub fn execute_update_config(
             croncat_factory_addr: config.croncat_factory_addr,
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
-            agent_fee: agent_fee.unwrap_or(config.agent_fee),
-            treasury_fee: treasury_fee.unwrap_or(config.treasury_fee),
+            agent_fee: updated_agent_fee,
+            treasury_fee: updated_treasury_fee,
             gas_price,
             cw20_whitelist: config.cw20_whitelist,
             native_denom: config.native_denom,
@@ -490,7 +507,7 @@ fn execute_create_task_balance(
     {
         let gas_with_fees = gas_with_fees(
             msg.amount_for_one_task.gas,
-            config.agent_fee + config.treasury_fee,
+            (config.agent_fee + config.treasury_fee) as u64,
         )?;
         let native_for_gas_required = config.gas_price.calculate(gas_with_fees).unwrap();
         let (native_for_sends_required, ibc_required) =
@@ -637,5 +654,20 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
                 Ok(Response::new())
             }
         }
+    }
+}
+
+/// Validate when a given value should be a reasonable percentage.
+/// Due to low native token prices on some chains, we must allow for
+/// greater than 100% in order to be sustainable, and have gone with
+/// a max of 10,000% after internal discussion and looking at the numbers.
+/// Since it's unsigned, don't check for negatives
+fn validate_percentage_value(val: &u16, field_name: &str) -> Result<(), ContractError> {
+    if val > &10_000u16 {
+        Err(InvalidPercentage {
+            field: field_name.to_string(),
+        })
+    } else {
+        Ok(())
     }
 }

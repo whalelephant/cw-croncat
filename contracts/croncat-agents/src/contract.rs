@@ -3,6 +3,7 @@ use cosmwasm_std::entry_point;
 
 use crate::distributor::*;
 use crate::error::ContractError;
+use crate::error::ContractError::InvalidConfigurationValue;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
@@ -35,10 +36,19 @@ pub fn instantiate(
         croncat_tasks_key,
         agent_nomination_duration,
         min_tasks_per_agent,
-        min_coin_for_agent_registration,
+        min_coins_for_agent_registration,
         agents_eject_threshold,
         min_active_agent_count,
     } = msg;
+
+    validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+    validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+    validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+    validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+    validate_config_non_zero_u64(
+        min_coins_for_agent_registration,
+        "min_coins_for_agent_registration",
+    )?;
 
     let owner_addr = owner_addr
         .map(|human| deps.api.addr_validate(&human))
@@ -55,7 +65,7 @@ pub fn instantiate(
         owner_addr,
         paused: false,
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_coins_for_agent_registration: min_coin_for_agent_registration
+        min_coins_for_agent_registration: min_coins_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         min_active_agent_count: min_active_agent_count.unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
     };
@@ -502,6 +512,15 @@ pub fn execute_update_config(
             min_active_agent_count,
         } = msg;
 
+        validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+        validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+        validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+        validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+        validate_config_non_zero_u64(
+            min_coins_for_agent_registration,
+            "min_coins_for_agent_registration",
+        )?;
+
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
         }
@@ -583,8 +602,9 @@ fn max_agent_nomination_index(
 ) -> StdResult<Option<u64>> {
     let block_height = env.block.height;
 
-    let agents_by_tasks_created =
-        agent_nomination_status.tasks_created_from_last_nomination / cfg.min_tasks_per_agent;
+    let agents_by_tasks_created = agent_nomination_status
+        .tasks_created_from_last_nomination
+        .saturating_div(cfg.min_tasks_per_agent);
     let agents_by_height = agent_nomination_status
         .start_height_of_nomination
         .map_or(0, |start_height| {
@@ -623,6 +643,7 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
             }
         }
     }
+
     // Check if there isn't any active or pending agents
     if AGENTS_ACTIVE.load(deps.storage)?.is_empty() && AGENTS_PENDING.is_empty(deps.storage)? {
         attributes.push(Attribute::new("lifecycle", "tick_failure"))
@@ -679,4 +700,39 @@ fn on_task_completed(
 
     let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
+}
+
+/// Validating a non-zero value for u64
+fn validate_non_zero(num: u64, field_name: &str) -> Result<(), ContractError> {
+    if num == 0u64 {
+        Err(InvalidConfigurationValue {
+            field: field_name.to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Resources indicate that trying to use generics in this case is not the correct path
+/// This will cast into a u64 and proceed to validate
+fn validate_config_non_zero_u16(
+    opt_num: Option<u16>,
+    field_name: &str,
+) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num as u64, field_name)
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_config_non_zero_u64(
+    opt_num: Option<u64>,
+    field_name: &str,
+) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num, field_name)
+    } else {
+        Ok(())
+    }
 }

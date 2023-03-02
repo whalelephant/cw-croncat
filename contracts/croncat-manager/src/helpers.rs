@@ -249,8 +249,8 @@ pub(crate) fn finalize_task(
     // Sub native for gas
     let gas_with_fees = gas_with_fees(
         queue_item.task.amount_for_one_task.gas,
-        queue_item.task.amount_for_one_task.agent_fee
-            + queue_item.task.amount_for_one_task.treasury_fee,
+        (queue_item.task.amount_for_one_task.agent_fee
+            + queue_item.task.amount_for_one_task.treasury_fee) as u64,
     )?;
     let native_for_gas_required = queue_item
         .task

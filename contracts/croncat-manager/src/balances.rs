@@ -59,8 +59,8 @@ pub(crate) fn add_fee_rewards(
     gas: u64,
     gas_price: &GasPrice,
     agent_addr: &Addr,
-    agent_fee: u64,
-    treasury_fee: u64,
+    agent_fee: u16,
+    treasury_fee: u16,
     reimburse_only: bool,
 ) -> Result<(), ContractError> {
     AGENT_REWARDS.update(
@@ -71,7 +71,7 @@ pub(crate) fn add_fee_rewards(
             let gas_fee = if reimburse_only {
                 gas
             } else {
-                gas_fee(gas, agent_fee)? + gas
+                gas_fee(gas, agent_fee.into())? + gas
             };
             let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
             Ok(agent_balance.unwrap_or_default().saturating_add(amount))
@@ -80,11 +80,12 @@ pub(crate) fn add_fee_rewards(
 
     if !reimburse_only {
         TREASURY_BALANCE.update(storage, |balance| -> Result<_, ContractError> {
-            let gas_fee = gas_fee(gas, treasury_fee)?;
+            let gas_fee = gas_fee(gas, treasury_fee.into())?;
             let amount: Uint128 = gas_price.calculate(gas_fee).unwrap().into();
             Ok(balance.saturating_add(amount))
         })?;
     }
+
     Ok(())
 }
 
