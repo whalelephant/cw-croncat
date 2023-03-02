@@ -126,9 +126,9 @@ pub fn execute_receive_cw20(
                 .ok_or(ContractError::NoTaskHash {})?;
             let mut balance = task_balances
                 .cw20_balance
-                .ok_or(ContractError::TooManyCoins {})?;
+                .ok_or(ContractError::InvalidAttachedCoins {})?;
             if balance.address != cw20_verified.address {
-                return Err(ContractError::TooManyCoins {});
+                return Err(ContractError::InvalidAttachedCoins {});
             }
             balance.amount += cw20_verified.amount;
             task_balances.cw20_balance = Some(balance);
@@ -168,9 +168,9 @@ pub fn execute_refill_task_cw20(
         .ok_or(ContractError::NoTaskHash {})?;
     let mut balance = task_balances
         .cw20_balance
-        .ok_or(ContractError::TooManyCoins {})?;
+        .ok_or(ContractError::InvalidAttachedCoins {})?;
     if balance.address != cw20_verified.address {
-        return Err(ContractError::TooManyCoins {});
+        return Err(ContractError::InvalidAttachedCoins {});
     }
     balance.amount += cw20_verified.amount;
     task_balances.cw20_balance = Some(balance);
@@ -282,7 +282,7 @@ pub fn execute_refill_native_balance(
         .ok_or(ContractError::NoTaskHash {})?;
 
     if info.funds.len() > 2 {
-        return Err(ContractError::TooManyCoins {});
+        return Err(ContractError::InvalidAttachedCoins {});
     }
     for coin in info.funds {
         if coin.denom == config.native_denom {
@@ -290,9 +290,9 @@ pub fn execute_refill_native_balance(
         } else {
             let mut ibc = task_balances
                 .ibc_balance
-                .ok_or(ContractError::TooManyCoins {})?;
+                .ok_or(ContractError::InvalidAttachedCoins {})?;
             if ibc.denom != coin.denom {
-                return Err(ContractError::TooManyCoins {});
+                return Err(ContractError::InvalidAttachedCoins {});
             }
             ibc.amount += coin.amount;
             task_balances.ibc_balance = Some(ibc);

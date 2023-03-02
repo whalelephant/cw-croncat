@@ -2836,7 +2836,7 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::AgentNotActive {});
 
     // Agent not active
     // register agent1 first
@@ -2861,7 +2861,7 @@ fn negative_proxy_call() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::NoTaskForAgent {});
+    assert_eq!(err, ContractError::AgentNotActive {});
 
     // active agent(agent0), but task not ready
     let err: ContractError = app
@@ -3432,7 +3432,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // RefillTaskBalance with wrong denom, task doesn't have ibc coins
     let err: ContractError = app
@@ -3447,7 +3447,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Get task balance
     let task_balance: TaskBalanceResponse = app
@@ -3528,7 +3528,7 @@ fn refill_task_balance_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Pause
     let update_cfg_msg = UpdateConfig {
@@ -3889,7 +3889,7 @@ fn refill_task_cw20_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Get task balance
     let task_balance: TaskBalanceResponse = app
@@ -4002,7 +4002,7 @@ fn refill_task_cw20_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::TooManyCoins {});
+    assert_eq!(err, ContractError::InvalidAttachedCoins {});
 
     // Pause
     let update_cfg_msg = UpdateConfig {
