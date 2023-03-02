@@ -14,6 +14,9 @@ pub enum ContractError {
     #[error(transparent)]
     ParseReplyError(#[from] ParseReplyError),
 
+    #[error("Account is either not a registered agent or is not active yet")]
+    AgentNotActive {},
+
     #[error("No coin balance found")]
     EmptyBalance {},
 
@@ -23,14 +26,22 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized {},
 
+    #[error("Unauthorized method, restricted to owner or not allowed")]
+    UnauthorizedMethod {},
+
     #[error("Contract paused")]
     Paused {},
 
     #[error("Must not attach funds")]
     RedundantFunds {},
 
-    #[error("Only up to one ibc coin supported")]
-    TooManyCoins {},
+    #[error(
+        "Invalid attached coins. Coins are limited to native and ibc coins configured by owner"
+    )]
+    InvalidAttachedCoins {},
+
+    #[error("Task balance is empty cannot continue")]
+    TaskBalanceEmpty {},
 
     #[error("Unknown task hash")]
     NoTaskHash {},

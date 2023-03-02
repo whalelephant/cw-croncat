@@ -345,7 +345,7 @@ fn accept_nomination_agent(
     // Get the position in the pending queue
     let agent_position = pending_queue_iter
         .position(|a| a.map_or_else(|_| false, |v| info.sender == v))
-        .ok_or(ContractError::AgentNotRegistered)?;
+        .ok_or(ContractError::AgentNotPending)?;
     let agent_nomination_status = AGENT_NOMINATION_STATUS.load(deps.storage)?;
     // edge case if last agent left
     if active_agents.is_empty() && agent_position == 0 {
