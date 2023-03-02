@@ -11,7 +11,7 @@ use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, Task, TaskInfo};
 use cw2::set_contract_version;
-use cw_utils::{parse_reply_execute_data, may_pay};
+use cw_utils::{may_pay, parse_reply_execute_data};
 
 use crate::balances::{
     add_fee_rewards, execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
