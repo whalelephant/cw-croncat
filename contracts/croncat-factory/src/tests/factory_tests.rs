@@ -1,5 +1,6 @@
 use cosmwasm_std::{to_binary, Addr, Binary, StdError, WasmMsg};
 use croncat_sdk_core::types::GasPrice;
+use croncat_sdk_factory::msg::FactoryExecuteMsg::UpdateMetadata;
 use croncat_sdk_factory::msg::{
     Config, ContractMetadataInfo, ContractMetadataResponse, EntryResponse, FactoryExecuteMsg,
     ModuleInstantiateInfo, VersionKind,
@@ -1106,4 +1107,102 @@ fn fail_and_success_proxy() {
     // Check for action proxy & action update_config
     assert_eq!(res.events[1].attributes[1].value, "proxy");
     assert_eq!(res.events[3].attributes[1].value, "update_config");
+}
+
+/// Tests the changelog_url for validity
+#[test]
+fn invalid_changelog_url() {
+    let mut app = default_app();
+    let factory_code_id = app.store_code(contracts::croncat_factory_contract());
+    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
+    let init_msg = InstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let factory_addr = app
+        .instantiate_contract(
+            factory_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let invalid_changelog = "thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistoolong-thisistool".to_string();
+
+    let mut manager_module_instantiate_info = ModuleInstantiateInfo {
+        code_id: manager_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: Some(invalid_changelog.clone()),
+        schema: None,
+        msg: to_binary(&croncat_manager::msg::InstantiateMsg {
+            version: Some("0.1".to_owned()),
+            croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
+            croncat_agents_key: ("agents".to_owned(), [0, 1]),
+            owner_addr: Some(ANYONE.to_owned()),
+            gas_price: Some(GasPrice {
+                numerator: 10,
+                denominator: 20,
+                gas_adjustment_numerator: 30,
+            }),
+            treasury_addr: Some(AGENT2.to_owned()),
+            cw20_whitelist: Some(vec![PARTICIPANT0.to_owned()]),
+        })
+        .unwrap(),
+        contract_name: "manager".to_owned(),
+    };
+
+    let mut err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.clone(),
+            &FactoryExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: manager_module_instantiate_info.clone(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::UrlExceededMaxLength {});
+
+    // Now allow it to successfully deploy, and try updating with an invalid value
+    manager_module_instantiate_info.changelog_url = Some("this is fine".to_string());
+
+    assert!(app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr.clone(),
+            &FactoryExecuteMsg::Deploy {
+                kind: VersionKind::Manager,
+                module_instantiate_info: manager_module_instantiate_info,
+            },
+            &[],
+        )
+        .is_ok());
+
+    let manager_update_msg = UpdateMetadata {
+        contract_name: "manager".to_string(),
+        version: [0, 1],
+        // This should cause an error
+        changelog_url: Some(invalid_changelog),
+        schema: None,
+    };
+
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            factory_addr,
+            &manager_update_msg,
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+
+    assert_eq!(err, ContractError::UrlExceededMaxLength {});
 }
