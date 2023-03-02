@@ -58,8 +58,12 @@ impl TaskBalance {
                     lack: req.amount * multiplier,
                 })
             }
-            // Note: we are Ok if user decided to attach "needless" cw20
-            (None, Some(_)) | (None, None) => (),
+            // Dont want untracked or differing CW20s from required
+            (None, Some(_)) => {
+                return Err(SdkError::NonRequiredDenom {});
+            },
+            // nothing attached, nothing required
+            (None, None) => (),
         }
         Ok(())
     }
@@ -89,8 +93,10 @@ impl TaskBalance {
                 addr: req.address.into_string(),
                 lack: req.amount * multiplier,
             }),
-            // Note: we are Ok if user decided to attach "needless" cw20
-            (None, Some(_)) | (None, None) => Ok(()),
+            // Dont want untracked or differing CW20s from required
+            (None, Some(_)) => Err(SdkError::NonRequiredDenom {}),
+            // nothing attached, nothing required
+            (None, None) => Ok(()),
         }
     }
 
@@ -140,8 +146,8 @@ pub struct Config {
     pub croncat_agents_key: (String, [u8; 2]),
 
     // Economics
-    pub agent_fee: u64,
-    pub treasury_fee: u64,
+    pub agent_fee: u16,
+    pub treasury_fee: u16,
     pub gas_price: GasPrice,
 
     // Treasury
@@ -157,8 +163,8 @@ pub struct Config {
 pub struct UpdateConfig {
     pub owner_addr: Option<String>,
     pub paused: Option<bool>,
-    pub agent_fee: Option<u64>,
-    pub treasury_fee: Option<u64>,
+    pub agent_fee: Option<u16>,
+    pub treasury_fee: Option<u16>,
     pub gas_price: Option<GasPrice>,
     pub croncat_tasks_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
