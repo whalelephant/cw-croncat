@@ -68,4 +68,7 @@ pub enum ContractError {
 
     #[error("Invalid denom, expected: {expected_denom}")]
     InvalidDenom { expected_denom: String },
+
+    #[error("Must provide percentage value (0-100) for field: {field}")]
+    InvalidPercentage { field: String },
 }
