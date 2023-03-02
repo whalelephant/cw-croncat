@@ -127,7 +127,6 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
         changelog_url: None,
         schema: None,
         msg: to_binary(&croncat_manager::msg::InstantiateMsg {
-            denom: NATIVE_DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_string(), [0, 1]),

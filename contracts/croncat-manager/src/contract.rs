@@ -54,7 +54,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     // Deconstruct so we don't miss fields
     let InstantiateMsg {
-        denom,
         version,
         croncat_tasks_key,
         croncat_agents_key,
@@ -64,15 +63,8 @@ pub fn instantiate(
         cw20_whitelist,
     } = msg;
 
-    // Validate the denom, verify as case-insensitive, use bonded_denom value
-    let bonded_denom = deps.querier.query_bonded_denom()?;
-    let denom = if denom.to_uppercase() != bonded_denom.to_uppercase() {
-        return Err(ContractError::InvalidDenom {
-            expected_denom: bonded_denom,
-        });
-    } else {
-        bonded_denom
-    };
+    // Query for the denom
+    let denom = deps.querier.query_bonded_denom()?;
 
     let gas_price = gas_price.unwrap_or_default();
     // Make sure gas_price is valid

@@ -66,9 +66,6 @@ pub enum ContractError {
     #[error("This cw20 address is not supported")]
     NotSupportedCw20 {},
 
-    #[error("Invalid denom, expected: {expected_denom}")]
-    InvalidDenom { expected_denom: String },
-
     #[error("Must provide percentage value (0-100) for field: {field}")]
     InvalidPercentage { field: String },
 }

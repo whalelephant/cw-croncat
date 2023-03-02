@@ -27,7 +27,7 @@ pub(crate) fn default_app() -> App {
             (5_000_000, PARTICIPANT5.to_string()),
             (5_000_000, PARTICIPANT6.to_string()),
             (2_000_000, AGENT_BENEFICIARY.to_string()),
-            (u128::max_value(), VERY_RICH.to_string()),
+            (u128::MAX, VERY_RICH.to_string()),
         ];
         for (amt, address) in accounts {
             router
@@ -89,7 +89,6 @@ pub(crate) fn init_tasks(app: &mut App, msg: &InstantiateMsg, factory_addr: &Add
 pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
     let code_id = app.store_code(contracts::croncat_manager_contract());
     let msg = croncat_manager::msg::InstantiateMsg {
-        denom: DENOM.to_owned(),
         version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),

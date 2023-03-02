@@ -4,7 +4,6 @@ use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmM
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
-use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
 use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
@@ -84,7 +83,6 @@ mod instantiate_tests {
         let factory_addr = init_factory(&mut app);
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            denom: DENOM.to_string(),
             version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
@@ -441,7 +439,7 @@ fn cw20_bad_messages() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -500,7 +498,7 @@ fn users_withdraws() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     // refill balances
@@ -565,7 +563,7 @@ fn failed_users_withdraws() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let send_funds: &[Coin] = &[coin(600, instantiate_msg.denom.clone())];
+    let send_funds: &[Coin] = &[coin(600, DENOM)];
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
@@ -4696,73 +4694,6 @@ fn immediate_event_task_has_multiple_executions() {
     .expect("Second proxy call should succeed");
 }
 
-/// We test that the denom provided matches the validated, bonded denom value
-#[test]
-fn invalid_denom() {
-    let mut app = default_app();
-    let factory_addr = init_factory(&mut app);
-
-    let mut instantiate_msg: InstantiateMsg = default_instantiate_message();
-    // Test different, invalid denom
-    instantiate_msg.denom = "mochi".to_string();
-
-    let manager_code_id = app.store_code(contracts::croncat_manager_contract());
-
-    let mut module_instantiate_info = ModuleInstantiateInfo {
-        code_id: manager_code_id,
-        version: [0, 1],
-        commit_id: "commit1".to_owned(),
-        checksum: "checksum2".to_owned(),
-        changelog_url: None,
-        schema: None,
-        msg: to_binary(&instantiate_msg).unwrap(),
-        contract_name: "manager".to_owned(),
-    };
-    let err: ContractError = app
-      .execute_contract(
-          Addr::unchecked(ADMIN),
-          factory_addr.to_owned(),
-          &croncat_factory::msg::ExecuteMsg::Deploy {
-              kind: VersionKind::Manager,
-              module_instantiate_info: module_instantiate_info.clone(),
-          },
-          &[],
-      )
-      .unwrap_err()
-      .downcast()
-      .unwrap();
-    assert_eq!(
-        err,
-        ContractError::InvalidDenom {
-            expected_denom: DENOM.to_string(),
-        }
-    );
-
-    // Test case insensitivity, should succeed
-    instantiate_msg.denom = "TOKEn".to_string();
-    module_instantiate_info = ModuleInstantiateInfo {
-        code_id: manager_code_id,
-        version: [0, 1],
-        commit_id: "commit1".to_owned(),
-        checksum: "checksum2".to_owned(),
-        changelog_url: None,
-        schema: None,
-        msg: to_binary(&instantiate_msg).unwrap(),
-        contract_name: "manager".to_owned(),
-    };
-    assert!(app
-      .execute_contract(
-          Addr::unchecked(ADMIN),
-          factory_addr,
-          &croncat_factory::msg::ExecuteMsg::Deploy {
-              kind: VersionKind::Manager,
-              module_instantiate_info,
-          },
-          &[],
-      )
-      .is_ok());
-}
-
 #[test]
 fn config_invalid_percentage_updates() {
     let mut app = default_app();
@@ -4787,15 +4718,15 @@ fn config_invalid_percentage_updates() {
     };
 
     let mut err: ContractError = app
-      .execute_contract(
-          Addr::unchecked(ADMIN),
-          manager_addr.clone(),
-          &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg.clone())),
-          &[],
-      )
-      .unwrap_err()
-      .downcast()
-      .unwrap();
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr.clone(),
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg.clone())),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
     assert_eq!(
         err,
         ContractError::InvalidPercentage {
@@ -4808,15 +4739,15 @@ fn config_invalid_percentage_updates() {
     update_cfg_msg.treasury_fee = Some(22_222); // Above 10_000
 
     err = app
-      .execute_contract(
-          Addr::unchecked(ADMIN),
-          manager_addr,
-          &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
-          &[],
-      )
-      .unwrap_err()
-      .downcast()
-      .unwrap();
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            manager_addr,
+            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
     assert_eq!(
         err,
         ContractError::InvalidPercentage {
