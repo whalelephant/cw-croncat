@@ -32,7 +32,7 @@ pub enum ContractError {
     #[error("Contract paused")]
     Paused {},
 
-    #[error("Must not attach funds")]
+    #[error("Must not attach funds of this coin denom")]
     RedundantFunds {},
 
     #[error(

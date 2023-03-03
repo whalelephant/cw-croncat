@@ -58,8 +58,12 @@ impl TaskBalance {
                     lack: req.amount * multiplier,
                 })
             }
-            // Note: we are Ok if user decided to attach "needless" cw20
-            (None, Some(_)) | (None, None) => (),
+            // Dont want untracked or differing CW20s from required
+            (None, Some(_)) => {
+                return Err(SdkError::NonRequiredDenom {});
+            }
+            // nothing attached, nothing required
+            (None, None) => (),
         }
         Ok(())
     }
@@ -89,8 +93,10 @@ impl TaskBalance {
                 addr: req.address.into_string(),
                 lack: req.amount * multiplier,
             }),
-            // Note: we are Ok if user decided to attach "needless" cw20
-            (None, Some(_)) | (None, None) => Ok(()),
+            // Dont want untracked or differing CW20s from required
+            (None, Some(_)) => Err(SdkError::NonRequiredDenom {}),
+            // nothing attached, nothing required
+            (None, None) => Ok(()),
         }
     }
 
@@ -277,12 +283,18 @@ mod test {
             cw20_balance: Some(cw20.clone()),
             ibc_balance: Some(ibc_coin.clone()),
         };
+        // TODO:
+        println!(
+            "HHHHHHHH = {:?}",
+            task_balance.verify_enough_attached(Uint128::from(100u64), None, None, false, "denom")
+        );
+        // We're now validating you're not adding tokens that never get used, #noMoreBlackHoles
         assert!(task_balance
             .verify_enough_attached(Uint128::from(100u64), None, None, false, "denom")
-            .is_ok());
+            .is_err());
         assert!(task_balance
             .verify_enough_attached(Uint128::from(50u64), None, None, true, "denom")
-            .is_ok());
+            .is_err());
         assert!(task_balance
             .verify_enough_attached(
                 Uint128::from(100u64),

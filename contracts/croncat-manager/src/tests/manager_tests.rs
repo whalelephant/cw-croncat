@@ -46,6 +46,8 @@ use super::{
 };
 
 mod instantiate_tests {
+    use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
+
     use crate::tests::PARTICIPANT3;
 
     use super::*;
@@ -105,6 +107,36 @@ mod instantiate_tests {
             .into(),
         )
         .unwrap();
+
+        // Test attaching extra tokens FAILs
+        let code_id = app.store_code(contracts::croncat_manager_contract());
+        let module_instantiate_info = ModuleInstantiateInfo {
+            code_id,
+            version: [0, 1],
+            commit_id: "commit1".to_owned(),
+            checksum: "checksum2".to_owned(),
+            changelog_url: None,
+            schema: None,
+            msg: to_binary(&instantiate_msg).unwrap(),
+            contract_name: "manager".to_owned(),
+        };
+        let error: ContractError = app
+            .execute_contract(
+                Addr::unchecked(ADMIN),
+                factory_addr.to_owned(),
+                &croncat_factory::msg::ExecuteMsg::Deploy {
+                    kind: VersionKind::Manager,
+                    module_instantiate_info,
+                },
+                &attach_funds,
+            )
+            .unwrap_err()
+            .downcast()
+            .unwrap();
+        assert_eq!(error, ContractError::RedundantFunds {});
+
+        let attach_funds = coins(2400, DENOM);
+
         let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &attach_funds);
 
         let config = query_manager_config(&app, &manager_addr);
@@ -619,7 +651,7 @@ fn withdraw_balances() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let attach_funds = vec![coin(2400, DENOM), coin(5000, "denom")];
+    let attach_funds = vec![coin(2400, DENOM)];
     app.sudo(
         BankSudo::Mint {
             to_address: ADMIN.to_owned(),
@@ -3507,8 +3539,7 @@ fn refill_task_balance_fail() {
         ]
     );
 
-    // Create task with ibc balance
-    // Create a task
+    // Create task without ibc balance, but attach some, should fail
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Once,
         boundary: None,
@@ -3521,6 +3552,50 @@ fn refill_task_balance_fail() {
             .into(),
             gas_limit: None,
         }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &[coin(600_000, DENOM), coin(50_000, "ibc")],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Sdk(croncat_sdk_manager::SdkError::NonRequiredDenom {})
+    );
+
+    // Create task with ibc balance
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(46, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(5_000, "ibc"),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
         queries: None,
         transforms: None,
         cw20: None,
@@ -3655,14 +3730,24 @@ fn refill_task_balance_success() {
         interval: Interval::Once,
         boundary: None,
         stop_on_fail: false,
-        actions: vec![Action {
-            msg: BankMsg::Send {
-                to_address: "bob".to_owned(),
-                amount: coins(45, DENOM),
-            }
-            .into(),
-            gas_limit: None,
-        }],
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(45, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(5_000, "ibc"),
+                }
+                .into(),
+                gas_limit: None,
+            },
+        ],
         queries: None,
         transforms: None,
         cw20: None,
@@ -3948,7 +4033,7 @@ fn refill_task_cw20_fail() {
         }]
     );
 
-    // Create a task with cw20
+    // Create a task without a cw20, attach some anyway
     let task = croncat_sdk_tasks::types::TaskRequest {
         interval: Interval::Once,
         boundary: None,
@@ -3961,6 +4046,56 @@ fn refill_task_cw20_fail() {
             .into(),
             gas_limit: None,
         }],
+        queries: None,
+        transforms: None,
+        cw20: Some(cw20.clone()),
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Sdk(croncat_sdk_manager::SdkError::NonRequiredDenom {})
+    );
+
+    // Create a task with cw20
+    let task = croncat_sdk_tasks::types::TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(46, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.clone().to_string(),
+                    msg: to_binary(&cw20::Cw20ExecuteMsg::Send {
+                        contract: manager_addr.to_string(),
+                        amount: Uint128::new(55),
+                        msg: Binary::default(),
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: Some(90_000),
+            },
+        ],
         queries: None,
         transforms: None,
         cw20: Some(cw20.clone()),
@@ -4157,14 +4292,30 @@ fn refill_task_cw20_success() {
         interval: Interval::Once,
         boundary: None,
         stop_on_fail: false,
-        actions: vec![Action {
-            msg: BankMsg::Send {
-                to_address: "bob".to_owned(),
-                amount: coins(45, DENOM),
-            }
-            .into(),
-            gas_limit: None,
-        }],
+        actions: vec![
+            Action {
+                msg: BankMsg::Send {
+                    to_address: "bob".to_owned(),
+                    amount: coins(45, DENOM),
+                }
+                .into(),
+                gas_limit: None,
+            },
+            Action {
+                msg: WasmMsg::Execute {
+                    contract_addr: cw20_addr.clone().to_string(),
+                    msg: to_binary(&cw20::Cw20ExecuteMsg::Send {
+                        contract: manager_addr.to_string(),
+                        amount: Uint128::new(55),
+                        msg: Binary::default(),
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                }
+                .into(),
+                gas_limit: Some(90_000),
+            },
+        ],
         queries: None,
         transforms: None,
         cw20: Some(cw20.clone()),
@@ -4288,8 +4439,6 @@ fn scheduled_task_with_boundary_issue() {
     )
     .expect("Could not register agent");
 
-    println!("Current block height: {}", app.block_info().height);
-
     // Create a Once task with a Boundary that is soon
     let task = TaskRequest {
         interval: Interval::Once,
@@ -4324,8 +4473,6 @@ fn scheduled_task_with_boundary_issue() {
     app.update_block(|block| increment_block_height(block, Some(20)));
 
     // Have agent call proxy call, and check how it went
-
-    println!("Current block height: {}", app.block_info().height);
 
     let proxy_call_res = app.execute_contract(
         Addr::unchecked(AGENT0),
@@ -4388,8 +4535,6 @@ fn event_task_with_boundary_issue() {
     )
     .expect("Could not register agent");
 
-    println!("Current block height: {}", app.block_info().height);
-
     let queries = vec![
         CroncatQuery {
             contract_addr: "aloha123".to_owned(),
@@ -4442,7 +4587,6 @@ fn event_task_with_boundary_issue() {
 
     app.update_block(|block| add_seconds_to_block(block, 120));
     app.update_block(|block| increment_block_height(block, Some(20)));
-    println!("Current block height: {}", app.block_info().height);
 
     // Have agent call proxy call, and check how it went
     let proxy_call_res = app.execute_contract(

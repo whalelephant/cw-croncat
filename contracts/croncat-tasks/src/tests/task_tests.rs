@@ -1221,7 +1221,6 @@ fn remove_tasks_with_queries_success() {
             },
         )
         .unwrap();
-    // println!("------- evented_ids {:?}", evented_ids);
     assert_eq!(evented_ids.len(), 1);
     assert_eq!(evented_ids, [12355]);
 
