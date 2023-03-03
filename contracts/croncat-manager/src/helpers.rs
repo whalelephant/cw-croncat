@@ -44,19 +44,7 @@ pub(crate) fn get_tasks_addr(
         )?
         .ok_or(ContractError::InvalidKey {})
 }
-pub(crate) fn query_agent_addr(
-    querier: &QuerierWrapper<Empty>,
-    config: &Config,
-) -> Result<Addr, ContractError> {
-    let (tasks_name, version) = &config.croncat_agents_key;
-    croncat_sdk_factory::state::CONTRACT_ADDRS
-        .query(
-            querier,
-            config.croncat_factory_addr.clone(),
-            (tasks_name, version),
-        )?
-        .ok_or(ContractError::InvalidKey {})
-}
+
 pub(crate) fn check_if_sender_is_tasks(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
@@ -150,7 +138,7 @@ pub(crate) fn assert_caller_is_agent_contract(
     config: &Config,
     sender: &Addr,
 ) -> Result<(), ContractError> {
-    let addr = query_agent_addr(deps_queries, config)?;
+    let addr = get_agents_addr(deps_queries, config)?;
     if addr != *sender {
         return Err(ContractError::Unauthorized {});
     }
@@ -162,7 +150,7 @@ pub fn query_agent(
     config: &Config,
     agent_id: String,
 ) -> Result<AgentResponse, ContractError> {
-    let addr = query_agent_addr(querier, config)?;
+    let addr = get_agents_addr(querier, config)?;
 
     // Get the agent from the agent contract
     let response: AgentResponse = querier.query_wasm_smart(
@@ -597,7 +585,7 @@ pub fn create_task_completed_msg(
     agent_id: &Addr,
     is_block_slot_task: bool,
 ) -> Result<CosmosMsg, ContractError> {
-    let addr = query_agent_addr(querier, config)?;
+    let addr = get_agents_addr(querier, config)?;
     let args = AgentOnTaskCompleted {
         agent_id: agent_id.to_owned(),
         is_block_slot_task,
