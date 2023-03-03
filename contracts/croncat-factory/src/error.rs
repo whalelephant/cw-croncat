@@ -30,4 +30,7 @@ pub enum ContractError {
 
     #[error("Provided URL has exceeded the maximum allowable length")]
     UrlExceededMaxLength {},
+
+    #[error("Must not nominate current owner")]
+    SameOwnerNominated {},
 }

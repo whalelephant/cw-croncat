@@ -452,7 +452,7 @@ fn failure_deploy() {
 }
 
 #[test]
-fn update_config() {
+fn ownership_transfer_cases() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
 
@@ -470,32 +470,134 @@ fn update_config() {
         )
         .unwrap();
 
-    let update_config_msg = FactoryExecuteMsg::UpdateConfig {
-        owner_addr: ANYONE.to_owned(),
-    };
-
-    // Not owner_addr execution
+    // Invalid nomination address
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &update_config_msg,
+            &FactoryExecuteMsg::NominateOwner {
+                nominated_owner_addr: "MrB4dBl0x".to_owned(),
+            },
             &[],
         )
         .unwrap_err()
         .downcast()
         .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::GenericErr {
+            msg: "Invalid input: address not normalized".to_string()
+        })
+    );
 
-    assert_eq!(err, ContractError::Unauthorized {});
+    // Cant be Self nomination address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::NominateOwner {
+                nominated_owner_addr: ADMIN.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::SameOwnerNominated {});
 
+    // Valid nomination
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &update_config_msg,
+        &FactoryExecuteMsg::NominateOwner {
+            nominated_owner_addr: ANYONE.to_owned(),
+        },
         &[],
     )
     .unwrap();
 
+    // Check config for nomination
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ADMIN),
+            nominated_owner_addr: Some(Addr::unchecked(ANYONE)),
+        }
+    );
+
+    // Non owner address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::RemoveNominateOwner {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Must be current owner to remove nomination address
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::RemoveNominateOwner {},
+        &[],
+    )
+    .unwrap();
+
+    // Check config for nomination
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ADMIN),
+            nominated_owner_addr: None,
+        }
+    );
+
+    // Do another Valid nomination for next set of tests
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::NominateOwner {
+            nominated_owner_addr: ANYONE.to_owned(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Current owner address can't accept nomination
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::AcceptNominateOwner {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Must be nominated owner to accept ownership transfer
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::AcceptNominateOwner {},
+        &[],
+    )
+    .unwrap();
+
+    // Check config for nomination
     let new_config: Config = app
         .wrap()
         .query_wasm_smart(contract_addr, &QueryMsg::Config {})
@@ -503,9 +605,10 @@ fn update_config() {
     assert_eq!(
         new_config,
         Config {
-            owner_addr: Addr::unchecked(ANYONE)
+            owner_addr: Addr::unchecked(ANYONE),
+            nominated_owner_addr: None,
         }
-    )
+    );
 }
 
 #[test]
