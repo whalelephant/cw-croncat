@@ -38,7 +38,7 @@ pub enum ContractError {
     #[error("Contract is in unpaused state")]
     ContractUnpaused,
 
-    #[error("Must not attach funds")]
+    #[error("Must not attach funds of this coin denom")]
     RedundantFunds {},
 
     #[error(

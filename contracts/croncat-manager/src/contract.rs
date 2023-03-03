@@ -10,7 +10,7 @@ use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, Task, TaskInfo};
 use cw2::set_contract_version;
-use cw_utils::parse_reply_execute_data;
+use cw_utils::{may_pay, parse_reply_execute_data};
 
 use crate::balances::{
     add_fee_rewards, execute_owner_withdraw, execute_receive_cw20, execute_refill_native_balance,
@@ -83,12 +83,11 @@ pub fn instantiate(
     }
 
     // Check if we attached some funds in native denom, add them into treasury
-    let treasury_funds = info.funds.iter().find(|coin| coin.denom == denom);
-    if let Some(funds) = treasury_funds {
-        TREASURY_BALANCE.save(deps.storage, &funds.amount)?;
-    } else {
-        TREASURY_BALANCE.save(deps.storage, &Uint128::zero())?;
+    let treasury_funds = may_pay(&info, denom.as_str());
+    if treasury_funds.is_err() {
+        return Err(ContractError::RedundantFunds {});
     }
+    TREASURY_BALANCE.save(deps.storage, &treasury_funds.unwrap())?;
 
     let cw20_whitelist = cw20_whitelist
         .unwrap_or_default()
