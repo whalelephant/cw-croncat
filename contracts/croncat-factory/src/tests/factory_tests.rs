@@ -7,7 +7,7 @@ use croncat_sdk_factory::msg::{
 };
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE};
+use super::{contracts, helpers::default_app, ADMIN, PAUSE_ADMIN, AGENT2, ANYONE};
 use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
@@ -186,6 +186,7 @@ fn deploy_check() {
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             owner_addr: Some(ADMIN.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,

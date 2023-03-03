@@ -8,7 +8,7 @@ use cw_multi_test::{App, AppBuilder, Executor};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use super::{
-    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
+    contracts, ADMIN, PAUSE_ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
     PARTICIPANT6, VERSION, VERY_RICH,
 };
@@ -17,6 +17,7 @@ pub(crate) fn default_app() -> App {
     AppBuilder::new().build(|router, _, storage| {
         let accounts: Vec<(u128, String)> = vec![
             (6_000_000, ADMIN.to_string()),
+            (600_000, PAUSE_ADMIN.to_string()),
             (500_000, ANYONE.to_string()),
             (2_000_000, AGENT0.to_string()),
             (2_000_000, AGENT1.to_string()),
@@ -164,6 +165,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         owner_addr: None,
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
         min_coins_for_agent_registration: None,
