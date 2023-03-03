@@ -8,6 +8,7 @@ use cosmwasm_std::{
 use croncat_sdk_core::internal_messages::agents::AgentOnTaskCreated;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
+use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_LIMIT};
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
@@ -685,8 +686,8 @@ fn query_evented_tasks(
     limit: Option<u64>,
 ) -> StdResult<Vec<TaskInfo>> {
     let config = CONFIG.load(deps.storage)?;
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
     let tm = tasks_map();
 
     let mut evented_hashes: Vec<Vec<u8>> = Vec::new();
@@ -747,8 +748,8 @@ fn query_evented_ids(
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<u64>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
 
     let evented_ids = EVENTED_TASKS_LOOKUP
         .keys(deps.storage, None, None, Order::Ascending)
@@ -766,8 +767,8 @@ fn query_evented_hashes(
     limit: Option<u64>,
 ) -> StdResult<Vec<String>> {
     let mut evented_hashes: Vec<Vec<u8>> = Vec::new();
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
 
     // Check if slot was supplied, otherwise get the next slots for block and time
     if let Some(i) = id {

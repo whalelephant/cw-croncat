@@ -21,7 +21,7 @@ thiserror = { workspace = true }
 cw2 = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
-
+croncat-sdk-core = { workspace = true }
 croncat-sdk-factory = { workspace = true }
 
 [dev-dependencies]

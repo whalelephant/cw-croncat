@@ -4,6 +4,11 @@ use cw20::Cw20CoinVerified;
 
 use crate::error::SdkError;
 
+/// from_index: Start at the 0 index for retrieving data, unless specified for pagination
+pub const DEFAULT_PAGINATION_FROM_INDEX: u64 = 0;
+/// limit: will grab a total set of records or the maximum allowed.
+pub const DEFAULT_PAGINATION_LIMIT: u64 = 100;
+
 use self::gas_price_defaults::{
     GAS_ADJUSTMENT_NUMERATOR_DEFAULT, GAS_DENOMINATOR, GAS_NUMERATOR_DEFAULT,
 };
