@@ -1,5 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_LIMIT};
 use cw_storage_plus::Item;
 
 use cosmwasm_std::{
@@ -346,8 +347,8 @@ fn query_all_entries(
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<EntryResponse>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
     let metadatas: Vec<((String, Vec<u8>), ContractMetadata)> = CONTRACT_METADATAS
         .range(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
@@ -381,8 +382,8 @@ fn query_contract_names(
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<String>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
     CONTRACT_ADDRS
         .keys(deps.storage, None, None, Order::Ascending)
         .skip(from_index as usize)
@@ -397,8 +398,8 @@ fn query_versions_by_contract_name(
     from_index: Option<u64>,
     limit: Option<u64>,
 ) -> StdResult<Vec<ContractMetadataInfo>> {
-    let from_index = from_index.unwrap_or_default();
-    let limit = limit.unwrap_or(100);
+    let from_index = from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX);
+    let limit = limit.unwrap_or(DEFAULT_PAGINATION_LIMIT);
     let metadatas: Vec<(Vec<u8>, ContractMetadata)> = CONTRACT_METADATAS
         .prefix(&contract_name)
         .range(deps.storage, None, None, Order::Ascending)

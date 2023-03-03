@@ -1,12 +1,11 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-
 use crate::distributor::*;
 use crate::error::ContractError;
 use crate::error::ContractError::InvalidConfigurationValue;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
     QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
@@ -16,6 +15,7 @@ use croncat_sdk_agents::msg::{
 };
 use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
+use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_LIMIT};
 use cw2::set_contract_version;
 use std::cmp::min;
 
@@ -183,13 +183,13 @@ fn query_get_agent_ids(
     let active_loaded: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     let active = active_loaded
         .into_iter()
-        .skip(from_index.unwrap_or(0) as usize)
-        .take(limit.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect();
     let pending: Vec<Addr> = AGENTS_PENDING
         .iter(deps.storage)?
-        .skip(from_index.unwrap_or(0) as usize)
-        .take(limit.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect::<StdResult<Vec<Addr>>>()?;
 
     Ok(GetAgentIdsResponse { active, pending })
