@@ -49,8 +49,8 @@ use super::{
 };
 
 mod instantiate_tests {
-    use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
     use crate::tests::{PARTICIPANT3, PAUSE_ADMIN};
+    use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
 
     use super::*;
 
