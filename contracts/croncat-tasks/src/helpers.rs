@@ -60,17 +60,17 @@ pub(crate) fn check_for_self_calls(
     tasks_addr: &Addr,
     manager_addr: &Addr,
     agents_addr: &Addr,
-    manager_owner_addr: &Addr,
+    owner_addr: &Addr,
     sender: &Addr,
     contract_addr: &Addr,
     msg: &Binary,
 ) -> Result<(), ContractError> {
-    // If it one of the our contracts it should be a manager
-    if contract_addr == tasks_addr || contract_addr == agents_addr {
+    // If its one of the our contracts it should be a agents contract only
+    if contract_addr == tasks_addr || contract_addr == manager_addr {
         return Err(ContractError::InvalidAction {});
-    } else if contract_addr == manager_addr {
+    } else if contract_addr == agents_addr {
         // Check if caller is manager owner
-        if sender != manager_owner_addr {
+        if sender != owner_addr {
             return Err(ContractError::InvalidAction {});
         } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
             // Check if it's tick
@@ -133,7 +133,7 @@ pub(crate) fn validate_msg_calculate_usage(
                     &deps.api.addr_validate(self_addr.as_str())?,
                     &deps.api.addr_validate(manager_addr.as_str())?,
                     &deps.api.addr_validate(agents_addr.as_str())?,
-                    &deps.api.addr_validate(manager_config.owner_addr.as_str())?,
+                    &deps.api.addr_validate(config.owner_addr.as_str())?,
                     &deps.api.addr_validate(sender.as_str())?,
                     &deps.api.addr_validate(contract_addr.as_str())?,
                     msg,

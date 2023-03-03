@@ -29,8 +29,14 @@ pub enum ContractError {
     #[error("Unauthorized method, restricted to owner or not allowed")]
     UnauthorizedMethod {},
 
-    #[error("Contract paused")]
-    Paused {},
+    #[error("Invalid Pause Admin")]
+    InvalidPauseAdmin,
+
+    #[error("Contract is in paused state")]
+    ContractPaused,
+
+    #[error("Contract is in unpaused state")]
+    ContractUnpaused,
 
     #[error("Must not attach funds of this coin denom")]
     RedundantFunds {},

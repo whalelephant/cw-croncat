@@ -4,12 +4,13 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
+export type Addr = string;
 export interface InstantiateMsg {
   croncat_agents_key: [string, [number, number]];
   croncat_tasks_key: [string, [number, number]];
   cw20_whitelist?: string[] | null;
   gas_price?: GasPrice | null;
-  owner_addr?: string | null;
+  pause_admin: Addr;
   treasury_addr?: string | null;
   version?: string | null;
 }
@@ -47,18 +48,19 @@ export type ExecuteMsg = {
   };
 } | {
   agent_withdraw: AgentWithdrawOnRemovalArgs | null;
+} | {
+  pause_contract: {};
+} | {
+  unpause_contract: {};
 };
 export type Uint128 = string;
 export type Binary = string;
-export type Addr = string;
 export interface UpdateConfig {
   agent_fee?: number | null;
   croncat_agents_key?: [string, [number, number]] | null;
   croncat_tasks_key?: [string, [number, number]] | null;
   cw20_whitelist?: string[] | null;
   gas_price?: GasPrice | null;
-  owner_addr?: string | null;
-  paused?: boolean | null;
   treasury_addr?: string | null;
   treasury_fee?: number | null;
 }
@@ -106,6 +108,8 @@ export interface AgentWithdrawOnRemovalArgs {
 export type QueryMsg = {
   config: {};
 } | {
+  paused: {};
+} | {
   treasury_balance: {};
 } | {
   users_balances: {
@@ -132,10 +136,11 @@ export interface Config {
   limit: number;
   native_denom: string;
   owner_addr: Addr;
-  paused: boolean;
+  pause_admin: Addr;
   treasury_addr?: Addr | null;
   treasury_fee: number;
 }
+export type Boolean = boolean;
 export interface TaskBalanceResponse {
   balance?: TaskBalance | null;
 }

@@ -20,10 +20,10 @@ use crate::{
 /// Called before every method, except [crate::contract::execute_update_config]
 pub(crate) fn check_ready_for_execution(
     info: &MessageInfo,
-    config: &Config,
+    paused: bool,
 ) -> Result<(), ContractError> {
-    if config.paused {
-        Err(ContractError::Paused {})
+    if paused {
+        Err(ContractError::ContractPaused {})
     } else if !info.funds.is_empty() {
         Err(ContractError::RedundantFunds {})
     } else {

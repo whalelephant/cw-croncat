@@ -11,11 +11,13 @@ use sha2::{Digest, Sha256};
 
 #[cw_serde]
 pub struct Config {
-    // Runtime
-    pub paused: bool,
-
     /// Address of the contract owner
     pub owner_addr: Addr,
+
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
 
     /// Address of the factory contract
     pub croncat_factory_addr: Addr,

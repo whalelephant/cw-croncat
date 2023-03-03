@@ -30,7 +30,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let InstantiateMsg {
-        owner_addr,
+        pause_admin,
         version,
         croncat_manager_key,
         croncat_tasks_key,
@@ -50,10 +50,16 @@ pub fn instantiate(
         "min_coins_for_agent_registration",
     )?;
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    let owner_addr = info.sender.clone();
+
+    // Validate pause_admin
+    // MUST: only be contract address
+    // MUST: not be same address as factory owner (DAO)
+    // Any factory action should be done by the owner_addr
+    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
+    if owner_addr == pause_addr || pause_addr.to_string().len() != 63 {
+        return Err(ContractError::InvalidPauseAdmin {});
+    }
 
     let config = &Config {
         min_tasks_per_agent: min_tasks_per_agent.unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
@@ -63,7 +69,7 @@ pub fn instantiate(
         agent_nomination_block_duration: agent_nomination_duration
             .unwrap_or(DEFAULT_NOMINATION_BLOCK_DURATION),
         owner_addr,
-        paused: false,
+        pause_admin,
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
         min_coins_for_agent_registration: min_coins_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
@@ -71,6 +77,7 @@ pub fn instantiate(
     };
 
     CONFIG.save(deps.storage, config)?;
+    PAUSED.save(deps.storage, &false)?;
     AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
     set_contract_version(
         deps.storage,
@@ -87,7 +94,6 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner", config.owner_addr.to_string()))
 }
 
@@ -102,6 +108,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_get_agent_tasks(deps, env, account_id)?)
         }
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PAUSED.load(deps.storage)?),
     }
 }
 
@@ -124,9 +131,11 @@ pub fn execute(
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
+        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
-        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
+        ExecuteMsg::PauseContract {} => execute_pause(deps, info),
+        ExecuteMsg::UnpauseContract {} => execute_unpause(deps, info),
     }
 }
 
@@ -232,10 +241,10 @@ fn register_agent(
     if !info.funds.is_empty() {
         return Err(ContractError::NoFundsShouldBeAttached);
     }
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
+    if PAUSED.load(deps.storage)? {
         return Err(ContractError::ContractPaused);
     }
+    let c = CONFIG.load(deps.storage)?;
 
     let account = info.sender;
 
@@ -317,8 +326,7 @@ fn update_agent(
     payable_account_id: String,
 ) -> Result<Response, ContractError> {
     let payable_account_id = deps.api.addr_validate(&payable_account_id)?;
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
+    if PAUSED.load(deps.storage)? {
         return Err(ContractError::ContractPaused);
     }
 
@@ -432,10 +440,10 @@ fn unregister_agent(
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(storage)?;
-    if config.paused {
+    if PAUSED.load(storage)? {
         return Err(ContractError::ContractPaused);
     }
+    let config: Config = CONFIG.load(storage)?;
     let agent = AGENTS
         .may_load(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
@@ -501,8 +509,6 @@ pub fn execute_update_config(
     CONFIG.update(deps.storage, |config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
-            owner_addr,
-            paused,
             croncat_manager_key,
             croncat_tasks_key,
             min_tasks_per_agent,
@@ -526,14 +532,11 @@ pub fn execute_update_config(
         }
 
         let new_config = Config {
-            owner_addr: owner_addr
-                .map(|human| deps.api.addr_validate(&human))
-                .transpose()?
-                .unwrap_or(config.owner_addr),
+            owner_addr: config.owner_addr,
+            pause_admin: config.pause_admin,
             croncat_factory_addr: config.croncat_factory_addr,
             croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
-            paused: paused.unwrap_or(config.paused),
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
             agent_nomination_block_duration: agent_nomination_duration
                 .unwrap_or(config.agent_nomination_block_duration),
@@ -653,6 +656,30 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
         .add_attributes(attributes)
         .add_submessages(submessages);
     Ok(response)
+}
+
+pub fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.pause_admin {
+        return Err(ContractError::Unauthorized);
+    }
+    PAUSED.save(deps.storage, &true)?;
+    Ok(Response::new().add_attribute("action", "pause_contract"))
+}
+
+pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if !PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractUnpaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized);
+    }
+    PAUSED.save(deps.storage, &false)?;
+    Ok(Response::new().add_attribute("action", "unpause_contract"))
 }
 
 fn on_task_created(

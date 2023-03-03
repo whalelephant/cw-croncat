@@ -1,13 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cw_storage_plus::Item;
 
 use cosmwasm_std::{
     to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult,
     Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
-    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataInfo, ContractMetadataResponse,
-    EntryResponse, ModuleInstantiateInfo, VersionKind,
+    ContractMetadata, ContractMetadataInfo, ContractMetadataResponse, EntryResponse,
+    ModuleInstantiateInfo, VersionKind,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
@@ -75,7 +76,13 @@ pub fn instantiate(
         .map(|human| deps.api.addr_validate(&human))
         .transpose()?
         .unwrap_or_else(|| info.sender.clone());
-    CONFIG.save(deps.storage, &Config { owner_addr })?;
+    CONFIG.save(
+        deps.storage,
+        &Config {
+            owner_addr,
+            nominated_owner_addr: None,
+        },
+    )?;
 
     Ok(Response::new().add_attribute("action", "instantiate"))
 }
@@ -87,15 +94,19 @@ pub fn execute(
     info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
-    // Any factory action should be done by the owner_addr
+    // All factory actions can only be done by the owner_addr
     let config = CONFIG.load(deps.storage)?;
-    if config.owner_addr != info.sender {
+    let is_accept_owner_msg = match msg {
+        // Only this method allowed, since we are transitioning to a new owner IF the signer is nominated
+        ExecuteMsg::AcceptNominateOwner {} => true,
+        _ => false,
+    };
+    if config.owner_addr != info.sender && !is_accept_owner_msg {
         return Err(ContractError::Unauthorized {});
     }
 
     match msg {
-        ExecuteMsg::UpdateConfig { owner_addr } => execute_update_config(deps, owner_addr),
-        ExecuteMsg::Proxy { msg } => execute_proxy(deps, info, msg),
+        ExecuteMsg::Proxy { msg } => execute_proxy(deps, msg),
         ExecuteMsg::Deploy {
             kind,
             module_instantiate_info,
@@ -110,29 +121,15 @@ pub fn execute(
             changelog_url,
             schema,
         } => execute_update_metadata(deps, contract_name, version, changelog_url, schema),
+        ExecuteMsg::NominateOwner {
+            nominated_owner_addr,
+        } => execute_nominate_owner(deps, nominated_owner_addr),
+        ExecuteMsg::AcceptNominateOwner {} => execute_accept_nominate_owner(deps, info),
+        ExecuteMsg::RemoveNominateOwner {} => execute_remove_nominate_owner(deps),
     }
 }
 
-fn execute_update_config(deps: DepsMut, owner_addr: String) -> Result<Response, ContractError> {
-    let config = Config {
-        owner_addr: deps.api.addr_validate(&owner_addr)?,
-    };
-    CONFIG.save(deps.storage, &config)?;
-    Ok(Response::new().add_attribute("action", "update_config"))
-}
-
-fn execute_proxy(
-    deps: DepsMut,
-    info: MessageInfo,
-    msg: WasmMsg,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // Only allow owner to relay msgs
-    if config.owner_addr != info.sender {
-        return Err(ContractError::Unauthorized {});
-    }
-
+fn execute_proxy(deps: DepsMut, msg: WasmMsg) -> Result<Response, ContractError> {
     // Only accept WasmMsg::Execute
     let contract_addr = match &msg {
         WasmMsg::Execute {
@@ -205,10 +202,10 @@ fn execute_remove(
     if metadata.kind != VersionKind::Library {
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
 
-        let config: CheckIfConfigIsPaused = deps
-            .querier
-            .query_wasm_smart(contract_addr, &QueryMsg::Config {})?;
-        if !config.paused {
+        // Check contract pause state, by direct state key
+        let pause_state: Item<bool> = Item::new("paused");
+        let paused: bool = pause_state.query(&deps.querier, contract_addr)?;
+        if !paused {
             return Err(ContractError::NotPaused {});
         }
     }
@@ -258,6 +255,63 @@ fn execute_deploy(
         .add_attribute("action", "deploy")
         .add_attribute("contract_name", temp_reply.contract_name)
         .add_submessage(msg))
+}
+
+/// Proposes a new owner account, can only be transfered if proposed account accepts
+fn execute_nominate_owner(
+    deps: DepsMut,
+    nominated_owner_addr: String,
+) -> Result<Response, ContractError> {
+    let c = CONFIG.load(deps.storage)?;
+    // Nomination shouldn't be current owner
+    if c.owner_addr == nominated_owner_addr {
+        return Err(ContractError::SameOwnerNominated {});
+    }
+    let config = Config {
+        owner_addr: c.owner_addr,
+        nominated_owner_addr: Some(deps.api.addr_validate(&nominated_owner_addr)?),
+    };
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::new().add_attribute("action", "nominate_owner"))
+}
+
+/// Nominated account accepts proposal for ownership transfer
+fn execute_accept_nominate_owner(
+    deps: DepsMut,
+    info: MessageInfo,
+) -> Result<Response, ContractError> {
+    let c = CONFIG.load(deps.storage)?;
+    // Nomination shouldn't get accepted from current owner
+    if c.owner_addr == info.sender {
+        return Err(ContractError::Unauthorized {});
+    }
+    // Nomination signer should match current nomination
+    if let Some(nominated_addr) = c.nominated_owner_addr {
+        let nominated = deps.api.addr_validate(nominated_addr.as_str())?;
+        if nominated != info.sender {
+            return Err(ContractError::Unauthorized {});
+        }
+        let config = Config {
+            // make the transfer
+            owner_addr: nominated,
+            nominated_owner_addr: None,
+        };
+        CONFIG.save(deps.storage, &config)?;
+    } else {
+        return Err(ContractError::Unauthorized {});
+    };
+    Ok(Response::new().add_attribute("action", "accept_nominate_owner"))
+}
+
+/// Current owner removes a valid nomination
+fn execute_remove_nominate_owner(deps: DepsMut) -> Result<Response, ContractError> {
+    let c = CONFIG.load(deps.storage)?;
+    let config = Config {
+        owner_addr: c.owner_addr,
+        nominated_owner_addr: None,
+    };
+    CONFIG.save(deps.storage, &config)?;
+    Ok(Response::new().add_attribute("action", "remove_nominate_owner"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

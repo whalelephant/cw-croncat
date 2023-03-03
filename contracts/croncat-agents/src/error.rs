@@ -27,6 +27,9 @@ pub enum ContractError {
     #[error("Contract is in paused state")]
     ContractPaused,
 
+    #[error("Contract is in unpaused state")]
+    ContractUnpaused,
+
     #[error("Try again later for nomination")]
     TryLaterForNomination,
 
@@ -35,6 +38,9 @@ pub enum ContractError {
 
     #[error("Unauthorized function call")]
     Unauthorized,
+
+    #[error("Invalid Pause Admin")]
+    InvalidPauseAdmin,
 
     #[error("No active agents in active agent list")]
     NoActiveAgents,

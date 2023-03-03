@@ -22,6 +22,7 @@ pub const AGENT6: &str = "agent614a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
 
 pub const AGENT_BENEFICIARY: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
+pub const PAUSE_ADMIN: &str = "cosmos338dwgj5wm2tuahvfjdldz5s8hmt7l5aznw8jz9s2mmgj5c52jqgfq000";
 
 pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT0: &str = "cosmos1055rfv3fv0zxsp8h3x88mctnm7x9mlgmf4m4d6";
@@ -48,7 +49,7 @@ pub(crate) struct TestScope {
 
 pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
     Config {
-        paused: false,
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         owner_addr: Addr::unchecked(ADMIN),
         min_tasks_per_agent: DEFAULT_MIN_TASKS_PER_AGENT,
         agent_nomination_block_duration: DEFAULT_NOMINATION_BLOCK_DURATION,
@@ -63,8 +64,6 @@ pub(crate) fn mock_config(croncat_factory_addr: &str) -> Config {
 
 pub(crate) fn mock_update_config(_croncat_factory_addr: &str) -> UpdateConfig {
     UpdateConfig {
-        owner_addr: Some(ADMIN.to_string()),
-        paused: Some(false),
         min_tasks_per_agent: Some(DEFAULT_MIN_TASKS_PER_AGENT),
         agent_nomination_duration: Some(DEFAULT_NOMINATION_BLOCK_DURATION),
         croncat_manager_key: Some(("manager".to_owned(), [4, 2])),
@@ -130,7 +129,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_string(), [0, 1]),
-            owner_addr: None, // Will be factory's address
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: None,
             treasury_addr: None,
             cw20_whitelist: None,
@@ -176,7 +175,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             version: Some("0.1".to_owned()),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-            owner_addr: None,
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
@@ -231,7 +230,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             gas_base_fee: None,
             gas_action_fee: None,
             gas_query_fee: None,
-            owner_addr: None,
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_limit: None,
         })
         .unwrap(),

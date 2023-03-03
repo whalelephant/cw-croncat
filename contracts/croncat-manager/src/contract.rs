@@ -6,7 +6,6 @@ use cosmwasm_std::{
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
-
 use croncat_sdk_manager::msg::AgentWithdrawCallback;
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, Task, TaskInfo};
@@ -27,7 +26,7 @@ use crate::helpers::{
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    Config, QueueItem, AGENT_REWARDS, CONFIG, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
+    Config, QueueItem, AGENT_REWARDS, CONFIG, PAUSED, REPLY_QUEUE, TASKS_BALANCES, TREASURY_BALANCE,
 };
 use crate::ContractError::InvalidPercentage;
 
@@ -57,7 +56,7 @@ pub fn instantiate(
         version,
         croncat_tasks_key,
         croncat_agents_key,
-        owner_addr,
+        pause_admin,
         gas_price,
         treasury_addr,
         cw20_whitelist,
@@ -72,10 +71,16 @@ pub fn instantiate(
         return Err(ContractError::InvalidGasPrice {});
     }
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    let owner_addr = info.sender.clone();
+
+    // Validate pause_admin
+    // MUST: only be contract address
+    // MUST: not be same address as factory owner (DAO)
+    // Any factory action should be done by the owner_addr
+    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
+    if owner_addr == pause_addr || pause_addr.to_string().len() != 63 {
+        return Err(ContractError::InvalidPauseAdmin {});
+    }
 
     // Check if we attached some funds in native denom, add them into treasury
     let treasury_funds = may_pay(&info, denom.as_str());
@@ -91,8 +96,8 @@ pub fn instantiate(
         .collect::<StdResult<_>>()?;
 
     let config = Config {
-        paused: false,
         owner_addr,
+        pause_admin,
         croncat_factory_addr: info.sender,
         croncat_tasks_key,
         croncat_agents_key,
@@ -109,6 +114,7 @@ pub fn instantiate(
 
     // Update state
     CONFIG.save(deps.storage, &config)?;
+    PAUSED.save(deps.storage, &false)?;
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
@@ -117,7 +123,6 @@ pub fn instantiate(
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner_id", config.owner_addr.to_string()))
 }
 
@@ -143,6 +148,8 @@ pub fn execute(
         ExecuteMsg::OwnerWithdraw {} => execute_owner_withdraw(deps, info),
         ExecuteMsg::UserWithdraw { limit } => execute_user_withdraw(deps, info, limit),
         ExecuteMsg::AgentWithdraw(args) => execute_withdraw_agent_rewards(deps, info, args),
+        ExecuteMsg::PauseContract {} => execute_pause(deps, info),
+        ExecuteMsg::UnpauseContract {} => execute_unpause(deps, info),
     }
 }
 
@@ -178,8 +185,9 @@ fn execute_proxy_call(
     info: MessageInfo,
     task_hash: Option<String>,
 ) -> Result<Response, ContractError> {
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
     let config: Config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
 
     let agent_addr = info.sender;
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
@@ -413,8 +421,6 @@ pub fn execute_update_config(
     CONFIG.update(deps.storage, |mut config| {
         // Deconstruct, so we don't miss any fields
         let UpdateConfig {
-            owner_addr,
-            paused,
             agent_fee,
             treasury_fee,
             gas_price,
@@ -423,6 +429,10 @@ pub fn execute_update_config(
             treasury_addr,
             cw20_whitelist,
         } = msg;
+
+        if info.sender != config.owner_addr {
+            return Err(ContractError::Unauthorized {});
+        }
 
         let updated_agent_fee = if let Some(agent_fee) = agent_fee {
             // Validate it
@@ -440,19 +450,11 @@ pub fn execute_update_config(
             config.treasury_fee
         };
 
-        if info.sender != config.owner_addr {
-            return Err(ContractError::Unauthorized {});
-        }
-
         let gas_price = gas_price.unwrap_or(config.gas_price);
         if !gas_price.is_valid() {
             return Err(ContractError::InvalidGasPrice {});
         }
 
-        let owner_addr = owner_addr
-            .map(|human| deps.api.addr_validate(&human))
-            .transpose()?
-            .unwrap_or(config.owner_addr);
         let treasury_addr = if let Some(human) = treasury_addr {
             Some(deps.api.addr_validate(&human)?)
         } else {
@@ -468,8 +470,8 @@ pub fn execute_update_config(
         config.cw20_whitelist.extend(cw20_whitelist);
 
         let new_config = Config {
-            paused: paused.unwrap_or(config.paused),
-            owner_addr,
+            owner_addr: config.owner_addr,
+            pause_admin: config.pause_admin,
             croncat_factory_addr: config.croncat_factory_addr,
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
             croncat_agents_key: croncat_agents_key.unwrap_or(config.croncat_agents_key),
@@ -532,9 +534,10 @@ fn execute_withdraw_agent_rewards(
     info: MessageInfo,
     args: Option<AgentWithdrawOnRemovalArgs>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
     //assert if contract is ready for execution
-    check_ready_for_execution(&info, &config)?;
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
+    let config: Config = CONFIG.load(deps.storage)?;
 
     let agent_id: Addr;
     let payable_account_id: Addr;
@@ -584,10 +587,35 @@ fn execute_withdraw_agent_rewards(
         .add_attribute("rewards", agent_rewards))
 }
 
+pub fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.pause_admin {
+        return Err(ContractError::Unauthorized {});
+    }
+    PAUSED.save(deps.storage, &true)?;
+    Ok(Response::new().add_attribute("action", "pause_contract"))
+}
+
+pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if !PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractUnpaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+    PAUSED.save(deps.storage, &false)?;
+    Ok(Response::new().add_attribute("action", "unpause_contract"))
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PAUSED.load(deps.storage)?),
         QueryMsg::TreasuryBalance {} => to_binary(&TREASURY_BALANCE.load(deps.storage)?),
         QueryMsg::UsersBalances {
             address,

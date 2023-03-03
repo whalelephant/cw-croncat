@@ -4,6 +4,7 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
+export type Addr = string;
 export interface InstantiateMsg {
   agent_nomination_duration?: number | null;
   agents_eject_threshold?: number | null;
@@ -12,7 +13,7 @@ export interface InstantiateMsg {
   min_active_agent_count?: number | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
-  owner_addr?: string | null;
+  pause_admin: Addr;
   version?: string | null;
 }
 export type ExecuteMsg = {
@@ -39,8 +40,11 @@ export type ExecuteMsg = {
   };
 } | {
   tick: {};
+} | {
+  pause_contract: {};
+} | {
+  unpause_contract: {};
 };
-export type Addr = string;
 export interface AgentOnTaskCreated {}
 export interface AgentOnTaskCompleted {
   agent_id: Addr;
@@ -54,8 +58,6 @@ export interface UpdateConfig {
   min_active_agent_count?: number | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
-  owner_addr?: string | null;
-  paused?: boolean | null;
 }
 export type QueryMsg = {
   get_agent: {
@@ -72,6 +74,8 @@ export type QueryMsg = {
   };
 } | {
   config: {};
+} | {
+  paused: {};
 };
 export interface Config {
   agent_nomination_block_duration: number;
@@ -83,7 +87,7 @@ export interface Config {
   min_coins_for_agent_registration: number;
   min_tasks_per_agent: number;
   owner_addr: Addr;
-  paused: boolean;
+  pause_admin: Addr;
 }
 export type Uint128 = string;
 export type Timestamp = Uint64;
@@ -110,3 +114,4 @@ export interface TaskStats {
   num_block_tasks: Uint64;
   num_cron_tasks: Uint64;
 }
+export type Boolean = boolean;

@@ -30,8 +30,11 @@ pub enum ContractError {
     #[error("Must provide gas limit for WASM actions")]
     NoGasLimit {},
 
-    #[error("Contract is paused for actions")]
-    Paused {},
+    #[error("Contract is in paused state")]
+    ContractPaused,
+
+    #[error("Contract is in unpaused state")]
+    ContractUnpaused,
 
     #[error("Task ended")]
     TaskEnded {},
@@ -44,6 +47,9 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
+
+    #[error("Invalid Pause Admin")]
+    InvalidPauseAdmin,
 
     #[error("Chain name can't be longer than 32 characters")]
     TooLongChainName {},

@@ -7,7 +7,7 @@ use croncat_sdk_factory::msg::{
 };
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE};
+use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, PAUSE_ADMIN};
 use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
@@ -118,7 +118,7 @@ fn deploy_check() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -151,7 +151,7 @@ fn deploy_check() {
         msg: to_binary(&croncat_tasks::msg::InstantiateMsg {
             chain_name: "cron".to_owned(),
             version: Some("0.1".to_owned()),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
             croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
             slot_granularity_time: Some(10),
@@ -185,7 +185,7 @@ fn deploy_check() {
             version: Some("0.1".to_owned()),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-            owner_addr: Some(ADMIN.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
@@ -332,7 +332,7 @@ fn failure_deploy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -408,7 +408,7 @@ fn failure_deploy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -452,7 +452,7 @@ fn failure_deploy() {
 }
 
 #[test]
-fn update_config() {
+fn ownership_transfer_cases() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
 
@@ -470,32 +470,134 @@ fn update_config() {
         )
         .unwrap();
 
-    let update_config_msg = FactoryExecuteMsg::UpdateConfig {
-        owner_addr: ANYONE.to_owned(),
-    };
-
-    // Not owner_addr execution
+    // Invalid nomination address
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(ADMIN),
             contract_addr.clone(),
-            &update_config_msg,
+            &FactoryExecuteMsg::NominateOwner {
+                nominated_owner_addr: "MrB4dBl0x".to_owned(),
+            },
             &[],
         )
         .unwrap_err()
         .downcast()
         .unwrap();
+    assert_eq!(
+        err,
+        ContractError::Std(StdError::GenericErr {
+            msg: "Invalid input: address not normalized".to_string()
+        })
+    );
 
-    assert_eq!(err, ContractError::Unauthorized {});
+    // Cant be Self nomination address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::NominateOwner {
+                nominated_owner_addr: ADMIN.to_owned(),
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::SameOwnerNominated {});
 
+    // Valid nomination
     app.execute_contract(
         Addr::unchecked(ADMIN),
         contract_addr.clone(),
-        &update_config_msg,
+        &FactoryExecuteMsg::NominateOwner {
+            nominated_owner_addr: ANYONE.to_owned(),
+        },
         &[],
     )
     .unwrap();
 
+    // Check config for nomination
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ADMIN),
+            nominated_owner_addr: Some(Addr::unchecked(ANYONE)),
+        }
+    );
+
+    // Non owner address
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::RemoveNominateOwner {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Must be current owner to remove nomination address
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::RemoveNominateOwner {},
+        &[],
+    )
+    .unwrap();
+
+    // Check config for nomination
+    let new_config: Config = app
+        .wrap()
+        .query_wasm_smart(contract_addr.clone(), &QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        new_config,
+        Config {
+            owner_addr: Addr::unchecked(ADMIN),
+            nominated_owner_addr: None,
+        }
+    );
+
+    // Do another Valid nomination for next set of tests
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::NominateOwner {
+            nominated_owner_addr: ANYONE.to_owned(),
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Current owner address can't accept nomination
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &FactoryExecuteMsg::AcceptNominateOwner {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::Unauthorized {});
+
+    // Must be nominated owner to accept ownership transfer
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        contract_addr.clone(),
+        &FactoryExecuteMsg::AcceptNominateOwner {},
+        &[],
+    )
+    .unwrap();
+
+    // Check config for nomination
     let new_config: Config = app
         .wrap()
         .query_wasm_smart(contract_addr, &QueryMsg::Config {})
@@ -503,9 +605,10 @@ fn update_config() {
     assert_eq!(
         new_config,
         Config {
-            owner_addr: Addr::unchecked(ANYONE)
+            owner_addr: Addr::unchecked(ANYONE),
+            nominated_owner_addr: None,
         }
-    )
+    );
 }
 
 #[test]
@@ -674,7 +777,7 @@ fn remove_paused_checks() {
         version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(ADMIN.to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,
@@ -754,25 +857,13 @@ fn remove_paused_checks() {
         .map(|metadata| metadata.contract_addr)
         .unwrap();
     // make it paused
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
         manager_addr,
-        &croncat_manager::msg::ExecuteMsg::UpdateConfig(Box::new(
-            croncat_sdk_manager::types::UpdateConfig {
-                owner_addr: None,
-                paused: Some(true),
-                agent_fee: None,
-                treasury_fee: None,
-                gas_price: None,
-                croncat_tasks_key: None,
-                croncat_agents_key: None,
-                treasury_addr: None,
-                cw20_whitelist: None,
-            },
-        )),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::PauseContract {},
         &[],
-    )
-    .unwrap();
+    );
+    assert!(res.is_ok());
 
     // remove it after it got paused
     app.execute_contract(
@@ -971,7 +1062,7 @@ fn fail_and_success_proxy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: None,
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -1014,8 +1105,6 @@ fn fail_and_success_proxy() {
             contract_addr: manager_metadata.metadata.unwrap().contract_addr.to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
-                    owner_addr: None,
-                    paused: None,
                     agent_fee: None,
                     treasury_fee: Some(10), // simulate moving to 0.01%
                     gas_price: None,
@@ -1045,8 +1134,6 @@ fn fail_and_success_proxy() {
             contract_addr: Addr::unchecked(ANYONE).to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
-                    owner_addr: None,
-                    paused: None,
                     agent_fee: None,
                     treasury_fee: Some(10), // simulate moving to 0.01%
                     gas_price: None,
@@ -1142,7 +1229,7 @@ fn invalid_changelog_url() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
