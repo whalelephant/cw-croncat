@@ -31,7 +31,6 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     let InstantiateMsg {
         pause_admin,
-        owner_addr,
         version,
         croncat_manager_key,
         croncat_tasks_key,
@@ -51,10 +50,7 @@ pub fn instantiate(
         "min_coins_for_agent_registration",
     )?;
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    let owner_addr = info.sender.clone();
 
     // Validate pause_admin
     // MUST: only be contract address

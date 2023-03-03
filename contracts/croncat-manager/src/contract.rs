@@ -56,7 +56,6 @@ pub fn instantiate(
         version,
         croncat_tasks_key,
         croncat_agents_key,
-        owner_addr,
         pause_admin,
         gas_price,
         treasury_addr,
@@ -72,10 +71,7 @@ pub fn instantiate(
         return Err(ContractError::InvalidGasPrice {});
     }
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    let owner_addr = info.sender.clone();
 
     // Validate pause_admin
     // MUST: only be contract address

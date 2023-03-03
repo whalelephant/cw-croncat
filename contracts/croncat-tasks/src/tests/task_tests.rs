@@ -1,6 +1,6 @@
 use crate::tests::{
     common::add_seconds_to_block, helpers::increment_block_height, AGENT0, AGENT1, PARTICIPANT0,
-    PARTICIPANT1,
+    PARTICIPANT1, PAUSE_ADMIN,
 };
 use cosmwasm_std::{
     coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp, Uint128,
@@ -43,6 +43,8 @@ use crate::{
 };
 
 mod instantiate_tests {
+    use crate::tests::PAUSE_ADMIN;
+
     use super::*;
 
     #[test]
@@ -57,9 +59,9 @@ mod instantiate_tests {
             .query_wasm_smart(tasks_addr, &QueryMsg::Config {})
             .unwrap();
         let expected_config = Config {
-            paused: false,
             version: "0.1".to_owned(),
             owner_addr: factory_addr.clone(),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_factory_addr: factory_addr,
             chain_name: "atom".to_owned(),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
@@ -82,7 +84,7 @@ mod instantiate_tests {
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
             chain_name: "cron".to_owned(),
             version: Some("0.1".to_owned()),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
             croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
             slot_granularity_time: Some(10),
@@ -98,9 +100,9 @@ mod instantiate_tests {
             .unwrap();
 
         let expected_config = Config {
-            paused: false,
             version: "0.1".to_owned(),
-            owner_addr: Addr::unchecked(ANYONE),
+            owner_addr: factory_addr.clone(),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_factory_addr: factory_addr,
             chain_name: "cron".to_owned(),
             croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
@@ -120,7 +122,7 @@ mod instantiate_tests {
         let code_id = app.store_code(contracts::croncat_tasks_contract());
 
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            owner_addr: Some("InVA$LID_ADDR".to_owned()),
+            pause_admin: Addr::unchecked("InVA$LID_ADDR"),
             ..default_instantiate_msg()
         };
         let contract_err: ContractError = app
@@ -562,11 +564,20 @@ fn create_task_with_wasm() {
     let instantiate_msg: InstantiateMsg = default_instantiate_msg();
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
-    let _ = init_agents(&mut app, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
 
+    // let action = Action {
+    //     msg: WasmMsg::Execute {
+    //         contract_addr: agents_addr.to_string(),
+    //         msg: to_binary(&croncat_sdk_agents::msg::ExecuteMsg::Tick {}).unwrap(),
+    //         funds: vec![],
+    //     }
+    //     .into(),
+    //     gas_limit: Some(150_000),
+    // };
     let action = Action {
         msg: WasmMsg::Execute {
-            contract_addr: manager_addr.to_string(),
+            contract_addr: agents_addr.to_string(),
             msg: to_binary(&croncat_sdk_agents::msg::ExecuteMsg::Tick {}).unwrap(),
             funds: vec![],
         }
@@ -586,31 +597,52 @@ fn create_task_with_wasm() {
         transforms: None,
         cw20: None,
     };
-    let res = app
-        .execute_contract(
-            Addr::unchecked(ADMIN),
-            tasks_addr.clone(),
-            &ExecuteMsg::CreateTask {
-                task: Box::new(task),
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: tasks_addr.to_string(),
+                msg: to_binary(&ExecuteMsg::CreateTask {
+                    task: Box::new(task),
+                })
+                .unwrap(),
+                funds: coins(30000, DENOM),
             },
-            &coins(30000, DENOM),
-        )
-        .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+        },
+        &coins(30000, DENOM),
+    )
+    .unwrap();
+    // let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
 
     // check total tasks
     let total_tasks: Uint64 = app
         .wrap()
-        .query_wasm_smart(tasks_addr, &QueryMsg::TasksTotal {})
+        .query_wasm_smart(tasks_addr.clone(), &QueryMsg::TasksTotal {})
         .unwrap();
     assert_eq!(total_tasks, Uint64::new(1));
+
+    let owner_tasks: Vec<TaskInfo> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &QueryMsg::TasksByOwner {
+                owner_addr: factory_addr.clone().to_string(),
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let task_hash = &owner_tasks[0].task_hash;
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
         .wrap()
         .query_wasm_smart(
             manager_addr,
-            &croncat_manager::msg::QueryMsg::TaskBalance { task_hash },
+            &croncat_manager::msg::QueryMsg::TaskBalance {
+                task_hash: task_hash.clone(),
+            },
         )
         .unwrap();
     assert_eq!(
@@ -912,31 +944,14 @@ fn remove_tasks_fail() {
         .unwrap();
     assert_eq!(err, ContractError::Unauthorized {});
 
-    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
-    let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.to_string(),
-        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
-            paused: Some(true),
-            owner_addr: None,
-            croncat_factory_addr: None,
-            croncat_manager_key: None,
-            croncat_agents_key: None,
-            slot_granularity_time: None,
-            gas_base_fee: None,
-            gas_action_fee: None,
-            gas_query_fee: None,
-            gas_limit: None,
-        }))
-        .unwrap(),
-        funds: vec![],
-    };
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy { msg },
+    // Pause admin should be able to pause
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::PauseContract {},
         &[],
-    )
-    .unwrap();
+    );
+    assert!(res.is_ok());
 
     // With queries:
     let err: ContractError = app
@@ -951,7 +966,7 @@ fn remove_tasks_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::Paused {});
+    assert_eq!(err, ContractError::ContractPaused {});
 
     // Without queries
     let err: ContractError = app
@@ -966,7 +981,7 @@ fn remove_tasks_fail() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::Paused {});
+    assert_eq!(err, ContractError::ContractPaused {});
 }
 
 #[test]
@@ -1585,11 +1600,9 @@ fn update_cfg() {
     let msg = WasmMsg::Execute {
         contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
-            paused: Some(true),
-            owner_addr: None,
             croncat_factory_addr: Some("fixed_croncat_factory_addr".to_owned()),
-            croncat_manager_key: Some(("manager2".to_owned(), [2, 2])),
-            croncat_agents_key: Some(("agents2".to_owned(), [2, 2])),
+            croncat_manager_key: Some(("new_manager2".to_owned(), [2, 2])),
+            croncat_agents_key: Some(("new_agents2".to_owned(), [2, 2])),
             slot_granularity_time: Some(54),
             gas_base_fee: Some(1),
             gas_action_fee: Some(2),
@@ -1612,13 +1625,13 @@ fn update_cfg() {
         .query_wasm_smart(tasks_addr.clone(), &QueryMsg::Config {})
         .unwrap();
     let expected_config = Config {
-        paused: true,
         version: "0.1".to_owned(),
-        owner_addr: Addr::unchecked("contract0"),
+        owner_addr: factory_addr.clone(),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         croncat_factory_addr: Addr::unchecked("fixed_croncat_factory_addr"),
         chain_name: "atom".to_owned(),
-        croncat_manager_key: ("manager2".to_owned(), [2, 2]),
-        croncat_agents_key: ("agents2".to_owned(), [2, 2]),
+        croncat_manager_key: ("new_manager2".to_owned(), [2, 2]),
+        croncat_agents_key: ("new_agents2".to_owned(), [2, 2]),
         slot_granularity_time: 54,
         gas_base_fee: 1,
         gas_action_fee: 2,
@@ -1633,8 +1646,6 @@ fn update_cfg() {
     let msg = WasmMsg::Execute {
         contract_addr: tasks_addr.to_string(),
         msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
-            paused: None,
-            owner_addr: None,
             croncat_factory_addr: None,
             croncat_manager_key: None,
             croncat_agents_key: None,
@@ -1872,31 +1883,14 @@ fn negative_create_task() {
     assert_eq!(err, ContractError::TaskExists {});
     // contract paused
 
-    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
-    let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.to_string(),
-        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
-            paused: Some(true),
-            owner_addr: None,
-            croncat_factory_addr: None,
-            croncat_manager_key: None,
-            croncat_agents_key: None,
-            slot_granularity_time: None,
-            gas_base_fee: None,
-            gas_action_fee: None,
-            gas_query_fee: None,
-            gas_limit: None,
-        }))
-        .unwrap(),
-        funds: vec![],
-    };
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy { msg },
+    // Pause admin should be able to pause
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::PauseContract {},
         &[],
-    )
-    .unwrap();
+    );
+    assert!(res.is_ok());
 
     let action = Action {
         msg: BankMsg::Send {
@@ -1927,7 +1921,7 @@ fn negative_create_task() {
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::Paused {});
+    assert_eq!(err, ContractError::ContractPaused {});
 }
 
 #[test]
@@ -2042,31 +2036,14 @@ fn remove_task_negative() {
 
     assert_eq!(err, ContractError::NoTaskFound {});
 
-    // Call Factory contract's Proxy method, telling it to update Tasks Config and pause the contract
-    let msg = WasmMsg::Execute {
-        contract_addr: tasks_addr.to_string(),
-        msg: to_binary(&ExecuteMsg::UpdateConfig(UpdateConfigMsg {
-            paused: Some(true),
-            owner_addr: None,
-            croncat_factory_addr: None,
-            croncat_manager_key: None,
-            croncat_agents_key: None,
-            slot_granularity_time: None,
-            gas_base_fee: None,
-            gas_action_fee: None,
-            gas_query_fee: None,
-            gas_limit: None,
-        }))
-        .unwrap(),
-        funds: vec![],
-    };
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
-        factory_addr.clone(),
-        &FactoryExecuteMsg::Proxy { msg },
+    // Pause admin should be able to pause
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
+        tasks_addr.clone(),
+        &ExecuteMsg::PauseContract {},
         &[],
-    )
-    .unwrap();
+    );
+    assert!(res.is_ok());
 
     let err: ContractError = app
         .execute_contract(
@@ -2079,7 +2056,7 @@ fn remove_task_negative() {
         .downcast()
         .unwrap();
 
-    assert_eq!(err, ContractError::Paused {});
+    assert_eq!(err, ContractError::ContractPaused {});
 }
 
 #[test]
@@ -3598,8 +3575,6 @@ fn invalid_gas_config() {
     // Ensure that invalid config updates fail
     // Test failure when gas_limit is too low (should be more than the sum of other gas_* values)
     let mut update_msg = UpdateConfigMsg {
-        paused: Some(true),
-        owner_addr: None,
         croncat_factory_addr: Some("fixed_croncat_factory_addr".to_owned()),
         croncat_manager_key: Some(("manager2".to_owned(), [2, 2])),
         croncat_agents_key: Some(("agents2".to_owned(), [2, 2])),
@@ -3650,4 +3625,228 @@ fn invalid_gas_config() {
         .unwrap();
 
     assert_eq!(err, err_slot_granularity_time);
+}
+
+/// Check for instantiate pause admin scenarios of pass/fail
+/// Check for pause & unpause scenarios of pass/fail
+#[test]
+fn pause_admin_cases() {
+    let mut app = default_app();
+
+    let factory_code_id = app.store_code(contracts::croncat_factory_contract());
+    let tasks_code_id = app.store_code(contracts::croncat_tasks_contract());
+
+    let init_msg = croncat_sdk_factory::msg::FactoryInstantiateMsg {
+        owner_addr: Some(ADMIN.to_owned()),
+    };
+    let croncat_factory_addr = app
+        .instantiate_contract(
+            factory_code_id,
+            Addr::unchecked(ADMIN),
+            &init_msg,
+            &[],
+            "factory",
+            None,
+        )
+        .unwrap();
+
+    let init_tasks_contract_msg = InstantiateMsg {
+        chain_name: "cron".to_owned(),
+        version: Some("0.1".to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
+        croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
+        croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
+        slot_granularity_time: Some(10),
+        gas_base_fee: Some(1),
+        gas_action_fee: Some(2),
+        gas_query_fee: Some(3),
+        gas_limit: Some(10),
+    };
+    // Attempt to initialize with short address for pause_admin
+    let mut init_tasks_contract_msg_short_addr = init_tasks_contract_msg.clone();
+    init_tasks_contract_msg_short_addr.pause_admin = Addr::unchecked(ANYONE);
+    // Attempt to initialize with same owner address for pause_admin
+    let mut init_tasks_contract_msg_same_owner = init_tasks_contract_msg.clone();
+    init_tasks_contract_msg_same_owner.pause_admin = Addr::unchecked(ADMIN);
+
+    // Should fail: shorty addr
+    let tasks_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
+        code_id: tasks_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&init_tasks_contract_msg_short_addr).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+                kind: croncat_sdk_factory::msg::VersionKind::Tasks,
+                module_instantiate_info: tasks_module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::InvalidPauseAdmin {});
+
+    // Should fail: same as owner
+    let tasks_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
+        code_id: tasks_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&init_tasks_contract_msg_same_owner).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+                kind: croncat_sdk_factory::msg::VersionKind::Tasks,
+                module_instantiate_info: tasks_module_instantiate_info,
+            },
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(err, ContractError::InvalidPauseAdmin {});
+
+    // Now, we do a working furr shurr case
+    let tasks_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
+        code_id: tasks_code_id,
+        version: [0, 1],
+        commit_id: "some".to_owned(),
+        checksum: "qwe123".to_owned(),
+        changelog_url: None,
+        schema: None,
+        msg: to_binary(&init_tasks_contract_msg).unwrap(),
+        contract_name: "tasks".to_owned(),
+    };
+
+    // Successfully deploy agents contract
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+            kind: croncat_sdk_factory::msg::VersionKind::Tasks,
+            module_instantiate_info: tasks_module_instantiate_info,
+        },
+        &[],
+    )
+    .unwrap();
+
+    // Get tasks contract address
+    let tasks_contracts: ContractMetadataResponse = app
+        .wrap()
+        .query_wasm_smart(
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
+                contract_name: "tasks".to_string(),
+            },
+        )
+        .unwrap();
+    assert!(
+        tasks_contracts.metadata.is_some(),
+        "Should be contract metadata"
+    );
+    let tasks_metadata = tasks_contracts.metadata.unwrap();
+    let croncat_tasks_addr = tasks_metadata.contract_addr;
+
+    // Owner Should not be able to pause, not pause_admin
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_tasks_addr.clone(),
+            &ExecuteMsg::PauseContract {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::Unauthorized {});
+    // Anyone Should not be able to pause, not pause_admin
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            croncat_tasks_addr.clone(),
+            &ExecuteMsg::PauseContract {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::Unauthorized {});
+
+    // Pause admin should be able to pause
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
+        croncat_tasks_addr.clone(),
+        &ExecuteMsg::PauseContract {},
+        &[],
+    );
+    assert!(res.is_ok());
+
+    // Check the pause query is valid
+    let is_paused: bool = app
+        .wrap()
+        .query_wasm_smart(croncat_tasks_addr.clone(), &QueryMsg::Paused {})
+        .unwrap();
+    assert!(is_paused);
+
+    // Pause Admin Should not be able to unpause
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(PAUSE_ADMIN),
+            croncat_tasks_addr.clone(),
+            &ExecuteMsg::UnpauseContract {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::Unauthorized {});
+    // Anyone Should not be able to unpause
+    let error: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ANYONE),
+            croncat_tasks_addr.clone(),
+            &ExecuteMsg::UnpauseContract {},
+            &[],
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(error, ContractError::Unauthorized {});
+
+    // Owner should be able to unpause
+    let res = app.execute_contract(
+        Addr::unchecked(ADMIN),
+        croncat_factory_addr,
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: croncat_tasks_addr.to_string(),
+                msg: to_binary(&ExecuteMsg::UnpauseContract {}).unwrap(),
+                funds: vec![],
+            },
+        },
+        &[],
+    );
+    assert!(res.is_ok());
+
+    // Confirm unpaused
+    let is_paused: bool = app
+        .wrap()
+        .query_wasm_smart(croncat_tasks_addr, &QueryMsg::Paused {})
+        .unwrap();
+    assert!(!is_paused);
 }

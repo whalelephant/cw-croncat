@@ -15,8 +15,6 @@ pub struct ManagerInstantiateMsg {
     pub croncat_tasks_key: (String, [u8; 2]),
     /// Name of the key for raw querying Agents address from the factory
     pub croncat_agents_key: (String, [u8; 2]),
-    /// Address of the contract owner, defaults to the sender
-    pub owner_addr: Option<String>,
     /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
     /// Must be a different contract address than DAO, cannot be a regular keypair
     /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly

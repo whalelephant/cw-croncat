@@ -24,7 +24,7 @@ use crate::helpers::{
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
-    tasks_map, BLOCK_SLOTS, CONFIG, EVENTED_TASKS_LOOKUP, LAST_TASK_CREATION, TASKS_TOTAL,
+    tasks_map, BLOCK_SLOTS, CONFIG, EVENTED_TASKS_LOOKUP, LAST_TASK_CREATION, PAUSED, TASKS_TOTAL,
     TIME_SLOTS,
 };
 
@@ -49,7 +49,7 @@ pub fn instantiate(
     let InstantiateMsg {
         chain_name,
         version,
-        owner_addr,
+        pause_admin,
         croncat_manager_key,
         croncat_agents_key,
         slot_granularity_time,
@@ -64,15 +64,22 @@ pub fn instantiate(
     let contract_version = version.unwrap_or_else(|| CONTRACT_VERSION.to_string());
     set_contract_version(deps.storage, CONTRACT_NAME, &contract_version)?;
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    let owner_addr = info.sender.clone();
+
+    // Validate pause_admin
+    // MUST: only be contract address
+    // MUST: not be same address as factory owner (DAO)
+    // Any factory action should be done by the owner_addr
+    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
+    if owner_addr == pause_addr || pause_addr.to_string().len() != 63 {
+        return Err(ContractError::InvalidPauseAdmin {});
+    }
+
     let config = Config {
-        paused: false,
         chain_name,
         version: contract_version,
         owner_addr,
+        pause_admin,
         croncat_factory_addr: info.sender,
         croncat_manager_key,
         croncat_agents_key,
@@ -88,6 +95,7 @@ pub fn instantiate(
 
     // Save initializing states
     CONFIG.save(deps.storage, &config)?;
+    PAUSED.save(deps.storage, &false)?;
     TASKS_TOTAL.save(deps.storage, &0)?;
     Ok(Response::new().add_attribute("action", "instantiate"))
 }
@@ -110,6 +118,8 @@ pub fn execute(
         ExecuteMsg::RescheduleTask(reschedule_msg) => {
             execute_reschedule_task(deps, env, info, reschedule_msg)
         }
+        ExecuteMsg::PauseContract {} => execute_pause(deps, info),
+        ExecuteMsg::UnpauseContract {} => execute_unpause(deps, info),
     }
 }
 
@@ -126,8 +136,6 @@ fn execute_update_config(
 
     // Destruct so we won't forget to update if if new fields added
     let UpdateConfigMsg {
-        paused,
-        owner_addr,
         croncat_factory_addr,
         croncat_manager_key,
         croncat_agents_key,
@@ -139,11 +147,8 @@ fn execute_update_config(
     } = msg;
 
     let new_config = Config {
-        paused: paused.unwrap_or(config.paused),
-        owner_addr: owner_addr
-            .map(|human| deps.api.addr_validate(&human))
-            .transpose()?
-            .unwrap_or(config.owner_addr),
+        owner_addr: config.owner_addr,
+        pause_admin: config.pause_admin,
         croncat_factory_addr: croncat_factory_addr
             .map(|human| deps.api.addr_validate(&human))
             .transpose()?
@@ -295,10 +300,10 @@ fn execute_remove_task(
     info: MessageInfo,
     task_hash: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.paused {
-        return Err(ContractError::Paused {});
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
     }
+    let config = CONFIG.load(deps.storage)?;
     let hash = task_hash.as_bytes();
     if let Some(task) = tasks_map().may_load(deps.storage, hash)? {
         if task.owner_addr != info.sender {
@@ -330,10 +335,10 @@ fn execute_create_task(
     info: MessageInfo,
     task: TaskRequest,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.paused {
-        return Err(ContractError::Paused {});
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
     }
+    let config = CONFIG.load(deps.storage)?;
     let owner_addr = info.sender;
 
     // Validate boundary and interval
@@ -454,10 +459,35 @@ fn execute_create_task(
         .add_message(agent_new_task_msg))
 }
 
+pub fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.pause_admin {
+        return Err(ContractError::Unauthorized {});
+    }
+    PAUSED.save(deps.storage, &true)?;
+    Ok(Response::new().add_attribute("action", "pause_contract"))
+}
+
+pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if !PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractUnpaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized {});
+    }
+    PAUSED.save(deps.storage, &false)?;
+    Ok(Response::new().add_attribute("action", "unpause_contract"))
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PAUSED.load(deps.storage)?),
         QueryMsg::TasksTotal {} => to_binary(&cosmwasm_std::Uint64::from(query_tasks_total(deps)?)),
         QueryMsg::CurrentTaskInfo {} => to_binary(&query_current_task_info(deps, env)?),
         QueryMsg::CurrentTask {} => to_binary(&query_current_task(deps, env)?),

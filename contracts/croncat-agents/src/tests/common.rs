@@ -129,7 +129,6 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_string(), [0, 1]),
-            owner_addr: None, // Will be factory's address
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: None,
             treasury_addr: None,
@@ -177,7 +176,6 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
-            owner_addr: None,
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
             min_tasks_per_agent: None,
@@ -232,7 +230,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             gas_base_fee: None,
             gas_action_fee: None,
             gas_query_fee: None,
-            owner_addr: None,
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_limit: None,
         })
         .unwrap(),

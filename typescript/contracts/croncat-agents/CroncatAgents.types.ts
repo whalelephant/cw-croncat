@@ -13,7 +13,6 @@ export interface InstantiateMsg {
   min_active_agent_count?: number | null;
   min_coins_for_agent_registration?: number | null;
   min_tasks_per_agent?: number | null;
-  owner_addr?: string | null;
   pause_admin: Addr;
   version?: string | null;
 }

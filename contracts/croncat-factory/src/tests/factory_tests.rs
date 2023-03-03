@@ -118,7 +118,6 @@ fn deploy_check() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
@@ -152,7 +151,7 @@ fn deploy_check() {
         msg: to_binary(&croncat_tasks::msg::InstantiateMsg {
             chain_name: "cron".to_owned(),
             version: Some("0.1".to_owned()),
-            owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_manager_key: ("definitely_not_manager".to_owned(), [4, 2]),
             croncat_agents_key: ("definitely_not_agents".to_owned(), [42, 0]),
             slot_granularity_time: Some(10),
@@ -186,7 +185,6 @@ fn deploy_check() {
             version: Some("0.1".to_owned()),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-            owner_addr: Some(ADMIN.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
@@ -334,7 +332,6 @@ fn failure_deploy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
@@ -411,7 +408,6 @@ fn failure_deploy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
@@ -678,7 +674,6 @@ fn remove_paused_checks() {
         version: Some("0.1".to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(ADMIN.to_owned()),
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
@@ -964,7 +959,6 @@ fn fail_and_success_proxy() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: None,
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
@@ -1132,7 +1126,6 @@ fn invalid_changelog_url() {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,

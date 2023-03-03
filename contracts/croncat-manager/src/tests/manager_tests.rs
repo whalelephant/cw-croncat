@@ -64,7 +64,7 @@ mod instantiate_tests {
         let config = query_manager_config(&app, &manager_addr);
 
         let expected_config = Config {
-            owner_addr: Addr::unchecked(ADMIN),
+            owner_addr: factory_addr.clone(),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             croncat_factory_addr: factory_addr,
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
@@ -89,7 +89,6 @@ mod instantiate_tests {
             version: Some("0.1".to_owned()),
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
-            owner_addr: Some(ANYONE.to_owned()),
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
@@ -115,7 +114,7 @@ mod instantiate_tests {
 
         let expected_config = Config {
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
-            owner_addr: Addr::unchecked(ANYONE),
+            owner_addr: factory_addr.clone(),
             croncat_factory_addr: factory_addr,
             croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
             croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
@@ -167,7 +166,7 @@ mod instantiate_tests {
 
         // Bad owner_addr
         let instantiate_msg: InstantiateMsg = InstantiateMsg {
-            owner_addr: Some("BAD_INPUT".to_owned()),
+            pause_admin: Addr::unchecked("BAD_INPUT"),
             ..default_instantiate_message()
         };
 
@@ -227,15 +226,21 @@ fn update_config() {
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
-        manager_addr.clone(),
-        &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+        factory_addr.clone(),
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: manager_addr.to_string(),
+                msg: to_binary(&ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg))).unwrap(),
+                funds: vec![],
+            },
+        },
         &[],
     )
     .unwrap();
     let config = query_manager_config(&app, &manager_addr);
     let expected_config = Config {
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
-        owner_addr: Addr::unchecked(ADMIN),
+        owner_addr: factory_addr.clone(),
         croncat_factory_addr: factory_addr,
         croncat_tasks_key: ("new_key_tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("new_key_agents".to_owned(), [0, 1]),
@@ -288,8 +293,7 @@ fn invalid_updates_config() {
     };
     let err: ContractError = app
         .execute_contract(
-            // Not admin
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(ADMIN),
             manager_addr.clone(),
             &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
             &[],
@@ -316,8 +320,14 @@ fn invalid_updates_config() {
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            manager_addr,
-            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+            factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: manager_addr.to_string(),
+                    msg: to_binary(&ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg))).unwrap(),
+                    funds: vec![],
+                },
+            },
             &[],
         )
         .unwrap_err()
@@ -351,7 +361,12 @@ fn cw20_receive() {
         .unwrap();
     assert_eq!(err, ContractError::NotSupportedCw20 {});
 
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -385,7 +400,12 @@ fn cw20_bad_messages() {
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
     let err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
@@ -445,7 +465,12 @@ fn users_withdraws() {
 
     // refill balances
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr.clone(),
@@ -509,7 +534,12 @@ fn failed_users_withdraws() {
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, send_funds);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
 
     // try to withdraw empty balances
     let err: ContractError = app
@@ -575,7 +605,12 @@ fn withdraw_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
 
     app.execute_contract(
         Addr::unchecked(ADMIN),
@@ -596,7 +631,7 @@ fn withdraw_balances() {
 
     // Withdraw all of balances
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -606,7 +641,7 @@ fn withdraw_balances() {
     // Can't withdraw empty
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ADMIN),
+            factory_addr.clone(),
             manager_addr,
             &ExecuteMsg::OwnerWithdraw {},
             &[],
@@ -638,7 +673,12 @@ fn failed_move_balances() {
 
     // refill balance
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(ADMIN),
         cw20_addr,
@@ -654,7 +694,7 @@ fn failed_move_balances() {
     // Withdraw not by owner
     let err: ContractError = app
         .execute_contract(
-            Addr::unchecked(ANYONE),
+            Addr::unchecked(ADMIN),
             manager_addr,
             &ExecuteMsg::OwnerWithdraw {},
             &[],
@@ -788,7 +828,7 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -928,7 +968,7 @@ fn simple_bank_transfers_block() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1101,7 +1141,7 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1284,7 +1324,7 @@ fn simple_bank_transfers_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -1446,7 +1486,12 @@ fn cw20_action_transfer() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     // Refill balance
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         cw20_addr.clone(),
@@ -1812,7 +1857,7 @@ fn task_with_query() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -2092,7 +2137,7 @@ fn recurring_task_block_immediate() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -2550,7 +2595,7 @@ fn recurring_task_cron() {
     )
     .unwrap();
     app.execute_contract(
-        Addr::unchecked(ADMIN),
+        factory_addr.clone(),
         manager_addr.clone(),
         &ExecuteMsg::OwnerWithdraw {},
         &[],
@@ -2700,7 +2745,12 @@ fn negative_proxy_call() {
     let mod_balances = init_mod_balances(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
 
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
@@ -3703,7 +3753,12 @@ fn refill_task_cw20_fail() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
@@ -3909,7 +3964,12 @@ fn refill_task_cw20_fail() {
 
     // Try RefillTaskCw20Balance with wrong cw20 address
     let new_cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, new_cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        new_cw20_addr.as_str(),
+    );
     app.execute_contract(
         Addr::unchecked(PARTICIPANT0),
         new_cw20_addr.clone(),
@@ -4028,7 +4088,12 @@ fn refill_task_cw20_success() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     let cw20_addr = init_cw20(&mut app);
-    support_new_cw20(&mut app, &manager_addr, cw20_addr.as_str());
+    support_new_cw20(
+        &mut app,
+        factory_addr.clone(),
+        &manager_addr,
+        cw20_addr.as_str(),
+    );
 
     let cw20 = Cw20Coin {
         address: cw20_addr.to_string(),
@@ -4662,8 +4727,15 @@ fn config_invalid_percentage_updates() {
     let mut err: ContractError = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            manager_addr.clone(),
-            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg.clone())),
+            factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: manager_addr.to_string(),
+                    msg: to_binary(&ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg.clone())))
+                        .unwrap(),
+                    funds: vec![],
+                },
+            },
             &[],
         )
         .unwrap_err()
@@ -4683,8 +4755,14 @@ fn config_invalid_percentage_updates() {
     err = app
         .execute_contract(
             Addr::unchecked(ADMIN),
-            manager_addr,
-            &ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg)),
+            factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: manager_addr.to_string(),
+                    msg: to_binary(&ExecuteMsg::UpdateConfig(Box::new(update_cfg_msg))).unwrap(),
+                    funds: vec![],
+                },
+            },
             &[],
         )
         .unwrap_err()
@@ -4725,7 +4803,6 @@ fn pause_admin_cases() {
         version: Some("0.1".to_owned()),
         croncat_tasks_key: (AGENT1.to_owned(), [0, 1]),
         croncat_agents_key: (AGENT2.to_owned(), [0, 1]),
-        owner_addr: None,
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: Some(GasPrice {
             numerator: 10,

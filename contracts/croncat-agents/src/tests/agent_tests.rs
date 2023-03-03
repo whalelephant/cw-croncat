@@ -21,7 +21,6 @@ fn test_contract_initialize_is_successful() {
 
     let init_msg = InstantiateMsg {
         version: Some("0.1".to_owned()),
-        owner_addr: Some(ADMIN.to_string()),
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -50,7 +49,6 @@ fn test_contract_initialize_is_successful() {
 
     let init_msg = InstantiateMsg {
         version: Some("0.1".to_owned()),
-        owner_addr: Some(ANYONE.to_string()),
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
@@ -1303,7 +1301,6 @@ fn check_validation_instantiate() {
         version: Some("0.1".to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-        owner_addr: None,
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         min_coins_for_agent_registration: None,
         // Note: this should not allow 0 here
@@ -1481,7 +1478,6 @@ fn check_validation_update_config() {
             version: Some("0.1".to_owned()),
             croncat_manager_key: ("manager".to_owned(), [0, 1]),
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-            owner_addr: None,
             pause_admin: Addr::unchecked(PAUSE_ADMIN),
             min_coins_for_agent_registration: None,
             agent_nomination_duration: None,
@@ -1653,7 +1649,6 @@ fn pause_admin_cases() {
         version: Some("0.1".to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-        owner_addr: None,
         pause_admin: Addr::unchecked(PAUSE_ADMIN),
         min_coins_for_agent_registration: None,
         agent_nomination_duration: None,

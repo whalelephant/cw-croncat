@@ -10,9 +10,6 @@ pub struct InstantiateMsg {
     /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
     pub pause_admin: Addr,
 
-    /// Address of the contract owner, defaults to the sender
-    pub owner_addr: Option<String>,
-
     /// CW2 Version provided by factory
     pub version: Option<String>,
 
