@@ -128,8 +128,12 @@ impl TaskBalance {
 #[cw_serde]
 pub struct Config {
     // Runtime
-    pub paused: bool,
     pub owner_addr: Addr,
+
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
 
     /// Address of the croncat_factory
     pub croncat_factory_addr: Addr,
@@ -155,8 +159,6 @@ pub struct Config {
 
 #[cw_serde]
 pub struct UpdateConfig {
-    pub owner_addr: Option<String>,
-    pub paused: Option<bool>,
     pub agent_fee: Option<u16>,
     pub treasury_fee: Option<u16>,
     pub gas_price: Option<GasPrice>,

@@ -6,8 +6,8 @@ use cosmwasm_std::{
     Storage, SubMsg, WasmMsg,
 };
 use croncat_sdk_factory::msg::{
-    CheckIfConfigIsPaused, ContractMetadata, ContractMetadataInfo, ContractMetadataResponse,
-    EntryResponse, ModuleInstantiateInfo, VersionKind,
+    ContractMetadata, ContractMetadataInfo, ContractMetadataResponse, EntryResponse,
+    ModuleInstantiateInfo, VersionKind,
 };
 use cw2::set_contract_version;
 use cw_utils::parse_reply_instantiate_data;
@@ -16,7 +16,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_ADDRS_LOOKUP, CONTRACT_METADATAS,
-    LATEST_ADDRS, LATEST_VERSIONS, MAX_URL_LENGTH, TEMP_REPLY,
+    LATEST_ADDRS, LATEST_VERSIONS, MAX_URL_LENGTH, PAUSED, TEMP_REPLY,
 };
 
 // version info for migration info
@@ -205,10 +205,9 @@ fn execute_remove(
     if metadata.kind != VersionKind::Library {
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
 
-        let config: CheckIfConfigIsPaused = deps
-            .querier
-            .query_wasm_smart(contract_addr, &QueryMsg::Config {})?;
-        if !config.paused {
+        // Check contract pause state, by direct state key
+        let paused: bool = PAUSED.query(&deps.querier, contract_addr)?;
+        if !paused {
             return Err(ContractError::NotPaused {});
         }
     }

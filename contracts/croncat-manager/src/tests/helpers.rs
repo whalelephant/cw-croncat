@@ -8,9 +8,9 @@ use cw_multi_test::{App, AppBuilder, Executor};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use super::{
-    contracts, ADMIN, PAUSE_ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
+    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERSION, VERY_RICH,
+    PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
 };
 
 pub(crate) fn default_app() -> App {
@@ -330,6 +330,7 @@ pub(crate) fn default_instantiate_message() -> InstantiateMsg {
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(ADMIN.to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,
@@ -375,8 +376,6 @@ pub(crate) fn support_new_cw20(app: &mut App, manager_addr: &Addr, new_cw20_addr
         Addr::unchecked(ADMIN),
         manager_addr.to_owned(),
         &ExecuteMsg::UpdateConfig(Box::new(UpdateConfig {
-            owner_addr: None,
-            paused: None,
             agent_fee: None,
             treasury_fee: None,
             gas_price: None,

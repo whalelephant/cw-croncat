@@ -9,7 +9,7 @@ use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20ReceiveMsg};
 use crate::{
     helpers::{check_if_sender_is_task_owner, check_ready_for_execution, gas_fee, get_tasks_addr},
     msg::ReceiveMsg,
-    state::{AGENT_REWARDS, CONFIG, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
+    state::{AGENT_REWARDS, CONFIG, PAUSED, TASKS_BALANCES, TEMP_BALANCES_CW20, TREASURY_BALANCE},
     ContractError,
 };
 
@@ -102,8 +102,9 @@ pub fn execute_receive_cw20(
     wrapper: Cw20ReceiveMsg,
 ) -> Result<Response, ContractError> {
     let msg: ReceiveMsg = from_binary(&wrapper.msg)?;
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
     let config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
 
     let sender = deps.api.addr_validate(&wrapper.sender)?;
     let coin_addr = info.sender;
@@ -158,8 +159,9 @@ pub fn execute_refill_task_cw20(
     task_hash: String,
     cw20: Cw20Coin,
 ) -> Result<Response, ContractError> {
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
     let config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
 
     // check if sender is task owner
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
@@ -209,8 +211,9 @@ pub fn execute_user_withdraw(
     info: MessageInfo,
     limit: Option<u64>,
 ) -> Result<Response, ContractError> {
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
     let config = CONFIG.load(deps.storage)?;
-    check_ready_for_execution(&info, &config)?;
     let limit = limit.unwrap_or(config.limit);
     let user_addr = info.sender;
     let withdraws: Vec<Cw20CoinVerified> = TEMP_BALANCES_CW20
@@ -277,10 +280,10 @@ pub fn execute_refill_native_balance(
     info: MessageInfo,
     task_hash: String,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
-    if config.paused {
-        return Err(ContractError::Paused {});
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused {});
     }
+    let config: Config = CONFIG.load(deps.storage)?;
     // Check if sender is task owner
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
     check_if_sender_is_task_owner(&deps.querier, &tasks_addr, &info.sender, &task_hash)?;

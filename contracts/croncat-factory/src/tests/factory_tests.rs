@@ -7,7 +7,7 @@ use croncat_sdk_factory::msg::{
 };
 use cw_multi_test::Executor;
 
-use super::{contracts, helpers::default_app, ADMIN, PAUSE_ADMIN, AGENT2, ANYONE};
+use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, PAUSE_ADMIN};
 use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
@@ -119,6 +119,7 @@ fn deploy_check() {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -334,6 +335,7 @@ fn failure_deploy() {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -410,6 +412,7 @@ fn failure_deploy() {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -676,6 +679,7 @@ fn remove_paused_checks() {
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(ADMIN.to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,
@@ -755,25 +759,13 @@ fn remove_paused_checks() {
         .map(|metadata| metadata.contract_addr)
         .unwrap();
     // make it paused
-    app.execute_contract(
-        Addr::unchecked(ADMIN),
+    let res = app.execute_contract(
+        Addr::unchecked(PAUSE_ADMIN),
         manager_addr,
-        &croncat_manager::msg::ExecuteMsg::UpdateConfig(Box::new(
-            croncat_sdk_manager::types::UpdateConfig {
-                owner_addr: None,
-                paused: Some(true),
-                agent_fee: None,
-                treasury_fee: None,
-                gas_price: None,
-                croncat_tasks_key: None,
-                croncat_agents_key: None,
-                treasury_addr: None,
-                cw20_whitelist: None,
-            },
-        )),
+        &croncat_sdk_manager::msg::ManagerExecuteMsg::PauseContract {},
         &[],
-    )
-    .unwrap();
+    );
+    assert!(res.is_ok());
 
     // remove it after it got paused
     app.execute_contract(
@@ -973,6 +965,7 @@ fn fail_and_success_proxy() {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
             owner_addr: None,
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,
@@ -1015,8 +1008,6 @@ fn fail_and_success_proxy() {
             contract_addr: manager_metadata.metadata.unwrap().contract_addr.to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
-                    owner_addr: None,
-                    paused: None,
                     agent_fee: None,
                     treasury_fee: Some(10), // simulate moving to 0.01%
                     gas_price: None,
@@ -1046,8 +1037,6 @@ fn fail_and_success_proxy() {
             contract_addr: Addr::unchecked(ANYONE).to_string(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
-                    owner_addr: None,
-                    paused: None,
                     agent_fee: None,
                     treasury_fee: Some(10), // simulate moving to 0.01%
                     gas_price: None,
@@ -1144,6 +1133,7 @@ fn invalid_changelog_url() {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_owned(), [0, 1]),
             owner_addr: Some(ANYONE.to_owned()),
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: Some(GasPrice {
                 numerator: 10,
                 denominator: 20,

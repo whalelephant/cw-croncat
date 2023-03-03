@@ -1626,8 +1626,8 @@ fn check_validation_update_config() {
     );
 }
 
-/// Correctly instantiate the agents contract and then try to
-/// update the config with two invalid entries
+/// Check for instantiate pause admin scenarios of pass/fail
+/// Check for pause & unpause scenarios of pass/fail
 #[test]
 fn pause_admin_cases() {
     let mut app = default_app();
@@ -1676,26 +1676,23 @@ fn pause_admin_cases() {
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&init_agent_contract_msg_short_addr)
-        .unwrap(),
+        msg: to_binary(&init_agent_contract_msg_short_addr).unwrap(),
         contract_name: "agents".to_owned(),
     };
-    let err: ContractError = app.execute_contract(
-        Addr::unchecked(ADMIN),
-        croncat_factory_addr.clone(),
-        &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
-            kind: croncat_sdk_factory::msg::VersionKind::Agents,
-            module_instantiate_info: agents_module_instantiate_info,
-        },
-        &[],
-    )
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+                kind: croncat_sdk_factory::msg::VersionKind::Agents,
+                module_instantiate_info: agents_module_instantiate_info,
+            },
+            &[],
+        )
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(
-        err,
-        ContractError::InvalidPauseAdmin {}
-    );
+    assert_eq!(err, ContractError::InvalidPauseAdmin {});
 
     // Should fail: same as owner
     let agents_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
@@ -1705,26 +1702,23 @@ fn pause_admin_cases() {
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&init_agent_contract_msg_same_owner)
-        .unwrap(),
+        msg: to_binary(&init_agent_contract_msg_same_owner).unwrap(),
         contract_name: "agents".to_owned(),
     };
-    let err: ContractError = app.execute_contract(
-        Addr::unchecked(ADMIN),
-        croncat_factory_addr.clone(),
-        &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
-            kind: croncat_sdk_factory::msg::VersionKind::Agents,
-            module_instantiate_info: agents_module_instantiate_info,
-        },
-        &[],
-    )
+    let err: ContractError = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr.clone(),
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Deploy {
+                kind: croncat_sdk_factory::msg::VersionKind::Agents,
+                module_instantiate_info: agents_module_instantiate_info,
+            },
+            &[],
+        )
         .unwrap_err()
         .downcast()
         .unwrap();
-    assert_eq!(
-        err,
-        ContractError::InvalidPauseAdmin {}
-    );
+    assert_eq!(err, ContractError::InvalidPauseAdmin {});
 
     // Now, we do a working furr shurr case
     let agents_module_instantiate_info = croncat_sdk_factory::msg::ModuleInstantiateInfo {
@@ -1734,8 +1728,7 @@ fn pause_admin_cases() {
         checksum: "qwe123".to_owned(),
         changelog_url: None,
         schema: None,
-        msg: to_binary(&init_agent_contract_msg)
-        .unwrap(),
+        msg: to_binary(&init_agent_contract_msg).unwrap(),
         contract_name: "agents".to_owned(),
     };
 
@@ -1802,6 +1795,13 @@ fn pause_admin_cases() {
     );
     assert!(res.is_ok());
 
+    // Check the pause query is valid
+    let is_paused: bool = app
+        .wrap()
+        .query_wasm_smart(croncat_agents_addr.clone(), &QueryMsg::Paused {})
+        .unwrap();
+    assert!(is_paused);
+
     // Pause Admin Should not be able to unpause
     let error: ContractError = app
         .execute_contract(
@@ -1841,6 +1841,13 @@ fn pause_admin_cases() {
         &[],
     );
     assert!(res.is_ok());
+
+    // Confirm unpaused
+    let is_paused: bool = app
+        .wrap()
+        .query_wasm_smart(croncat_agents_addr, &QueryMsg::Paused {})
+        .unwrap();
+    assert!(!is_paused);
 }
 
 fn register_agent(

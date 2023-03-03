@@ -130,6 +130,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
             croncat_agents_key: ("agents".to_string(), [0, 1]),
             owner_addr: None, // Will be factory's address
+            pause_admin: Addr::unchecked(PAUSE_ADMIN),
             gas_price: None,
             treasury_addr: None,
             cw20_whitelist: None,

@@ -112,6 +112,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_binary(&query_get_agent_tasks(deps, env, account_id)?)
         }
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PAUSED.load(deps.storage)?),
     }
 }
 
@@ -670,8 +671,7 @@ pub fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, Contr
         return Err(ContractError::Unauthorized);
     }
     PAUSED.save(deps.storage, &true)?;
-    Ok(Response::new()
-        .add_attribute("action", "pause_contract"))
+    Ok(Response::new().add_attribute("action", "pause_contract"))
 }
 
 pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
@@ -683,8 +683,7 @@ pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, Con
         return Err(ContractError::Unauthorized);
     }
     PAUSED.save(deps.storage, &false)?;
-    Ok(Response::new()
-        .add_attribute("action", "unpause_contract"))
+    Ok(Response::new().add_attribute("action", "unpause_contract"))
 }
 
 fn on_task_created(

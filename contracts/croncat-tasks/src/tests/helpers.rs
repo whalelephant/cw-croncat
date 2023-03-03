@@ -1,7 +1,7 @@
 use super::{
-    contracts, ADMIN, PAUSE_ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
+    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERSION, VERY_RICH,
+    PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
 };
 use crate::msg::InstantiateMsg;
 
@@ -94,6 +94,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         owner_addr: Some(ADMIN.to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
         cw20_whitelist: None,

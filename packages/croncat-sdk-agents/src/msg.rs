@@ -65,9 +65,9 @@ pub enum ExecuteMsg {
     UpdateConfig { config: UpdateConfig },
     /// Tick action will remove unactive agents periodically or do and any other internal cron tasks
     Tick {},
-    /// Pauses all operations for this contract, can only be done by pause_admin, can only be unpaused by owner_addr
+    /// Pauses all operations for this contract, can only be done by pause_admin
     PauseContract {},
-    /// Pauses all operations for this contract, can only be done by pause_admin, can only be unpaused by owner_addr
+    /// unpauses all operations for this contract, can only be unpaused by owner_addr
     UnpauseContract {},
 }
 
@@ -90,6 +90,10 @@ pub enum QueryMsg {
     /// Gets the agent contract configuration
     #[returns[crate::types::Config]]
     Config {},
+
+    /// Helper for query responses on versioned contracts
+    #[returns[bool]]
+    Paused {},
 }
 /// Response containing active/pending agents
 #[cw_serde]
