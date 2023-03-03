@@ -1,5 +1,6 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
+use cw_storage_plus::Item;
 
 use cosmwasm_std::{
     to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Order, Reply, Response, StdResult,
@@ -16,7 +17,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     Config, TempReply, CONFIG, CONTRACT_ADDRS, CONTRACT_ADDRS_LOOKUP, CONTRACT_METADATAS,
-    LATEST_ADDRS, LATEST_VERSIONS, MAX_URL_LENGTH, PAUSED, TEMP_REPLY,
+    LATEST_ADDRS, LATEST_VERSIONS, MAX_URL_LENGTH, TEMP_REPLY,
 };
 
 // version info for migration info
@@ -206,7 +207,8 @@ fn execute_remove(
         let contract_addr = CONTRACT_ADDRS.load(deps.storage, (&contract_name, &version))?;
 
         // Check contract pause state, by direct state key
-        let paused: bool = PAUSED.query(&deps.querier, contract_addr)?;
+        let pause_state: Item<bool> = Item::new("paused");
+        let paused: bool = pause_state.query(&deps.querier, contract_addr)?;
         if !paused {
             return Err(ContractError::NotPaused {});
         }

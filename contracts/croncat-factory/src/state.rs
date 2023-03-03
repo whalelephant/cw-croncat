@@ -8,8 +8,6 @@ pub use croncat_sdk_factory::msg::Config;
 /// Contract config, just the owner address for now, preferably dao
 pub const CONFIG: Item<Config> = Item::new("config");
 
-pub const PAUSED: Item<bool> = Item::new("paused");
-
 /// Contract name with the version to the metadata
 pub const CONTRACT_METADATAS: Map<(&str, &[u8]), ContractMetadata> = Map::new("contract_metadatas");
 
