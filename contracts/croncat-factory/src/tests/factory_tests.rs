@@ -1,3 +1,4 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{to_binary, Addr, Binary, StdError, WasmMsg};
 use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_factory::msg::FactoryExecuteMsg::UpdateMetadata;
@@ -1036,6 +1037,10 @@ fn fail_and_success_proxy() {
     let mut app = default_app();
     let contract_code_id = app.store_code(contracts::croncat_factory_contract());
     let manager_code_id = app.store_code(contracts::croncat_manager_contract());
+    let manager_code_id_for_migrate = app.store_code(contracts::croncat_manager_contract());
+
+    #[cw_serde]
+    pub(crate) struct MigrateMsg {}
 
     let init_msg = InstantiateMsg {
         owner_addr: Some(ADMIN.to_owned()),
@@ -1100,9 +1105,10 @@ fn fail_and_success_proxy() {
         manager_code_id
     );
 
+    let manager_addr = manager_metadata.metadata.unwrap().contract_addr.to_string();
     let proxy_msg = FactoryExecuteMsg::Proxy {
         msg: WasmMsg::Execute {
-            contract_addr: manager_metadata.metadata.unwrap().contract_addr.to_string(),
+            contract_addr: manager_addr.clone(),
             msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::UpdateConfig(
                 Box::new(croncat_sdk_manager::types::UpdateConfig {
                     agent_fee: None,
@@ -1116,6 +1122,14 @@ fn fail_and_success_proxy() {
             ))
             .unwrap(),
             funds: vec![],
+        },
+    };
+
+    let proxy_migrate_msg = FactoryExecuteMsg::Proxy {
+        msg: WasmMsg::Migrate {
+            contract_addr: manager_addr,
+            msg: to_binary(&MigrateMsg {}).unwrap(),
+            new_code_id: manager_code_id_for_migrate,
         },
     };
 
@@ -1189,11 +1203,28 @@ fn fail_and_success_proxy() {
 
     // Okay yasssss ill let you work
     let res = app
-        .execute_contract(Addr::unchecked(ADMIN), contract_addr, &proxy_msg, &[])
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            contract_addr.clone(),
+            &proxy_msg,
+            &[],
+        )
         .unwrap();
     // Check for action proxy & action update_config
     assert_eq!(res.events[1].attributes[1].value, "proxy");
+    assert_eq!(res.events[1].attributes[2].value, "execute");
     assert_eq!(res.events[3].attributes[1].value, "update_config");
+
+    // Okay ill let you migrate thangs
+    let res = app.execute_contract(
+        Addr::unchecked(ADMIN),
+        contract_addr,
+        &proxy_migrate_msg,
+        &[],
+    );
+    // NOTE: we must assert error here since the contract doesnt implement migration
+    // once there is a migration needed, this can check for the success of such migration.
+    assert!(res.is_err());
 }
 
 /// Tests the changelog_url for validity
