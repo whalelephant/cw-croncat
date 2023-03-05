@@ -71,4 +71,7 @@ pub enum ContractError {
 
     #[error("Agent registration currently operates on a whitelist. Unauthorized.")]
     UnapprovedAgent {},
+
+    #[error("Agent registration has already become decentralized. Public registration cannot be set to false.")]
+    DecentralizationEnabled {},
 }

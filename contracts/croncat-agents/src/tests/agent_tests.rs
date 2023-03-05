@@ -1995,9 +1995,6 @@ fn agent_registration_whitelist() {
 
     let agent_metadata = agent_contracts.metadata.unwrap();
     let croncat_agents_addr = agent_metadata.contract_addr;
-    // let croncat_agents_addr = app.wrap().query_wasm_smart(croncat_factory_addr.clone(), &croncat_sdk_factory::msg::FactoryQueryMsg::LatestContract {
-    //     contract_name: "agents".to_string(),
-    // }).unwrap();
 
     // Fast forward time a little
     app.update_block(|block| add_seconds_to_block(block, 6 * 666));
@@ -2134,7 +2131,7 @@ fn agent_registration_whitelist() {
     assert!(
         app.execute_contract(
             Addr::unchecked(ADMIN),
-            croncat_factory_addr,
+            croncat_factory_addr.clone(),
             &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
                 msg: WasmMsg::Execute {
                     contract_addr: croncat_agents_addr.to_string(),
@@ -2176,6 +2173,42 @@ fn agent_registration_whitelist() {
         ApprovedAgentAddresses {
             approved_addresses: vec![],
         }
+    );
+
+    // Check failure wif admin attempts to "reverse" the public registration from true » false
+    err = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            croncat_factory_addr,
+            &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+                msg: WasmMsg::Execute {
+                    contract_addr: croncat_agents_addr.to_string(),
+                    msg: to_binary(&ExecuteMsg::UpdateConfig {
+                        config: UpdateConfig {
+                            croncat_manager_key: None,
+                            croncat_tasks_key: None,
+                            min_tasks_per_agent: None,
+                            agent_nomination_duration: None,
+                            min_coins_for_agent_registration: None,
+                            agents_eject_threshold: None,
+                            min_active_agent_count: None,
+                            // This is prohibited once progressive decentralization has begun
+                            public_registration: Some(false),
+                        },
+                    })
+                    .unwrap(),
+                    funds: vec![],
+                },
+            },
+            &[], // Zero funds
+        )
+        .unwrap_err()
+        .downcast()
+        .unwrap();
+    assert_eq!(
+        err,
+        ContractError::DecentralizationEnabled {},
+        "Should not be able to reverse public registration"
     );
 }
 

@@ -585,6 +585,12 @@ pub fn execute_update_config(
             return Err(ContractError::Unauthorized {});
         }
 
+        // The public_registration field is a one-way boolean, used for progressive decentralization
+        // If update is attempting to turn true to false, this is prohibited
+        if config.public_registration && public_registration == Some(false) {
+            return Err(ContractError::DecentralizationEnabled {});
+        }
+
         let new_config = Config {
             owner_addr: config.owner_addr,
             pause_admin: config.pause_admin,
@@ -600,7 +606,7 @@ pub fn execute_update_config(
                 .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
             min_active_agent_count: min_active_agent_count
                 .unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
-            public_registration: public_registration.unwrap_or(DEFAULT_PUBLIC_REGISTRATION_ENABLED),
+            public_registration: public_registration.unwrap_or(config.public_registration),
         };
         Ok(new_config)
     })?;
