@@ -11,7 +11,7 @@ use cosmwasm_std::{
     Order, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::{
-    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, GetApprovedAgentsAddresses,
+    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, GetApprovedAgentAddresses,
     TaskStats, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
@@ -125,8 +125,8 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentIds { from_index, limit } => {
             to_binary(&query_get_agent_ids(deps, from_index, limit)?)
         }
-        QueryMsg::GetApprovedAgentsAddresses { from_index, limit } => to_binary(
-            &query_get_approved_agents_addresses(deps, from_index, limit)?,
+        QueryMsg::GetApprovedAgentAddresses { from_index, limit } => to_binary(
+            &query_get_approved_agent_addresses(deps, from_index, limit)?,
         ),
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, env, account_id)?)
@@ -227,18 +227,18 @@ fn query_get_agent_ids(
 
 /// Get a list of the approved agent addresses
 /// This is only relevant when Config's `public_registration` value is true
-fn query_get_approved_agents_addresses(
+fn query_get_approved_agent_addresses(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<GetApprovedAgentsAddresses> {
+) -> StdResult<GetApprovedAgentAddresses> {
     let agent_addresses = APPROVED_AGENTS
         .keys(deps.storage, None, None, Order::Ascending)
         .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
         .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect::<Result<Vec<Addr>, StdError>>();
 
-    Ok(GetApprovedAgentsAddresses {
+    Ok(GetApprovedAgentAddresses {
         approved_addresses: agent_addresses.unwrap(),
     })
 }
