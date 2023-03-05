@@ -80,7 +80,7 @@ export type QueryMsg = {
     limit?: number | null;
   };
 } | {
-  get_approved_agents_addresses: {
+  get_approved_agent_addresses: {
     from_index?: number | null;
     limit?: number | null;
   };
@@ -131,7 +131,7 @@ export interface TaskStats {
   num_block_tasks: Uint64;
   num_cron_tasks: Uint64;
 }
-export interface GetApprovedAgentsAddresses {
+export interface GetApprovedAgentAddresses {
   approved_addresses: Addr[];
 }
 export type Boolean = boolean;

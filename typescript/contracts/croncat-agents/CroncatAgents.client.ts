@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, GetApprovedAgentsAddresses, Boolean } from "./CroncatAgents.types";
+import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, GetApprovedAgentAddresses, Boolean } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
@@ -21,13 +21,13 @@ export interface CroncatAgentsReadOnlyInterface {
     fromIndex?: number;
     limit?: number;
   }) => Promise<GetAgentIdsResponse>;
-  getApprovedAgentsAddresses: ({
+  getApprovedAgentAddresses: ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }) => Promise<GetApprovedAgentsAddresses>;
+  }) => Promise<GetApprovedAgentAddresses>;
   getAgentTasks: ({
     accountId
   }: {
@@ -45,7 +45,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
     this.contractAddress = contractAddress;
     this.getAgent = this.getAgent.bind(this);
     this.getAgentIds = this.getAgentIds.bind(this);
-    this.getApprovedAgentsAddresses = this.getApprovedAgentsAddresses.bind(this);
+    this.getApprovedAgentAddresses = this.getApprovedAgentAddresses.bind(this);
     this.getAgentTasks = this.getAgentTasks.bind(this);
     this.config = this.config.bind(this);
     this.paused = this.paused.bind(this);
@@ -76,15 +76,15 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
       }
     });
   };
-  getApprovedAgentsAddresses = async ({
+  getApprovedAgentAddresses = async ({
     fromIndex,
     limit
   }: {
     fromIndex?: number;
     limit?: number;
-  }): Promise<GetApprovedAgentsAddresses> => {
+  }): Promise<GetApprovedAgentAddresses> => {
     return this.client.queryContractSmart(this.contractAddress, {
-      get_approved_agents_addresses: {
+      get_approved_agent_addresses: {
         from_index: fromIndex,
         limit
       }
