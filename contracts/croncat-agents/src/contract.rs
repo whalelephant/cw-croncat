@@ -8,10 +8,11 @@ use crate::state::*;
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
-    QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
+    Order, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::{
-    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, TaskStats, UpdateConfig,
+    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, GetApprovedAgentsAddresses,
+    TaskStats, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
@@ -39,6 +40,8 @@ pub fn instantiate(
         min_coins_for_agent_registration,
         agents_eject_threshold,
         min_active_agent_count,
+        public_registration,
+        allowed_agents,
     } = msg;
 
     validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
@@ -49,6 +52,13 @@ pub fn instantiate(
         min_coins_for_agent_registration,
         "min_coins_for_agent_registration",
     )?;
+
+    // Validate all entries
+    let validated_allowed_agents = if let Some(agent_addrs) = &allowed_agents {
+        map_validate(&deps, agent_addrs)?
+    } else {
+        vec![]
+    };
 
     let owner_addr = info.sender.clone();
 
@@ -74,11 +84,22 @@ pub fn instantiate(
         min_coins_for_agent_registration: min_coins_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
         min_active_agent_count: min_active_agent_count.unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+        public_registration,
     };
+
+    // Store the approved agents if public registration is closed
+    // due to initial, progressive decentralization.
+    if !public_registration {
+        for agent_addr in validated_allowed_agents {
+            APPROVED_AGENTS
+                .save(deps.storage, &agent_addr, &Empty {})
+                .unwrap();
+        }
+    }
 
     CONFIG.save(deps.storage, config)?;
     PAUSED.save(deps.storage, &false)?;
-    AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
+    AGENTS_ACTIVE.save(deps.storage, &vec![])?; // Init active agents empty vector
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
@@ -104,6 +125,9 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentIds { from_index, limit } => {
             to_binary(&query_get_agent_ids(deps, from_index, limit)?)
         }
+        QueryMsg::GetApprovedAgentsAddresses { from_index, limit } => to_binary(
+            &query_get_approved_agents_addresses(deps, from_index, limit)?,
+        ),
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, env, account_id)?)
         }
@@ -136,6 +160,12 @@ pub fn execute(
         ExecuteMsg::Tick {} => execute_tick(deps, env),
         ExecuteMsg::PauseContract {} => execute_pause(deps, info),
         ExecuteMsg::UnpauseContract {} => execute_unpause(deps, info),
+        ExecuteMsg::AddAgentToWhitelist { agent_address } => {
+            execute_add_agent_to_whitelist(env, deps, info, agent_address)
+        }
+        ExecuteMsg::RemoveAgentFromWhitelist { agent_address } => {
+            execute_remove_agent_from_whitelist(env, deps, info, agent_address)
+        }
     }
 }
 
@@ -195,6 +225,24 @@ fn query_get_agent_ids(
     Ok(GetAgentIdsResponse { active, pending })
 }
 
+/// Get a list of the approved agent addresses
+/// This is only relevant when Config's `public_registration` value is true
+fn query_get_approved_agents_addresses(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<GetApprovedAgentsAddresses> {
+    let agent_addresses = APPROVED_AGENTS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
+        .collect::<Result<Vec<Addr>, StdError>>();
+
+    Ok(GetApprovedAgentsAddresses {
+        approved_addresses: agent_addresses.unwrap(),
+    })
+}
+
 fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<AgentTaskResponse> {
     let account_id = deps.api.addr_validate(&account_id)?;
     let active = AGENTS_ACTIVE.load(deps.storage)?;
@@ -227,7 +275,8 @@ fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<
         .map_err(|err| StdError::generic_err(err.to_string()))
 }
 
-/// Add any account as an agent that will be able to execute tasks.
+/// If registration is public, adds any account as an agent that will be able to execute tasks.
+/// If registration is restricted to the whitelist, it's consulted.
 /// Registering allows for rewards accruing with micro-payments which will accumulate to more long-term.
 ///
 /// Optional Parameters:
@@ -245,8 +294,12 @@ fn register_agent(
         return Err(ContractError::ContractPaused);
     }
     let c = CONFIG.load(deps.storage)?;
-
     let account = info.sender;
+
+    // Check if registration is public, return error if the calling agent isn't allowed
+    if !c.public_registration && !APPROVED_AGENTS.has(deps.storage, &account) {
+        return Err(ContractError::UnapprovedAgent {});
+    }
 
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
@@ -506,18 +559,19 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    CONFIG.update(deps.storage, |config| {
-        // Deconstruct, so we don't miss any fields
-        let UpdateConfig {
-            croncat_manager_key,
-            croncat_tasks_key,
-            min_tasks_per_agent,
-            agent_nomination_duration,
-            min_coins_for_agent_registration,
-            agents_eject_threshold,
-            min_active_agent_count,
-        } = msg;
+    // Deconstruct, so we don't miss any fields
+    let UpdateConfig {
+        croncat_manager_key,
+        croncat_tasks_key,
+        min_tasks_per_agent,
+        agent_nomination_duration,
+        min_coins_for_agent_registration,
+        agents_eject_threshold,
+        min_active_agent_count,
+        public_registration,
+    } = msg;
 
+    CONFIG.update(deps.storage, |config| {
         validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
         validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
         validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
@@ -546,9 +600,16 @@ pub fn execute_update_config(
                 .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
             min_active_agent_count: min_active_agent_count
                 .unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+            public_registration: public_registration.unwrap_or(DEFAULT_PUBLIC_REGISTRATION_ENABLED),
         };
         Ok(new_config)
     })?;
+
+    // When progressive decentralization begins and public registration is open,
+    // we won't need the allowed agent list, so we'll clear it.
+    if public_registration == Some(true) {
+        APPROVED_AGENTS.clear(deps.storage);
+    }
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
@@ -682,6 +743,42 @@ pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, Con
     Ok(Response::new().add_attribute("action", "unpause_contract"))
 }
 
+pub fn execute_add_agent_to_whitelist(
+    _env: Env,
+    deps: DepsMut,
+    info: MessageInfo,
+    agent_address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    // Ensure the owner is calling
+    if config.owner_addr != info.sender {
+        return Err(ContractError::Unauthorized);
+    }
+
+    let validated_agent_address = deps.api.addr_validate(agent_address.as_str())?;
+    APPROVED_AGENTS.save(deps.storage, &validated_agent_address, &Empty {})?;
+
+    Ok(Response::new().add_attribute("action", "add_agent_to_whitelist"))
+}
+
+pub fn execute_remove_agent_from_whitelist(
+    _env: Env,
+    deps: DepsMut,
+    info: MessageInfo,
+    agent_address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    // Ensure the owner is calling
+    if config.owner_addr != info.sender {
+        return Err(ContractError::Unauthorized);
+    }
+
+    let validated_agent_address = deps.api.addr_validate(agent_address.as_str())?;
+    APPROVED_AGENTS.remove(deps.storage, &validated_agent_address);
+
+    Ok(Response::new().add_attribute("action", "remove_agent_to_whitelist"))
+}
+
 fn on_task_created(
     env: Env,
     deps: DepsMut,
@@ -704,6 +801,7 @@ fn on_task_created(
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
+
 fn on_task_completed(
     deps: DepsMut,
     info: MessageInfo,
@@ -762,4 +860,13 @@ fn validate_config_non_zero_u64(
     } else {
         Ok(())
     }
+}
+
+// Thank you cw1 for the handy function
+// pub fn map_validate(deps: &DepsMut, admins: &Vec<Addr>) -> StdResult<Vec<Addr>> {
+pub fn map_validate(deps: &DepsMut, agents: &[String]) -> StdResult<Vec<Addr>> {
+    agents
+        .iter()
+        .map(|addr| deps.api.addr_validate(addr.as_str()))
+        .collect()
 }
