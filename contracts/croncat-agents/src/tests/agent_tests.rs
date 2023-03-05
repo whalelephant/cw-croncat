@@ -7,7 +7,7 @@ use crate::state::{
 use crate::tests::common::*;
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Coin, StdError, Uint128, Uint64, WasmMsg};
 use croncat_sdk_agents::msg::{
-    AgentResponse, GetAgentIdsResponse, GetApprovedAgentAddresses, TaskStats,
+    AgentResponse, ApprovedAgentAddresses, GetAgentIdsResponse, TaskStats,
 };
 use croncat_sdk_agents::types::Config;
 use croncat_sdk_tasks::types::{Action, Interval, TaskRequest};
@@ -2004,7 +2004,7 @@ fn agent_registration_whitelist() {
     app.update_block(|block| increment_block_height(block, Some(666)));
 
     // Query to ensure they were stored
-    let approved_agents_res: GetApprovedAgentAddresses = app
+    let approved_agents_res: ApprovedAgentAddresses = app
         .wrap()
         .query_wasm_smart(
             croncat_agents_addr.clone(),
@@ -2016,7 +2016,7 @@ fn agent_registration_whitelist() {
         .unwrap();
     assert_eq!(
         approved_agents_res,
-        GetApprovedAgentAddresses {
+        ApprovedAgentAddresses {
             approved_addresses: vec![Addr::unchecked(AGENT0)],
         }
     );
@@ -2076,7 +2076,7 @@ fn agent_registration_whitelist() {
         "Agent not on whitelist should be allowed to register when public registration is enabled"
     );
 
-    let mut current_allowed_agents: GetApprovedAgentAddresses = app
+    let mut current_allowed_agents: ApprovedAgentAddresses = app
         .wrap()
         .query_wasm_smart(
             croncat_agents_addr.clone(),
@@ -2088,7 +2088,7 @@ fn agent_registration_whitelist() {
         .unwrap();
     assert_eq!(
         current_allowed_agents,
-        GetApprovedAgentAddresses {
+        ApprovedAgentAddresses {
             approved_addresses: vec![Addr::unchecked(AGENT0), Addr::unchecked(AGENT1)],
         }
     );
@@ -2125,7 +2125,7 @@ fn agent_registration_whitelist() {
         .unwrap();
     assert_eq!(
         current_allowed_agents,
-        GetApprovedAgentAddresses {
+        ApprovedAgentAddresses {
             approved_addresses: vec![Addr::unchecked(AGENT1)],
         }
     );
@@ -2173,7 +2173,7 @@ fn agent_registration_whitelist() {
         .unwrap();
     assert_eq!(
         current_allowed_agents,
-        GetApprovedAgentAddresses {
+        ApprovedAgentAddresses {
             approved_addresses: vec![],
         }
     );

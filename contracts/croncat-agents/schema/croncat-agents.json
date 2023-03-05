@@ -956,7 +956,7 @@
     },
     "get_approved_agent_addresses": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "GetApprovedAgentAddresses",
+      "title": "ApprovedAgentAddresses",
       "description": "Response containing approved agents' addresses",
       "type": "object",
       "required": [

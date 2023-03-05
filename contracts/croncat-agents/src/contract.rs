@@ -11,7 +11,7 @@ use cosmwasm_std::{
     Order, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
 use croncat_sdk_agents::msg::{
-    AgentInfo, AgentResponse, AgentTaskResponse, GetAgentIdsResponse, GetApprovedAgentAddresses,
+    AgentInfo, AgentResponse, AgentTaskResponse, ApprovedAgentAddresses, GetAgentIdsResponse,
     TaskStats, UpdateConfig,
 };
 use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
@@ -231,14 +231,14 @@ fn query_get_approved_agent_addresses(
     deps: Deps,
     from_index: Option<u64>,
     limit: Option<u64>,
-) -> StdResult<GetApprovedAgentAddresses> {
+) -> StdResult<ApprovedAgentAddresses> {
     let agent_addresses = APPROVED_AGENTS
         .keys(deps.storage, None, None, Order::Ascending)
         .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
         .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect::<Result<Vec<Addr>, StdError>>();
 
-    Ok(GetApprovedAgentAddresses {
+    Ok(ApprovedAgentAddresses {
         approved_addresses: agent_addresses.unwrap(),
     })
 }

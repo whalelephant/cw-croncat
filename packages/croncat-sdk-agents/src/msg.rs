@@ -93,7 +93,7 @@ pub enum QueryMsg {
     },
     /// Gets the approved agents' addresses, pagination is supported
     /// This only applies when Config's `public_registration` is false
-    #[returns[GetApprovedAgentAddresses]]
+    #[returns[ApprovedAgentAddresses]]
     GetApprovedAgentAddresses {
         from_index: Option<u64>,
         limit: Option<u64>,
@@ -119,7 +119,7 @@ pub struct GetAgentIdsResponse {
 }
 /// Response containing approved agents' addresses
 #[cw_serde]
-pub struct GetApprovedAgentAddresses {
+pub struct ApprovedAgentAddresses {
     /// Active agent list
     pub approved_addresses: Vec<Addr>,
 }

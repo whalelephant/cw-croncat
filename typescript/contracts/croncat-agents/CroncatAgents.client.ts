@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, GetApprovedAgentAddresses, Boolean } from "./CroncatAgents.types";
+import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, ApprovedAgentAddresses, Boolean } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
@@ -27,7 +27,7 @@ export interface CroncatAgentsReadOnlyInterface {
   }: {
     fromIndex?: number;
     limit?: number;
-  }) => Promise<GetApprovedAgentAddresses>;
+  }) => Promise<ApprovedAgentAddresses>;
   getAgentTasks: ({
     accountId
   }: {
@@ -82,7 +82,7 @@ export class CroncatAgentsQueryClient implements CroncatAgentsReadOnlyInterface 
   }: {
     fromIndex?: number;
     limit?: number;
-  }): Promise<GetApprovedAgentAddresses> => {
+  }): Promise<ApprovedAgentAddresses> => {
     return this.client.queryContractSmart(this.contractAddress, {
       get_approved_agent_addresses: {
         from_index: fromIndex,

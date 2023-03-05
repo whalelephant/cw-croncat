@@ -131,7 +131,7 @@ export interface TaskStats {
   num_block_tasks: Uint64;
   num_cron_tasks: Uint64;
 }
-export interface GetApprovedAgentAddresses {
+export interface ApprovedAgentAddresses {
   approved_addresses: Addr[];
 }
 export type Boolean = boolean;
