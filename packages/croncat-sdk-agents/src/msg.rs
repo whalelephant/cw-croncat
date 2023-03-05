@@ -55,6 +55,7 @@ pub enum ExecuteMsg {
     /// Adds an agent address to the internal whitelist
     AddAgentToWhitelist { agent_address: String },
     /// Removes an agent from the whitelist
+    /// Note: this does not kick the agent, but instead means they will not be able to re-register
     RemoveAgentFromWhitelist { agent_address: String },
     /// Action registers new agent
     RegisterAgent { payable_account_id: Option<String> },

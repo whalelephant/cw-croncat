@@ -546,7 +546,7 @@ fn unregister_agent(
     AGENTS.remove(storage, agent_id);
 
     let responses = Response::new()
-        //Send withdraw rewards message to manager contract
+        // Send withdraw rewards message to manager contract
         .add_message(msg)
         .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
