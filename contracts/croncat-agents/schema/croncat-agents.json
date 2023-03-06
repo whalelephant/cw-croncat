@@ -166,7 +166,7 @@
         "additionalProperties": false
       },
       {
-        "description": "Removes an agent from the whitelist",
+        "description": "Removes an agent from the whitelist Note: this does not kick the agent, but instead means they will not be able to re-register",
         "type": "object",
         "required": [
           "remove_agent_from_whitelist"
