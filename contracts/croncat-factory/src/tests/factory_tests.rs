@@ -192,6 +192,8 @@ fn deploy_check() {
             min_tasks_per_agent: None,
             agents_eject_threshold: None,
             min_active_agent_count: None,
+            allowed_agents: Some(vec![]),
+            public_registration: true,
         })
         .unwrap(),
         contract_name: "agents".to_owned(),
