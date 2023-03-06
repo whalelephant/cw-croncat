@@ -105,7 +105,7 @@ const start = async () => {
         artifactsRoot,
         userAddress,
         factoryAddress,
-        [agent2Address],
+        [userAddress, agent2Address],
         pauseAdminAddress,
         uploadGas,
         executeGas
