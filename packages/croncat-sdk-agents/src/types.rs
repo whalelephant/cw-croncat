@@ -64,8 +64,10 @@ pub struct Config {
     pub croncat_tasks_key: (String, [u8; 2]),
     /// Contract owner address
     pub owner_addr: Addr,
-    /// If contract was paused/unpaused
-    pub paused: bool,
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
     /// Agent management
     /// The minimum number of tasks per agent
     /// Example: 10
@@ -85,6 +87,14 @@ pub struct Config {
     pub agents_eject_threshold: u64,
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_agent_count: u16,
+    /// Whether agent registration is public or restricted to an internal whitelist (allowed_agents)
+    /// Determines whether agent registration is open to the public
+    /// If false, the APPROVED_AGENTS map will determine if an agent is allowed to register
+    /// If true, any address can register and enter the pending queue,
+    /// provided they have the assets required.
+    /// Note that once this becomes true, it's intentionally meant to be true forever,
+    /// since this is an aspect of progressive decentralization
+    pub public_registration: bool,
 }
 
 #[cfg(test)]

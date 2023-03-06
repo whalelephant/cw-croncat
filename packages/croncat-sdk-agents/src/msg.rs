@@ -5,8 +5,10 @@ use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnT
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    /// Address of the contract owner, defaults to the sender
-    pub owner_addr: Option<String>,
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
 
     /// CW2 Version provided by factory
     pub version: Option<String>,
@@ -32,18 +34,29 @@ pub struct InstantiateMsg {
 
     /// The required amount needed to actually execute a few tasks before withdraw profits.
     /// This helps make sure agent wont get stuck out the gate
-    pub min_coin_for_agent_registration: Option<u64>,
+    pub min_coins_for_agent_registration: Option<u64>,
 
     /// How many slots an agent can miss before being removed from the active queue
     pub agents_eject_threshold: Option<u64>,
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_agent_count: Option<u16>,
+
+    /// Whether agent registration is public or restricted to an internal whitelist
+    pub public_registration: bool,
+
+    /// If public registration is false, this provides initial, approved agent addresses
+    pub allowed_agents: Option<Vec<String>>,
 }
 
 /// Execute messages for agent contract
 #[cw_serde]
 pub enum ExecuteMsg {
+    /// Adds an agent address to the internal whitelist
+    AddAgentToWhitelist { agent_address: String },
+    /// Removes an agent from the whitelist
+    /// Note: this does not kick the agent, but instead means they will not be able to re-register
+    RemoveAgentFromWhitelist { agent_address: String },
     /// Action registers new agent
     RegisterAgent { payable_account_id: Option<String> },
     /// Action for updating agents
@@ -60,6 +73,10 @@ pub enum ExecuteMsg {
     UpdateConfig { config: UpdateConfig },
     /// Tick action will remove unactive agents periodically or do and any other internal cron tasks
     Tick {},
+    /// Pauses all operations for this contract, can only be done by pause_admin
+    PauseContract {},
+    /// unpauses all operations for this contract, can only be unpaused by owner_addr
+    UnpauseContract {},
 }
 
 /// Agent request response
@@ -75,12 +92,23 @@ pub enum QueryMsg {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
+    /// Gets the approved agents' addresses, pagination is supported
+    /// This only applies when Config's `public_registration` is false
+    #[returns[ApprovedAgentAddresses]]
+    GetApprovedAgentAddresses {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
     /// Gets the specified agent tasks
     #[returns[AgentTaskResponse]]
     GetAgentTasks { account_id: String },
     /// Gets the agent contract configuration
     #[returns[crate::types::Config]]
     Config {},
+
+    /// Helper for query responses on versioned contracts
+    #[returns[bool]]
+    Paused {},
 }
 /// Response containing active/pending agents
 #[cw_serde]
@@ -89,6 +117,12 @@ pub struct GetAgentIdsResponse {
     pub active: Vec<Addr>,
     /// Pending agent list
     pub pending: Vec<Addr>,
+}
+/// Response containing approved agents' addresses
+#[cw_serde]
+pub struct ApprovedAgentAddresses {
+    /// Active agent list
+    pub approved_addresses: Vec<Addr>,
 }
 /// Agent data
 #[cw_serde]
@@ -127,15 +161,6 @@ pub struct AgentTaskResponse {
 /// Updatable agents contract configuration
 #[cw_serde]
 pub struct UpdateConfig {
-    /// Contract owner address
-    pub owner_addr: Option<String>,
-
-    /// Contract paused state, if contract is paused some action will not be available for execution
-    pub paused: Option<bool>,
-
-    /// Address of the factory contract
-    pub croncat_factory_addr: Option<String>,
-
     /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: Option<(String, [u8; 2])>,
 
@@ -156,4 +181,7 @@ pub struct UpdateConfig {
 
     /// Minimum agent count in active queue to be untouched by bad agent verifier
     pub min_active_agent_count: Option<u16>,
+
+    /// Determines whether agent registration is public or uses the whitelist (APPROVED_AGENTS Map)
+    pub public_registration: Option<bool>,
 }
