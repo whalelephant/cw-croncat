@@ -18,6 +18,9 @@ config({ path: '.env' })
 const seedPhrase: string = process.env.SEED_PHRASE
 const prefix: string = process.env.PREFIX
 const endpoint: string = process.env.RPC_ENDPOINT
+// NOTE: MUST Be a contract wallet - multisig prefered!
+// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
+const pauseAdminAddress: string = process.env.PAUSE_ADMIN_MULTISIG || ''
 const denom: string = process.env.DENOM
 const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
@@ -34,11 +37,26 @@ const start = async () => {
 			// for easier coinage management
 			stringToPath(`m/44'/118'/0'/0/0`),
 			stringToPath(`m/44'/118'/0'/0/1`),
+			stringToPath(`m/44'/118'/0'/0/2`),
+			stringToPath(`m/44'/118'/0'/0/3`),
+			stringToPath(`m/44'/118'/0'/0/4`),
 		]
 	})
 	const accts = await signerWallet.getAccounts()
 	const userAddress = accts[0].address
 	const agent2Address = accts[1].address
+	const agent3Address = accts[2].address
+	const agent4Address = accts[3].address
+	const treasuryAddress = accts[4].address
+	console.table({
+		userAddress,
+		agent2Address,
+		agent3Address,
+		agent4Address,
+		treasuryAddress,
+		pauseAdminAddress,
+	});
+
 	const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
 	const httpBatchClient = new HttpBatchClient(endpoint, {
 			batchSizeLimit: 2,

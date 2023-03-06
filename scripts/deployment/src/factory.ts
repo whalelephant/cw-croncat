@@ -18,7 +18,12 @@ export class FactoryClient {
     this.querier = querier;
 	}
 
-	async deploy(artifactsRoot: string, sender: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
+	async deploy(
+    artifactsRoot: string,
+    sender: string,
+    uploadGas: StdFee,
+    executeGas: StdFee
+  ): Promise<[number, string]> {
 		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
 		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
 		const codeId = uploadRes.codeId
