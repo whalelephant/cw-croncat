@@ -9,6 +9,7 @@
     "start": "node build/index.js",
     "go": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/index.js",
     "e2e": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2e.js",
+    "whitelist": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/whitelist.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -30,6 +31,7 @@
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
     "toml": "^3.0.0",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "yargs": "^17.7.1"
   }
 }
