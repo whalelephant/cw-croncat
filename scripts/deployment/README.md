@@ -32,6 +32,6 @@ npm run e2e
 ## Add agent to address whitelist
 
 ```bash
-# runs full scope of contexts for end to end testing
+# adds an agent address to the whitelist, so they can register
 npm run whitelist stars15434j0vvv8un4hs0sfx8avmnc7yp...
 ```
