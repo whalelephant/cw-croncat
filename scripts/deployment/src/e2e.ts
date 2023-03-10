@@ -4,7 +4,7 @@ import { coins } from "@cosmjs/proto-signing"
 import { config } from "dotenv"
 import * as fs from "fs"
 import { calculateFee } from "@cosmjs/stargate"
-import { getChainByChainName, getSupportedNetworks } from './utils'
+import { getChainByChainName, getSupportedNetworks, sleep } from './utils'
 import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
@@ -28,22 +28,37 @@ const e2e = async (cwClient) => {
 		// create a map instead of array
 		contracts[d.name] = { codeId: d.code_id, address: d.address }
 	})
+	if (!contracts?.factory?.address) {
+		console.error(`No deployed factory found for ${cwClient.chain.pretty_name}`)
+		process.exit()
+	}
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient);
-	const managerClient = new ManagerClient(cwClient);
-	const agentClient = new AgentClient(cwClient);
-	const taskClient = new TaskClient(cwClient);
+	const factoryClient = new FactoryClient(cwClient, contracts.factory.address);
 	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
 	// Pre-logic: get latest versions from factory
-	const allVersions: any[] = await factoryClient.getLatestContracts()
+	// NOTE: Could use the contracts object above, but def wanna be overly same as production
+	let allVersions: any[]
+	try {
+		allVersions = await factoryClient.getLatestContracts()
+	} catch (e) {
+		console.log('factory allVersions error', e);
+	}
 	const versions: any = {}
 	allVersions.forEach((v: any) => {
 		// create a map instead of array
 		versions[v.contract_name] = v.metadata
 	})
-	// console.log('factory allVersions', JSON.stringify(allVersions));
+
+	if (!versions?.manager?.contract_addr || !versions?.agents?.contract_addr || !versions?.tasks?.contract_addr) {
+		console.error(`Missing deployed contracts for ${cwClient.chain.pretty_name}, try cmd 'yarn go ${cwClient.chain.chain_name}' again!`)
+		process.exit()
+	}
+
+	const managerClient = new ManagerClient(cwClient, versions.manager.contract_addr);
+	const agentClient = new AgentClient(cwClient, versions.agents.contract_addr);
+	const taskClient = new TaskClient(cwClient, versions.tasks.contract_addr);
 
 	// TODO: Replace with better example
 	// const task1 = {
@@ -77,7 +92,7 @@ const e2e = async (cwClient) => {
 					"bank": {
 						"send": {
 							"to_address": versions.manager.contract_addr,
-							"amount": coins(amount, cwClient.denom)
+							"amount": coins(amount, cwClient.fee_token.denom)
 						}
 					}
 				},
@@ -123,21 +138,22 @@ const e2e = async (cwClient) => {
 		}
 	}
 
-	// Add 3rd agent to whitelist
-	try {
-		const r = await factoryClient.addWhitelistedAgent(
-			versions.agents.contract_addr,
-			cwClient.accounts.agent3,
-			executeGas
-		);
-		console.info(`Agents Add to Whitelist SUCCESS\n`, JSON.stringify(r), '\n')
-	} catch (e) {
-		console.info(`Agents Add to Whitelist ERROR`, e)
-	}
+	// NOTE: Only uncomment if needed!
+	// // Add 3rd agent to whitelist
+	// try {
+	// 	const r = await factoryClient.addWhitelistedAgent(
+	// 		versions.agents.contract_addr,
+	// 		cwClient.accounts.agent3,
+	// 		executeGas
+	// 	);
+	// 	console.info(`Agents Add to Whitelist SUCCESS\n`, JSON.stringify(r), '\n')
+	// } catch (e) {
+	// 	console.info(`Agents Add to Whitelist ERROR`, e)
+	// }
 
 	// Register & check status
 	try {
-		const r = await agentClient.register(cwClient.accounts.agent1, versions.agents.contract_addr);
+		const r = await agentClient.register(cwClient.accounts.agent1, executeGas);
 		console.info(`Agents Register SUCCESS\n`, JSON.stringify(r), '\n')
 	} catch (e) {
 		console.info(`Agents Register ERROR`, e)
@@ -156,7 +172,7 @@ const e2e = async (cwClient) => {
 			versions.tasks.contract_addr,
 			factoryTask1,
 			executeGas,
-			coins(60_000, cwClient.denom)
+			coins(60_000, cwClient.fee_token.denom)
 		);
 		console.info(`Factory Task 1 Create SUCCESS\n`, JSON.stringify(t1), '\n')
 	} catch (e) {
@@ -164,13 +180,13 @@ const e2e = async (cwClient) => {
 	}
 	// TODO: Bring back once better example above
 	// try {
-	// 	const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task1, coins(100_000, cwClient.denom));
+	// 	const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task1, coins(100_000, cwClient.fee_token.denom));
 	// 	console.info(`Task 1 Create SUCCESS\n`, JSON.stringify(t1), '\n')
 	// } catch (e) {
 	// 	console.info(`Task 1 Create ERROR`, e)
 	// }
 	try {
-		const t2 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(1), coins(100_000, cwClient.denom));
+		const t2 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(1), coins(100_000, cwClient.fee_token.denom));
 		console.info(`Task 2 Create SUCCESS\n`, JSON.stringify(t2), '\n')
 	} catch (e) {
 		console.info(`Task 2 Create ERROR`, e)
@@ -193,23 +209,29 @@ const e2e = async (cwClient) => {
 
 	// create another 2 tasks so second agent can be nominated
 	try {
-		const t3 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(2), coins(260_000, cwClient.denom));
+		const t3 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(2), coins(260_000, cwClient.fee_token.denom));
 		console.info(`Task 3 Create SUCCESS\n`, JSON.stringify(t3), '\n')
 	} catch (e) {
 		console.info(`Task 3 Create ERROR`, e)
 	}
 	try {
-		const t4 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(3), coins(460_000, cwClient.denom));
-		console.info(`Task 3 Create SUCCESS\n`, JSON.stringify(t4), '\n')
+		const t4 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(3), coins(460_000, cwClient.fee_token.denom));
+		console.info(`Task 4 Create SUCCESS\n`, JSON.stringify(t4), '\n')
 	} catch (e) {
-		console.info(`Task 3 Create ERROR`, e)
+		console.info(`Task 4 Create ERROR`, e)
 	}
+
+	// Sleep a couple blocks, because for whatever reason, we need chain sync'd for sure
+	await sleep(12 * 1000);
 
 	// confirm agent is nominated
 	try {
 		const as2 = await agentClient.status(cwClient.accounts.agent2);
 		console.info(`Agent 2 Nominated`, as2.agent.status)
-		if (as2.agent.status !== 'nominated') process.exit(1)
+		if (as2.agent.status !== 'nominated') {
+			console.info(`Agent 2 Nominated Still pending, should be nominated!`)
+			process.exit(1)
+		}
 	} catch (e) {
 		console.info(`Agent 2 Nominated ERROR`, e)
 	}
@@ -232,7 +254,7 @@ const e2e = async (cwClient) => {
 
 	// 1st agent do proxycall
 	try {
-		const a1pc = await managerClient.proxyCall(cwClient.accounts.deployer, executeGas);
+		const a1pc = await managerClient.proxyCall(cwClient.accounts.agent1, executeGas);
 		console.info(`Agent 1 ProxyCall\n`, JSON.stringify(a1pc), '\n')
 	} catch (e) {
 		console.info(`Agent 1 ProxyCall ERROR`, e)
@@ -293,8 +315,11 @@ const e2e = async (cwClient) => {
 	// Loop and remove all tasks
 	for await (const task of tasks) {
 		try {
-			const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
-			console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
+			// remove all tasks except the tick from factory!!
+			if (task.owner_addr != contracts.factory.address) {
+				const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
+				console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
+			}
 		} catch (e) {
 			console.info(`Task Remove ERROR`, e)
 		}

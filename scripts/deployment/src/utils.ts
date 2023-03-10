@@ -81,3 +81,7 @@ export const getTaskHashFromLogs = (data: any) => {
 
   return task_hash
 }
+
+export function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}

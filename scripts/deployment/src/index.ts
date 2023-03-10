@@ -18,16 +18,36 @@ const deployNetwork = async (cwClient) => {
 
     // Check for balances first, and attempt to dust other accounts if needed
     const accountBalances = await cwClient.getAllAccountsBalances()
+    const sendAmount = 300_000 // `EX: 0.3 juno` - enough for an agent to run 4 tasks and withdraw
     const deployer = accountBalances.find(ab => ab.id === 'deployer')
-    const p = []
-    const sendAmount = 5_000_000 // `EX: 0.5 juno`
+    // first make sure we can even do this thing
+    if (!deployer || !deployer.amount || parseInt(`${deployer.amount}`, 10) < accountBalances.length * sendAmount) {
+        console.error(`${deployer.id} ${deployer.address} does not have enough funds! Needs at least ${accountBalances.length * sendAmount} ${cwClient.fee_token.denom}`)
+        process.exit()
+    }
+
+    const ps = []
     accountBalances.forEach(ab => {
-        if (ab.id != 'deployer' && parseInt(`${ab.amount}`, 10) === 0) {
-            p.push(cwClient.sendTokens(ab.id, sendAmount))
+        const curAmt = parseInt(`${ab.amount}`, 10)
+        if (ab.id != 'deployer' && curAmt < sendAmount) {
+            ps.push([ab.id, sendAmount - curAmt])
         }
     })
     // we gotsta send funds for all to participate bruh
-    if (p.length) await Promise.all(p)
+    // Needs to be sequential, or we get: "account sequence mismatch"
+    // NOTE: Someday we set this up in single batch TX 💸
+    if (ps.length) {
+        const series = async (ids) => {
+            for (const act of ids) {
+                console.log(`Sending ${act[1]} ${cwClient.fee_token.denom} to ${act[0]}`)
+                await cwClient.sendTokens(act[0], act[1])
+            }
+        }
+
+        await series(ps)
+        await cwClient.listAccounts()
+    }
+    return;
 
     // Factory
     const factoryClient = new FactoryClient(cwClient);
@@ -118,8 +138,11 @@ const start = async () => {
     const factoryDeploys = await Promise.all(p)
 
     // Store this output, for use in agent & website envs
-    await fs.writeFileSync(`${artifactsRoot}/deployed_factories.json`, JSON.stringify(factoryDeploys))
-    console.table(factoryDeploys)
+    // TODO: Setup a read, so we don't overwrite other networks not in this list!!
+    if (factoryDeploys && factoryDeploys.length) {
+        await fs.writeFileSync(`${artifactsRoot}/deployed_factories.json`, JSON.stringify(factoryDeploys))
+        console.table(factoryDeploys)
+    }
 
     process.exit()
 }

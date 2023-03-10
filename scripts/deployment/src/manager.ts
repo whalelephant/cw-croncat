@@ -13,8 +13,10 @@ export class ManagerClient {
 	codeId: number;
 	address: string;
 
-	constructor(client: DeploySigner) {
+	constructor(client: DeploySigner, address?: string) {
 		this.client = client;
+
+		if (address) this.address = address;
 	}
 
 	async deploy(

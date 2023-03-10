@@ -79,7 +79,7 @@ export class DeploySigner {
     try {
       const rpcFin = await Promise.any(p)
       if (rpcFin.status === 200) endpoint = rpcFin.config.url.replace('/status', '')
-      console.log('RPC endpoint won the race:', endpoint);
+      // console.log('RPC endpoint won the race:', endpoint);
     } catch (e) {
       return Promise.reject(e)
     }

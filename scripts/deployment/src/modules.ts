@@ -10,7 +10,6 @@ export class ModulesClient {
   uploadGas: any;
   executeGas: any;
   codeId: number;
-  address: string;
 
   constructor(client: DeploySigner) {
     this.client = client;

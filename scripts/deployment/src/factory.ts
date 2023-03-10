@@ -15,9 +15,11 @@ export class FactoryClient {
   codeId: number;
   address: string;
 
-  constructor(client: DeploySigner, querier?: QueryClient) {
+  constructor(client: DeploySigner, address?: string, querier?: QueryClient) {
 		this.client = client;
     this.querier = querier || client.querier;
+
+    if (address) this.address = address;
 	}
 
 	async deploy(

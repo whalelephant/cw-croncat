@@ -1,53 +1,26 @@
-import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { coins, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
-import { HdPath, stringToPath } from "@cosmjs/crypto"
-import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
-import { QueryClient } from "@cosmjs/stargate";
-import { fromHex } from "@cosmjs/encoding";
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
+import { coins } from "@cosmjs/proto-signing"
 import { config } from "dotenv"
-import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
-import * as util from "util"
+import { calculateFee } from "@cosmjs/stargate"
+import { getChainByChainName, getSupportedNetworks } from './utils'
+import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
 import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
 import { ModulesClient } from './modules';
-import { tasks } from './taskSampleData';
-import { getTaskHashFromLogs } from './utils'
 config({ path: '.env' })
-// Get values from the environment variables located in the .env file
-const seedPhrase: string = process.env.SEED_PHRASE
-const prefix: string = process.env.PREFIX
-const endpoint: string = process.env.RPC_ENDPOINT
-const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
-// Gas vals
-const executeGas = calculateFee(555_000, defaultGasPrice)
+const e2eTasks = async (cwClient) => {
+	console.info(`🏖️ Starting ${cwClient.chain.pretty_name} End 2 End Task Variants 🌋`)
 
-const start = async () => {
-	console.info(`🏖️ Starting End 2 End Chex 🌋`)
+	// Gas vals
+	const executeGas = calculateFee(999_000, cwClient.defaultGasPrice)
 
-	const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, {
-		prefix,
-		hdPaths: [
-			// for easier coinage management
-			stringToPath(`m/44'/118'/0'/0/0`),
-			stringToPath(`m/44'/118'/0'/0/1`),
-		]
-	})
-	const accts = await signerWallet.getAccounts()
-	const userAddress = accts[0].address
-	const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-	const httpBatchClient = new HttpBatchClient(endpoint, {
-			batchSizeLimit: 2,
-			dispatchInterval: 500
-	})
-	const tmClient = await Tendermint34Client.create(httpBatchClient)
-	const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
-	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, 'utf8')
+	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${cwClient.chain.chain_name}-deployed_contracts.json`, 'utf8')
 	if (!rawDeployed) process.exit(1)
 	const deployedContracts = JSON.parse(rawDeployed)
 	const contracts: any = {}
@@ -56,27 +29,28 @@ const start = async () => {
 		contracts[d.name] = { codeId: d.code_id, address: d.address }
 	})
 
-  // Get blockchain status
-  let currentBlockHeight
-  try {
-    const r = await tmClient.status()
-    if (r?.syncInfo?.latestBlockHeight) currentBlockHeight = r.syncInfo.latestBlockHeight
-    console.log('Current Block Height', currentBlockHeight);
-    if (!currentBlockHeight) process.exit(1)
-  } catch (e) {
-    console.info(`Blockchain Status ERROR`, e)
-    process.exit(1)
-  }
+	// TODO: bring back
+  // // Get blockchain status
+  // let currentBlockHeight
+  // try {
+  //   const r = await tmClient.status()
+  //   if (r?.syncInfo?.latestBlockHeight) currentBlockHeight = r.syncInfo.latestBlockHeight
+  //   console.log('Current Block Height', currentBlockHeight);
+  //   if (!currentBlockHeight) process.exit(1)
+  // } catch (e) {
+  //   console.info(`Blockchain Status ERROR`, e)
+  //   process.exit(1)
+  // }
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient, queryClient);
+	const factoryClient = new FactoryClient(cwClient);
 	const managerClient = new ManagerClient(cwClient);
-	const agentClient = new AgentClient(cwClient, queryClient);
-	const taskClient = new TaskClient(cwClient, queryClient);
+	const agentClient = new AgentClient(cwClient);
+	const taskClient = new TaskClient(cwClient);
 	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
 	// Pre-logic: get latest versions from factory
-	const allVersions: any[] = await factoryClient.getLatestContracts(contracts.factory.address)
+	const allVersions: any[] = await factoryClient.getLatestContracts()
 	const versions: any = {}
 	allVersions.forEach((v: any) => {
 		// create a map instead of array
@@ -143,7 +117,7 @@ const start = async () => {
 	// Get list of all tasks
 	let tasksFound = []
 	try {
-		const t = await taskClient.getTasks(versions.tasks.contract_addr);
+		const t = await taskClient.getTasks();
 		console.info(`Tasks`, t.length)
 		if (t.length <= 0) process.exit(1)
     tasksFound = t
@@ -154,12 +128,52 @@ const start = async () => {
 	// Loop and remove all tasks
   for await (const task of tasksFound) {
 		try {
-			const t = await taskClient.remove(task.owner_addr, versions.tasks.contract_addr, executeGas, task.task_hash);
+			const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
 			console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
 		} catch (e) {
 			console.info(`Task Remove ERROR`, e)
 		}
 	}
+
+	process.exit()
+}
+
+// Bootstrap all networks before deploying contexts
+const start = async () => {
+	const args = yargs(hideBin(process.argv)).argv
+	let chainName
+	let networks = []
+	if (args._ && args._.length > 0) {
+		chainName = args._[0]
+		const chain = getChainByChainName(chainName)
+		if (chain) {
+			networks = [chain]
+		} else {
+			console.error(`Couldn't find ${chainName}, please try different chain_name and try again.`)
+			process.exit()
+		}
+	} else {
+		networks = getSupportedNetworks()
+	}
+	if (!networks || !networks.length) process.exit();
+	// Instantiate all the clients needed
+	const networkClients = {}
+	try {
+		await Promise.all(networks.map(async n => {
+			const ds = new DeploySigner()
+			networkClients[n.chain_name] = await ds.init(n)
+			return n
+		}))
+	} catch (e) {
+		console.log(e);
+	}
+
+	if (!Object.keys(networkClients) || !Object.keys(networkClients).length) process.exit()
+
+	// loop all clients and display their address/balances
+	const p = []
+	Object.keys(networkClients).forEach(k => p.push(e2eTasks(networkClients[k])))
+	await Promise.all(p)
 
 	process.exit()
 }
