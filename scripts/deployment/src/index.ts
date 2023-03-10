@@ -47,7 +47,6 @@ const deployNetwork = async (cwClient) => {
         await series(ps)
         await cwClient.listAccounts()
     }
-    return;
 
     // Factory
     const factoryClient = new FactoryClient(cwClient);
