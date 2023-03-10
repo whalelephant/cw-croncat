@@ -1,25 +1,24 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
-
 use crate::distributor::*;
 use crate::error::ContractError;
+use crate::error::ContractError::InvalidConfigurationValue;
 use crate::external::*;
 use crate::msg::*;
 use crate::state::*;
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     has_coins, to_binary, Addr, Attribute, Binary, Coin, Deps, DepsMut, Empty, Env, MessageInfo,
-    QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
+    Order, QuerierWrapper, Response, StdError, StdResult, Storage, Uint64,
 };
-use croncat_sdk_agents::msg::AgentInfo;
-use croncat_sdk_agents::msg::TaskStats;
 use croncat_sdk_agents::msg::{
-    AgentResponse, AgentTaskResponse, GetAgentIdsResponse, UpdateConfig,
+    AgentInfo, AgentResponse, AgentTaskResponse, ApprovedAgentAddresses, GetAgentIdsResponse,
+    TaskStats, UpdateConfig,
 };
-use croncat_sdk_agents::types::{Agent, AgentStatus, Config};
+use croncat_sdk_agents::types::{Agent, AgentNominationStatus, AgentStatus, Config};
 use croncat_sdk_core::internal_messages::agents::{AgentOnTaskCompleted, AgentOnTaskCreated};
+use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_LIMIT};
 use cw2::set_contract_version;
-use std::cmp;
-use std::ops::Div;
+use std::cmp::min;
 
 pub(crate) const CONTRACT_NAME: &str = "crate:croncat-agents";
 pub(crate) const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -32,45 +31,90 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let InstantiateMsg {
-        owner_addr,
+        pause_admin,
         version,
         croncat_manager_key,
         croncat_tasks_key,
         agent_nomination_duration,
         min_tasks_per_agent,
-        min_coin_for_agent_registration,
+        min_coins_for_agent_registration,
         agents_eject_threshold,
+        min_active_agent_count,
+        public_registration,
+        allowed_agents,
     } = msg;
 
-    let owner_addr = owner_addr
-        .map(|human| deps.api.addr_validate(&human))
-        .transpose()?
-        .unwrap_or_else(|| info.sender.clone());
+    validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+    validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+    validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+    validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+    validate_config_non_zero_u64(
+        min_coins_for_agent_registration,
+        "min_coins_for_agent_registration",
+    )?;
+
+    // Validate all entries
+    let validated_allowed_agents = if let Some(agent_addrs) = &allowed_agents {
+        map_validate(&deps, agent_addrs)?
+    } else {
+        vec![]
+    };
+
+    let owner_addr = info.sender.clone();
+
+    // Validate pause_admin
+    // MUST: only be contract address
+    // MUST: not be same address as factory owner (DAO)
+    // Any factory action should be done by the owner_addr
+    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
+    if owner_addr == pause_addr || !(63usize..=64usize).contains(&pause_addr.to_string().len()) {
+        return Err(ContractError::InvalidPauseAdmin {});
+    }
 
     let config = &Config {
         min_tasks_per_agent: min_tasks_per_agent.unwrap_or(DEFAULT_MIN_TASKS_PER_AGENT),
         croncat_factory_addr: info.sender,
         croncat_manager_key,
         croncat_tasks_key,
-        agent_nomination_duration: agent_nomination_duration.unwrap_or(DEFAULT_NOMINATION_DURATION),
+        agent_nomination_block_duration: agent_nomination_duration
+            .unwrap_or(DEFAULT_NOMINATION_BLOCK_DURATION),
         owner_addr,
-        paused: false,
+        pause_admin,
         agents_eject_threshold: agents_eject_threshold.unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
-        min_coins_for_agent_registration: min_coin_for_agent_registration
+        min_coins_for_agent_registration: min_coins_for_agent_registration
             .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
+        min_active_agent_count: min_active_agent_count.unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+        public_registration,
     };
 
+    // Store the approved agents if public registration is closed
+    // due to initial, progressive decentralization.
+    if !public_registration {
+        for agent_addr in validated_allowed_agents {
+            APPROVED_AGENTS
+                .save(deps.storage, &agent_addr, &Empty {})
+                .unwrap();
+        }
+    }
+
     CONFIG.save(deps.storage, config)?;
-    AGENTS_ACTIVE.save(deps.storage, &vec![])?; //Init active agents empty vector
+    PAUSED.save(deps.storage, &false)?;
+    AGENTS_ACTIVE.save(deps.storage, &vec![])?; // Init active agents empty vector
     set_contract_version(
         deps.storage,
         CONTRACT_NAME,
         version.unwrap_or_else(|| CONTRACT_VERSION.to_string()),
     )?;
+    AGENT_NOMINATION_STATUS.save(
+        deps.storage,
+        &AgentNominationStatus {
+            start_height_of_nomination: None,
+            tasks_created_from_last_nomination: 0,
+        },
+    )?;
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("paused", config.paused.to_string())
         .add_attribute("owner", config.owner_addr.to_string()))
 }
 
@@ -81,10 +125,14 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::GetAgentIds { from_index, limit } => {
             to_binary(&query_get_agent_ids(deps, from_index, limit)?)
         }
+        QueryMsg::GetApprovedAgentAddresses { from_index, limit } => to_binary(
+            &query_get_approved_agent_addresses(deps, from_index, limit)?,
+        ),
         QueryMsg::GetAgentTasks { account_id } => {
             to_binary(&query_get_agent_tasks(deps, env, account_id)?)
         }
         QueryMsg::Config {} => to_binary(&CONFIG.load(deps.storage)?),
+        QueryMsg::Paused {} => to_binary(&PAUSED.load(deps.storage)?),
     }
 }
 
@@ -107,9 +155,17 @@ pub fn execute(
         }
         ExecuteMsg::CheckInAgent {} => accept_nomination_agent(deps, info, env),
         ExecuteMsg::OnTaskCreated(msg) => on_task_created(env, deps, info, msg),
+        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
         ExecuteMsg::UpdateConfig { config } => execute_update_config(deps, info, config),
         ExecuteMsg::Tick {} => execute_tick(deps, env),
-        ExecuteMsg::OnTaskCompleted(msg) => on_task_completed(deps, info, msg),
+        ExecuteMsg::PauseContract {} => execute_pause(deps, info),
+        ExecuteMsg::UnpauseContract {} => execute_unpause(deps, info),
+        ExecuteMsg::AddAgentToWhitelist { agent_address } => {
+            execute_add_agent_to_whitelist(env, deps, info, agent_address)
+        }
+        ExecuteMsg::RemoveAgentFromWhitelist { agent_address } => {
+            execute_remove_agent_from_whitelist(env, deps, info, agent_address)
+        }
     }
 }
 
@@ -125,10 +181,9 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentR
     };
 
     let config: Config = CONFIG.load(deps.storage)?;
-    let total_tasks = croncat_tasks_contract::query_total_tasks(deps, &config)?;
     let rewards =
         croncat_manager_contract::query_agent_rewards(&deps.querier, &config, account_id.as_str())?;
-    let agent_status = get_agent_status(deps.storage, env, &account_id, total_tasks)
+    let agent_status = get_agent_status(deps.storage, env, &account_id)
         // Return wrapped error if there was a problem
         .map_err(|err| StdError::GenericErr {
             msg: err.to_string(),
@@ -158,16 +213,34 @@ fn query_get_agent_ids(
     let active_loaded: Vec<Addr> = AGENTS_ACTIVE.load(deps.storage)?;
     let active = active_loaded
         .into_iter()
-        .skip(from_index.unwrap_or(0) as usize)
-        .take(limit.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect();
     let pending: Vec<Addr> = AGENTS_PENDING
         .iter(deps.storage)?
-        .skip(from_index.unwrap_or(0) as usize)
-        .take(limit.unwrap_or(u64::MAX) as usize)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
         .collect::<StdResult<Vec<Addr>>>()?;
 
     Ok(GetAgentIdsResponse { active, pending })
+}
+
+/// Get a list of the approved agent addresses
+/// This is only relevant when Config's `public_registration` value is true
+fn query_get_approved_agent_addresses(
+    deps: Deps,
+    from_index: Option<u64>,
+    limit: Option<u64>,
+) -> StdResult<ApprovedAgentAddresses> {
+    let agent_addresses = APPROVED_AGENTS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .skip(from_index.unwrap_or(DEFAULT_PAGINATION_FROM_INDEX) as usize)
+        .take(limit.unwrap_or(DEFAULT_PAGINATION_LIMIT) as usize)
+        .collect::<Result<Vec<Addr>, StdError>>();
+
+    Ok(ApprovedAgentAddresses {
+        approved_addresses: agent_addresses.unwrap(),
+    })
 }
 
 fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<AgentTaskResponse> {
@@ -202,7 +275,8 @@ fn query_get_agent_tasks(deps: Deps, env: Env, account_id: String) -> StdResult<
         .map_err(|err| StdError::generic_err(err.to_string()))
 }
 
-/// Add any account as an agent that will be able to execute tasks.
+/// If registration is public, adds any account as an agent that will be able to execute tasks.
+/// If registration is restricted to the whitelist, it's consulted.
 /// Registering allows for rewards accruing with micro-payments which will accumulate to more long-term.
 ///
 /// Optional Parameters:
@@ -216,12 +290,16 @@ fn register_agent(
     if !info.funds.is_empty() {
         return Err(ContractError::NoFundsShouldBeAttached);
     }
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
+    if PAUSED.load(deps.storage)? {
         return Err(ContractError::ContractPaused);
     }
-
+    let c = CONFIG.load(deps.storage)?;
     let account = info.sender;
+
+    // Check if registration is public, return error if the calling agent isn't allowed
+    if !c.public_registration && !APPROVED_AGENTS.has(deps.storage, &account) {
+        return Err(ContractError::UnapprovedAgent {});
+    }
 
     // REF: https://github.com/CosmWasm/cw-tokens/tree/main/contracts/cw20-escrow
     // Check if native token balance is sufficient for a few txns, in this case 4 txns
@@ -260,7 +338,7 @@ fn register_agent(
     };
 
     let storage = deps.storage;
-    let agent = AGENTS.update(
+    AGENTS.update(
         storage,
         &account,
         |a: Option<Agent>| -> Result<_, ContractError> {
@@ -290,9 +368,7 @@ fn register_agent(
     )?;
     Ok(Response::new()
         .add_attribute("action", "register_agent")
-        .add_attribute("agent_status", format!("{:?}", agent_status.to_string()))
-        .add_attribute("register_start", agent.register_start.nanos().to_string())
-        .add_attribute("payable_account_id", agent.payable_account_id))
+        .add_attribute("agent_status", agent_status.to_string()))
 }
 
 /// Update agent details, specifically the payable account id for an agent.
@@ -303,12 +379,11 @@ fn update_agent(
     payable_account_id: String,
 ) -> Result<Response, ContractError> {
     let payable_account_id = deps.api.addr_validate(&payable_account_id)?;
-    let c: Config = CONFIG.load(deps.storage)?;
-    if c.paused {
+    if PAUSED.load(deps.storage)? {
         return Err(ContractError::ContractPaused);
     }
 
-    let agent = AGENTS.update(
+    AGENTS.update(
         deps.storage,
         &info.sender,
         |a: Option<Agent>| -> Result<_, ContractError> {
@@ -323,9 +398,7 @@ fn update_agent(
         },
     )?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_agent")
-        .add_attribute("payable_account_id", agent.payable_account_id))
+    Ok(Response::new().add_attribute("action", "update_agent"))
 }
 
 /// Allows an agent to accept a nomination within a certain amount of time to become an active agent.
@@ -341,46 +414,35 @@ fn accept_nomination_agent(
     let mut pending_queue_iter = AGENTS_PENDING.iter(deps.storage)?;
     // Agent must be in the pending queue
     // Get the position in the pending queue
-    let agent_position = if let Some(agent_position) = pending_queue_iter.position(|address| {
-        if let Ok(addr) = address {
-            addr == info.sender
-        } else {
-            false
-        }
-    }) {
-        agent_position
-    } else {
-        // Sender's address does not exist in the agent pending queue
-        return Err(ContractError::AgentNotRegistered);
-    };
-    let time_difference = if let Some(nomination_start) = AGENT_NOMINATION_BEGIN_TIME
-        .load(deps.storage)
-        .unwrap_or_default()
-    {
-        env.block.time.seconds() - nomination_start.seconds()
-    } else {
-        // edge case if last agent left
-        if active_agents.is_empty() && agent_position == 0 {
-            active_agents.push(info.sender.clone());
-            AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
+    let agent_position = pending_queue_iter
+        .position(|a| a.map_or_else(|_| false, |v| info.sender == v))
+        .ok_or(ContractError::AgentNotPending)?;
+    let agent_nomination_status = AGENT_NOMINATION_STATUS.load(deps.storage)?;
+    // edge case if last agent left
+    if active_agents.is_empty() && agent_position == 0 {
+        active_agents.push(info.sender.clone());
+        AGENTS_ACTIVE.save(deps.storage, &active_agents)?;
 
-            AGENTS_PENDING.pop_front(deps.storage)?;
-            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
-            return Ok(Response::new()
-                .add_attribute("action", "accept_nomination_agent")
-                .add_attribute("new_agent", info.sender.as_str()));
-        } else {
-            // No agents can join yet
-            return Err(ContractError::NotAcceptingNewAgents);
-        }
-    };
+        AGENTS_PENDING.pop_front(deps.storage)?;
+        AGENT_NOMINATION_STATUS.save(
+            deps.storage,
+            &AgentNominationStatus {
+                start_height_of_nomination: None,
+                tasks_created_from_last_nomination: 0,
+            },
+        )?;
+        return Ok(Response::new()
+            .add_attribute("action", "accept_nomination_agent")
+            .add_attribute("new_agent", info.sender.as_str()));
+    }
 
     // It works out such that the time difference between when this is called,
     // and the agent nomination begin time can be divided by the nomination
     // duration and we get an integer. We use that integer to determine if an
     // agent is allowed to get let in. If their position in the pending queue is
     // less than or equal to that integer, they get let in.
-    let max_index = time_difference.div(c.agent_nomination_duration as u64);
+    let max_index = max_agent_nomination_index(&c, env, agent_nomination_status)?
+        .ok_or(ContractError::TryLaterForNomination)?;
     let kicked_agents = if agent_position as u64 <= max_index {
         // Make this agent active
         // Update state removing from pending queue
@@ -404,7 +466,13 @@ fn accept_nomination_agent(
 
         // and update the config, setting the nomination begin time to None,
         // which indicates no one will be nominated until more tasks arrive
-        AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &None)?;
+        AGENT_NOMINATION_STATUS.save(
+            deps.storage,
+            &AgentNominationStatus {
+                start_height_of_nomination: None,
+                tasks_created_from_last_nomination: 0,
+            },
+        )?;
         kicked_agents
     } else {
         return Err(ContractError::TryLaterForNomination);
@@ -425,10 +493,10 @@ fn unregister_agent(
     agent_id: &Addr,
     from_behind: Option<bool>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(storage)?;
-    if config.paused {
+    if PAUSED.load(storage)? {
         return Err(ContractError::ContractPaused);
     }
+    let config: Config = CONFIG.load(storage)?;
     let agent = AGENTS
         .may_load(storage, agent_id)?
         .ok_or(ContractError::AgentNotRegistered {})?;
@@ -478,7 +546,7 @@ fn unregister_agent(
     AGENTS.remove(storage, agent_id);
 
     let responses = Response::new()
-        //Send withdraw rewards message to manager contract
+        // Send withdraw rewards message to manager contract
         .add_message(msg)
         .add_attribute("action", "unregister_agent")
         .add_attribute("account_id", agent_id);
@@ -491,58 +559,71 @@ pub fn execute_update_config(
     info: MessageInfo,
     msg: UpdateConfig,
 ) -> Result<Response, ContractError> {
-    let new_config = CONFIG.update(deps.storage, |config| {
-        // Deconstruct, so we don't miss any fields
-        let UpdateConfig {
-            owner_addr,
-            paused,
-            croncat_factory_addr,
-            croncat_manager_key,
-            croncat_tasks_key,
-            min_tasks_per_agent,
-            agent_nomination_duration,
+    // Deconstruct, so we don't miss any fields
+    let UpdateConfig {
+        croncat_manager_key,
+        croncat_tasks_key,
+        min_tasks_per_agent,
+        agent_nomination_duration,
+        min_coins_for_agent_registration,
+        agents_eject_threshold,
+        min_active_agent_count,
+        public_registration,
+    } = msg;
+
+    CONFIG.update(deps.storage, |config| {
+        validate_config_non_zero_u16(agent_nomination_duration, "agent_nomination_duration")?;
+        validate_config_non_zero_u16(min_active_agent_count, "min_active_agent_count")?;
+        validate_config_non_zero_u64(min_tasks_per_agent, "min_tasks_per_agent")?;
+        validate_config_non_zero_u64(agents_eject_threshold, "agents_eject_threshold")?;
+        validate_config_non_zero_u64(
             min_coins_for_agent_registration,
-            agents_eject_threshold,
-        } = msg;
+            "min_coins_for_agent_registration",
+        )?;
 
         if info.sender != config.owner_addr {
             return Err(ContractError::Unauthorized {});
         }
 
+        // The public_registration field is a one-way boolean, used for progressive decentralization
+        // If update is attempting to turn true to false, this is prohibited
+        if config.public_registration && public_registration == Some(false) {
+            return Err(ContractError::DecentralizationEnabled {});
+        }
+
         let new_config = Config {
-            owner_addr: owner_addr
-                .map(|human| deps.api.addr_validate(&human))
-                .transpose()?
-                .unwrap_or(config.owner_addr),
-            croncat_factory_addr: croncat_factory_addr
-                .map(|human| deps.api.addr_validate(&human))
-                .transpose()?
-                .unwrap_or(config.croncat_factory_addr),
+            owner_addr: config.owner_addr,
+            pause_admin: config.pause_admin,
+            croncat_factory_addr: config.croncat_factory_addr,
             croncat_manager_key: croncat_manager_key.unwrap_or(config.croncat_manager_key),
             croncat_tasks_key: croncat_tasks_key.unwrap_or(config.croncat_tasks_key),
-            paused: paused.unwrap_or(config.paused),
             min_tasks_per_agent: min_tasks_per_agent.unwrap_or(config.min_tasks_per_agent),
-            agent_nomination_duration: agent_nomination_duration
-                .unwrap_or(config.agent_nomination_duration),
+            agent_nomination_block_duration: agent_nomination_duration
+                .unwrap_or(config.agent_nomination_block_duration),
             min_coins_for_agent_registration: min_coins_for_agent_registration
                 .unwrap_or(DEFAULT_MIN_COINS_FOR_AGENT_REGISTRATION),
             agents_eject_threshold: agents_eject_threshold
                 .unwrap_or(DEFAULT_AGENTS_EJECT_THRESHOLD),
+            min_active_agent_count: min_active_agent_count
+                .unwrap_or(DEFAULT_MIN_ACTIVE_AGENT_COUNT),
+            public_registration: public_registration.unwrap_or(config.public_registration),
         };
         Ok(new_config)
     })?;
 
-    Ok(Response::new()
-        .add_attribute("action", "update_config")
-        .add_attribute("paused", new_config.paused.to_string())
-        .add_attribute("owner_addr", new_config.owner_addr.to_string()))
+    // When progressive decentralization begins and public registration is open,
+    // we won't need the allowed agent list, so we'll clear it.
+    if public_registration == Some(true) {
+        APPROVED_AGENTS.clear(deps.storage);
+    }
+
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 fn get_agent_status(
     storage: &dyn Storage,
     env: Env,
     account_id: &Addr,
-    total_tasks: u64,
 ) -> Result<AgentStatus, ContractError> {
     let c: Config = CONFIG.load(storage)?;
     let active = AGENTS_ACTIVE.load(storage)?;
@@ -575,7 +656,7 @@ fn get_agent_status(
     // Load config's task ratio, total tasks, active agents, and AGENT_NOMINATION_BEGIN_TIME.
     // Then determine if this agent is considered "Nominated" and should call CheckInAgent
     let max_agent_index =
-        max_agent_nomination_index(storage, &c, env, &(active.len() as u64), total_tasks)?;
+        max_agent_nomination_index(&c, env, AGENT_NOMINATION_STATUS.load(storage)?)?;
     let agent_status = match max_agent_index {
         Some(max_idx) if agent_position as u64 <= max_idx => AgentStatus::Nominated,
         _ => AgentStatus::Pending,
@@ -585,70 +666,51 @@ fn get_agent_status(
 
 /// Calculate the biggest index of nomination for pending agents
 fn max_agent_nomination_index(
-    storage: &dyn Storage,
     cfg: &Config,
     env: Env,
-    num_active_agents: &u64,
-    total_tasks: u64,
-) -> Result<Option<u64>, ContractError> {
-    let block_time = env.block.time.seconds();
+    agent_nomination_status: AgentNominationStatus,
+) -> StdResult<Option<u64>> {
+    let block_height = env.block.height;
 
-    let agent_nomination_begin_time = AGENT_NOMINATION_BEGIN_TIME
-        .load(storage)
-        .unwrap_or_default();
-
-    match agent_nomination_begin_time {
-        Some(begin_time) => {
-            let min_tasks_per_agent = cfg.min_tasks_per_agent;
-            let num_agents_to_accept =
-                agents_to_let_in(&min_tasks_per_agent, num_active_agents, &total_tasks);
-
-            if num_agents_to_accept > 0 {
-                let time_difference = block_time - begin_time.seconds();
-
-                let max_index = cmp::max(
-                    time_difference.div(cfg.agent_nomination_duration as u64),
-                    num_agents_to_accept - 1,
-                );
-                Ok(Some(max_index))
-            } else {
-                Ok(None)
-            }
-        }
-        None => Ok(None),
-    }
-}
-
-fn agents_to_let_in(max_tasks: &u64, num_active_agents: &u64, total_tasks: &u64) -> u64 {
-    let num_tasks_covered = num_active_agents * max_tasks;
-    if total_tasks > &num_tasks_covered {
-        // It's possible there are more "covered tasks" than total tasks,
-        // so use saturating subtraction to hit zero and not go below
-        let total_tasks_needing_agents = total_tasks.saturating_sub(num_tasks_covered);
-
-        let remainder = u64::from(total_tasks_needing_agents % max_tasks != 0);
-        total_tasks_needing_agents / max_tasks + remainder
+    let agents_by_tasks_created = agent_nomination_status
+        .tasks_created_from_last_nomination
+        .saturating_div(cfg.min_tasks_per_agent);
+    let agents_by_height = agent_nomination_status
+        .start_height_of_nomination
+        .map_or(0, |start_height| {
+            (block_height - start_height) / cfg.agent_nomination_block_duration as u64
+        });
+    let agents_to_pass = min(agents_by_tasks_created, agents_by_height);
+    if agents_to_pass == 0 {
+        Ok(None)
     } else {
-        0
+        Ok(Some(agents_to_pass - 1))
     }
 }
+
 pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> {
     let block_height = env.block.height;
     let config = CONFIG.load(deps.storage)?;
     let mut attributes = vec![];
     let mut submessages = vec![];
     let agents_active = AGENTS_ACTIVE.load(deps.storage)?;
-    for agent_id in agents_active {
-        let stats = AGENT_STATS
-            .may_load(deps.storage, &agent_id)?
-            .unwrap_or_default();
+    let total_remove_agents: usize = agents_active.len();
+    let mut total_removed = 0;
 
-        if block_height > stats.last_executed_slot + config.agents_eject_threshold {
-            let resp =
-                unregister_agent(deps.storage, &deps.querier, &agent_id, None).unwrap_or_default();
-            // Save attributes and messages
-            attributes.extend_from_slice(&resp.attributes);
-            submessages.extend_from_slice(&resp.messages);
+    for agent_id in agents_active {
+        let skip = (config.min_active_agent_count as usize) >= total_remove_agents - total_removed;
+        if !skip {
+            let stats = AGENT_STATS
+                .load(deps.storage, &agent_id)
+                .unwrap_or_default();
+            if block_height > stats.last_executed_slot + config.agents_eject_threshold {
+                let resp = unregister_agent(deps.storage, &deps.querier, &agent_id, None)
+                    .unwrap_or_default();
+                // Save attributes and messages
+                attributes.extend_from_slice(&resp.attributes);
+                submessages.extend_from_slice(&resp.messages);
+                total_removed += 1;
+            }
         }
     }
 
@@ -663,6 +725,66 @@ pub fn execute_tick(deps: DepsMut, env: Env) -> Result<Response, ContractError> 
     Ok(response)
 }
 
+pub fn execute_pause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractPaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.pause_admin {
+        return Err(ContractError::Unauthorized);
+    }
+    PAUSED.save(deps.storage, &true)?;
+    Ok(Response::new().add_attribute("action", "pause_contract"))
+}
+
+pub fn execute_unpause(deps: DepsMut, info: MessageInfo) -> Result<Response, ContractError> {
+    if !PAUSED.load(deps.storage)? {
+        return Err(ContractError::ContractUnpaused);
+    }
+    let config = CONFIG.load(deps.storage)?;
+    if info.sender != config.owner_addr {
+        return Err(ContractError::Unauthorized);
+    }
+    PAUSED.save(deps.storage, &false)?;
+    Ok(Response::new().add_attribute("action", "unpause_contract"))
+}
+
+pub fn execute_add_agent_to_whitelist(
+    _env: Env,
+    deps: DepsMut,
+    info: MessageInfo,
+    agent_address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    // Ensure the owner is calling
+    if config.owner_addr != info.sender {
+        return Err(ContractError::Unauthorized);
+    }
+
+    let validated_agent_address = deps.api.addr_validate(agent_address.as_str())?;
+    APPROVED_AGENTS.save(deps.storage, &validated_agent_address, &Empty {})?;
+
+    Ok(Response::new().add_attribute("action", "add_agent_to_whitelist"))
+}
+
+pub fn execute_remove_agent_from_whitelist(
+    _env: Env,
+    deps: DepsMut,
+    info: MessageInfo,
+    agent_address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.may_load(deps.storage)?.unwrap();
+    // Ensure the owner is calling
+    if config.owner_addr != info.sender {
+        return Err(ContractError::Unauthorized);
+    }
+
+    let validated_agent_address = deps.api.addr_validate(agent_address.as_str())?;
+    APPROVED_AGENTS.remove(deps.storage, &validated_agent_address);
+
+    Ok(Response::new().add_attribute("action", "remove_agent_to_whitelist"))
+}
+
 fn on_task_created(
     env: Env,
     deps: DepsMut,
@@ -672,25 +794,20 @@ fn on_task_created(
     let config = CONFIG.may_load(deps.storage)?.unwrap();
     croncat_tasks_contract::assert_caller_is_tasks_contract(&deps.querier, &config, &info.sender)?;
 
-    let min_tasks_per_agent = config.min_tasks_per_agent;
-    let num_active_agents = AGENTS_ACTIVE.load(deps.storage)?.len() as u64;
-    let total_tasks = croncat_tasks_contract::query_total_tasks(deps.as_ref(), &config)?;
-    let num_agents_to_accept =
-        agents_to_let_in(&min_tasks_per_agent, &num_active_agents, &total_tasks);
-
-    // If we should allow a new agent to take over
-    if num_agents_to_accept != 0 {
-        // Don't wipe out an older timestamp
-        let begin = AGENT_NOMINATION_BEGIN_TIME
-            .load(deps.storage)
-            .unwrap_or_default();
-        if begin.is_none() {
-            AGENT_NOMINATION_BEGIN_TIME.save(deps.storage, &Some(env.block.time))?;
+    AGENT_NOMINATION_STATUS.update(deps.storage, |mut status| -> StdResult<_> {
+        if status.start_height_of_nomination.is_none() {
+            status.start_height_of_nomination = Some(env.block.height)
         }
-    }
+        Ok(AgentNominationStatus {
+            start_height_of_nomination: status.start_height_of_nomination,
+            tasks_created_from_last_nomination: status.tasks_created_from_last_nomination + 1,
+        })
+    })?;
+
     let response = Response::new().add_attribute("action", "on_task_created");
     Ok(response)
 }
+
 fn on_task_completed(
     deps: DepsMut,
     info: MessageInfo,
@@ -712,9 +829,50 @@ fn on_task_completed(
     }
     AGENT_STATS.save(deps.storage, &args.agent_id, &stats)?;
 
-    let response = Response::new()
-        .add_attribute("action", "on_task_completed")
-        .add_attribute("agent_id", args.agent_id.to_string())
-        .add_attribute("is_block_slot_task", args.is_block_slot_task.to_string());
+    let response = Response::new().add_attribute("action", "on_task_completed");
     Ok(response)
+}
+
+/// Validating a non-zero value for u64
+fn validate_non_zero(num: u64, field_name: &str) -> Result<(), ContractError> {
+    if num == 0u64 {
+        Err(InvalidConfigurationValue {
+            field: field_name.to_string(),
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Resources indicate that trying to use generics in this case is not the correct path
+/// This will cast into a u64 and proceed to validate
+fn validate_config_non_zero_u16(
+    opt_num: Option<u16>,
+    field_name: &str,
+) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num as u64, field_name)
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_config_non_zero_u64(
+    opt_num: Option<u64>,
+    field_name: &str,
+) -> Result<(), ContractError> {
+    if let Some(num) = opt_num {
+        validate_non_zero(num, field_name)
+    } else {
+        Ok(())
+    }
+}
+
+// Thank you cw1 for the handy function
+// pub fn map_validate(deps: &DepsMut, admins: &Vec<Addr>) -> StdResult<Vec<Addr>> {
+pub fn map_validate(deps: &DepsMut, agents: &[String]) -> StdResult<Vec<Addr>> {
+    agents
+        .iter()
+        .map(|addr| deps.api.addr_validate(addr.as_str()))
+        .collect()
 }

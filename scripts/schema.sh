@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # When all schemas are ready, can create schemas like this:
+START_DIR=$(pwd)
+cd $START_DIR
 for f in ./contracts/*
 do
   cd "$f"

@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::Addr;
 use croncat_sdk_core::internal_messages::tasks::{TasksRemoveTaskByManager, TasksRescheduleTask};
 
 use crate::types::TaskRequest;
@@ -11,8 +12,11 @@ pub struct TasksInstantiateMsg {
     /// Assigned by Factory, denotes the version of this contract (CW2 spec) & used as the task verion as well.
     pub version: Option<String>,
 
-    /// Address of the contract owner, defaults to the sender
-    pub owner_addr: Option<String>,
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
+
     /// Name of the key for raw querying Manager address from the factory
     pub croncat_manager_key: (String, [u8; 2]),
     /// Name of the key for raw querying Agents address from the factory
@@ -34,8 +38,6 @@ pub struct TasksInstantiateMsg {
 
 #[cw_serde]
 pub struct UpdateConfigMsg {
-    pub paused: Option<bool>,
-    pub owner_addr: Option<String>,
     pub croncat_factory_addr: Option<String>,
     pub croncat_manager_key: Option<(String, [u8; 2])>,
     pub croncat_agents_key: Option<(String, [u8; 2])>,
@@ -65,6 +67,10 @@ pub enum TasksExecuteMsg {
     RemoveTaskByManager(TasksRemoveTaskByManager),
     /// Try to reschedule a task, if possible, used by the manager
     RescheduleTask(TasksRescheduleTask),
+    /// Pauses all operations for this contract, can only be done by pause_admin
+    PauseContract {},
+    /// unpauses all operations for this contract, can only be unpaused by owner_addr
+    UnpauseContract {},
 }
 
 #[cw_serde]
@@ -72,34 +78,52 @@ pub enum TasksExecuteMsg {
 pub enum TasksQueryMsg {
     #[returns(crate::types::Config)]
     Config {},
+    /// Helper for query responses on versioned contracts
+    #[returns[bool]]
+    Paused {},
     /// Get the total amount of tasks
     #[returns(cosmwasm_std::Uint64)]
     TasksTotal {},
-    /// Get the total amount of tasks with queries
-    #[returns(cosmwasm_std::Uint64)]
-    TasksWithQueriesTotal {},
-    /// Get list of active tasks, without queries
+    /// returns the total task count & last task creation timestamp for agent nomination checks
+    #[returns(crate::types::CurrentTaskInfoResponse)]
+    CurrentTaskInfo {},
+    /// Get next task to be done
+    #[returns(crate::types::TaskResponse)]
+    CurrentTask {},
+    /// Get task by the task hash
+    #[returns(crate::types::TaskResponse)]
+    Task { task_hash: String },
+    /// Get list of all tasks
     #[returns(Vec<crate::types::TaskInfo>)]
     Tasks {
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get list of active tasks, with queries
-    #[returns(Vec<crate::types::TaskResponse>)]
-    TasksWithQueries {
+    #[returns(Vec<u64>)]
+    EventedIds {
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    #[returns(Vec<String>)]
+    EventedHashes {
+        id: Option<u64>,
+        from_index: Option<u64>,
+        limit: Option<u64>,
+    },
+    /// Get list of event driven tasks
+    #[returns(Vec<crate::types::TaskInfo>)]
+    EventedTasks {
+        start: Option<u64>,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
     /// Get tasks created by the given address
-    #[returns(Vec<crate::types::TaskResponse>)]
+    #[returns(Vec<crate::types::TaskInfo>)]
     TasksByOwner {
         owner_addr: String,
         from_index: Option<u64>,
         limit: Option<u64>,
     },
-    /// Get task by the task hash
-    #[returns(crate::types::TaskResponse)]
-    Task { task_hash: String },
     /// Simulate task_hash by the given task
     #[returns(String)]
     TaskHash { task: Box<crate::types::Task> },
@@ -114,11 +138,4 @@ pub enum TasksQueryMsg {
     },
     #[returns(crate::types::SlotTasksTotalResponse)]
     SlotTasksTotal { offset: Option<u64> },
-    /// Get next task to be done
-    #[returns(crate::types::TaskResponse)]
-    CurrentTask {},
-    /// Get task with queries if it's ready
-    /// To get task when it's not ready query [`TasksQueryMsg::Task`] instead
-    #[returns(crate::types::TaskResponse)]
-    CurrentTaskWithQueries { task_hash: String },
 }

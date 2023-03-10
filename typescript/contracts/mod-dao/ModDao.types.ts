@@ -4,17 +4,23 @@
 * and run the @cosmwasm/ts-codegen generate command to regenerate this file.
 */
 
-export interface InstantiateMsg {}
+export interface InstantiateMsg {
+  version?: string | null;
+}
 export type ExecuteMsg = string;
 export type QueryMsg = {
   proposal_status_matches: ProposalStatusMatches;
 } | {
   has_passed_proposals: {
     dao_address: string;
+    limit?: number | null;
+    start_after?: number | null;
   };
 } | {
   has_passed_proposal_with_migration: {
     dao_address: string;
+    limit?: number | null;
+    start_after?: number | null;
   };
 } | {
   has_proposals_gt_id: {

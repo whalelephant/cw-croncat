@@ -1,22 +1,23 @@
-use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, Uint128, WasmMsg};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
-use croncat_sdk_manager::types::Config;
+use croncat_sdk_manager::types::{Config, UpdateConfig};
 
 use cw20::{Cw20Coin, Cw20CoinVerified};
 use cw_multi_test::{App, AppBuilder, Executor};
 
-use crate::msg::{InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use super::{
     contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
     PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, VERSION, VERY_RICH,
+    PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
 };
 
 pub(crate) fn default_app() -> App {
     AppBuilder::new().build(|router, _, storage| {
         let accounts: Vec<(u128, String)> = vec![
             (6_000_000, ADMIN.to_string()),
+            (600_000, PAUSE_ADMIN.to_string()),
             (500_000, ANYONE.to_string()),
             (2_000_000, AGENT0.to_string()),
             (2_000_000, AGENT1.to_string()),
@@ -31,7 +32,7 @@ pub(crate) fn default_app() -> App {
             (5_000_000, PARTICIPANT5.to_string()),
             (5_000_000, PARTICIPANT6.to_string()),
             (2_000_000, AGENT_BENEFICIARY.to_string()),
-            (u128::max_value(), VERY_RICH.to_string()),
+            (u128::MAX.saturating_sub(1000), VERY_RICH.to_string()),
         ];
         for (amt, address) in accounts {
             router
@@ -84,7 +85,7 @@ pub(crate) fn init_manager(
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -93,7 +94,21 @@ pub(crate) fn init_manager(
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
+}
+
+pub(crate) fn init_boolean(app: &mut App) -> Addr {
+    let code_id = app.store_code(contracts::cw_boolean_contract());
+    let inst_msg = cw_boolean_contract::msgs::instantiate_msg::InstantiateMsg {};
+    app.instantiate_contract(
+        code_id,
+        Addr::unchecked(ADMIN),
+        &inst_msg,
+        &[],
+        "cw-boolean-contract",
+        None,
+    )
+    .unwrap()
 }
 
 pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -101,7 +116,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
     let msg = croncat_tasks::msg::InstantiateMsg {
         version: Some(VERSION.to_owned()),
         chain_name: "atom".to_owned(),
-        owner_addr: None,
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
         slot_granularity_time: None,
@@ -131,7 +146,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -140,7 +155,7 @@ pub(crate) fn init_tasks(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -149,11 +164,14 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
         version: Some(VERSION.to_owned()),
         croncat_manager_key: ("manager".to_owned(), [0, 1]),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
-        owner_addr: None,
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         agent_nomination_duration: None,
         min_tasks_per_agent: None,
-        min_coin_for_agent_registration: None,
+        min_coins_for_agent_registration: None,
         agents_eject_threshold: None,
+        min_active_agent_count: None,
+        allowed_agents: Some(vec![]),
+        public_registration: true,
     };
     let module_instantiate_info = ModuleInstantiateInfo {
         code_id,
@@ -176,7 +194,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -185,7 +203,7 @@ pub(crate) fn init_agents(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
@@ -214,7 +232,7 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -223,7 +241,7 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 #[allow(unused)]
@@ -253,7 +271,7 @@ pub(crate) fn init_mod_generic(app: &mut App, factory_addr: &Addr) -> Addr {
     )
     .unwrap();
 
-    let metadata: Option<ContractMetadataResponse> = app
+    let metadata: ContractMetadataResponse = app
         .wrap()
         .query_wasm_smart(
             factory_addr,
@@ -262,7 +280,7 @@ pub(crate) fn init_mod_generic(app: &mut App, factory_addr: &Addr) -> Addr {
             },
         )
         .unwrap();
-    metadata.unwrap().contract_addr
+    metadata.metadata.unwrap().contract_addr
 }
 
 // Note: gonna work only with first agent, other have to get nominated
@@ -309,13 +327,13 @@ pub(crate) fn init_cw20(app: &mut App) -> Addr {
 
 pub(crate) fn default_instantiate_message() -> InstantiateMsg {
     InstantiateMsg {
-        denom: DENOM.to_owned(),
         version: Some(VERSION.to_owned()),
         croncat_tasks_key: ("tasks".to_owned(), [0, 1]),
         croncat_agents_key: ("agents".to_owned(), [0, 1]),
-        owner_addr: Some(ADMIN.to_owned()),
+        pause_admin: Addr::unchecked(PAUSE_ADMIN),
         gas_price: None,
         treasury_addr: None,
+        cw20_whitelist: None,
     }
 }
 
@@ -340,7 +358,7 @@ pub(crate) fn query_users_manager(
         .query_wasm_smart(
             manager,
             &QueryMsg::UsersBalances {
-                wallet: wallet.into(),
+                address: wallet.into(),
                 from_index: None,
                 limit: None,
             },
@@ -349,8 +367,38 @@ pub(crate) fn query_users_manager(
 }
 
 pub(crate) fn add_little_time(block: &mut BlockInfo) {
-    block.time = block.time.plus_seconds(40);
+    block.time = block.time.plus_seconds(19);
     block.height += 1;
+}
+
+pub(crate) fn support_new_cw20(
+    app: &mut App,
+    factory_addr: Addr,
+    manager_addr: &Addr,
+    new_cw20_addr: &str,
+) {
+    app.execute_contract(
+        Addr::unchecked(ADMIN),
+        factory_addr,
+        &croncat_sdk_factory::msg::FactoryExecuteMsg::Proxy {
+            msg: WasmMsg::Execute {
+                contract_addr: manager_addr.to_string(),
+                msg: to_binary(&ExecuteMsg::UpdateConfig(Box::new(UpdateConfig {
+                    agent_fee: None,
+                    treasury_fee: None,
+                    gas_price: None,
+                    croncat_tasks_key: None,
+                    croncat_agents_key: None,
+                    treasury_addr: None,
+                    cw20_whitelist: Some(vec![new_cw20_addr.to_owned()]),
+                })))
+                .unwrap(),
+                funds: vec![],
+            },
+        },
+        &[],
+    )
+    .unwrap();
 }
 
 // Useful for debugging in case task got suddenly stuck
@@ -389,8 +437,4 @@ pub(crate) fn check_task_chain(app: &App, tasks_contract: &Addr, agents_contract
             },
         )
         .unwrap();
-    println!("current_task: {current_task:?}");
-    println!("total_tasks: {total_tasks:?}");
-    println!("agents: {agents:?}");
-    println!("tasks_for_agent: {tasks_for_agent:?}");
 }

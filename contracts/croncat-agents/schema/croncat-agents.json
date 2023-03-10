@@ -1,6 +1,6 @@
 {
   "contract_name": "croncat-agents",
-  "contract_version": "0.1.0",
+  "contract_version": "0.1.2",
   "idl_version": "1.0.0",
   "instantiate": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -8,7 +8,9 @@
     "type": "object",
     "required": [
       "croncat_manager_key",
-      "croncat_tasks_key"
+      "croncat_tasks_key",
+      "pause_admin",
+      "public_registration"
     ],
     "properties": {
       "agent_nomination_duration": {
@@ -28,6 +30,16 @@
         ],
         "format": "uint64",
         "minimum": 0.0
+      },
+      "allowed_agents": {
+        "description": "If public registration is false, this provides initial, approved agent addresses",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        }
       },
       "croncat_manager_key": {
         "description": "Name of the key for raw querying Manager address from the factory",
@@ -71,7 +83,16 @@
         "maxItems": 2,
         "minItems": 2
       },
-      "min_coin_for_agent_registration": {
+      "min_active_agent_count": {
+        "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "format": "uint16",
+        "minimum": 0.0
+      },
+      "min_coins_for_agent_registration": {
         "description": "The required amount needed to actually execute a few tasks before withdraw profits. This helps make sure agent wont get stuck out the gate",
         "type": [
           "integer",
@@ -89,12 +110,17 @@
         "format": "uint64",
         "minimum": 0.0
       },
-      "owner_addr": {
-        "description": "Address of the contract owner, defaults to the sender",
-        "type": [
-          "string",
-          "null"
+      "pause_admin": {
+        "description": "A multisig admin whose sole responsibility is to pause the contract in event of emergency. Must be a different contract address than DAO, cannot be a regular keypair Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly",
+        "allOf": [
+          {
+            "$ref": "#/definitions/Addr"
+          }
         ]
+      },
+      "public_registration": {
+        "description": "Whether agent registration is public or restricted to an internal whitelist",
+        "type": "boolean"
       },
       "version": {
         "description": "CW2 Version provided by factory",
@@ -104,13 +130,65 @@
         ]
       }
     },
-    "additionalProperties": false
+    "additionalProperties": false,
+    "definitions": {
+      "Addr": {
+        "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+        "type": "string"
+      }
+    }
   },
   "execute": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "ExecuteMsg",
+    "description": "Execute messages for agent contract",
     "oneOf": [
       {
+        "description": "Adds an agent address to the internal whitelist",
+        "type": "object",
+        "required": [
+          "add_agent_to_whitelist"
+        ],
+        "properties": {
+          "add_agent_to_whitelist": {
+            "type": "object",
+            "required": [
+              "agent_address"
+            ],
+            "properties": {
+              "agent_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Removes an agent from the whitelist Note: this does not kick the agent, but instead means they will not be able to re-register",
+        "type": "object",
+        "required": [
+          "remove_agent_from_whitelist"
+        ],
+        "properties": {
+          "remove_agent_from_whitelist": {
+            "type": "object",
+            "required": [
+              "agent_address"
+            ],
+            "properties": {
+              "agent_address": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Action registers new agent",
         "type": "object",
         "required": [
           "register_agent"
@@ -132,6 +210,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action for updating agents",
         "type": "object",
         "required": [
           "update_agent"
@@ -153,6 +232,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action moves agent from pending to active list",
         "type": "object",
         "required": [
           "check_in_agent"
@@ -166,6 +246,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Actions for removing agent from the system",
         "type": "object",
         "required": [
           "unregister_agent"
@@ -187,6 +268,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Task contract will send message when task is created",
         "type": "object",
         "required": [
           "on_task_created"
@@ -199,6 +281,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Task contract will send message when task is completed",
         "type": "object",
         "required": [
           "on_task_completed"
@@ -211,6 +294,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Action for updating agent contract configuration",
         "type": "object",
         "required": [
           "update_config"
@@ -232,12 +316,41 @@
         "additionalProperties": false
       },
       {
+        "description": "Tick action will remove unactive agents periodically or do and any other internal cron tasks",
         "type": "object",
         "required": [
           "tick"
         ],
         "properties": {
           "tick": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Pauses all operations for this contract, can only be done by pause_admin",
+        "type": "object",
+        "required": [
+          "pause_contract"
+        ],
+        "properties": {
+          "pause_contract": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "unpauses all operations for this contract, can only be unpaused by owner_addr",
+        "type": "object",
+        "required": [
+          "unpause_contract"
+        ],
+        "properties": {
+          "unpause_contract": {
             "type": "object",
             "additionalProperties": false
           }
@@ -268,20 +381,14 @@
       },
       "AgentOnTaskCreated": {
         "type": "object",
-        "required": [
-          "task_hash"
-        ],
-        "properties": {
-          "task_hash": {
-            "type": "string"
-          }
-        },
         "additionalProperties": false
       },
       "UpdateConfig": {
+        "description": "Updatable agents contract configuration",
         "type": "object",
         "properties": {
           "agent_nomination_duration": {
+            "description": "Duration to be passed before next agent nomination",
             "type": [
               "integer",
               "null"
@@ -290,19 +397,13 @@
             "minimum": 0.0
           },
           "agents_eject_threshold": {
+            "description": "How many slots an agent can miss before being removed from the active queue",
             "type": [
               "integer",
               "null"
             ],
             "format": "uint64",
             "minimum": 0.0
-          },
-          "croncat_factory_addr": {
-            "description": "Address of the factory contract",
-            "type": [
-              "string",
-              "null"
-            ]
           },
           "croncat_manager_key": {
             "description": "Name of the key for raw querying Manager address from the factory",
@@ -352,7 +453,17 @@
             "maxItems": 2,
             "minItems": 2
           },
+          "min_active_agent_count": {
+            "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint16",
+            "minimum": 0.0
+          },
           "min_coins_for_agent_registration": {
+            "description": "Minimum funds to be attached for agent registration",
             "type": [
               "integer",
               "null"
@@ -361,6 +472,7 @@
             "minimum": 0.0
           },
           "min_tasks_per_agent": {
+            "description": "Minimum tasks count to be reached by agent before next agent nomination",
             "type": [
               "integer",
               "null"
@@ -368,13 +480,8 @@
             "format": "uint64",
             "minimum": 0.0
           },
-          "owner_addr": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "paused": {
+          "public_registration": {
+            "description": "Determines whether agent registration is public or uses the whitelist (APPROVED_AGENTS Map)",
             "type": [
               "boolean",
               "null"
@@ -388,8 +495,10 @@
   "query": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "QueryMsg",
+    "description": "Agent request response",
     "oneOf": [
       {
+        "description": "Get an agent by specified account_id, returns AgentInfo if found",
         "type": "object",
         "required": [
           "get_agent"
@@ -411,6 +520,7 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the id list of agents, pagination is supported",
         "type": "object",
         "required": [
           "get_agent_ids"
@@ -442,6 +552,39 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the approved agents' addresses, pagination is supported This only applies when Config's `public_registration` is false",
+        "type": "object",
+        "required": [
+          "get_approved_agent_addresses"
+        ],
+        "properties": {
+          "get_approved_agent_addresses": {
+            "type": "object",
+            "properties": {
+              "from_index": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "limit": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint64",
+                "minimum": 0.0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Gets the specified agent tasks",
         "type": "object",
         "required": [
           "get_agent_tasks"
@@ -463,12 +606,27 @@
         "additionalProperties": false
       },
       {
+        "description": "Gets the agent contract configuration",
         "type": "object",
         "required": [
           "config"
         ],
         "properties": {
           "config": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Helper for query responses on versioned contracts",
+        "type": "object",
+        "required": [
+          "paused"
+        ],
+        "properties": {
+          "paused": {
             "type": "object",
             "additionalProperties": false
           }
@@ -486,18 +644,20 @@
       "description": "Contract configuration state",
       "type": "object",
       "required": [
-        "agent_nomination_duration",
+        "agent_nomination_block_duration",
         "agents_eject_threshold",
         "croncat_factory_addr",
         "croncat_manager_key",
         "croncat_tasks_key",
+        "min_active_agent_count",
         "min_coins_for_agent_registration",
         "min_tasks_per_agent",
         "owner_addr",
-        "paused"
+        "pause_admin",
+        "public_registration"
       ],
       "properties": {
-        "agent_nomination_duration": {
+        "agent_nomination_block_duration": {
           "description": "The duration a prospective agent has to nominate themselves. When a task is created such that a new agent can join, The agent at the zeroth index of the pending agent queue has this time to nominate The agent at the first index has twice this time to nominate (which would remove the former agent from the pending queue) Value is in seconds",
           "type": "integer",
           "format": "uint16",
@@ -559,6 +719,12 @@
           "maxItems": 2,
           "minItems": 2
         },
+        "min_active_agent_count": {
+          "description": "Minimum agent count in active queue to be untouched by bad agent verifier",
+          "type": "integer",
+          "format": "uint16",
+          "minimum": 0.0
+        },
         "min_coins_for_agent_registration": {
           "description": "Min coins that should be attached to register an agent",
           "type": "integer",
@@ -579,8 +745,16 @@
             }
           ]
         },
-        "paused": {
-          "description": "If contract was paused/unpaused",
+        "pause_admin": {
+          "description": "A multisig admin whose sole responsibility is to pause the contract in event of emergency. Must be a different contract address than DAO, cannot be a regular keypair Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Addr"
+            }
+          ]
+        },
+        "public_registration": {
+          "description": "Whether agent registration is public or restricted to an internal whitelist (allowed_agents) Determines whether agent registration is open to the public If false, the APPROVED_AGENTS map will determine if an agent is allowed to register If true, any address can register and enter the pending queue, provided they have the assets required. Note that once this becomes true, it's intentionally meant to be true forever, since this is an aspect of progressive decentralization",
           "type": "boolean"
         }
       },
@@ -595,9 +769,11 @@
     "get_agent": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentResponse",
+      "description": "Agent response containing agent information",
       "type": "object",
       "properties": {
         "agent": {
+          "description": "Agent data",
           "anyOf": [
             {
               "$ref": "#/definitions/AgentInfo"
@@ -615,6 +791,7 @@
           "type": "string"
         },
         "AgentInfo": {
+          "description": "Agent data",
           "type": "object",
           "required": [
             "balance",
@@ -625,21 +802,42 @@
           ],
           "properties": {
             "balance": {
-              "$ref": "#/definitions/Uint128"
+              "description": "Agent balance",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint128"
+                }
+              ]
             },
             "last_executed_slot": {
+              "description": "Last executed slot number",
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
             },
             "payable_account_id": {
-              "$ref": "#/definitions/Addr"
+              "description": "Account where agent will move all his rewards",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Addr"
+                }
+              ]
             },
             "register_start": {
-              "$ref": "#/definitions/Timestamp"
+              "description": "Registration time",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Timestamp"
+                }
+              ]
             },
             "status": {
-              "$ref": "#/definitions/AgentStatus"
+              "description": "Agent status",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/AgentStatus"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -673,6 +871,7 @@
     "get_agent_ids": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "GetAgentIdsResponse",
+      "description": "Response containing active/pending agents",
       "type": "object",
       "required": [
         "active",
@@ -680,12 +879,14 @@
       ],
       "properties": {
         "active": {
+          "description": "Active agent list",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Addr"
           }
         },
         "pending": {
+          "description": "Pending agent list",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Addr"
@@ -703,18 +904,25 @@
     "get_agent_tasks": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AgentTaskResponse",
+      "description": "Agent task response for getting stats and task information",
       "type": "object",
       "required": [
         "stats"
       ],
       "properties": {
         "stats": {
-          "$ref": "#/definitions/TaskStats"
+          "description": "Agent tasks statistic information",
+          "allOf": [
+            {
+              "$ref": "#/definitions/TaskStats"
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "definitions": {
         "TaskStats": {
+          "description": "Agent statistics data",
           "type": "object",
           "required": [
             "num_block_tasks",
@@ -722,10 +930,20 @@
           ],
           "properties": {
             "num_block_tasks": {
-              "$ref": "#/definitions/Uint64"
+              "description": "Total block tasks for specified agent",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                }
+              ]
             },
             "num_cron_tasks": {
-              "$ref": "#/definitions/Uint64"
+              "description": "Total cron tasks for specified agent",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                }
+              ]
             }
           },
           "additionalProperties": false
@@ -735,6 +953,36 @@
           "type": "string"
         }
       }
+    },
+    "get_approved_agent_addresses": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ApprovedAgentAddresses",
+      "description": "Response containing approved agents' addresses",
+      "type": "object",
+      "required": [
+        "approved_addresses"
+      ],
+      "properties": {
+        "approved_addresses": {
+          "description": "Active agent list",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Addr"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Addr": {
+          "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
+          "type": "string"
+        }
+      }
+    },
+    "paused": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Boolean",
+      "type": "boolean"
     }
   }
 }

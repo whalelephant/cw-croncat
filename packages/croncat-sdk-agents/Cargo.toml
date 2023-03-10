@@ -1,9 +1,11 @@
 [package]
 name = "croncat-sdk-agents"
-version = "0.1.0"
+version = "0.1.2"
 authors = []
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
+license = { workspace = true }
+description = "CronCat agents package containing CosmWasm types, messages, and errors."
 
 [dependencies]
 cosmwasm-std = { workspace = true }

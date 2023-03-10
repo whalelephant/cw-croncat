@@ -5,7 +5,6 @@ import { config } from "dotenv"
 import { getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
 import { getGitHash, getChecksums } from './utils'
-const denom: string = process.env.DENOM
 
 export class ManagerClient {
 	client: SigningCosmWasmClient;
@@ -14,7 +13,15 @@ export class ManagerClient {
 		this.client = client;
 	}
 
-	async deploy(artifactsRoot: string, sender: string, factoryAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<[number, string]> {
+	async deploy(
+		artifactsRoot: string,
+		sender: string,
+		factoryAddress: string,
+		pauserAddress: string,
+		treasuryAddress: string,
+		uploadGas: StdFee,
+		executeGas: StdFee
+	): Promise<[number, string]> {
 		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_manager.wasm`)
 		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
 		const codeId = uploadRes.codeId
@@ -25,9 +32,9 @@ export class ManagerClient {
 		const version = await getContractVersionFromCargoToml('croncat-manager')
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
-			"denom": denom,
 			"version": `${version[0]}.${version[1]}`,
-			"owner_addr": sender,
+			"pause_admin": `${pauserAddress}`,
+			"treasury_addr": `${treasuryAddress}`,
 			"croncat_tasks_key": ["tasks", version || [0, 1]],
 			"croncat_agents_key": ["agents", version || [0, 1]]
 		})).toString('base64')
@@ -80,7 +87,7 @@ export class ManagerClient {
 	}
 
 	async agentWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
-		const msg = { withdraw_agent_rewards: null };
+		const msg = { agent_withdraw: null };
 		const response = await this.client.execute(sender, contractAddr, msg, gas);
 		return response;
 	}

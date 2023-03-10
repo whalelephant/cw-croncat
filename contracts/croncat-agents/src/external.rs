@@ -1,10 +1,9 @@
 use crate::error::ContractError;
 use cosmwasm_std::{
-    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, Uint64,
-    WasmMsg,
+    to_binary, Addr, CosmosMsg, Deps, Empty, QuerierWrapper, StdError, StdResult, Uint128, WasmMsg,
 };
 use croncat_sdk_agents::types::Config;
-use croncat_sdk_core::internal_messages::agents::WithdrawRewardsOnRemovalArgs;
+use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_factory::state::CONTRACT_ADDRS;
 use croncat_sdk_manager::msg::ManagerQueryMsg;
 use croncat_sdk_manager::types::Config as ManagerConfig;
@@ -12,15 +11,6 @@ use croncat_sdk_tasks::msg::TasksQueryMsg;
 use croncat_sdk_tasks::types::SlotTasksTotalResponse;
 pub mod croncat_tasks_contract {
     use super::*;
-    pub fn query_total_tasks(deps: Deps, config: &Config) -> StdResult<u64> {
-        let tasks_addr = query_tasks_addr(&deps.querier, config)?;
-        // Get the denom from the manager contract
-        let total_tasks: Uint64 = deps
-            .querier
-            .query_wasm_smart(tasks_addr, &TasksQueryMsg::TasksTotal {})?;
-
-        Ok(total_tasks.u64())
-    }
 
     pub(crate) fn assert_caller_is_tasks_contract(
         deps_queries: &QuerierWrapper<Empty>,
@@ -61,6 +51,7 @@ pub mod croncat_tasks_contract {
         Ok((response.block_tasks, response.cron_tasks))
     }
 }
+
 pub mod croncat_manager_contract {
 
     use super::*;
@@ -74,6 +65,7 @@ pub mod croncat_manager_contract {
 
         Ok(manager_config)
     }
+
     pub(crate) fn query_manager_addr(
         deps_queries: &QuerierWrapper<Empty>,
         config: &Config,
@@ -97,15 +89,15 @@ pub mod croncat_manager_contract {
         payable_account_id: String,
     ) -> StdResult<CosmosMsg> {
         let addr = query_manager_addr(querier, config)?;
-        let args = WithdrawRewardsOnRemovalArgs {
+        let args = AgentWithdrawOnRemovalArgs {
             agent_id: agent_id.to_owned(),
             payable_account_id,
         };
         let execute = CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: addr.into(),
-            msg: to_binary(
-                &croncat_sdk_manager::msg::ManagerExecuteMsg::WithdrawAgentRewards(Some(args)),
-            )?,
+            msg: to_binary(&croncat_sdk_manager::msg::ManagerExecuteMsg::AgentWithdraw(
+                Some(args),
+            ))?,
             funds: vec![],
         });
 

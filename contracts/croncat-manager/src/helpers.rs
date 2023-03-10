@@ -1,11 +1,12 @@
 use cosmwasm_std::{
-    coin, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Empty, MessageInfo,
-    QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128, WasmMsg,
+    coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
+    MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
+    WasmMsg,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::TaskInfo;
+use croncat_sdk_tasks::types::{Boundary, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -19,10 +20,10 @@ use crate::{
 /// Called before every method, except [crate::contract::execute_update_config]
 pub(crate) fn check_ready_for_execution(
     info: &MessageInfo,
-    config: &Config,
+    paused: bool,
 ) -> Result<(), ContractError> {
-    if config.paused {
-        Err(ContractError::Paused {})
+    if paused {
+        Err(ContractError::ContractPaused {})
     } else if !info.funds.is_empty() {
         Err(ContractError::RedundantFunds {})
     } else {
@@ -43,19 +44,7 @@ pub(crate) fn get_tasks_addr(
         )?
         .ok_or(ContractError::InvalidKey {})
 }
-pub(crate) fn query_agent_addr(
-    querier: &QuerierWrapper<Empty>,
-    config: &Config,
-) -> Result<Addr, ContractError> {
-    let (tasks_name, version) = &config.croncat_agents_key;
-    croncat_sdk_factory::state::CONTRACT_ADDRS
-        .query(
-            querier,
-            config.croncat_factory_addr.clone(),
-            (tasks_name, version),
-        )?
-        .ok_or(ContractError::InvalidKey {})
-}
+
 pub(crate) fn check_if_sender_is_tasks(
     deps_queries: &QuerierWrapper<Empty>,
     config: &Config,
@@ -100,22 +89,16 @@ pub(crate) fn attached_natives(
     native_denom: &str,
     funds: Vec<Coin>,
 ) -> Result<(Uint128, Option<Coin>), ContractError> {
-    let mut ibc: Option<Coin> = None;
+    let mut token: Option<Coin> = None;
     let mut native = Uint128::zero();
     for f in funds {
         if f.denom == native_denom {
             native += f.amount;
-        } else if let Some(ibc) = &mut ibc {
-            if f.denom == ibc.denom {
-                ibc.amount += f.amount
-            } else {
-                return Err(ContractError::TooManyCoins {});
-            }
         } else {
-            ibc = Some(f);
+            token = Some(f);
         }
     }
-    Ok((native, ibc))
+    Ok((native, token))
 }
 
 pub(crate) fn calculate_required_natives(
@@ -129,7 +112,7 @@ pub(crate) fn calculate_required_natives(
             } else if c2.denom == native_denom {
                 (c2.amount, Some(c1))
             } else {
-                return Err(ContractError::TooManyCoins {});
+                return Err(ContractError::InvalidAttachedCoins {});
             }
         }
         [Some(c1), None] => {
@@ -149,7 +132,7 @@ pub(crate) fn assert_caller_is_agent_contract(
     config: &Config,
     sender: &Addr,
 ) -> Result<(), ContractError> {
-    let addr = query_agent_addr(deps_queries, config)?;
+    let addr = get_agents_addr(deps_queries, config)?;
     if addr != *sender {
         return Err(ContractError::Unauthorized {});
     }
@@ -161,7 +144,7 @@ pub fn query_agent(
     config: &Config,
     agent_id: String,
 ) -> Result<AgentResponse, ContractError> {
-    let addr = query_agent_addr(querier, config)?;
+    let addr = get_agents_addr(querier, config)?;
 
     // Get the agent from the agent contract
     let response: AgentResponse = querier.query_wasm_smart(
@@ -248,9 +231,15 @@ pub(crate) fn finalize_task(
     // Sub native for gas
     let gas_with_fees = gas_with_fees(
         queue_item.task.amount_for_one_task.gas,
-        config.agent_fee + config.treasury_fee,
+        (queue_item.task.amount_for_one_task.agent_fee
+            + queue_item.task.amount_for_one_task.treasury_fee) as u64,
     )?;
-    let native_for_gas_required = config.gas_price.calculate(gas_with_fees)?;
+    let native_for_gas_required = queue_item
+        .task
+        .amount_for_one_task
+        .gas_price
+        .calculate(gas_with_fees)
+        .unwrap();
     task_balance.native_balance = task_balance
         .native_balance
         .checked_sub(Uint128::new(native_for_gas_required))
@@ -259,10 +248,11 @@ pub(crate) fn finalize_task(
     add_fee_rewards(
         deps.storage,
         queue_item.task.amount_for_one_task.gas,
-        &config.gas_price,
+        &queue_item.task.amount_for_one_task.gas_price,
         &queue_item.agent_addr,
-        config.agent_fee,
-        config.treasury_fee,
+        queue_item.task.amount_for_one_task.agent_fee,
+        queue_item.task.amount_for_one_task.treasury_fee,
+        false,
     )?;
 
     let original_amounts = queue_item.task.amount_for_one_task.clone();
@@ -311,16 +301,10 @@ pub(crate) fn finalize_task(
             task_hash: queue_item.task.task_hash.into_bytes(),
         }
         .into_cosmos_msg(tasks_addr)?;
-        let res = Response::new().add_message(msg);
-        // Zero transfer will fail tx
-        if !coins_transfer.is_empty() {
-            Ok(res.add_message(BankMsg::Send {
-                to_address: queue_item.task.owner_addr.into_string(),
-                amount: coins_transfer,
-            }))
-        } else {
-            Ok(res)
-        }
+        Ok(Response::new().add_message(msg).add_message(BankMsg::Send {
+            to_address: queue_item.task.owner_addr.into_string(),
+            amount: coins_transfer,
+        }))
     } else {
         let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
         TASKS_BALANCES.save(
@@ -415,22 +399,48 @@ pub(crate) fn check_for_self_calls(
 ) -> Result<(), ContractError> {
     // If it one of the our contracts it should be a manager
     if contract_addr == tasks_addr || contract_addr == agents_addr {
-        return Err(ContractError::TaskNoLongerValid {});
+        return Err(ContractError::UnauthorizedMethod {});
     } else if contract_addr == manager_addr {
         // Check if caller is manager owner
         if sender != manager_owner_addr {
-            return Err(ContractError::TaskNoLongerValid {});
+            return Err(ContractError::UnauthorizedMethod {});
         } else if let Ok(msg) = cosmwasm_std::from_binary(msg) {
             // Check if it's tick
-            if !matches!(msg, croncat_sdk_manager::msg::ManagerExecuteMsg::Tick {}) {
-                return Err(ContractError::TaskNoLongerValid {});
+            if !matches!(msg, croncat_sdk_agents::msg::ExecuteMsg::Tick {}) {
+                return Err(ContractError::UnauthorizedMethod {});
             }
             // Other messages not allowed
         } else {
-            return Err(ContractError::TaskNoLongerValid {});
+            return Err(ContractError::UnauthorizedMethod {});
         }
     }
     Ok(())
+}
+
+// Check if we're before boundary start
+pub(crate) fn is_before_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .start
+            .map_or(false, |s| s.nanos() > block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .start
+            .map_or(false, |s| s.u64() > block_info.height),
+        None => false,
+    }
+}
+
+// Check if we're after boundary end
+pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Boundary>) -> bool {
+    match boundary {
+        Some(Boundary::Time(boundary_time)) => boundary_time
+            .end
+            .map_or(false, |e| e.nanos() <= block_info.time.nanos()),
+        Some(Boundary::Height(boundary_height)) => boundary_height
+            .end
+            .map_or(false, |e| e.u64() < block_info.height - 1),
+        None => false,
+    }
 }
 
 /// Replace values to the result value from the rules
@@ -569,7 +579,7 @@ pub fn create_task_completed_msg(
     agent_id: &Addr,
     is_block_slot_task: bool,
 ) -> Result<CosmosMsg, ContractError> {
-    let addr = query_agent_addr(querier, config)?;
+    let addr = get_agents_addr(querier, config)?;
     let args = AgentOnTaskCompleted {
         agent_id: agent_id.to_owned(),
         is_block_slot_task,

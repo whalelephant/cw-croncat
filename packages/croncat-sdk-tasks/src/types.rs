@@ -11,11 +11,13 @@ use sha2::{Digest, Sha256};
 
 #[cw_serde]
 pub struct Config {
-    // Runtime
-    pub paused: bool,
-
     /// Address of the contract owner
     pub owner_addr: Addr,
+
+    /// A multisig admin whose sole responsibility is to pause the contract in event of emergency.
+    /// Must be a different contract address than DAO, cannot be a regular keypair
+    /// Does not have the ability to unpause, must rely on the DAO to assess the situation and act accordingly
+    pub pause_admin: Addr,
 
     /// Address of the factory contract
     pub croncat_factory_addr: Addr,
@@ -92,30 +94,40 @@ impl Interval {
     pub fn next(
         &self,
         env: &Env,
-        boundary: &BoundaryValidated,
+        boundary: &Boundary,
         slot_granularity_time: u64,
     ) -> (u64, SlotType) {
-        match self {
+        match (self, boundary) {
             // If Once, return the first block within a specific range that can be triggered 1 time.
             // If Immediate, return the first block within a specific range that can be triggered immediately, potentially multiple times.
-            Interval::Once | Interval::Immediate => {
-                if boundary.is_block_boundary {
-                    get_next_block_limited(env, boundary)
-                } else {
-                    get_next_cron_time(env, boundary, "0 0 * * * *", slot_granularity_time)
-                }
+            (Interval::Once, Boundary::Height(boundary_height))
+            | (Interval::Immediate, Boundary::Height(boundary_height)) => (
+                get_next_block_limited(env, boundary_height),
+                SlotType::Block,
+            ),
+            // If Once, return the first time within a specific range that can be triggered 1 time.
+            // If Immediate, return the first time within a specific range that can be triggered immediately, potentially multiple times.
+            (Interval::Once, Boundary::Time(boundary_time))
+            | (Interval::Immediate, Boundary::Time(boundary_time)) => {
+                (get_next_time_in_window(env, boundary_time), SlotType::Cron)
             }
             // return the first block within a specific range that can be triggered 1 or more times based on timestamps.
             // Uses crontab spec
-            Interval::Cron(crontab) => {
-                get_next_cron_time(env, boundary, crontab, slot_granularity_time)
-            }
+            (Interval::Cron(crontab), Boundary::Time(boundary_time)) => (
+                get_next_cron_time(env, boundary_time, crontab, slot_granularity_time),
+                SlotType::Cron,
+            ),
             // return the block within a specific range that can be triggered 1 or more times based on block heights.
             // Uses block offset (Example: Block(100) will trigger every 100 blocks)
             // So either:
             // - Boundary specifies a start/end that block offsets can be computed from
             // - Block offset will truncate to specific modulo offsets
-            Interval::Block(block) => get_next_block_by_offset(env, boundary, *block),
+            (Interval::Block(block), Boundary::Height(boundary_height)) => (
+                get_next_block_by_offset(env.block.height, boundary_height, *block),
+                SlotType::Block,
+            ),
+            // If interval is cron it means boundary is [`BoundaryTime`], and rest of the items is height
+            _ => unreachable!(),
         }
     }
 
@@ -133,37 +145,26 @@ impl Interval {
 /// Start and end block or timestamp when task should be executed for the last time
 #[cw_serde]
 pub enum Boundary {
-    Height {
-        start: Option<Uint64>,
-        end: Option<Uint64>,
-    },
-    Time {
-        start: Option<Timestamp>,
-        end: Option<Timestamp>,
-    },
+    Height(BoundaryHeight),
+    Time(BoundaryTime),
+}
+
+impl Boundary {
+    pub fn is_block(&self) -> bool {
+        matches!(self, Boundary::Height(_))
+    }
 }
 
 #[cw_serde]
-pub struct BoundaryValidated {
-    pub start: u64,
-    pub end: Option<u64>,
-    pub is_block_boundary: bool,
+pub struct BoundaryHeight {
+    pub start: Option<Uint64>,
+    pub end: Option<Uint64>,
 }
 
-impl From<BoundaryValidated> for Boundary {
-    fn from(value: BoundaryValidated) -> Self {
-        if value.is_block_boundary {
-            Boundary::Height {
-                start: Some(value.start.into()),
-                end: value.end.map(Into::into),
-            }
-        } else {
-            Boundary::Time {
-                start: Some(Timestamp::from_nanos(value.start)),
-                end: value.end.map(Timestamp::from_nanos),
-            }
-        }
-    }
+#[cw_serde]
+pub struct BoundaryTime {
+    pub start: Option<Timestamp>,
+    pub end: Option<Timestamp>,
 }
 
 #[cw_serde]
@@ -205,12 +206,10 @@ pub struct Task {
 
     /// Scheduling definitions
     pub interval: Interval,
-    pub boundary: BoundaryValidated,
+    pub boundary: Boundary,
 
     /// Defines if this task can continue until balance runs out
     pub stop_on_fail: bool,
-
-    pub amount_for_one_task: AmountForOneTask,
 
     /// The cosmos message to call, if time or rules are met
     pub actions: Vec<Action>,
@@ -219,7 +218,13 @@ pub struct Task {
     /// Rules MUST return the ResolverResponse type
     pub queries: Vec<CroncatQuery>,
     pub transforms: Vec<Transform>,
+
+    // allows future backward compat
     pub version: String,
+
+    // computed amounts / fees
+    pub amount_for_one_task: AmountForOneTask,
+    // pub
 }
 
 impl Task {
@@ -257,13 +262,12 @@ impl Task {
         !matches!(self.interval, Interval::Once)
     }
 
-    pub fn with_queries(&self) -> bool {
-        !self.queries.is_empty()
+    pub fn is_evented(&self) -> bool {
+        self.queries.iter().any(|q| q.check_result)
     }
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {
         let task_hash = self.to_hash(prefix);
-        let boundary = self.boundary.into();
 
         let queries = if !self.queries.is_empty() {
             Some(self.queries)
@@ -276,7 +280,7 @@ impl Task {
                 task_hash,
                 owner_addr: self.owner_addr,
                 interval: self.interval,
-                boundary,
+                boundary: self.boundary,
                 stop_on_fail: self.stop_on_fail,
                 amount_for_one_task: self.amount_for_one_task,
                 actions: self.actions,
@@ -293,11 +297,10 @@ impl Task {
 pub struct CroncatQuery {
     /// This is address of the queried module contract.
     /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
-    ///
-    /// One requirement for custom contracts: query return value should be formatted as a:
-    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub contract_addr: String,
     pub msg: Binary,
+    /// For queries with `check_result`: query return value should be formatted as a:
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
     pub check_result: bool,
 }
 
@@ -305,6 +308,13 @@ pub struct CroncatQuery {
 pub struct SlotTasksTotalResponse {
     pub block_tasks: u64,
     pub cron_tasks: u64,
+    pub evented_tasks: u64,
+}
+
+#[cw_serde]
+pub struct CurrentTaskInfoResponse {
+    pub total: Uint64,
+    pub last_created_task: Timestamp,
 }
 
 #[cw_serde]
@@ -359,65 +369,91 @@ impl Display for SlotType {
 }
 
 /// Get the next block within the boundary
-fn get_next_block_limited(env: &Env, boundary: &BoundaryValidated) -> (u64, SlotType) {
+fn get_next_block_limited(env: &Env, boundary_height: &BoundaryHeight) -> u64 {
     let current_block_height = env.block.height;
 
-    let next_block_height = if current_block_height < boundary.start {
-        boundary.start - 1
-    } else {
-        current_block_height
+    let next_block_height = match boundary_height.start {
+        // shorthand - remove 1 since it adds 1 later
+        Some(id) if current_block_height < id.u64() => id.u64() - 1,
+        _ => current_block_height,
+    };
+
+    match boundary_height.end {
+        // stop if passed end height
+        Some(end) if current_block_height > end.u64() => 0,
+
+        // we ONLY want to catch if we're passed the end block height
+        Some(end) if next_block_height > end.u64() => end.u64(),
+
+        // immediate needs to return this block + 1
+        _ => next_block_height + 1,
+    }
+}
+
+/// Get the next time within the boundary
+/// Does not shift the timestamp, to allow better windowed event boundary
+fn get_next_time_in_window(env: &Env, boundary: &BoundaryTime) -> u64 {
+    let current_block_time = env.block.time.nanos();
+
+    let next_block_time = match boundary.start {
+        Some(id) if current_block_time < id.nanos() => id.nanos(),
+        _ => current_block_time,
     };
 
     match boundary.end {
-        // stop if passed end height
-        Some(end) if current_block_height > end => (0, SlotType::Block),
+        // stop if passed end time
+        Some(end) if current_block_time > end.nanos() => 0,
 
-        // we ONLY want to catch if we're passed the end block height
-        Some(end) if next_block_height > end => (end, SlotType::Block),
-        // immediate needs to return this block + 1
-        _ => (next_block_height + 1, SlotType::Block),
+        // we ONLY want to catch if we're passed the end block time
+        Some(end) if next_block_time > end.nanos() => end.nanos(),
+
+        // immediate needs to return this time
+        _ => next_block_time,
     }
 }
 
 /// Either:
 /// - Boundary specifies a start/end that block offsets can be computed from
 /// - Block offset will truncate to specific modulo offsets
-fn get_next_block_by_offset(
-    env: &Env,
-    boundary: &BoundaryValidated,
+pub(crate) fn get_next_block_by_offset(
+    block_height: u64,
+    boundary_height: &BoundaryHeight,
     block: u64,
-) -> (u64, SlotType) {
-    let current_block_height = env.block.height;
+) -> u64 {
+    let current_block_height = block_height;
     let modulo_block = if block > 0 {
         current_block_height.saturating_sub(current_block_height % block) + block
     } else {
-        return (0, SlotType::Block);
+        return 0;
     };
 
-    let next_block_height = if current_block_height < boundary.start {
-        let rem = boundary.start % block;
-        if rem > 0 {
-            boundary.start.saturating_sub(rem) + block
-        } else {
-            boundary.start
+    let next_block_height = match boundary_height.start {
+        Some(id) if current_block_height < id.u64() => {
+            let rem = id.u64() % block;
+            if rem > 0 {
+                id.u64().saturating_sub(rem) + block
+            } else {
+                id.u64()
+            }
         }
-    } else {
-        modulo_block
+        _ => modulo_block,
     };
 
-    match boundary.end {
+    match boundary_height.end {
         // stop if passed end height
-        Some(end) if current_block_height > end => (0, SlotType::Block),
+        Some(end) if current_block_height > end.u64() => 0,
 
         // we ONLY want to catch if we're passed the end block height
         Some(end) => {
-            // Already checked the case block == 0
-            let rem = end.checked_rem(block).unwrap();
-            let end_height = end.saturating_sub(rem);
-            (end_height, SlotType::Block)
+            let end_height = if let Some(rem) = end.u64().checked_rem(block) {
+                end.u64().saturating_sub(rem)
+            } else {
+                end.u64()
+            };
+            // we ONLY want to catch if we're passed the end block height
+            std::cmp::min(next_block_height, end_height)
         }
-
-        None => (next_block_height, SlotType::Block),
+        None => next_block_height,
     }
 }
 
@@ -425,19 +461,18 @@ fn get_next_block_by_offset(
 /// Unless current slot is the end slot, don't put in the current slot
 fn get_next_cron_time(
     env: &Env,
-    boundary: &BoundaryValidated,
+    boundary: &BoundaryTime,
     crontab: &str,
     slot_granularity_time: u64,
-) -> (u64, SlotType) {
+) -> u64 {
     let current_block_ts = env.block.time.nanos();
     let current_block_slot =
         current_block_ts.saturating_sub(current_block_ts % slot_granularity_time);
 
     // get earliest possible time
-    let current_ts = if current_block_ts < boundary.start {
-        boundary.start
-    } else {
-        current_block_ts
+    let current_ts = match boundary.start {
+        Some(ts) if current_block_ts < ts.nanos() => ts.nanos(),
+        _ => current_block_ts,
     };
 
     // receive time from schedule, calculate slot for this time
@@ -453,25 +488,27 @@ fn get_next_cron_time(
     };
 
     match boundary.end {
-        Some(end) if current_block_ts > end => (0, SlotType::Cron),
+        Some(end) if current_block_ts > end.nanos() => 0,
         Some(end) => {
-            let end_slot = end.saturating_sub(end % slot_granularity_time);
-            (u64::min(end_slot, next_slot), SlotType::Cron)
+            let end_slot = end
+                .nanos()
+                .saturating_sub(end.nanos() % slot_granularity_time);
+            u64::min(end_slot, next_slot)
         }
-        _ => (next_slot, SlotType::Cron),
+        _ => next_slot,
     }
 }
 
 #[cfg(test)]
 mod test {
-    use cosmwasm_std::{testing::mock_env, Addr, CosmosMsg, WasmMsg};
-    use croncat_sdk_core::types::AmountForOneTask;
+    use cosmwasm_std::{testing::mock_env, Addr, CosmosMsg, Timestamp, Uint64, WasmMsg};
+    use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
     use hex::ToHex;
     use sha2::{Digest, Sha256};
 
-    use crate::types::{Action, CroncatQuery, Transform};
+    use crate::types::{Action, BoundaryHeight, CroncatQuery, Transform};
 
-    use super::{BoundaryValidated, Interval, SlotType, Task};
+    use super::{Boundary, BoundaryTime, Interval, SlotType, Task};
 
     const TWO_MINUTES: u64 = 120_000_000_000;
 
@@ -498,16 +535,18 @@ mod test {
         let task = Task {
             owner_addr: Addr::unchecked("bob"),
             interval: Interval::Block(5),
-            boundary: BoundaryValidated {
-                start: 4,
+            boundary: Boundary::Height(BoundaryHeight {
+                start: Some(Uint64::new(4)),
                 end: None,
-                is_block_boundary: true,
-            },
+            }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
-                gas: 100,
                 cw20: None,
                 coin: [None, None],
+                gas: 100,
+                agent_fee: u16::default(),
+                treasury_fee: u16::default(),
+                gas_price: GasPrice::default(),
             },
             actions: vec![Action {
                 msg: CosmosMsg::Wasm(WasmMsg::ClearAdmin {
@@ -555,86 +594,78 @@ mod test {
     #[test]
     fn interval_get_next_block_limited() {
         // (input, input, outcome, outcome)
-        let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        let cases: Vec<(Interval, Boundary, u64, SlotType)> = vec![
             // Once cases
             (
                 Interval::Once,
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12346,
                 SlotType::Block,
             ),
             (
                 Interval::Once,
-                BoundaryValidated {
-                    start: 12348,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12348)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12348,
                 SlotType::Block,
             ),
             (
                 Interval::Once,
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12346),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12346)),
+                }),
                 12346,
                 SlotType::Block,
             ),
             (
                 Interval::Once,
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12340),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12340)),
+                }),
                 0,
                 SlotType::Block,
             ),
             // Immediate cases
             (
                 Interval::Immediate,
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12346,
                 SlotType::Block,
             ),
             (
                 Interval::Immediate,
-                BoundaryValidated {
-                    start: 12348,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12348)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12348,
                 SlotType::Block,
             ),
             (
                 Interval::Immediate,
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12346),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12346)),
+                }),
                 12346,
                 SlotType::Block,
             ),
             (
                 Interval::Immediate,
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12340),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12340)),
+                }),
                 0,
                 SlotType::Block,
             ),
@@ -651,188 +682,170 @@ mod test {
     #[test]
     fn interval_get_next_block_by_offset() {
         // (input, input, outcome, outcome)
-        let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        let cases: Vec<(Interval, Boundary, u64, SlotType)> = vec![
             // strictly modulo cases
             (
                 Interval::Block(1),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12346,
                 SlotType::Block,
             ),
             (
                 Interval::Block(10),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12350,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12400,
                 SlotType::Block,
             ),
             (
                 Interval::Block(1000),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 13000,
                 SlotType::Block,
             ),
             (
                 Interval::Block(10000),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 20000,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100000),
-                BoundaryValidated {
-                    start: 12345,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 100000,
                 SlotType::Block,
             ),
             // with another start
             (
                 Interval::Block(1),
-                BoundaryValidated {
-                    start: 12348,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12348)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12348,
                 SlotType::Block,
             ),
             (
                 Interval::Block(10),
-                BoundaryValidated {
-                    start: 12360,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12360)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12360,
                 SlotType::Block,
             ),
             (
                 Interval::Block(10),
-                BoundaryValidated {
-                    start: 12364,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12364)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12370,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 12364,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12364)),
                     end: None,
-                    is_block_boundary: true,
-                },
+                }),
                 12400,
                 SlotType::Block,
             ),
             // modulo + boundary end
             (
                 Interval::Block(1),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12345),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12345)),
+                }),
                 12345,
                 SlotType::Block,
             ),
             (
                 Interval::Block(10),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12355),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12355)),
+                }),
                 12350,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12355),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12355)),
+                }),
                 12300,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12300),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12300)),
+                }),
                 0,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12545),
-                    is_block_boundary: true,
-                },
-                12500,
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12545)),
+                }),
+                12400,
                 SlotType::Block,
             ),
             (
                 Interval::Block(100),
-                BoundaryValidated {
-                    start: 11345,
-                    end: Some(11545),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(11345)),
+                    end: Some(Uint64::new(11545)),
+                }),
                 0,
                 SlotType::Block,
             ),
             // wrong block interval
             (
                 Interval::Block(100_000),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12355),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12355)),
+                }),
                 0,
                 SlotType::Block,
             ),
             (
                 Interval::Block(0),
-                BoundaryValidated {
-                    start: 12345,
-                    end: Some(12355),
-                    is_block_boundary: true,
-                },
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(12355)),
+                }),
                 0,
                 SlotType::Block,
             ),
@@ -851,75 +864,68 @@ mod test {
     fn interval_get_next_cron_time() {
         // (input, input, outcome, outcome)
         // test the case when slot_granularity_time == 1
-        let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        let cases: Vec<(Interval, Boundary, u64, SlotType)> = vec![
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_797_420_000_000_000, // current time in nanos is 1_571_797_419_879_305_533
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("1 * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_797_441_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("* 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_600_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_615_000_000_000,
                 SlotType::Cron,
             ),
             // with another start
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_471_799_600_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_471_799_600_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_615_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_799_600_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_799_600_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_615_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_799_700_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_799_700_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_803_215_000_000_000,
                 SlotType::Cron,
             ),
@@ -927,64 +933,58 @@ mod test {
             // current slot is the end slot
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_419_879_305_533),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                }),
                 1_571_797_419_879_305_533,
                 SlotType::Cron,
             ),
             // the next slot is after the end, return end slot
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_419_879_305_535),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_419_879_305_535)),
+                }),
                 1_571_797_419_879_305_535,
                 SlotType::Cron,
             ),
             // next slot in boundaries
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_420_000_000_000),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_420_000_000_000)),
+                }),
                 1_571_797_420_000_000_000,
                 SlotType::Cron,
             ),
             // the task has ended
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_419_879_305_532),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_419_879_305_532)),
+                }),
                 0,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_471_799_600_000_000_000,
-                    end: Some(1_471_799_600_000_000_000),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_471_799_600_000_000_000)),
+                    end: Some(Timestamp::from_nanos(1_471_799_600_000_000_000)),
+                }),
                 0,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("1 * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_471_797_441_000_000_000,
-                    end: Some(1_671_797_441_000_000_000),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_471_797_441_000_000_000)),
+                    end: Some(Timestamp::from_nanos(1_671_797_441_000_000_000)),
+                }),
                 1_571_797_441_000_000_000,
                 SlotType::Cron,
             ),
@@ -998,14 +998,13 @@ mod test {
         }
 
         // slot_granularity_time == 120_000_000_000 ~ 2 minutes
-        let cases: Vec<(Interval, BoundaryValidated, u64, SlotType)> = vec![
+        let cases: Vec<(Interval, Boundary, u64, SlotType)> = vec![
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 // the timestamp is in the current slot, so we take the next slot
                 1_571_797_420_000_000_000_u64
                     .saturating_sub(1_571_797_420_000_000_000 % TWO_MINUTES)
@@ -1014,62 +1013,56 @@ mod test {
             ),
             (
                 Interval::Cron("1 * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_797_440_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("* 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_600_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_600_000_000_000,
                 SlotType::Cron,
             ),
             // with another start
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_471_799_600_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_471_799_600_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_600_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_799_600_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_799_600_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_799_600_000_000_000,
                 SlotType::Cron,
             ),
             (
                 Interval::Cron("15 0 * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_799_700_000_000_000,
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_799_700_000_000_000)),
                     end: None,
-                    is_block_boundary: false,
-                },
+                }),
                 1_571_803_200_000_000_000,
                 SlotType::Cron,
             ),
@@ -1077,44 +1070,40 @@ mod test {
             // boundary end in the current slot
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_419_879_305_535),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_419_879_305_535)),
+                }),
                 1_571_797_320_000_000_000,
                 SlotType::Cron,
             ),
             // next slot in boundaries
             (
                 Interval::Cron("1 * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_560_000_000_000),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_560_000_000_000)),
+                }),
                 1_571_797_440_000_000_000,
                 SlotType::Cron,
             ),
             // next slot after the end, return end slot
             (
                 Interval::Cron("1 * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_420_000_000_000),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_420_000_000_000)),
+                }),
                 1_571_797_320_000_000_000,
                 SlotType::Cron,
             ),
             // the task has ended
             (
                 Interval::Cron("* * * * * *".to_string()),
-                BoundaryValidated {
-                    start: 1_571_797_419_879_305_533,
-                    end: Some(1_571_797_419_879_305_532),
-                    is_block_boundary: false,
-                },
+                Boundary::Time(BoundaryTime {
+                    start: Some(Timestamp::from_nanos(1_571_797_419_879_305_533)),
+                    end: Some(Timestamp::from_nanos(1_571_797_419_879_305_532)),
+                }),
                 0,
                 SlotType::Cron,
             ),
