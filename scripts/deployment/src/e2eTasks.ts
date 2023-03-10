@@ -43,20 +43,32 @@ const e2eTasks = async (cwClient) => {
   // }
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient);
-	const managerClient = new ManagerClient(cwClient);
-	const agentClient = new AgentClient(cwClient);
-	const taskClient = new TaskClient(cwClient);
+	const factoryClient = new FactoryClient(cwClient, contracts.factory.address);
 	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
 	// Pre-logic: get latest versions from factory
-	const allVersions: any[] = await factoryClient.getLatestContracts()
+	// NOTE: Could use the contracts object above, but def wanna be overly same as production
+	let allVersions: any[]
+	try {
+		allVersions = await factoryClient.getLatestContracts()
+	} catch (e) {
+		console.log('factory allVersions error', e);
+	}
 	const versions: any = {}
 	allVersions.forEach((v: any) => {
 		// create a map instead of array
 		versions[v.contract_name] = v.metadata
 	})
-	// console.log('factory allVersions', JSON.stringify(allVersions));
+
+	if (!versions?.manager?.contract_addr || !versions?.agents?.contract_addr || !versions?.tasks?.contract_addr) {
+		console.error(`Missing deployed contracts for ${cwClient.chain.pretty_name}, try cmd 'yarn go ${cwClient.chain.chain_name}' again!`)
+		process.exit()
+	}
+
+	const managerClient = new ManagerClient(cwClient, versions.manager.contract_addr);
+	const agentClient = new AgentClient(cwClient, versions.agents.contract_addr);
+	const taskClient = new TaskClient(cwClient, versions.tasks.contract_addr);
+
 
   // TODO: 
 

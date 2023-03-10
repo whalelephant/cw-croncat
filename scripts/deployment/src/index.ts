@@ -136,10 +136,28 @@ const start = async () => {
     Object.keys(networkClients).forEach(k => p.push(deployNetwork(networkClients[k])))
     const factoryDeploys = await Promise.all(p)
 
-    // Store this output, for use in agent & website envs
-    // TODO: Setup a read, so we don't overwrite other networks not in this list!!
+    let prevFactories: any = {}
+    const deployFilePath = `${artifactsRoot}/deployed_factories.json`
+    
+    try {
+        // read, so we don't overwrite other networks not in this list!!
+        const raw = await fs.readFileSync(deployFilePath, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed && parsed.length) parsed.forEach(p => {
+            if (p.chain_name) prevFactories[p.chain_name] = p
+        })
+    } catch (e) {
+        // Do nothing, since nothing exists
+    }
+
     if (factoryDeploys && factoryDeploys.length) {
-        await fs.writeFileSync(`${artifactsRoot}/deployed_factories.json`, JSON.stringify(factoryDeploys))
+        factoryDeploys.forEach(fd => {
+            // only overwrite ones we JUST deployed
+            prevFactories[fd.chain_name] = fd
+        })
+
+        // Store this output, for use in agent & website envs
+        await fs.writeFileSync(`${artifactsRoot}/deployed_factories.json`, JSON.stringify(Object.values(prevFactories)))
         console.table(factoryDeploys)
     }
 
