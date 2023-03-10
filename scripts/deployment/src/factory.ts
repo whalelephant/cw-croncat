@@ -1,87 +1,94 @@
-import { ExecuteResult, SigningCosmWasmClient, toBinary } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteResult, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { QueryClient } from "@cosmjs/stargate";
-import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate";
+import { StdFee, calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 import { getContractVersionFromCargoToml } from './utils'
+import { DeploySigner } from "./signer"
 config({ path: '.env' })
-const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
-const instantiateGas = calculateFee(700_000, defaultGasPrice)
 
 export class FactoryClient {
-	client: SigningCosmWasmClient;
+  client: DeploySigner;
   querier: any;
+  uploadGas: any;
+  executeGas: any;
+  codeId: number;
+  address: string;
 
-  constructor(client: SigningCosmWasmClient, querier?: QueryClient) {
+  constructor(client: DeploySigner, querier?: QueryClient) {
 		this.client = client;
-    this.querier = querier;
+    this.querier = querier || client.querier;
 	}
 
 	async deploy(
     artifactsRoot: string,
-    sender: string,
-    uploadGas: StdFee,
-    executeGas: StdFee
   ): Promise<[number, string]> {
+    // Gas vals
+    this.uploadGas = calculateFee(4_400_000, this.client.defaultGasPrice)
+    this.executeGas = calculateFee(555_000, this.client.defaultGasPrice)
 		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_factory.wasm`)
-		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
-		const codeId = uploadRes.codeId
+    const uploadRes = await this.client.client.upload(this.client.accounts.deployer, wasm, this.uploadGas)
+		this.codeId = uploadRes.codeId
 
     // get the version from cargo
     const version = await getContractVersionFromCargoToml('croncat-factory')
 
     const instantiateOptions = {
-      admin: sender,
+      admin: this.client.accounts.deployer,
       // memo: '',
       // funds: [],
     }
 
     // instantiate
-    const factoryInst = await this.client.instantiate(sender, codeId, {}, `CronCat:factory:${version}`, instantiateGas, instantiateOptions)
-    const address = factoryInst.contractAddress
+    const instantiateGas = calculateFee(700_000, this.client.defaultGasPrice)
+    const factoryInst = await this.client.client.instantiate(this.client.accounts.deployer, this.codeId, {}, `CronCat:factory:${version}`, instantiateGas, instantiateOptions)
+    this.address = factoryInst.contractAddress
 
-		return [codeId, address];
+    return [this.codeId, this.address];
 	}
 
-	async getLatestContracts(contractAddr: string): Promise<any> {
+	async getLatestContracts(): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { latest_contracts: {} };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
 		return response;
 	}
 
-	async getLatestContract(contractAddr: string, contractName: string): Promise<any> {
+  async getLatestContract(contractName: string): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { latest_contract: { contract_name: contractName } };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
 		return response;
 	}
 
-	async getVersionsByContractName(contractAddr: string, contractName: string): Promise<any> {
+  async getVersionsByContractName(contractName: string): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { versions_by_contract_name: { contract_name: contractName } };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
 		return response;
   }
 
-  async getContractNames(contractAddr: string): Promise<any> {
+  async getContractNames(): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { contract_names: {} };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
     return response;
   }
 
-  async getAllEntries(contractAddr: string): Promise<any> {
+  async getAllEntries(): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { all_entries: {} };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
     return response;
   }
 
   async doProxyCall(
-    sender: string,
-    factoryAddr: string,
     contractAddr: string,
     sub_msg: any,
     gas: StdFee,
     funds: any,
   ): Promise<ExecuteResult> {
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
     const proxy_msg = {
       proxy: {
         msg: {
@@ -93,17 +100,16 @@ export class FactoryClient {
         },
       }
     };
-    const response = await this.client.execute(sender, factoryAddr, proxy_msg, gas, null, funds);
+    const response = await this.client.client.execute(this.client.accounts.deployer, this.address, proxy_msg, gas, null, funds);
     return response;
   }
 
   async addWhitelistedAgent(
-    sender: string,
-    contractAddr: string,
     agentContractAddr: string,
     agentAddr: string,
     gas: StdFee
   ): Promise<ExecuteResult> {
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
     const proxy_sub_msg = {
       execute: {
         contract_addr: agentContractAddr || '',
@@ -120,7 +126,7 @@ export class FactoryClient {
         msg: proxy_sub_msg,
       }
     };
-    const response = await this.client.execute(sender, contractAddr, proxy_msg, gas);
+    const response = await this.client.client.execute(this.client.accounts.deployer, this.address, proxy_msg, gas);
     return response;
   }
 }

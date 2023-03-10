@@ -11,6 +11,7 @@
     "e2e": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2e.js",
     "e2eTasks": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/e2eTasks.js",
     "whitelist": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/whitelist.js",
+    "accounts": "tsc && cross-env NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 node build/accounts.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -29,6 +30,8 @@
     "@cosmjs/proto-signing": "^0.29.5",
     "@cosmjs/stargate": "^0.29.5",
     "@cosmjs/tendermint-rpc": "^0.29.5",
+    "axios": "^1.3.4",
+    "chain-registry": "^1.9.0",
     "cross-env": "^7.0.3",
     "dotenv": "^16.0.3",
     "toml": "^3.0.0",

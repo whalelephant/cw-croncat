@@ -1,30 +1,39 @@
-import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { StdFee } from "@cosmjs/stargate";
+import { calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
-import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
-const prefix: string = process.env.PREFIX
+import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
+import { DeploySigner } from "./signer"
 
 export class ModulesClient {
-  client: SigningCosmWasmClient;
+  client: DeploySigner;
+  uploadGas: any;
+  executeGas: any;
+  codeId: number;
+  address: string;
 
-  constructor(client: SigningCosmWasmClient) {
+  constructor(client: DeploySigner) {
     this.client = client;
   }
 
-  async deploy(artifactsRoot: string, sender: string, factoryAddress: string, uploadGas: StdFee, executeGas: StdFee): Promise<any[]> {
-    const wasms = [
+  async deploy(
+    artifactsRoot: string,
+    factoryAddress: string,
+  ): Promise<any[]> {
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
+    this.uploadGas = calculateFee(4_400_000, this.client.defaultGasPrice)
+    this.executeGas = calculateFee(555_000, this.client.defaultGasPrice)
+		const wasms = [
       fs.readFileSync(`${artifactsRoot}/croncat_mod_balances.wasm`),
       fs.readFileSync(`${artifactsRoot}/croncat_mod_dao.wasm`),
       fs.readFileSync(`${artifactsRoot}/croncat_mod_generic.wasm`),
       fs.readFileSync(`${artifactsRoot}/croncat_mod_nft.wasm`),
     ]
 
-    const upload0 = await this.client.upload(sender, wasms[0], uploadGas)
-    const upload1 = await this.client.upload(sender, wasms[1], uploadGas)
-    const upload2 = await this.client.upload(sender, wasms[2], uploadGas)
-    const upload3 = await this.client.upload(sender, wasms[3], uploadGas)
+    const upload0 = await this.client.client.upload(this.client.accounts.deployer, wasms[0], this.uploadGas)
+    const upload1 = await this.client.client.upload(this.client.accounts.deployer, wasms[1], this.uploadGas)
+    const upload2 = await this.client.client.upload(this.client.accounts.deployer, wasms[2], this.uploadGas)
+    const upload3 = await this.client.client.upload(this.client.accounts.deployer, wasms[3], this.uploadGas)
     const checksums = await getChecksums()
     const githash = await getGitHash()
 
@@ -34,7 +43,7 @@ export class ModulesClient {
     const version2 = await getContractVersionFromCargoToml('mod-generic')
     const version3 = await getContractVersionFromCargoToml('mod-nft')
 
-    const exec0 = await this.client.execute(sender, factoryAddress, {
+    const exec0 = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
@@ -48,9 +57,9 @@ export class ModulesClient {
           "contract_name": "mod_balances"
         }
       }
-    }, executeGas)
+    }, this.executeGas)
 
-    const exec1 = await this.client.execute(sender, factoryAddress, {
+    const exec1 = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
@@ -64,9 +73,9 @@ export class ModulesClient {
           "contract_name": "mod_dao"
         }
       }
-    }, executeGas)
+    }, this.executeGas)
 
-    const exec2 = await this.client.execute(sender, factoryAddress, {
+    const exec2 = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
@@ -80,9 +89,9 @@ export class ModulesClient {
           "contract_name": "mod_generic"
         }
       }
-    }, executeGas)
+    }, this.executeGas)
 
-    const exec3 = await this.client.execute(sender, factoryAddress, {
+    const exec3 = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, {
       "deploy": {
         "kind": "library",
         "module_instantiate_info": {
@@ -96,7 +105,7 @@ export class ModulesClient {
           "contract_name": "mod_nft"
         }
       }
-    }, executeGas)
+    }, this.executeGas)
 
     return [
       { name: 'mod_balances', code_id: upload0.codeId, address: exec0.logs[0].events[1].attributes[0].value },

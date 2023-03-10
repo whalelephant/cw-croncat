@@ -1,70 +1,26 @@
-import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { coins, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
-import { HdPath, stringToPath } from "@cosmjs/crypto"
-import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
-import { QueryClient } from "@cosmjs/stargate";
-import { fromHex } from "@cosmjs/encoding";
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
+import { coins } from "@cosmjs/proto-signing"
 import { config } from "dotenv"
-import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
-import * as util from "util"
+import { calculateFee } from "@cosmjs/stargate"
+import { getChainByChainName, getSupportedNetworks } from './utils'
+import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
 import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
 import { ModulesClient } from './modules';
 config({ path: '.env' })
-// Get values from the environment variables located in the .env file
-const seedPhrase: string = process.env.SEED_PHRASE
-const prefix: string = process.env.PREFIX
-const endpoint: string = process.env.RPC_ENDPOINT
-// NOTE: MUST Be a contract wallet - multisig prefered!
-// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
-const pauseAdminAddress: string = process.env.PAUSE_ADMIN_MULTISIG || ''
-const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
-// Gas vals
-const executeGas = calculateFee(999_000, defaultGasPrice)
+const e2e = async (cwClient) => {
+	console.info(`🏖️ Starting ${cwClient.chain.pretty_name} End 2 End Chex 🌋`)
 
-const start = async () => {
-	console.info(`🏖️ Starting End 2 End Chex 🌋`)
+	// Gas vals
+	const executeGas = calculateFee(999_000, cwClient.defaultGasPrice)
 
-	const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, {
-		prefix,
-		hdPaths: [
-			// for easier coinage management
-			stringToPath(`m/44'/118'/0'/0/0`),
-			stringToPath(`m/44'/118'/0'/0/1`),
-			stringToPath(`m/44'/118'/0'/0/2`),
-			stringToPath(`m/44'/118'/0'/0/3`),
-			stringToPath(`m/44'/118'/0'/0/4`),
-		]
-	})
-	const accts = await signerWallet.getAccounts()
-	const userAddress = accts[0].address
-	const agent2Address = accts[1].address
-	const agent3Address = accts[2].address
-	const agent4Address = accts[3].address
-	const treasuryAddress = accts[4].address
-	console.table({
-		userAddress,
-		agent2Address,
-		agent3Address,
-		agent4Address,
-		treasuryAddress,
-		pauseAdminAddress,
-	});
-
-	const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-	const httpBatchClient = new HttpBatchClient(endpoint, {
-			batchSizeLimit: 2,
-			dispatchInterval: 500
-	})
-	const tmClient = await Tendermint34Client.create(httpBatchClient)
-	const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
-	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, 'utf8')
+	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${cwClient.chain.chain_name}-deployed_contracts.json`, 'utf8')
 	if (!rawDeployed) process.exit(1)
 	const deployedContracts = JSON.parse(rawDeployed)
 	const contracts: any = {}
@@ -74,14 +30,14 @@ const start = async () => {
 	})
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient, queryClient);
+	const factoryClient = new FactoryClient(cwClient);
 	const managerClient = new ManagerClient(cwClient);
-	const agentClient = new AgentClient(cwClient, queryClient);
-	const taskClient = new TaskClient(cwClient, queryClient);
+	const agentClient = new AgentClient(cwClient);
+	const taskClient = new TaskClient(cwClient);
 	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
 	// Pre-logic: get latest versions from factory
-	const allVersions: any[] = await factoryClient.getLatestContracts(contracts.factory.address)
+	const allVersions: any[] = await factoryClient.getLatestContracts()
 	const versions: any = {}
 	allVersions.forEach((v: any) => {
 		// create a map instead of array
@@ -121,7 +77,7 @@ const start = async () => {
 					"bank": {
 						"send": {
 							"to_address": versions.manager.contract_addr,
-							"amount": coins(amount, denom)
+							"amount": coins(amount, cwClient.denom)
 						}
 					}
 				},
@@ -167,13 +123,11 @@ const start = async () => {
 		}
 	}
 
-	// Add first agent Register & check status
+	// Add 3rd agent to whitelist
 	try {
 		const r = await factoryClient.addWhitelistedAgent(
-			userAddress,
-			contracts.factory.address,
 			versions.agents.contract_addr,
-			userAddress,
+			cwClient.accounts.agent3,
 			executeGas
 		);
 		console.info(`Agents Add to Whitelist SUCCESS\n`, JSON.stringify(r), '\n')
@@ -183,13 +137,13 @@ const start = async () => {
 
 	// Register & check status
 	try {
-		const r = await agentClient.register(userAddress, versions.agents.contract_addr, executeGas);
+		const r = await agentClient.register(cwClient.accounts.agent1, versions.agents.contract_addr);
 		console.info(`Agents Register SUCCESS\n`, JSON.stringify(r), '\n')
 	} catch (e) {
 		console.info(`Agents Register ERROR`, e)
 	}
 	try {
-		const as = await agentClient.status(userAddress, versions.agents.contract_addr);
+		const as = await agentClient.status(cwClient.accounts.agent1);
 		console.info(`Agents Status\n`, as.agent, '\n')
 		if (as.agent.status !== 'active') process.exit(1)
 	} catch (e) {
@@ -199,12 +153,10 @@ const start = async () => {
 	// Create 2 tasks (first one, the stock factory tick task)
 	try {
 		const t1 = await factoryClient.doProxyCall(
-			userAddress,
-			contracts.factory.address,
 			versions.tasks.contract_addr,
 			factoryTask1,
 			executeGas,
-			coins(60_000, denom)
+			coins(60_000, cwClient.denom)
 		);
 		console.info(`Factory Task 1 Create SUCCESS\n`, JSON.stringify(t1), '\n')
 	} catch (e) {
@@ -212,36 +164,27 @@ const start = async () => {
 	}
 	// TODO: Bring back once better example above
 	// try {
-	// 	const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task1, coins(60_000, denom));
+	// 	const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task1, coins(100_000, cwClient.denom));
 	// 	console.info(`Task 1 Create SUCCESS\n`, JSON.stringify(t1), '\n')
 	// } catch (e) {
 	// 	console.info(`Task 1 Create ERROR`, e)
 	// }
 	try {
-		const t2 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task2(1), coins(100_000, denom));
+		const t2 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(1), coins(100_000, cwClient.denom));
 		console.info(`Task 2 Create SUCCESS\n`, JSON.stringify(t2), '\n')
 	} catch (e) {
 		console.info(`Task 2 Create ERROR`, e)
 	}
 
-	// NOTE: Need to fund this address to work
-	// Send agent 2 small funds to execute sample tasks
-	try {
-		await cwClient.sendTokens(userAddress, agent2Address, coins(5_000_000, denom), "auto", "CronCat Agent 2")
-	} catch (e) {
-		console.log('Fund Agent 2 ERROR', e);
-		process.exit(1)
-	}
-
 	// Register 2nd agent & check status
 	try {
-		const r2 = await agentClient.register(agent2Address, versions.agents.contract_addr, executeGas);
+		const r2 = await agentClient.register(cwClient.accounts.agent2, executeGas);
 		console.info(`Agents Register SUCCESS\n`, JSON.stringify(r2), '\n')
 	} catch (e) {
 		console.info(`Agents Register ERROR`, e)
 	}
 	try {
-		const as2 = await agentClient.status(agent2Address, versions.agents.contract_addr);
+		const as2 = await agentClient.status(cwClient.accounts.agent2);
 		console.info(`Agent 2 Status\n`, as2.agent, '\n')
 		if (as2.agent.status !== 'pending') process.exit(1)
 	} catch (e) {
@@ -250,13 +193,13 @@ const start = async () => {
 
 	// create another 2 tasks so second agent can be nominated
 	try {
-		const t3 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task2(2), coins(260_000, denom));
+		const t3 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(2), coins(260_000, cwClient.denom));
 		console.info(`Task 3 Create SUCCESS\n`, JSON.stringify(t3), '\n')
 	} catch (e) {
 		console.info(`Task 3 Create ERROR`, e)
 	}
 	try {
-		const t4 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task2(3), coins(460_000, denom));
+		const t4 = await taskClient.create(cwClient.accounts.deployer, executeGas, task2(3), coins(460_000, cwClient.denom));
 		console.info(`Task 3 Create SUCCESS\n`, JSON.stringify(t4), '\n')
 	} catch (e) {
 		console.info(`Task 3 Create ERROR`, e)
@@ -264,7 +207,7 @@ const start = async () => {
 
 	// confirm agent is nominated
 	try {
-		const as2 = await agentClient.status(agent2Address, versions.agents.contract_addr);
+		const as2 = await agentClient.status(cwClient.accounts.agent2);
 		console.info(`Agent 2 Nominated`, as2.agent.status)
 		if (as2.agent.status !== 'nominated') process.exit(1)
 	} catch (e) {
@@ -273,14 +216,14 @@ const start = async () => {
 
 	// Check in 2nd agent
 	try {
-		const as2 = await agentClient.checkIn(agent2Address, versions.agents.contract_addr, executeGas);
+		const as2 = await agentClient.checkIn(cwClient.accounts.agent2, executeGas);
 		console.info(`Agent 2 Checkin\n`, JSON.stringify(as2), '\n')
 	} catch (e) {
 		console.info(`Agent 2 Nominated ERROR`, e)
 	}
 	// confirm agent is active
 	try {
-		const as2 = await agentClient.status(agent2Address, versions.agents.contract_addr);
+		const as2 = await agentClient.status(cwClient.accounts.agent2);
 		console.info(`Agent 2 Active`, as2.agent.status)
 		if (as2.agent.status !== 'active') process.exit(1)
 	} catch (e) {
@@ -289,7 +232,7 @@ const start = async () => {
 
 	// 1st agent do proxycall
 	try {
-		const a1pc = await managerClient.proxyCall(userAddress, versions.manager.contract_addr, executeGas);
+		const a1pc = await managerClient.proxyCall(cwClient.accounts.deployer, executeGas);
 		console.info(`Agent 1 ProxyCall\n`, JSON.stringify(a1pc), '\n')
 	} catch (e) {
 		console.info(`Agent 1 ProxyCall ERROR`, e)
@@ -297,7 +240,7 @@ const start = async () => {
 
 	// 2nd agent do proxycall
 	try {
-		const a2pc = await managerClient.proxyCall(agent2Address, versions.manager.contract_addr, executeGas);
+		const a2pc = await managerClient.proxyCall(cwClient.accounts.agent2, executeGas);
 		console.info(`Agent 2 ProxyCall\n`, JSON.stringify(a2pc), '\n')
 	} catch (e) {
 		console.info(`Agent 2 ProxyCall ERROR`, e)
@@ -305,7 +248,7 @@ const start = async () => {
 
 	// 1st agent withdraw reward
 	try {
-		const a1w = await managerClient.agentWithdraw(userAddress, versions.manager.contract_addr, executeGas);
+		const a1w = await managerClient.agentWithdraw(cwClient.accounts.agent1, executeGas);
 		console.info(`Agent 1 Withdraw\n`, JSON.stringify(a1w), '\n')
 	} catch (e) {
 		console.info(`Agent 1 Withdraw ERROR`, e)
@@ -313,7 +256,7 @@ const start = async () => {
 
 	// 1st agent unregister
 	try {
-		const as1u = await agentClient.unregister(userAddress, versions.agents.contract_addr, executeGas);
+		const as1u = await agentClient.unregister(cwClient.accounts.agent1, executeGas);
 		console.info(`Agent 1 Unregister\n`, JSON.stringify(as1u), '\n')
 	} catch (e) {
 		console.info(`Agent 1 Unregister ERROR`, e)
@@ -321,7 +264,7 @@ const start = async () => {
 
 	// 2nd agent unregister
 	try {
-		const as2u = await agentClient.unregister(agent2Address, versions.agents.contract_addr, executeGas);
+		const as2u = await agentClient.unregister(cwClient.accounts.agent2, executeGas);
 		console.info(`Agent 2 Unregister\n`, JSON.stringify(as2u), '\n')
 	} catch (e) {
 		console.info(`Agent 2 Unregister ERROR`, e)
@@ -329,7 +272,7 @@ const start = async () => {
 
 	// Confirm no agents
 	try {
-		const aIds = await agentClient.getAgents(versions.agents.contract_addr);
+		const aIds = await agentClient.getAgents();
 		console.info(`Agents List Empty`, aIds)
 		if (aIds.active.length > 0 || aIds.pending.length > 0) process.exit(1)
 	} catch (e) {
@@ -339,7 +282,7 @@ const start = async () => {
 	// Get list of all tasks
 	let tasks = []
 	try {
-		const t = await taskClient.getTasks(versions.tasks.contract_addr);
+		const t = await taskClient.getTasks();
 		console.info(`Tasks`, t.length)
 		if (t.length <= 0) process.exit(1)
 		tasks = t
@@ -350,12 +293,50 @@ const start = async () => {
 	// Loop and remove all tasks
 	for await (const task of tasks) {
 		try {
-			const t = await taskClient.remove(task.owner_addr, versions.tasks.contract_addr, executeGas, task.task_hash);
+			const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
 			console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
 		} catch (e) {
 			console.info(`Task Remove ERROR`, e)
 		}
 	}
+}
+
+// Bootstrap all networks before deploying contexts
+const start = async () => {
+	const args = yargs(hideBin(process.argv)).argv
+	let chainName
+	let networks = []
+	if (args._ && args._.length > 0) {
+		chainName = args._[0]
+		const chain = getChainByChainName(chainName)
+		if (chain) {
+			networks = [chain]
+		} else {
+			console.error(`Couldn't find ${chainName}, please try different chain_name and try again.`)
+			process.exit()
+		}
+	} else {
+		networks = getSupportedNetworks()
+	}
+	if (!networks || !networks.length) process.exit();
+	// Instantiate all the clients needed
+	const networkClients = {}
+	try {
+		await Promise.all(networks.map(async n => {
+			const ds = new DeploySigner()
+			networkClients[n.chain_name] = await ds.init(n)
+			return n
+		}))
+	} catch (e) {
+		console.log(e);
+	}
+
+	if (!Object.keys(networkClients) || !Object.keys(networkClients).length) process.exit()
+
+	// loop all clients and display their address/balances
+	const p = []
+	Object.keys(networkClients).forEach(k => p.push(e2e(networkClients[k])))
+	await Promise.all(p)
 
 	process.exit()
 }

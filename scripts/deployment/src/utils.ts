@@ -1,8 +1,32 @@
 import path from 'path'
 import * as fs from "fs"
 import toml from 'toml'
+import { fromBech32 } from "@cosmjs/encoding";
+import { chains } from "chain-registry"
+import { config } from "dotenv"
+config({ path: '.env' })
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 const contractsRoot = `${process.cwd()}/../../contracts`
+
+const networkType = process.env.NETWORK_TYPE || 'testnet'
+
+export const getSupportedNetworks = () => {
+  // Get env list, then parse
+  const chainNames = `${process.env.SUPPORTED_CHAIN_NAMES || ''}`.split(',')
+  if (!chainNames || !chainNames.length) return []
+
+  // Get chain registry for each one, if found
+  return chainNames.map(cn => {
+    return chains.find(c => c.chain_name === cn)
+  }).filter(c => c != null)
+}
+
+export const getChainByChainName = cn => chains.find(c => c.chain_name === cn)
+
+export const getChainForAccount = address => {
+  const { prefix } = fromBech32(address);
+  return chains.find(n => n?.bech32_prefix === prefix && n?.network_type === networkType);
+}
 
 export const getChecksums = async (): Promise<any> => {
   const sums = fs.readFileSync(`${artifactsRoot}/checksums.txt`, 'utf8')

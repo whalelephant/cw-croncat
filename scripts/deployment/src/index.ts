@@ -1,120 +1,59 @@
-import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
-import { HdPath, stringToPath } from "@cosmjs/crypto"
-import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
-import { QueryClient } from "@cosmjs/stargate";
-import { fromHex } from "@cosmjs/encoding";
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
 import { config } from "dotenv"
-import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
+config({ path: '.env' })
 import * as fs from "fs"
-import * as util from "util"
+import { getChainByChainName, getSupportedNetworks } from './utils'
+import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
 import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
 import { ModulesClient } from './modules';
-config({ path: '.env' })
-// Get values from the environment variables located in the .env file
-const seedPhrase: string = process.env.SEED_PHRASE
-const prefix: string = process.env.PREFIX
-const endpoint: string = process.env.RPC_ENDPOINT
-// NOTE: MUST Be a contract wallet - multisig prefered!
-// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
-const pauseAdminAddress: string = process.env.PAUSE_ADMIN_MULTISIG || ''
-const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
+
 const artifactsRoot = process.env.WASM_BUILD_FOLDER ? `../../${process.env.WASM_BUILD_FOLDER}` : `${process.cwd()}/../../artifacts`
 
-// Gas vals
-const uploadGas = calculateFee(4_400_000, defaultGasPrice)
-const executeGas = calculateFee(555_000, defaultGasPrice)
+const deployNetwork = async (cwClient) => {
+    console.info(`🤖 Starting ${cwClient.chain.pretty_name} Deployment 🤖`)
 
-const start = async () => {
-    console.info(`🤖 Starting Deployment 🤖`)
-
-    const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, {
-        prefix,
-        hdPaths: [
-            // for easier coinage management
-            stringToPath(`m/44'/118'/0'/0/0`),
-            stringToPath(`m/44'/118'/0'/0/1`),
-            stringToPath(`m/44'/118'/0'/0/2`),
-            stringToPath(`m/44'/118'/0'/0/3`),
-            stringToPath(`m/44'/118'/0'/0/4`),
-        ]
-    })
-    const accts = await signerWallet.getAccounts()
-    const userAddress = accts[0].address
-    const agent2Address = accts[1].address
-    const agent3Address = accts[2].address
-    const agent4Address = accts[3].address
-    const treasuryAddress = accts[4].address
-    console.table({
-        userAddress,
-        agent2Address,
-        agent3Address,
-        agent4Address,
-        treasuryAddress,
-        pauseAdminAddress,
-    });
-    
-    const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-
-    // Ensure transaction succeeded
-    const httpBatchClient = new HttpBatchClient(endpoint, {
-        batchSizeLimit: 2,
-        dispatchInterval: 500
-    })
-    const tmClient = await Tendermint34Client.create(httpBatchClient)
-    // Keep the line below, as we'll use it later
-    // const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
+    // TODO: Check for balances first, and attempt to dust other accounts if needed
+    // // NOTE: Need to fund this address to work
+    // // Send agent 2 small funds to execute sample tasks
+    // try {
+    //     await cwClient.sendTokens(userAddress, agent2Address, coins(5_000_000, denom), "auto", "CronCat Agent 2")
+    // } catch (e) {
+    //     console.log('Fund Agent 2 ERROR', e);
+    //     process.exit(1)
+    // }
 
     // Factory
     var factoryClient = new FactoryClient(cwClient);
-    var [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot, userAddress, uploadGas, executeGas);
+    var [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot);
     console.info(`🏭 Factory Done`, factoryId, factoryAddress)
 
     // Manager
     var managerClient = new ManagerClient(cwClient);
-    var [managerId, managerAddress] = await managerClient.deploy(
-        artifactsRoot,
-        userAddress,
-        factoryAddress,
-        pauseAdminAddress,
-        treasuryAddress,
-        uploadGas,
-        executeGas
-    );
+    var [managerId, managerAddress] = await managerClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Manager Done`, managerId, managerAddress)
 
     // Tasks
     var taskClient = new TaskClient(cwClient);
-    var [taskContractCodeId, taskContractAddr] = await taskClient.deploy(
-        artifactsRoot,
-        userAddress,
-        factoryAddress,
-        pauseAdminAddress,
-        uploadGas,
-        executeGas
-    );
+    var [taskContractCodeId, taskContractAddr] = await taskClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Tasks Done`, taskContractCodeId, taskContractAddr)
 
     // Agents
     var agentClient = new AgentClient(cwClient);
     var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(
         artifactsRoot,
-        userAddress,
         factoryAddress,
-        [userAddress, agent2Address],
-        pauseAdminAddress,
-        uploadGas,
-        executeGas
+        // NOTE: Agent 1-5 exist
+        [cwClient.accounts.agent1, cwClient.accounts.agent2],
     );
     console.info(`🏗️  Agents Done`, agentContractCodeId, agentContractAddr)
 
     // Modules
     var modulesClient = new ModulesClient(cwClient);
-    var modules = await modulesClient.deploy(artifactsRoot, userAddress, factoryAddress, uploadGas, executeGas);
+    var modules = await modulesClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Modules Done`)
 
     // Show all
@@ -128,7 +67,56 @@ const start = async () => {
     console.table(output)
 
     // Store this output, for use in agent & website envs
-    await fs.writeFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, JSON.stringify(output))
+    await fs.writeFileSync(`${artifactsRoot}/${cwClient.chain.chain_name}-deployed_contracts.json`, JSON.stringify(output))
+
+    // return the factory address for final file writer
+    return {
+        chain_name: cwClient.chain.chain_name,
+        code_id: factoryId,
+        address: factoryAddress
+    }
+}
+
+// Bootstrap all networks before deploying contexts
+const start = async () => {
+    const args = yargs(hideBin(process.argv)).argv
+    let chainName
+    let networks = []
+    if (args._ && args._.length > 0) {
+        chainName = args._[0]
+        const chain = getChainByChainName(chainName)
+        if (chain) {
+            networks = [chain]
+        } else {
+            console.error(`Couldn't find ${chainName}, please try different chain_name and try again.`)
+            process.exit()
+        }
+    } else {
+        networks = getSupportedNetworks()
+    }
+    if (!networks || !networks.length) process.exit();
+    // Instantiate all the clients needed
+    const networkClients = {}
+    try {
+        await Promise.all(networks.map(async n => {
+            const ds = new DeploySigner()
+            networkClients[n.chain_name] = await ds.init(n)
+            return n
+        }))
+    } catch (e) {
+        console.log(e);
+    }
+
+    if (!Object.keys(networkClients) || !Object.keys(networkClients).length) process.exit()
+
+    // loop all clients and display their address/balances
+    const p = []
+    Object.keys(networkClients).forEach(k => p.push(deployNetwork(networkClients[k])))
+    const factoryDeploys = await Promise.all(p)
+
+    // Store this output, for use in agent & website envs
+    await fs.writeFileSync(`${artifactsRoot}/deployed_factories.json`, JSON.stringify(factoryDeploys))
+    console.table(factoryDeploys)
 
     process.exit()
 }
