@@ -16,34 +16,37 @@ const artifactsRoot = process.env.WASM_BUILD_FOLDER ? `../../${process.env.WASM_
 const deployNetwork = async (cwClient) => {
     console.info(`🤖 Starting ${cwClient.chain.pretty_name} Deployment 🤖`)
 
-    // TODO: Check for balances first, and attempt to dust other accounts if needed
-    // // NOTE: Need to fund this address to work
-    // // Send agent 2 small funds to execute sample tasks
-    // try {
-    //     await cwClient.sendTokens(userAddress, agent2Address, coins(5_000_000, denom), "auto", "CronCat Agent 2")
-    // } catch (e) {
-    //     console.log('Fund Agent 2 ERROR', e);
-    //     process.exit(1)
-    // }
+    // Check for balances first, and attempt to dust other accounts if needed
+    const accountBalances = await cwClient.getAllAccountsBalances()
+    const deployer = accountBalances.find(ab => ab.id === 'deployer')
+    const p = []
+    const sendAmount = 5_000_000 // `EX: 0.5 juno`
+    accountBalances.forEach(ab => {
+        if (ab.id != 'deployer' && parseInt(`${ab.amount}`, 10) === 0) {
+            p.push(cwClient.sendTokens(ab.id, sendAmount))
+        }
+    })
+    // we gotsta send funds for all to participate bruh
+    if (p.length) await Promise.all(p)
 
     // Factory
-    var factoryClient = new FactoryClient(cwClient);
-    var [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot);
+    const factoryClient = new FactoryClient(cwClient);
+    const [factoryId, factoryAddress] = await factoryClient.deploy(artifactsRoot);
     console.info(`🏭 Factory Done`, factoryId, factoryAddress)
 
     // Manager
-    var managerClient = new ManagerClient(cwClient);
-    var [managerId, managerAddress] = await managerClient.deploy(artifactsRoot, factoryAddress);
+    const managerClient = new ManagerClient(cwClient);
+    const [managerId, managerAddress] = await managerClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Manager Done`, managerId, managerAddress)
 
     // Tasks
-    var taskClient = new TaskClient(cwClient);
-    var [taskContractCodeId, taskContractAddr] = await taskClient.deploy(artifactsRoot, factoryAddress);
+    const taskClient = new TaskClient(cwClient);
+    const [taskContractCodeId, taskContractAddr] = await taskClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Tasks Done`, taskContractCodeId, taskContractAddr)
 
     // Agents
-    var agentClient = new AgentClient(cwClient);
-    var [agentContractCodeId, agentContractAddr] = await agentClient.deploy(
+    const agentClient = new AgentClient(cwClient);
+    const [agentContractCodeId, agentContractAddr] = await agentClient.deploy(
         artifactsRoot,
         factoryAddress,
         // NOTE: Agent 1-5 exist
@@ -52,8 +55,8 @@ const deployNetwork = async (cwClient) => {
     console.info(`🏗️  Agents Done`, agentContractCodeId, agentContractAddr)
 
     // Modules
-    var modulesClient = new ModulesClient(cwClient);
-    var modules = await modulesClient.deploy(artifactsRoot, factoryAddress);
+    const modulesClient = new ModulesClient(cwClient);
+    const modules = await modulesClient.deploy(artifactsRoot, factoryAddress);
     console.info(`🏗️  Modules Done`)
 
     // Show all

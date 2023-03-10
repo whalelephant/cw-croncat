@@ -8,12 +8,9 @@ import { QueryClient } from "@cosmjs/stargate";
 import { GasPrice } from "@cosmjs/stargate";
 import { config } from "dotenv"
 config({ path: '.env' })
+import { pauseAdmins } from './utils'
 
 const seedPhrase: string = process.env.SEED_PHRASE
-
-// NOTE: MUST Be a contract wallet - multisig prefered!
-// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
-const pauseAdminAddress: string = process.env.PAUSE_ADMIN_MULTISIG || ''
 
 export class DeploySigner {
 	client: SigningCosmWasmClient;
@@ -34,6 +31,7 @@ export class DeploySigner {
     [key: string]: string;
   }
   // TODO: Add "pause_admin" address, based on .env config
+  pauseAdmin: string;
 
   constructor() {
 	}
@@ -43,6 +41,7 @@ export class DeploySigner {
     this.mnemonic = seedPhrase;
     this.chain = chain;
     this.prefix = chain.bech32_prefix;
+    this.pauseAdmin = pauseAdmins[chain.chain_name]
     const prefix = this.prefix;
     this.fee_token = chain.fees.fee_tokens[0];
     this.defaultGasPrice = GasPrice.fromString(`${this.fee_token.average_gas_price}${this.fee_token.denom}`)
@@ -68,6 +67,7 @@ export class DeploySigner {
       agent3: accts[4].address,
       agent4: accts[5].address,
       agent5: accts[6].address,
+      pause_admin: this.pauseAdmin,
     }
     // console.table(this.accounts);
 
@@ -151,7 +151,7 @@ export class DeploySigner {
   async sendTokens(id, amount) {
     if (!this.client) return;
     try {
-      await this.client.sendTokens(this.accounts.deployer, this.accounts[id], coins(amount || 5_000_000, this.fee_token.denom), "auto", `CronCat Agent ${id}`)
+      await this.client.sendTokens(this.accounts.deployer, this.accounts[id], coins(amount || 5_000_000, this.fee_token.denom), "auto", ``)
     } catch (e) {
       console.log(`Fund ${id} ERROR`, e)
     }

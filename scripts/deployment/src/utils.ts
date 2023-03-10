@@ -10,6 +10,17 @@ const contractsRoot = `${process.cwd()}/../../contracts`
 
 const networkType = process.env.NETWORK_TYPE || 'testnet'
 
+// NOTE: MUST Be a contract wallet - multisig prefered!
+// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
+export const pauseAdmins = {
+  junotestnet: process.env.PAUSE_ADMIN_MULTISIG_JUNOTESTNET || '',
+  juno: process.env.PAUSE_ADMIN_MULTISIG_JUNO || '',
+  osmosistestnet: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET || '',
+  osmosis: process.env.PAUSE_ADMIN_MULTISIG_OSMOSIS || '',
+  stargazetestnet: process.env.PAUSE_ADMIN_MULTISIG_STARGAZETESTNET || '',
+  stargaze: process.env.PAUSE_ADMIN_MULTISIG_STARGAZE || '',
+}
+
 export const getSupportedNetworks = () => {
   // Get env list, then parse
   const chainNames = `${process.env.SUPPORTED_CHAIN_NAMES || ''}`.split(',')
