@@ -37,7 +37,7 @@ const start = async () => {
 	})
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient);
+	const factoryClient = new FactoryClient(cwClient, contracts.factory.address);
 
 	// Pre-logic: get latest versions from factory
 	const allVersions: any[] = await factoryClient.getLatestContracts()
