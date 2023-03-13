@@ -4,10 +4,6 @@ import { coins } from "@cosmjs/proto-signing"
 
 const to_binary = (v: any) => Buffer.from(JSON.stringify(v)).toString('base64')
 
-// TODO: Bootstrap Data
-// - latest chain height
-// - all owner/agent balances
-
 // {
 //   "actions": [
 //     {
@@ -56,7 +52,7 @@ export const intervals = [
   { cron: '* 0 * * * *' },
 ]
 
-// TODO: Compute "now" before assigning the values here
+// Compute "now" before assigning the values here
 const nanos = 1_000_000
 const minute = 60 * 1000
 const fiveminute = 5 * 60 * 1000
@@ -129,13 +125,14 @@ export const actions = (options: any) => [
       "wasm": {
         "execute": {
           "contract_addr": options.contract_addr,
-          "msg": to_binary({ "tick": {} }),
+          "msg": to_binary(options.action_msg || { "tick": {} }),
           "funds": []
         }
       }
     },
     "gas_limit": 75000
   },
+  // TODO: Add more examples
 ]
 
 // TWO Types of helpers here:
@@ -317,14 +314,25 @@ export const getQueryMsgByTypes = (contract_addr: string, type: string, method: 
   //   check_result: true,
   // }
   return {
-    msg: queries[type][method](args),
+    msg: to_binary(queries[type][method](args)),
     contract_addr: contract_addr,
     check_result,
   }
 }
 
-// grabbing data
-export const transforms = [
+export const parsePathToArray = (p: string): any => {
+  return p.split('.').map(i => {
+    // check if integer or not for index-based checks
+    return /^[0-9]{0,4}$/.test(i) ? { index: parseInt(i, 10) } : { key: i }
+  })
+}
+
+export const getTransform = (
+  query_idx: number,
+  action_idx: number,
+  query_path: string,
+  action_path: string,
+) => {
   // {
   //   "query_idx": 1,
   //   "action_idx": 0,
@@ -342,10 +350,87 @@ export const transforms = [
   //     }
   //   ]
   // },
+  return {
+    query_idx,
+    action_idx,
+    query_response_path: parsePathToArray(query_path),
+    action_path: parsePathToArray(action_path),
+  }
+}
+
+// helpful transform examples
+export const transforms = [
+  getTransform(0, 0, 'transfer.amount', 'admin'),
 ]
 
-// TODO:
-// Generate a large set of tasks
+// Generate a large set of query tasks
+// options = { modBalancesAddr, currentHeight, address, cw20_contract, amount, denom, comparator }
+export const getEventedTasks = (options: any) => {
+  const eventedTasks = []
+
+  // Just QUERY samples
+  eventedTasks.push({
+    ...baseTask,
+    interval: intervals[1], // immediate
+    boundary: boundaries(options.currentHeight)[3], // 100 block range
+    actions: [actions(options)[0]], // bank send
+    queries: [
+      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+    ],
+    transforms: [],
+  })
+  // TODO: Need to deploy/initialize cw20 contract for testing
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[1]], // wasm exec tick
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getCw20Balance', { cw20_contract: options.cw20_contract, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+  eventedTasks.push({
+    ...baseTask,
+    interval: intervals[1], // immediate
+    boundary: boundaries(options.currentHeight)[3], // 100 block range
+    actions: [actions(options)[0]], // bank send
+    queries: [
+      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalanceComparator', { address: options.address, comparator: options.comparator, required_balance: { amount: options.amount, denom: options.denom } }, true),
+    ],
+    transforms: [],
+  })
+
+  // QUERY+TRANSFORM samples
+  eventedTasks.push({
+    ...baseTask,
+    interval: intervals[1], // immediate
+    boundary: boundaries(options.currentHeight)[3], // 100 block range
+    actions: [actions(options)[0]], // bank send
+    queries: [
+      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+    ],
+    transforms: [
+      getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
+      getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
+    ],
+  })
+  eventedTasks.push({
+    ...baseTask,
+    interval: intervals[1], // immediate
+    boundary: boundaries(options.currentHeight)[3], // 100 block range
+    actions: [actions(options)[0]], // bank send
+    queries: [
+      to_binary(getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalanceComparator', { address: options.address, comparator: options.comparator, required_balance: { amount: options.amount, denom: options.denom } }, true)),
+    ],
+    transforms: [
+      getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
+      getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
+    ],
+  })
+
+  return eventedTasks
+}
 
 // options = { currentHeight, address, amount, denom }
 export const getIntervalTasks = (options: any) => {
@@ -359,7 +444,6 @@ export const getIntervalTasks = (options: any) => {
         boundary: bnd,
         actions: [action],
       }
-      // if ((int.block && bnd && !bnd.time) && (int.cron && bnd && !bnd.height)) {
       if (int.block && bnd && !bnd.time) {
         intervalTasks.push(task)
       }
@@ -374,8 +458,12 @@ export const getIntervalTasks = (options: any) => {
 
 export const tasks: any = (options: any) => ({
   intervalTasks: getIntervalTasks(options),
+  eventedTasks: getEventedTasks(options),
 })
 
-export const allTasks = (options: any) => [
-  getIntervalTasks(options),
-]
+export const allTasks = (options: any) => {
+  return [].concat(
+    getIntervalTasks(options),
+    getEventedTasks(options),
+  )
+}

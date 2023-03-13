@@ -53,3 +53,12 @@ yarn e2e junotestnet
 # adds an agent address to the whitelist, so they can register
 yarn whitelist stars15434j0vvv8un4hs0sfx8avmnc7yp...
 ```
+
+## Scenario coverage
+
+```bash
+# runs full scope of contexts for end to end testing
+# NOTE: This WILL take quite a while, please allow for significant time for this to complete.
+# Be advised to run only 1 network at a time, even tho it supports all
+yarn e2eTasks junotestnet
+```

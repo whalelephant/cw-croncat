@@ -15,6 +15,7 @@ const seedPhrase: string = process.env.SEED_PHRASE
 export class DeploySigner {
 	client: SigningCosmWasmClient;
   querier: any;
+  tmClient: any;
   chain: Chain;
   prefix: string;
   defaultGasPrice: GasPrice;
@@ -102,8 +103,8 @@ export class DeploySigner {
           batchSizeLimit: 10,
           dispatchInterval: 500
         })
-        const tmClient = await Tendermint34Client.create(httpBatchClient)
-        this.querier = QueryClient.withExtensions(tmClient, setupWasmExtension)
+        this.tmClient = await Tendermint34Client.create(httpBatchClient)
+        this.querier = QueryClient.withExtensions(this.tmClient, setupWasmExtension)
       } catch (e) {
         return Promise.reject(e)
       }

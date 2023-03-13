@@ -4,13 +4,14 @@ import { coins } from "@cosmjs/proto-signing"
 import { config } from "dotenv"
 import * as fs from "fs"
 import { calculateFee } from "@cosmjs/stargate"
-import { getChainByChainName, getSupportedNetworks } from './utils'
+import { getChainByChainName, getSupportedNetworks, getTaskHashFromLogs } from './utils'
 import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 import { ManagerClient } from './manager';
 import { TaskClient } from './tasks';
 import { AgentClient } from './agents';
 import { ModulesClient } from './modules';
+import { tasks, getEventedTasks, getIntervalTasks, comparators } from './taskSampleData'
 config({ path: '.env' })
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
@@ -29,22 +30,20 @@ const e2eTasks = async (cwClient) => {
 		contracts[d.name] = { codeId: d.code_id, address: d.address }
 	})
 
-	// TODO: bring back
-  // // Get blockchain status
-  // let currentBlockHeight
-  // try {
-  //   const r = await tmClient.status()
-  //   if (r?.syncInfo?.latestBlockHeight) currentBlockHeight = r.syncInfo.latestBlockHeight
-  //   console.log('Current Block Height', currentBlockHeight);
-  //   if (!currentBlockHeight) process.exit(1)
-  // } catch (e) {
-  //   console.info(`Blockchain Status ERROR`, e)
-  //   process.exit(1)
-  // }
+	// Get blockchain status
+  let currentBlockHeight
+  try {
+		const r = await cwClient.tmClient.status()
+    if (r?.syncInfo?.latestBlockHeight) currentBlockHeight = r.syncInfo.latestBlockHeight
+    console.log('Current Block Height', currentBlockHeight);
+    if (!currentBlockHeight) process.exit(1)
+  } catch (e) {
+    console.info(`Blockchain Status ERROR`, e)
+    process.exit(1)
+  }
 
 	// Classes
 	const factoryClient = new FactoryClient(cwClient, contracts.factory.address);
-	// NOTE: Unsure if we really need module thangs here. maybe someday when haz too much hands and excessive timez
 
 	// Pre-logic: get latest versions from factory
 	// NOTE: Could use the contracts object above, but def wanna be overly same as production
@@ -69,18 +68,15 @@ const e2eTasks = async (cwClient) => {
 	const agentClient = new AgentClient(cwClient, versions.agents.contract_addr);
 	const taskClient = new TaskClient(cwClient, versions.tasks.contract_addr);
 
-
-  // TODO: 
-
 	// // Register & check status
 	// try {
-	// 	const r = await agentClient.register(userAddress, versions.agents.contract_addr, executeGas);
+	// 	const r = await agentClient.register(cwClient.accounts.agent1, executeGas);
 	// 	console.info(`Agents Register SUCCESS\n`, JSON.stringify(r), '\n')
 	// } catch (e) {
 	// 	console.info(`Agents Register ERROR`, e)
 	// }
 	// try {
-	// 	const as = await agentClient.status(userAddress, versions.agents.contract_addr);
+	// 	const as = await agentClient.status(cwClient.accounts.agent1);
 	// 	console.info(`Agents Status\n`, as.agent, '\n')
 	// 	if (as.agent.status !== 'active') process.exit(1)
 	// } catch (e) {
@@ -89,20 +85,33 @@ const e2eTasks = async (cwClient) => {
 
   // const allTasks = tasks({
   //   currentHeight: currentBlockHeight + 64, // because it could take 64 blocks to create all these taskoids
-  //   address: userAddress,
+	// 	address: cwClient.accounts.deployer,
   //   amount: 1337,
-  //   denom,
-  // })
+  //   denom: cwClient.fee_token.denom,
+	// })
+	// console.log('tasks INTERVAL', JSON.stringify(allTasks.intervalTasks));
 
-  // // console.log('tasks INTERVAL', JSON.stringify(allTasks.intervalTasks));
+	// { modBalancesAddr, currentHeight, address, cw20_contract, amount, denom, comparator }
+	const eventedTasks = getEventedTasks({
+    currentHeight: currentBlockHeight + 64, // because it could take 64 blocks to create all these taskoids
+		contract_addr: versions.mod_balances.contract_addr, // doesnt actually work?
+		modBalancesAddr: versions.mod_balances.contract_addr,
+		address: cwClient.accounts.deployer,
+		cw20_contract: '', // TODO:!!!!!!!
+    amount: 1337,
+    denom: cwClient.fee_token.denom,
+		comparator: comparators[3],
+  })
+	console.log('tasks eventedTasks', JSON.stringify(eventedTasks));
   // console.log('tasks INTERVAL', allTasks.intervalTasks.length);
 
 	// // Create all tasks
   // // Loop all the intervals & create tasks
-  // for await (const task of allTasks.intervalTasks) {
+  // // for await (const task of allTasks.intervalTasks) {
+	// for await (const task of eventedTasks) {
   //   try {
   //     console.log('TASK:', JSON.stringify(task));
-  //     const t1 = await taskClient.create(userAddress, versions.tasks.contract_addr, executeGas, task, coins(250_000, denom));
+	// 		const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task, coins(250_000, cwClient.fee_token.denom));
   //     const task_hash = getTaskHashFromLogs(t1)
   //     console.info(`Task Create SUCCESS:`, task_hash, JSON.stringify(task.interval), JSON.stringify(task.boundary))
   //   } catch (e) {
@@ -112,7 +121,7 @@ const e2eTasks = async (cwClient) => {
 
 	// // 1st agent do proxycall
 	// try {
-	// 	const a1pc = await managerClient.proxyCall(userAddress, versions.manager.contract_addr, executeGas);
+	// 	const a1pc = await managerClient.proxyCall(cwClient.accounts.agent1, executeGas);
 	// 	console.info(`Agent 1 ProxyCall\n`, JSON.stringify(a1pc), '\n')
 	// } catch (e) {
 	// 	console.info(`Agent 1 ProxyCall ERROR`, e)
@@ -120,7 +129,7 @@ const e2eTasks = async (cwClient) => {
 
 	// // 1st agent unregister
 	// try {
-	// 	const as1u = await agentClient.unregister(userAddress, versions.agents.contract_addr, executeGas);
+	// 	const as1u = await agentClient.unregister(cwClient.accounts.agent1, executeGas);
 	// 	console.info(`Agent 1 Unregister\n`, JSON.stringify(as1u), '\n')
 	// } catch (e) {
 	// 	console.info(`Agent 1 Unregister ERROR`, e)
@@ -137,15 +146,20 @@ const e2eTasks = async (cwClient) => {
 		console.info(`Tasks List ERROR`, e)
 	}
 
-	// Loop and remove all tasks
-  for await (const task of tasksFound) {
-		try {
-			const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
-			console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
-		} catch (e) {
-			console.info(`Task Remove ERROR`, e)
-		}
-	}
+	console.log('tasksFound', tasksFound);
+
+	// // Loop and remove all tasks
+  // for await (const task of tasksFound) {
+	// 	try {
+	// 		// remove all tasks except the tick from factory!!
+	// 		if (task.owner_addr != contracts.factory.address) {
+	// 			const t = await taskClient.remove(task.owner_addr, executeGas, task.task_hash);
+	// 			console.info(`Task Remove SUCCESS\n`, task.task_hash, '\n', JSON.stringify(t), '\n')
+	// 		}
+	// 	} catch (e) {
+	// 		console.info(`Task Remove ERROR`, e)
+	// 	}
+	// }
 
 	process.exit()
 }
