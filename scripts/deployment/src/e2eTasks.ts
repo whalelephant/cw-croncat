@@ -105,19 +105,19 @@ const e2eTasks = async (cwClient) => {
 	console.log('tasks eventedTasks', JSON.stringify(eventedTasks));
   // console.log('tasks INTERVAL', allTasks.intervalTasks.length);
 
-	// // Create all tasks
-  // // Loop all the intervals & create tasks
-  // // for await (const task of allTasks.intervalTasks) {
-	// for await (const task of eventedTasks) {
-  //   try {
-  //     console.log('TASK:', JSON.stringify(task));
-	// 		const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task, coins(250_000, cwClient.fee_token.denom));
-  //     const task_hash = getTaskHashFromLogs(t1)
-  //     console.info(`Task Create SUCCESS:`, task_hash, JSON.stringify(task.interval), JSON.stringify(task.boundary))
-  //   } catch (e) {
-  //     console.info(`Task Create ERROR`, e)
-  //   }
-	// }
+	// Create all tasks
+  // Loop all the intervals & create tasks
+  // for await (const task of allTasks.intervalTasks) {
+	for await (const task of eventedTasks) {
+    try {
+      console.log('TASK:', JSON.stringify(task));
+			const t1 = await taskClient.create(cwClient.accounts.deployer, executeGas, task, coins(250_000, cwClient.fee_token.denom));
+      const task_hash = getTaskHashFromLogs(t1)
+      console.info(`Task Create SUCCESS:`, task_hash, JSON.stringify(task.interval), JSON.stringify(task.boundary))
+    } catch (e) {
+      console.info(`Task Create ERROR`, e)
+    }
+	}
 
 	// // 1st agent do proxycall
 	// try {
