@@ -92,16 +92,19 @@ const e2eTasks = async (cwClient) => {
 	// console.log('tasks INTERVAL', JSON.stringify(allTasks.intervalTasks));
 
 	// { modBalancesAddr, currentHeight, address, cw20_contract, amount, denom, comparator }
-	const eventedTasks = getEventedTasks({
-    currentHeight: currentBlockHeight + 64, // because it could take 64 blocks to create all these taskoids
+
+	const taskOptions = {
+		currentHeight: currentBlockHeight + 64, // because it could take 64 blocks to create all these taskoids
 		contract_addr: versions.mod_balances.contract_addr, // doesnt actually work?
 		modBalancesAddr: versions.mod_balances.contract_addr,
 		address: cwClient.accounts.deployer,
 		cw20_contract: '', // TODO:!!!!!!!
-    amount: 1337,
-    denom: cwClient.fee_token.denom,
+		amount: 1337,
+		denom: cwClient.fee_token.denom,
 		comparator: comparators[3],
-  })
+	}
+
+	const eventedTasks = getEventedTasks(taskOptions)
 	console.log('tasks eventedTasks', JSON.stringify(eventedTasks));
   // console.log('tasks INTERVAL', allTasks.intervalTasks.length);
 

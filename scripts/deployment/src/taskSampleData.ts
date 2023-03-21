@@ -367,18 +367,76 @@ export const transforms = [
 // options = { modBalancesAddr, currentHeight, address, cw20_contract, amount, denom, comparator }
 export const getEventedTasks = (options: any) => {
   const eventedTasks = []
+  console.log('options', options);
 
-  // Just QUERY samples
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-    ],
-    transforms: [],
-  })
+  // // BATCH TEST samples
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   // interval: intervals[5], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[0], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   // interval: intervals[6], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[1], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   // interval: intervals[4], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[2], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   // interval: intervals[4], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[3], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+
+  // // Just QUERY samples
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   // interval: intervals[1], // immediate
+  //   interval: intervals[4], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[0], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
   // TODO: Need to deploy/initialize cw20 contract for testing
   // eventedTasks.push({
   //   ...baseTask,
@@ -390,44 +448,61 @@ export const getEventedTasks = (options: any) => {
   //   ],
   //   transforms: [],
   // })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalanceComparator', { address: options.address, comparator: options.comparator, required_balance: { amount: options.amount, denom: options.denom } }, true),
-    ],
-    transforms: [],
-  })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(
+  //       options.modBalancesAddr,
+  //       'balances',
+  //       'getBalanceComparator',
+  //       {
+  //         address: options.address,
+  //         comparator: options.comparator,
+  //         required_balance: {
+  //           native: [
+  //             {
+  //               amount: options.amount,
+  //               denom: options.denom
+  //             }
+  //           ]
+  //         }
+  //       },
+  //       true
+  //     ),
+  //   ],
+  //   transforms: [],
+  // })
 
-  // QUERY+TRANSFORM samples
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
-      getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
-    ],
-  })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      to_binary(getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalanceComparator', { address: options.address, comparator: options.comparator, required_balance: { amount: options.amount, denom: options.denom } }, true)),
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
-      getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
-    ],
-  })
+  // // QUERY+TRANSFORM samples
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
+  //     getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
+  //   ],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     to_binary(getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalanceComparator', { address: options.address, comparator: options.comparator, required_balance: { amount: options.amount, denom: options.denom } }, true)),
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'msg.bank.send.amount.amount'),
+  //     getTransform(0, 0, 'denom', 'msg.bank.send.amount.denom'), // not needed, but testing
+  //   ],
+  // })
 
   return eventedTasks
 }
