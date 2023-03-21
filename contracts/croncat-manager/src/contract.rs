@@ -259,6 +259,7 @@ fn execute_proxy_call(
         // No task
         return Err(ContractError::NoTask {});
     };
+    let task_hash = task.clone().task_hash;
 
     // check if ready between boundary (if any)
     if is_before_boundary(&env.block, Some(&task.boundary)) {
@@ -272,7 +273,10 @@ fn execute_proxy_call(
             config,
             agent_addr,
             tasks_addr,
-            Some(vec![Attribute::new("lifecycle", "task_ended")]),
+            Some(vec![
+                Attribute::new("lifecycle", "task_ended"),
+                Attribute::new("task_hash", task_hash),
+            ]),
             true,
         );
     }
@@ -313,7 +317,7 @@ fn execute_proxy_call(
 
         // Need to re-check if task has enough cw20's
         // because it could have been changed through transform
-        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+        let task_balance = TASKS_BALANCES.load(deps.storage, task_hash.as_bytes())?;
         if invalidated_after_transform
             || task_balance
                 .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
@@ -326,7 +330,10 @@ fn execute_proxy_call(
                 config,
                 agent_addr,
                 tasks_addr,
-                Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
+                Some(vec![
+                    Attribute::new("lifecycle", "task_invalidated"),
+                    Attribute::new("task_hash", task_hash),
+                ]),
                 false,
             );
         }
@@ -403,7 +410,7 @@ fn end_task(
         amount: coins_transfer,
     };
     Ok(Response::new()
-        .add_attribute("action", "remove_task")
+        .add_attribute("action", "end_task")
         .add_attributes(attrs.unwrap_or_default())
         .add_message(msg)
         .add_message(bank_send))
