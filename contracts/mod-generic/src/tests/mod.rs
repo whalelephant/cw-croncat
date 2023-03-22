@@ -1,4 +1,4 @@
 mod generic_query;
-mod mod_generic_tests;
 mod helpers;
+mod mod_generic_tests;
 mod value_ordering;

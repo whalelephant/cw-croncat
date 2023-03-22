@@ -1,12 +1,14 @@
+use std::vec;
+
 use cosmwasm_std::{
     coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
     MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
-    WasmMsg,
+    WasmMsg, WasmQuery,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::{Boundary, TaskInfo};
+use croncat_sdk_tasks::types::{Boundary, CosmosQuery, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -441,6 +443,99 @@ pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Bounda
             .map_or(false, |e| e.u64() < block_info.height - 1),
         None => false,
     }
+}
+
+/// Query all task queries in sequence, return all binary data if found.
+/// Response order is important to maintain for transforms
+/// NOTE: SystemError's such as InvalidRequest or UnsupportedRequest are not match-able in the QuerierWrapper
+/// As such, we require the task creator to validate queries externally before creating a task
+/// either with simulation or direct checks. Future support possible but not created here.
+///
+/// NOTE: Future impls will include recursive query transforms, hence the task info here
+pub fn process_queries(
+    deps: &DepsMut,
+    task: &TaskInfo,
+) -> Result<Vec<cosmwasm_std::Binary>, ContractError> {
+    let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
+
+    let queries = if let Some(qs) = &task.queries {
+        qs
+    } else {
+        // No error here since we want to just simply progress through call stack if we dont have queries
+        // Likely this is NOOP
+        return Ok(vec![]);
+    };
+
+    // Process all the queries
+    for query in queries {
+        match query {
+            CosmosQuery::Croncat(q) => {
+                // let res: mod_sdk::types::QueryResponse = deps
+                //     .querier
+                //     .query_wasm_smart(q.contract_addr.to_string(), &q.msg.clone())?;
+                let res: mod_sdk::types::QueryResponse = deps.querier.query(
+                    &WasmQuery::Smart {
+                        contract_addr: q.contract_addr.clone(),
+                        msg: q.msg.clone(),
+                    }
+                    .into(),
+                )?;
+                if q.check_result && !res.result {
+                    return Err(ContractError::TaskQueryResultFalse {});
+                }
+                query_responses.push(res.data);
+            }
+            CosmosQuery::Wasm(wq) => {
+                // Cover all native wasm query types
+                match wq {
+                    WasmQuery::Smart { contract_addr, msg } => {
+                        let data = deps.querier.query(
+                            &WasmQuery::Smart {
+                                contract_addr: contract_addr.clone().to_string(),
+                                msg: msg.clone(),
+                            }
+                            .into(),
+                        )?;
+                        // Chuck it in there already!
+                        query_responses.push(data);
+                    }
+                    WasmQuery::Raw { contract_addr, key } => {
+                        let res: Option<Vec<u8>> = deps.querier.query(
+                            &WasmQuery::Raw {
+                                contract_addr: contract_addr.clone().to_string(),
+                                key: key.clone(),
+                            }
+                            .into(),
+                        )?;
+                        // .query_wasm_raw(contract_addr.clone().to_string(), key.clone())?;
+                        // Optimistically respond to maintain orderly processing
+                        let data = if let Some(r) = res {
+                            to_binary(&r)?
+                        } else {
+                            Binary::default()
+                        };
+                        // its so raw
+                        query_responses.push(data);
+                    }
+                    WasmQuery::ContractInfo { contract_addr } => {
+                        let res = deps
+                            .querier
+                            .query_wasm_contract_info(contract_addr.clone().to_string())?;
+                        // lets find out whos responsible for this code already!
+                        query_responses.push(to_binary(&res)?);
+                    }
+                    WasmQuery::CodeInfo { code_id } => {
+                        let res = deps.querier.query_wasm_code_info(*code_id)?;
+                        // super helpful for security checks against checksum or code_id changes bruv
+                        query_responses.push(to_binary(&res)?);
+                    }
+                    _ => unimplemented!(),
+                }
+            }
+        }
+    }
+
+    Ok(query_responses)
 }
 
 /// Replace values to the result value from the rules

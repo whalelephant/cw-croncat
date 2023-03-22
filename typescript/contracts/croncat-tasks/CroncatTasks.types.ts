@@ -142,6 +142,16 @@ export type WasmMsg = {
     [k: string]: unknown;
   };
 } | {
+  instantiate2: {
+    admin?: string | null;
+    code_id: number;
+    funds: Coin[];
+    label: string;
+    msg: Binary;
+    salt: Binary;
+    [k: string]: unknown;
+  };
+} | {
   migrate: {
     contract_addr: string;
     msg: Binary;
@@ -166,8 +176,15 @@ export type GovMsg = {
     vote: VoteOption;
     [k: string]: unknown;
   };
+} | {
+  vote_weighted: {
+    options: WeightedVoteOption[];
+    proposal_id: number;
+    [k: string]: unknown;
+  };
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
+export type Decimal = string;
 export type Boundary = {
   height: BoundaryHeight;
 } | {
@@ -177,6 +194,34 @@ export type Interval = "once" | "immediate" | {
   block: number;
 } | {
   cron: string;
+};
+export type CosmosQueryForWasmQuery = {
+  croncat: CroncatQuery;
+} | {
+  wasm: WasmQuery;
+};
+export type WasmQuery = {
+  smart: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
+  raw: {
+    contract_addr: string;
+    key: Binary;
+    [k: string]: unknown;
+  };
+} | {
+  contract_info: {
+    contract_addr: string;
+    [k: string]: unknown;
+  };
+} | {
+  code_info: {
+    code_id: number;
+    [k: string]: unknown;
+  };
 };
 export type ValueIndex = {
   key: string;
@@ -199,7 +244,7 @@ export interface TaskRequest {
   boundary?: Boundary | null;
   cw20?: Cw20Coin | null;
   interval: Interval;
-  queries?: CroncatQuery[] | null;
+  queries?: CosmosQueryForWasmQuery[] | null;
   stop_on_fail: boolean;
   transforms?: Transform[] | null;
 }
@@ -223,6 +268,11 @@ export interface IbcTimeout {
 export interface IbcTimeoutBlock {
   height: number;
   revision: number;
+  [k: string]: unknown;
+}
+export interface WeightedVoteOption {
+  option: VoteOption;
+  weight: Decimal;
   [k: string]: unknown;
 }
 export interface BoundaryHeight {
@@ -320,7 +370,7 @@ export interface Task {
   boundary: Boundary;
   interval: Interval;
   owner_addr: Addr;
-  queries: CroncatQuery[];
+  queries: CosmosQueryForWasmQuery[];
   stop_on_fail: boolean;
   transforms: Transform[];
   version: string;
@@ -365,7 +415,7 @@ export interface TaskInfo {
   boundary: Boundary;
   interval: Interval;
   owner_addr: Addr;
-  queries?: CroncatQuery[] | null;
+  queries?: CosmosQueryForWasmQuery[] | null;
   stop_on_fail: boolean;
   task_hash: string;
   transforms: Transform[];

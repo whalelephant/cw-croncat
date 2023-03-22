@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdError, StdResult, Uint128, WasmQuery,
+    Reply, Response, StdError, StdResult, Uint128,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -21,8 +21,8 @@ use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
     create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    is_after_boundary, is_before_boundary, parse_reply_msg, query_agent, recalculate_cw20,
-    remove_task_balance, replace_values, task_sub_msgs,
+    is_after_boundary, is_before_boundary, parse_reply_msg, process_queries, query_agent,
+    recalculate_cw20, remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -281,28 +281,9 @@ fn execute_proxy_call(
         );
     }
 
-    if let Some(queries) = task.queries.as_ref() {
-        let event_based = queries.iter().any(|q| q.check_result);
-        if event_based && !(task.interval == Interval::Once || task.interval == Interval::Immediate)
-        {
-            return Err(ContractError::TaskNoLongerValid {});
-        }
-
+    if task.queries.is_some() {
         // Process all the queries
-        let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
-        for query in task.queries.iter().flatten() {
-            let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
-                &WasmQuery::Smart {
-                    contract_addr: query.contract_addr.clone(),
-                    msg: query.msg.clone(),
-                }
-                .into(),
-            )?;
-            if query.check_result && !query_res.result {
-                return Err(ContractError::TaskQueryResultFalse {});
-            }
-            query_responses.push(query_res.data);
-        }
+        let query_responses = process_queries(&deps, &task)?;
         replace_values(&mut task, query_responses)?;
 
         // Recalculate cw20 usage and re-check for self-calls

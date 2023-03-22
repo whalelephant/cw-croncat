@@ -12,7 +12,7 @@ use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
-    SlotTasksTotalResponse, SlotType, Task, TaskInfo, TaskRequest, TaskResponse,
+    SlotTasksTotalResponse, SlotType, Task, TaskCreationInfo, TaskInfo, TaskRequest, TaskResponse,
 };
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
@@ -372,15 +372,12 @@ fn execute_create_task(
         stop_on_fail: task.stop_on_fail,
         amount_for_one_task: amount_for_one_task.clone(),
         actions: task.actions,
+        // NOTE: See process_queries in manager contract for details on limitations of malformed queries
         queries: task.queries.unwrap_or_default(),
         transforms: task.transforms.unwrap_or_default(),
         version: config.version.clone(),
     };
-    let event_based = item.is_evented();
-    if !item.interval.is_valid()
-        || (event_based
-            && !(item.interval == Interval::Once || item.interval == Interval::Immediate))
-    {
+    if !item.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
 
@@ -419,7 +416,7 @@ fn execute_create_task(
         }
     };
 
-    if event_based {
+    if item.is_evented() {
         EVENTED_TASKS_LOOKUP.update(deps.storage, next_id, update_vec_data)?;
         attributes.push(Attribute::new("evented_id", next_id.to_string()));
     } else {
@@ -451,11 +448,18 @@ fn execute_create_task(
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
+    let response_data = TaskCreationInfo {
+        task_hash: hash.clone(),
+        owner_addr: item.owner_addr,
+        amount_for_one_task: item.amount_for_one_task,
+        version: item.version.clone(),
+    };
     Ok(Response::new()
-        .set_data(hash.as_bytes())
+        .set_data(to_binary(&response_data)?)
         .add_attribute("action", "create_task")
         .add_attributes(attributes)
         .add_attribute("task_hash", hash)
+        .add_attribute("task_version", item.version)
         .add_message(manager_create_task_balance_msg)
         .add_message(agent_new_task_msg))
 }

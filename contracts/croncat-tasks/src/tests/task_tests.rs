@@ -3,8 +3,8 @@ use crate::tests::{
     PARTICIPANT1, PAUSE_ADMIN,
 };
 use cosmwasm_std::{
-    coin, coins, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp, Uint128,
-    Uint64, WasmMsg,
+    coin, coins, from_binary, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp,
+    Uint128, Uint64, WasmMsg,
 };
 use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
 use croncat_sdk_factory::msg::{
@@ -17,14 +17,13 @@ use croncat_sdk_manager::{
 use croncat_sdk_tasks::{
     msg::UpdateConfigMsg,
     types::{
-        Action, Boundary, BoundaryHeight, BoundaryTime, Config, CroncatQuery,
+        Action, Boundary, BoundaryHeight, BoundaryTime, Config, CosmosQuery, CroncatQuery,
         CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotTasksTotalResponse, Task,
-        TaskInfo, TaskRequest, TaskResponse, Transform,
+        TaskCreationInfo, TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
 use cw_multi_test::{BankSudo, Executor};
-use cw_storage_plus::KeyDeserialize;
 
 use super::{
     contracts,
@@ -199,7 +198,8 @@ fn create_task_without_query() {
         .unwrap();
 
     // check it created task with responded task hash and can be queried from anywhere
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     assert!(task_hash.starts_with("atom:"));
     let tasks: Vec<TaskInfo> = app
         .wrap()
@@ -353,7 +353,8 @@ fn create_task_without_query() {
         )
         .unwrap();
 
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     assert!(task_hash.starts_with("atom:"));
     let responses: Vec<TaskInfo> = app
         .wrap()
@@ -613,7 +614,8 @@ fn create_task_with_wasm() {
         &coins(30000, DENOM),
     )
     .unwrap();
-    // let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    // let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    // let task_hash = task_data.task_hash;
 
     // check total tasks
     let total_tasks: Uint64 = app
@@ -674,16 +676,16 @@ fn create_tasks_with_queries_and_transforms() {
         gas_limit: Some(50_000),
     };
     let queries = vec![
-        CroncatQuery {
+        CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha123".to_owned(),
             msg: Binary::from([4, 2]),
             check_result: true,
-        },
-        CroncatQuery {
+        }),
+        CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
             check_result: true,
-        },
+        }),
     ];
     let transforms = vec![Transform {
         action_idx: 1,
@@ -714,7 +716,8 @@ fn create_tasks_with_queries_and_transforms() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let tasks: Vec<TaskInfo> = app
         .wrap()
         .query_wasm_smart(
@@ -853,16 +856,16 @@ fn remove_tasks_fail() {
             gas_limit: Some(50_000),
         }],
         queries: Some(vec![
-            CroncatQuery {
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
                 check_result: true,
-            },
-            CroncatQuery {
+            }),
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
                 check_result: true,
-            },
+            }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 1,
@@ -882,7 +885,8 @@ fn remove_tasks_fail() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_with_queries = task_data.task_hash;
 
     // Without queries
     let task_without_query = TaskRequest {
@@ -911,7 +915,8 @@ fn remove_tasks_fail() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_without_queries = task_data.task_hash;
 
     // Another user tries to remove the task
     // With queries:
@@ -1011,16 +1016,16 @@ fn remove_tasks_with_queries_success() {
             gas_limit: Some(50_000),
         }],
         queries: Some(vec![
-            CroncatQuery {
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
                 check_result: true,
-            },
-            CroncatQuery {
+            }),
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
                 check_result: true,
-            },
+            }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 1,
@@ -1057,18 +1062,18 @@ fn remove_tasks_with_queries_success() {
 
     let task_raw_non_evented = Task {
         owner_addr: Addr::unchecked(ANYONE),
-        interval: task.interval.clone(),
+        interval: Interval::Block(1234),
         boundary: Boundary::Height(BoundaryHeight {
             start: Some(Uint64::new(app.block_info().height + 10)),
             end: None,
         }),
         stop_on_fail: task.stop_on_fail,
         actions: task.actions.clone(),
-        queries: vec![CroncatQuery {
+        queries: vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
             check_result: false,
-        }],
+        })],
         transforms: task.transforms.clone().unwrap(),
         version: "0.1".to_string(),
         amount_for_one_task: AmountForOneTask {
@@ -1106,7 +1111,8 @@ fn remove_tasks_with_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash_block_with_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_block_with_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1143,16 +1149,16 @@ fn remove_tasks_with_queries_success() {
             gas_limit: Some(50_000),
         }],
         queries: Some(vec![
-            CroncatQuery {
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
                 check_result: true,
-            },
-            CroncatQuery {
+            }),
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
                 check_result: true,
-            },
+            }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 1,
@@ -1179,16 +1185,16 @@ fn remove_tasks_with_queries_success() {
             gas_limit: Some(50_000),
         }],
         queries: Some(vec![
-            CroncatQuery {
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha123".to_owned(),
                 msg: Binary::from([4, 2]),
                 check_result: false,
-            },
-            CroncatQuery {
+            }),
+            CosmosQuery::Croncat(CroncatQuery {
                 contract_addr: "aloha321".to_owned(),
                 msg: Binary::from([2, 4]),
                 check_result: false,
-            },
+            }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 1,
@@ -1199,8 +1205,8 @@ fn remove_tasks_with_queries_success() {
         cw20: None,
     };
 
-    // Make sure to test evented task with Cron interval doesnt work
-    let err: ContractError = app
+    // Make sure to test task with Cron interval and queries works
+    let res = app
         .execute_contract(
             Addr::unchecked(ANYONE),
             tasks_addr.clone(),
@@ -1209,10 +1215,13 @@ fn remove_tasks_with_queries_success() {
             },
             &coins(90000, DENOM),
         )
-        .unwrap_err()
-        .downcast()
         .unwrap();
-    assert_eq!(err, ContractError::InvalidInterval {});
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_cron_with_queries_checked = task_data.task_hash;
+    assert_eq!(
+        task_hash_cron_with_queries_checked,
+        "atom:cc4909816ce7ff69f5804e2416d3c437d7367bc7751596845c658050df7"
+    );
 
     let res = app
         .execute_contract(
@@ -1224,7 +1233,8 @@ fn remove_tasks_with_queries_success() {
             &coins(90000, DENOM),
         )
         .unwrap();
-    let task_hash_cron_with_queries_evented = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_cron_with_queries_unchecked = task_data.task_hash;
 
     let evented_ids: Vec<u64> = app
         .wrap()
@@ -1361,9 +1371,18 @@ fn remove_tasks_with_queries_success() {
     // remove evented cron task
     app.execute_contract(
         Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &ExecuteMsg::RemoveTask {
+            task_hash: task_hash_cron_with_queries_checked,
+        },
+        &[],
+    )
+    .unwrap();
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
         tasks_addr,
         &ExecuteMsg::RemoveTask {
-            task_hash: task_hash_cron_with_queries_evented.clone(),
+            task_hash: task_hash_cron_with_queries_unchecked.clone(),
         },
         &[],
     )
@@ -1375,7 +1394,7 @@ fn remove_tasks_with_queries_success() {
         .query_wasm_smart(
             manager_addr.clone(),
             &croncat_manager::msg::QueryMsg::TaskBalance {
-                task_hash: task_hash_cron_with_queries_evented,
+                task_hash: task_hash_cron_with_queries_unchecked,
             },
         )
         .unwrap();
@@ -1426,7 +1445,8 @@ fn remove_tasks_without_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash_block_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_block_without_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1477,7 +1497,8 @@ fn remove_tasks_without_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_hash_cron_without_queries = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash_cron_without_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
     let manager_task_balance: TaskBalanceResponse = app
@@ -1849,11 +1870,11 @@ fn negative_create_task() {
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
-        queries: Some(vec![CroncatQuery {
+        queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha".to_owned(),
             msg: Default::default(),
             check_result: true,
-        }]),
+        })]),
         transforms: None,
         cw20: None,
     };
@@ -1961,7 +1982,8 @@ fn remove_task_negative() {
         )
         .unwrap();
 
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // Not task owner tries to remove a task
     let err: ContractError = app
@@ -1982,11 +2004,11 @@ fn remove_task_negative() {
         boundary: None,
         stop_on_fail: false,
         actions: vec![action],
-        queries: Some(vec![CroncatQuery {
+        queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha".to_owned(),
             msg: Default::default(),
             check_result: true,
-        }]),
+        })]),
         transforms: None,
         cw20: None,
     };
@@ -2001,7 +2023,8 @@ fn remove_task_negative() {
         )
         .unwrap();
 
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // Not a task owner tries to remove a task with queries
     let err: ContractError = app
@@ -2615,7 +2638,8 @@ fn query_slot_hashes_test() {
             &coins(30000, DENOM),
         )
         .unwrap();
-    let block_task_hash1 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let block_task_hash1 = task_data.task_hash;
 
     let task2 = TaskRequest {
         interval: Interval::Immediate,
@@ -2639,7 +2663,8 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let block_task_hash2 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let block_task_hash2 = task_data.task_hash;
 
     let task3 = TaskRequest {
         interval: Interval::Immediate,
@@ -2663,7 +2688,8 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let block_task_hash3 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let block_task_hash3 = task_data.task_hash;
 
     let task4 = TaskRequest {
         interval: Interval::Block(5),
@@ -2687,7 +2713,8 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let block_task_hash4 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let block_task_hash4 = task_data.task_hash;
 
     let task5 = TaskRequest {
         interval: Interval::Cron("* * * * * *".to_string()),
@@ -2708,7 +2735,8 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let time_task_hash1 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let time_task_hash1 = task_data.task_hash;
 
     let task6 = TaskRequest {
         interval: Interval::Cron("0 * * * * *".to_string()),
@@ -2729,7 +2757,8 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let time_task_hash2 = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let time_task_hash2 = task_data.task_hash;
 
     let hashes: SlotHashesResponse = app
         .wrap()
@@ -3213,7 +3242,8 @@ fn poc_case1_case2() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let _t2: String = task_hash.clone();
     let task_response: TaskResponse = app
         .wrap()
@@ -3345,7 +3375,8 @@ fn poc_case1_case2() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let _t2: String = task_hash.clone();
     let _task_response: TaskResponse = app
         .wrap()

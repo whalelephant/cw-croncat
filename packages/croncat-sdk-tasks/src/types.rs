@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64, WasmQuery};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
@@ -57,7 +57,7 @@ pub struct TaskRequest {
     pub boundary: Option<Boundary>,
     pub stop_on_fail: bool,
     pub actions: Vec<Action>,
-    pub queries: Option<Vec<CroncatQuery>>,
+    pub queries: Option<Vec<CosmosQuery>>,
     pub transforms: Option<Vec<Transform>>,
 
     /// How much of cw20 coin is attached to this task
@@ -216,7 +216,7 @@ pub struct Task {
     /// A prioritized list of messages that can be chained decision matrix
     /// required to complete before task action
     /// Rules MUST return the ResolverResponse type
-    pub queries: Vec<CroncatQuery>,
+    pub queries: Vec<CosmosQuery>,
     pub transforms: Vec<Transform>,
 
     // allows future backward compat
@@ -263,7 +263,9 @@ impl Task {
     }
 
     pub fn is_evented(&self) -> bool {
-        self.queries.iter().any(|q| q.check_result)
+        // self.queries.iter().any(|q| q.check_result)
+        !self.queries.is_empty()
+            && (self.interval == Interval::Once || self.interval == Interval::Immediate)
     }
 
     pub fn into_response(self, prefix: &str) -> TaskResponse {
@@ -304,6 +306,16 @@ pub struct CroncatQuery {
     pub check_result: bool,
 }
 
+/// Query given module contract with a message
+#[cw_serde]
+pub enum CosmosQuery<T = WasmQuery> {
+    // For optionally checking results, esp for modules
+    Croncat(CroncatQuery),
+
+    // For covering native wasm query cases (Smart, Raw)
+    Wasm(T),
+}
+
 #[cw_serde]
 pub struct SlotTasksTotalResponse {
     pub block_tasks: u64,
@@ -330,13 +342,20 @@ pub struct TaskInfo {
     pub amount_for_one_task: AmountForOneTask,
 
     pub actions: Vec<Action>,
-    pub queries: Option<Vec<CroncatQuery>>,
+    pub queries: Option<Vec<CosmosQuery>>,
     pub transforms: Vec<Transform>,
     pub version: String,
 }
 #[cw_serde]
 pub struct TaskResponse {
     pub task: Option<TaskInfo>,
+}
+#[cw_serde]
+pub struct TaskCreationInfo {
+    pub task_hash: String,
+    pub owner_addr: Addr,
+    pub amount_for_one_task: AmountForOneTask,
+    pub version: String,
 }
 
 #[cw_serde]
@@ -506,7 +525,7 @@ mod test {
     use hex::ToHex;
     use sha2::{Digest, Sha256};
 
-    use crate::types::{Action, BoundaryHeight, CroncatQuery, Transform};
+    use crate::types::{Action, BoundaryHeight, CosmosQuery, CroncatQuery, Transform};
 
     use super::{Boundary, BoundaryTime, Interval, SlotType, Task};
 
@@ -554,11 +573,11 @@ mod test {
                 }),
                 gas_limit: Some(5),
             }],
-            queries: vec![CroncatQuery {
+            queries: vec![CosmosQuery::Croncat(CroncatQuery {
                 msg: Default::default(),
                 contract_addr: "addr".to_owned(),
                 check_result: true,
-            }],
+            })],
             transforms: vec![Transform {
                 action_idx: 0,
                 query_idx: 0,

@@ -6,10 +6,10 @@ use cw_multi_test::{App, Contract, ContractWrapper, Executor};
 use crate::msg::InstantiateMsg;
 
 // pub const ADMIN: &str = "cosmos1sjllsnramtg3ewxqwwrwjxfgc4n4ef9u0tvx7u";
-pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
+// pub const ANYONE: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 // pub const ADMIN_CW20: &str = "cosmos1a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 // pub const ANOTHER: &str = "cosmos1wze8mn5nsgl9qrgazq6a92fvh7m5e6psjcx2du";
-pub const NATIVE_DENOM: &str = "atom";
+// pub const NATIVE_DENOM: &str = "atom";
 pub const VERSION: &str = "0.1";
 
 pub const CREATOR_ADDR: &str = "creator";

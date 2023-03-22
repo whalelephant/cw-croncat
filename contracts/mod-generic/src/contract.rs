@@ -8,7 +8,7 @@ use mod_sdk::types::QueryResponse;
 
 use crate::helpers::{bin_to_value, query_wasm_smart_raw};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::types::{GenericQuery, CosmosQuery};
+use crate::types::{CosmosQuery, GenericQuery};
 use crate::ContractError;
 
 // version info for migration info
@@ -81,35 +81,41 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
     for query in &queries {
         match query {
             CosmosQuery::Croncat(q) => {
-                let res: mod_sdk::types::QueryResponse = deps.querier.query_wasm_smart(
-                    q.contract_addr.to_string(),
-                    &q.msg.clone(),
+                let res: mod_sdk::types::QueryResponse = deps.querier.query(
+                    &WasmQuery::Smart {
+                        contract_addr: q.contract_addr.clone(),
+                        msg: q.msg.clone(),
+                    }
+                    .into(),
                 )?;
                 if q.check_result && !res.result {
                     last_response = None;
                     break;
                 }
                 last_response = Some(res);
-            },
+            }
             CosmosQuery::Wasm(wq) => {
                 // Cover all native wasm query types
                 match wq {
                     WasmQuery::Smart { contract_addr, msg } => {
-                        let data = deps.querier.query_wasm_smart(
-                            contract_addr.clone().to_string(),
-                            &msg.clone(),
+                        let data = deps.querier.query(
+                            &WasmQuery::Smart {
+                                contract_addr: contract_addr.clone().to_string(),
+                                msg: msg.clone(),
+                            }
+                            .into(),
                         )?;
                         // conform response to expected end result,
                         // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse {
-                            result: true,
-                            data,
-                        });
-                    },
+                        last_response = Some(QueryResponse { result: true, data });
+                    }
                     WasmQuery::Raw { contract_addr, key } => {
-                        let res = deps.querier.query_wasm_raw(
-                            contract_addr.clone().to_string(),
-                            key.clone(),
+                        let res: Option<Vec<u8>> = deps.querier.query(
+                            &WasmQuery::Raw {
+                                contract_addr: contract_addr.clone().to_string(),
+                                key: key.clone(),
+                            }
+                            .into(),
                         )?;
                         // Optimistically respond
                         let data = if let Some(r) = res {
@@ -119,30 +125,31 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                         };
                         // conform response to expected end result,
                         // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse {
-                            result: true,
-                            data,
-                        });
-                    },
+                        last_response = Some(QueryResponse { result: true, data });
+                    }
                     WasmQuery::ContractInfo { contract_addr } => {
-                        let res = deps.querier.query_wasm_contract_info(
-                            contract_addr.clone().to_string(),
-                        )?;
+                        let res = deps
+                            .querier
+                            .query_wasm_contract_info(contract_addr.clone().to_string())?;
                         // conform response to expected end result,
                         // always true since we just wanna use values in transforms later
                         last_response = Some(QueryResponse {
                             result: true,
                             data: to_binary(&res)?,
                         });
-                    },
+                    }
+                    WasmQuery::CodeInfo { code_id } => {
+                        let res = deps.querier.query_wasm_code_info(*code_id)?;
+                        // conform response to expected end result,
+                        // always true since we just wanna use values in transforms later
+                        last_response = Some(QueryResponse {
+                            result: true,
+                            data: to_binary(&res)?,
+                        });
+                    }
                     _ => unimplemented!(),
-                    // TODO: Add support
-                    // #[cfg(feature = "cosmwasm_1_2")]
-                    // WasmQuery::CodeInfo { code_id: u64 } => {
-                    // query_wasm_code_info
-                    // },
                 }
-            },
+            }
         }
     }
 

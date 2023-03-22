@@ -25,18 +25,6 @@ pub struct CroncatQuery {
     pub check_result: bool,
 }
 
-#[cw_serde]
-pub struct ExternalQuery {
-    pub contract_addr: String,
-    pub msg: Binary,
-}
-
-#[cw_serde]
-pub struct StateKeyQuery {
-    pub contract_addr: String,
-    pub key: Binary,
-}
-
 /// Query given module contract with a message
 #[cw_serde]
 pub enum CosmosQuery<T = WasmQuery> {

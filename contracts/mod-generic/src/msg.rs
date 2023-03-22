@@ -1,4 +1,4 @@
-use crate::types::{GenericQuery, CosmosQuery};
+use crate::types::{CosmosQuery, GenericQuery};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
 #[cw_serde]
@@ -21,7 +21,5 @@ pub enum QueryMsg {
     // Batch queries for evaluating if task is ready or not
     // response data returned to caller
     #[returns(mod_sdk::types::QueryResponse)]
-    BatchQuery {
-        queries: Vec<CosmosQuery>,
-    },
+    BatchQuery { queries: Vec<CosmosQuery> },
 }
