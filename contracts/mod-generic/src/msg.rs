@@ -1,4 +1,4 @@
-use crate::types::GenericQuery;
+use crate::types::{GenericQuery, CosmosQuery};
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
 #[cw_serde]
@@ -17,4 +17,11 @@ pub enum QueryMsg {
     // Compare it to `value` according to `ordering`
     #[returns(mod_sdk::types::QueryResponse)]
     GenericQuery(GenericQuery),
+
+    // Batch queries for evaluating if task is ready or not
+    // response data returned to caller
+    #[returns(mod_sdk::types::QueryResponse)]
+    BatchQuery {
+        queries: Vec<CosmosQuery>,
+    },
 }

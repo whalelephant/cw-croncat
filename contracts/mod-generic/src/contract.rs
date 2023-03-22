@@ -1,14 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, WasmQuery,
 };
 use cw2::set_contract_version;
 use mod_sdk::types::QueryResponse;
 
 use crate::helpers::{bin_to_value, query_wasm_smart_raw};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::types::GenericQuery;
+use crate::types::{GenericQuery, CosmosQuery};
 use crate::ContractError;
 
 // version info for migration info
@@ -42,6 +42,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
+        QueryMsg::BatchQuery { queries } => to_binary(&batch_query(deps, queries)?),
     }
 }
 
@@ -67,4 +68,83 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<QueryResponse> {
         result,
         data: to_binary(&value)?,
     })
+}
+
+/// Query an ordered set of cosmos queries
+///
+/// Response: QueryResponse
+/// Returns true if the pre-defined ordering is satisfied
+/// Data contains the LAST value which we received by querying
+fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryResponse>> {
+    // Process all the queries
+    let mut last_response: Option<QueryResponse> = None;
+    for query in &queries {
+        match query {
+            CosmosQuery::Croncat(q) => {
+                let res: mod_sdk::types::QueryResponse = deps.querier.query_wasm_smart(
+                    q.contract_addr.to_string(),
+                    &q.msg.clone(),
+                )?;
+                if q.check_result && !res.result {
+                    last_response = None;
+                    break;
+                }
+                last_response = Some(res);
+            },
+            CosmosQuery::Wasm(wq) => {
+                // Cover all native wasm query types
+                match wq {
+                    WasmQuery::Smart { contract_addr, msg } => {
+                        let data = deps.querier.query_wasm_smart(
+                            contract_addr.clone().to_string(),
+                            &msg.clone(),
+                        )?;
+                        // conform response to expected end result,
+                        // always true since we just wanna use values in transforms later
+                        last_response = Some(QueryResponse {
+                            result: true,
+                            data,
+                        });
+                    },
+                    WasmQuery::Raw { contract_addr, key } => {
+                        let res = deps.querier.query_wasm_raw(
+                            contract_addr.clone().to_string(),
+                            key.clone(),
+                        )?;
+                        // Optimistically respond
+                        let data = if let Some(r) = res {
+                            to_binary(&r)?
+                        } else {
+                            Binary::default()
+                        };
+                        // conform response to expected end result,
+                        // always true since we just wanna use values in transforms later
+                        last_response = Some(QueryResponse {
+                            result: true,
+                            data,
+                        });
+                    },
+                    WasmQuery::ContractInfo { contract_addr } => {
+                        let res = deps.querier.query_wasm_contract_info(
+                            contract_addr.clone().to_string(),
+                        )?;
+                        // conform response to expected end result,
+                        // always true since we just wanna use values in transforms later
+                        last_response = Some(QueryResponse {
+                            result: true,
+                            data: to_binary(&res)?,
+                        });
+                    },
+                    _ => unimplemented!(),
+                    // TODO: Add support
+                    // #[cfg(feature = "cosmwasm_1_2")]
+                    // WasmQuery::CodeInfo { code_id: u64 } => {
+                    // query_wasm_code_info
+                    // },
+                }
+            },
+        }
+    }
+
+    Ok(last_response)
 }

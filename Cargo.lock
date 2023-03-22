@@ -348,6 +348,7 @@ version = "0.1.2"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
+ "croncat-mod-balances",
  "cw-multi-test",
  "cw2 1.0.1",
  "cw20 0.16.0",
