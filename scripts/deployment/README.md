@@ -6,7 +6,7 @@ Make sure you modify `.env` with the proper environment variables.
 
 ```bash
 # In root
-just build
+just all
 just optimize
 ```
 

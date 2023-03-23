@@ -221,8 +221,8 @@ const e2e = async (cwClient) => {
 		console.info(`Task 4 Create ERROR`, e)
 	}
 
-	// Sleep a couple blocks, because for whatever reason, we need chain sync'd for sure
-	await sleep(12 * 1000);
+	// Sleep a few blocks, since we need to wait for the full scope of agent nomination duration
+	await sleep(45 * 1000);
 
 	// confirm agent is nominated
 	try {
