@@ -1,14 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, WasmQuery,
 };
 use cw2::set_contract_version;
 use mod_sdk::types::QueryResponse;
+use serde_cw_value::Value;
 
 use crate::helpers::{bin_to_value, query_wasm_smart_raw};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::types::GenericQuery;
+use crate::types::{CosmosQuery, GenericQuery};
 use crate::ContractError;
 
 // version info for migration info
@@ -42,6 +43,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GenericQuery(query) => to_binary(&generic_query(deps, query)?),
+        QueryMsg::BatchQuery { queries } => to_binary(&batch_query(deps, queries)?),
     }
 }
 
@@ -66,5 +68,105 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<QueryResponse> {
     Ok(QueryResponse {
         result,
         data: to_binary(&value)?,
+    })
+}
+
+/// Query an ordered set of cosmos queries
+///
+/// Response: QueryResponse
+/// Returns true if the pre-defined ordering is satisfied across ALL queries
+/// Data contains the array of values we received by querying
+fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<QueryResponse> {
+    // Optional here so we preserve request indexed responses
+    let mut responses: Vec<Option<Binary>> = Vec::with_capacity(queries.len());
+    let mut result = true;
+
+    for query in &queries {
+        match query {
+            CosmosQuery::Croncat(q) => {
+                let res: mod_sdk::types::QueryResponse = deps.querier.query(
+                    &WasmQuery::Smart {
+                        contract_addr: q.contract_addr.clone(),
+                        msg: q.msg.clone(),
+                    }
+                    .into(),
+                )?;
+                // Collect all the dataz we canz
+                responses.push(Some(res.data));
+
+                // Only stop this train if a query result is false
+                if q.check_result && !res.result {
+                    result = res.result;
+                    break;
+                }
+            }
+            CosmosQuery::Wasm(wq) => {
+                // Cover all native wasm query types
+                match wq {
+                    WasmQuery::Smart { contract_addr, msg } => {
+                        let data: Result<Value, StdError> = deps.querier.query(
+                            &WasmQuery::Smart {
+                                contract_addr: contract_addr.clone().to_string(),
+                                msg: msg.clone(),
+                            }
+                            .into(),
+                        );
+                        match data {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    WasmQuery::Raw { contract_addr, key } => {
+                        let res: Result<Option<Vec<u8>>, StdError> =
+                            deps.querier.query_wasm_raw(contract_addr, key.clone());
+
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // Optimistically respond
+                                if let Some(r) = d {
+                                    responses.push(Some(to_binary(&r)?));
+                                } else {
+                                    responses.push(None);
+                                };
+                            }
+                        }
+                    }
+                    WasmQuery::ContractInfo { contract_addr } => {
+                        let res = deps
+                            .querier
+                            .query_wasm_contract_info(contract_addr.clone().to_string());
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    // NOTE: This is dependent on features = ["cosmwasm_1_2"]
+                    WasmQuery::CodeInfo { code_id } => {
+                        let res = deps.querier.query_wasm_code_info(*code_id);
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(StdError::GenericErr {
+                            msg: "Unknown Query Type".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(QueryResponse {
+        result,
+        data: to_binary(&responses)?,
     })
 }

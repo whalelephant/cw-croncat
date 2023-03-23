@@ -1,6 +1,6 @@
 use crate::value_ordering::ValueOrdering;
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Binary, StdError, StdResult};
+use cosmwasm_std::{Binary, StdError, StdResult, WasmQuery};
 use serde_cw_value::Value;
 
 #[cw_serde]
@@ -11,6 +11,28 @@ pub struct GenericQuery {
 
     pub ordering: ValueOrdering,
     pub value: Binary,
+}
+
+/// Query given module contract with a message
+#[cw_serde]
+pub struct CroncatQuery {
+    /// This is address of the queried module contract.
+    /// For the addr can use one of our croncat-mod-* contracts, or custom contracts
+    pub contract_addr: String,
+    pub msg: Binary,
+    /// For queries with `check_result`: query return value should be formatted as a:
+    /// [`QueryResponse`](mod_sdk::types::QueryResponse)
+    pub check_result: bool,
+}
+
+/// Query given module contract with a message
+#[cw_serde]
+pub enum CosmosQuery<T = WasmQuery> {
+    // For optionally checking results, esp for modules
+    Croncat(CroncatQuery),
+
+    // For covering native wasm query cases (Smart, Raw)
+    Wasm(T),
 }
 
 // TODO Implement Serialize Deserialize https://github.com/CosmWasm/serde-json-wasm/issues/43

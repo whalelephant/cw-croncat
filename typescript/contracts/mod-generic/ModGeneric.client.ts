@@ -5,7 +5,7 @@
 */
 
 import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { InstantiateMsg, ExecuteMsg, QueryMsg, Binary, ValueOrdering, ValueIndex, PathToValue, GenericQuery, QueryResponseForBinary } from "./ModGeneric.types";
+import { InstantiateMsg, ExecuteMsg, QueryMsg, Binary, ValueOrdering, ValueIndex, PathToValue, CosmosQueryForWasmQuery, WasmQuery, GenericQuery, CroncatQuery, QueryResponseForBinary } from "./ModGeneric.types";
 export interface ModGenericReadOnlyInterface {
   contractAddress: string;
   genericQuery: ({
@@ -21,6 +21,11 @@ export interface ModGenericReadOnlyInterface {
     pathToValue: PathToValue;
     value: Binary;
   }) => Promise<QueryResponseForBinary>;
+  batchQuery: ({
+    queries
+  }: {
+    queries: CosmosQueryForWasmQuery[];
+  }) => Promise<QueryResponseForBinary>;
 }
 export class ModGenericQueryClient implements ModGenericReadOnlyInterface {
   client: CosmWasmClient;
@@ -30,6 +35,7 @@ export class ModGenericQueryClient implements ModGenericReadOnlyInterface {
     this.client = client;
     this.contractAddress = contractAddress;
     this.genericQuery = this.genericQuery.bind(this);
+    this.batchQuery = this.batchQuery.bind(this);
   }
 
   genericQuery = async ({
@@ -52,6 +58,17 @@ export class ModGenericQueryClient implements ModGenericReadOnlyInterface {
         ordering,
         path_to_value: pathToValue,
         value
+      }
+    });
+  };
+  batchQuery = async ({
+    queries
+  }: {
+    queries: CosmosQueryForWasmQuery[];
+  }): Promise<QueryResponseForBinary> => {
+    return this.client.queryContractSmart(this.contractAddress, {
+      batch_query: {
+        queries
       }
     });
   };

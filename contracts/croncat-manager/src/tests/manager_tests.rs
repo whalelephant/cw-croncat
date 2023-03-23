@@ -1,5 +1,7 @@
+use cosmwasm_std::from_binary;
 use cosmwasm_std::Attribute;
 use cosmwasm_std::BlockInfo;
+use cosmwasm_std::WasmQuery;
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
@@ -10,12 +12,14 @@ use croncat_sdk_manager::{
     types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
 use croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask;
+use croncat_sdk_tasks::types::CosmosQuery;
+use croncat_sdk_tasks::types::TaskExecutionInfo;
 use croncat_sdk_tasks::types::TaskRequest;
 use croncat_sdk_tasks::types::{
     Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
-use cw_storage_plus::KeyDeserialize;
+use cw_multi_test::AppResponse;
 
 use crate::tests::PARTICIPANT3;
 use crate::tests::PAUSE_ADMIN;
@@ -33,6 +37,7 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
+use croncat_mod_balances::msg::QueryMsg as BalancesQueryMsg;
 use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
@@ -774,7 +779,8 @@ fn simple_bank_transfers_block() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -910,7 +916,8 @@ fn simple_bank_transfers_block() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1053,7 +1060,8 @@ fn simple_bank_transfers_cron() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1231,7 +1239,8 @@ fn simple_bank_transfers_cron() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1424,7 +1433,8 @@ fn multi_coin_bank_transfers() {
             &attach_funds,
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1587,7 +1597,8 @@ fn cw20_action_transfer() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1755,7 +1766,7 @@ fn task_with_query() {
             .into(),
             gas_limit: None,
         }],
-        queries: Some(vec![CroncatQuery {
+        queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 croncat_mod_balances::types::HasBalanceComparator {
@@ -1766,7 +1777,7 @@ fn task_with_query() {
             ))
             .unwrap(),
             check_result: true,
-        }]),
+        })]),
         transforms: None,
         cw20: None,
     };
@@ -1780,7 +1791,8 @@ fn task_with_query() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -1907,7 +1919,7 @@ fn task_with_query() {
             .into(),
             gas_limit: None,
         }],
-        queries: Some(vec![CroncatQuery {
+        queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 croncat_mod_balances::types::HasBalanceComparator {
@@ -1918,7 +1930,7 @@ fn task_with_query() {
             ))
             .unwrap(),
             check_result: true,
-        }]),
+        })]),
         transforms: None,
         cw20: None,
     };
@@ -1932,7 +1944,8 @@ fn task_with_query() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2068,7 +2081,8 @@ fn recurring_task_block_immediate() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2216,7 +2230,8 @@ fn recurring_task_block_immediate() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2359,7 +2374,8 @@ fn recurring_task_block_block_interval() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2526,7 +2542,8 @@ fn recurring_task_cron() {
             &coins(75000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2674,7 +2691,8 @@ fn recurring_task_cron() {
             &coins(75000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -2842,7 +2860,7 @@ fn negative_proxy_call() {
             .into(),
             gas_limit: Some(250_000),
         }],
-        queries: Some(vec![CroncatQuery {
+        queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
             contract_addr: mod_balances.to_string(),
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::HasBalanceComparator(
                 HasBalanceComparator {
@@ -2853,7 +2871,7 @@ fn negative_proxy_call() {
             ))
             .unwrap(),
             check_result: true,
-        }]),
+        })]),
         transforms: Some(vec![Transform {
             action_idx: 0,
             query_idx: 0,
@@ -2875,7 +2893,8 @@ fn negative_proxy_call() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
 
@@ -3100,7 +3119,8 @@ fn test_withdraw_agent_success() {
         .unwrap();
 
     // Get task info
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
         .query_wasm_smart(
@@ -3421,7 +3441,8 @@ fn refill_task_balance_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
 
@@ -3589,7 +3610,8 @@ fn refill_task_balance_fail() {
             &[coin(600_000, DENOM), coin(50_000, "ibc")],
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // Check PARTICIPANT0 balance
     participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
@@ -3729,7 +3751,8 @@ fn refill_task_balance_success() {
             &[coin(600_000, DENOM), coin(50_000, "ibc")],
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 balances
     participant_balances = app.wrap().query_all_balances(PARTICIPANT0).unwrap();
@@ -3892,7 +3915,8 @@ fn refill_task_cw20_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
 
@@ -4082,7 +4106,8 @@ fn refill_task_cw20_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 spent 100 coins
     wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
@@ -4300,7 +4325,8 @@ fn refill_task_cw20_success() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_hash = String::from_vec(res.data.unwrap().0).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 spent 455 coins
     wallet_balances = query_users_manager(&app, &manager_addr, PARTICIPANT0);
@@ -4506,16 +4532,16 @@ fn event_task_with_boundary_issue() {
     .expect("Could not register agent");
 
     let queries = vec![
-        CroncatQuery {
+        CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha123".to_owned(),
             msg: Binary::from([4, 2]),
             check_result: true,
-        },
-        CroncatQuery {
+        }),
+        CosmosQuery::Croncat(CroncatQuery {
             contract_addr: "aloha321".to_owned(),
             msg: Binary::from([2, 4]),
             check_result: true,
-        },
+        }),
     ];
     let transforms = vec![Transform {
         action_idx: 1,
@@ -4606,13 +4632,13 @@ fn event_task_with_failed_check_result() {
     )
     .expect("Could not register agent");
 
-    let queries = vec![CroncatQuery {
+    let queries = vec![CosmosQuery::Croncat(CroncatQuery {
         contract_addr: boolean_addr.to_string(),
         // Calls `get_value` on boolean contract, which defaults to false
         msg: to_binary(&cw_boolean_contract::msgs::query_msg::QueryMsg::GetValue {}).unwrap(),
         // It's important to set this to true
         check_result: true,
-    }];
+    })];
 
     // Create a task (queries and transforms) with a Boundary that is soon
     let task = TaskRequest {
@@ -4712,6 +4738,158 @@ fn event_task_with_failed_check_result() {
     );
 }
 
+/// Check all the different query types within a task
+#[test]
+fn event_task_with_all_query_types() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agent_addr = init_agents(&mut app, &factory_addr);
+    let balances_addr = init_mod_balances(&mut app, &factory_addr);
+    let cw20_addr = init_cw20(&mut app);
+
+    // Register an agent
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        agent_addr,
+        &RegisterAgent {
+            payable_account_id: None,
+        },
+        &[],
+    )
+    .expect("Could not register agent");
+
+    // These queries cover all the supported types of dynamic
+    let queries = vec![
+        CosmosQuery::Croncat(CroncatQuery {
+            contract_addr: balances_addr.to_string(),
+            msg: to_binary(&BalancesQueryMsg::GetBalance {
+                address: Addr::unchecked(ANYONE).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
+            check_result: true,
+        }),
+        CosmosQuery::Wasm(WasmQuery::Smart {
+            contract_addr: cw20_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::TokenInfo {}).unwrap(),
+        }),
+        CosmosQuery::Wasm(WasmQuery::Raw {
+            contract_addr: tasks_addr.to_string(),
+            key: Binary::from("contract_info".to_string().into_bytes()),
+        }),
+        CosmosQuery::Wasm(WasmQuery::ContractInfo {
+            contract_addr: tasks_addr.to_string(),
+        }),
+    ];
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        // queries: None,
+        queries: Some(queries),
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(500_000, DENOM),
+    )
+    .expect("Couldn't create task");
+
+    // Agent checks to see if there are tasks for them to do.
+    // Note: we hit the Tasks contract for this one. Manager for regular tasks.
+    let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let mut evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should only have one evented task"
+    );
+
+    // Have agent call proxy call (without hash), and check how it went
+    let proxy_call_res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyCall { task_hash: None },
+        &[], // Attach no funds
+    );
+    let contract_error: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
+    // Should be no "regular" tasks, only the one evented one
+    assert_eq!(contract_error, ContractError::NoTaskForAgent {});
+
+    // Now check that the evented one returns true and completez
+    let task_hash: String = evented_task_info[0].clone().task_hash;
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr,
+        &ProxyCall {
+            task_hash: Some(task_hash),
+        },
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since the check_return comes back true"
+    );
+    let pc_res: AppResponse = pc_result.unwrap();
+    // we expect the queries to pass and the task to reschedule after success
+    assert!(pc_res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "reschedule_task")
+    }));
+
+    // Check that the one tasks still exists
+    tasks_for_agent = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    evented_task_info =
+        tasks_for_agent.expect("Error unwrapping evented task info after failed proxy_call");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should still have one evented task"
+    );
+}
+
 /// Checks that the creation of a task with an Immediate interval
 /// is able to execute multiple times when given sufficient funds
 #[test]
@@ -4746,13 +4924,13 @@ fn immediate_event_task_has_multiple_executions() {
     )
     .expect("Could not register agent");
 
-    let queries = vec![CroncatQuery {
+    let queries = vec![CosmosQuery::Croncat(CroncatQuery {
         contract_addr: boolean_addr.to_string(),
         // Calls `get_value` on boolean contract, which defaults to false
         msg: to_binary(&cw_boolean_contract::msgs::query_msg::QueryMsg::GetValue {}).unwrap(),
         // It's important to set this to true
         check_result: true,
-    }];
+    })];
 
     // Create a task (queries and transforms) with a Boundary that is soon
     let task = TaskRequest {

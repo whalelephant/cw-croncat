@@ -10,6 +10,10 @@ export interface InstantiateMsg {
 export type ExecuteMsg = string;
 export type QueryMsg = {
   generic_query: GenericQuery;
+} | {
+  batch_query: {
+    queries: CosmosQueryForWasmQuery[];
+  };
 };
 export type Binary = string;
 export type ValueOrdering = "unit_above" | "unit_above_equal" | "unit_below" | "unit_below_equal" | "equal" | "not_equal";
@@ -19,12 +23,45 @@ export type ValueIndex = {
   index: number;
 };
 export type PathToValue = ValueIndex[];
+export type CosmosQueryForWasmQuery = {
+  croncat: CroncatQuery;
+} | {
+  wasm: WasmQuery;
+};
+export type WasmQuery = {
+  smart: {
+    contract_addr: string;
+    msg: Binary;
+    [k: string]: unknown;
+  };
+} | {
+  raw: {
+    contract_addr: string;
+    key: Binary;
+    [k: string]: unknown;
+  };
+} | {
+  contract_info: {
+    contract_addr: string;
+    [k: string]: unknown;
+  };
+} | {
+  code_info: {
+    code_id: number;
+    [k: string]: unknown;
+  };
+};
 export interface GenericQuery {
   contract_addr: string;
   msg: Binary;
   ordering: ValueOrdering;
   path_to_value: PathToValue;
   value: Binary;
+}
+export interface CroncatQuery {
+  check_result: boolean;
+  contract_addr: string;
+  msg: Binary;
 }
 export interface QueryResponseForBinary {
   data: Binary;
