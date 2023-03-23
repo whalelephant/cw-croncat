@@ -1,6 +1,7 @@
 use cosmwasm_std::from_binary;
 use cosmwasm_std::Attribute;
 use cosmwasm_std::BlockInfo;
+use cosmwasm_std::WasmQuery;
 use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
@@ -18,6 +19,7 @@ use croncat_sdk_tasks::types::{
     Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
 };
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
+use cw_multi_test::AppResponse;
 
 use crate::tests::PARTICIPANT3;
 use crate::tests::PAUSE_ADMIN;
@@ -35,6 +37,7 @@ use crate::{
     ContractError,
 };
 use cosmwasm_std::{coin, StdError};
+use croncat_mod_balances::msg::QueryMsg as BalancesQueryMsg;
 use croncat_sdk_core::types::GasPrice;
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
@@ -4713,6 +4716,158 @@ fn event_task_with_failed_check_result() {
     );
     let proxy_call_err: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
     assert_eq!(proxy_call_err, ContractError::TaskQueryResultFalse {});
+
+    // Check that the one tasks still exists
+    tasks_for_agent = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr,
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    evented_task_info =
+        tasks_for_agent.expect("Error unwrapping evented task info after failed proxy_call");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should still have one evented task"
+    );
+}
+
+/// Check all the different query types within a task
+#[test]
+fn event_task_with_all_query_types() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agent_addr = init_agents(&mut app, &factory_addr);
+    let balances_addr = init_mod_balances(&mut app, &factory_addr);
+    let cw20_addr = init_cw20(&mut app);
+
+    // Register an agent
+    app.execute_contract(
+        Addr::unchecked(AGENT0),
+        agent_addr,
+        &RegisterAgent {
+            payable_account_id: None,
+        },
+        &[],
+    )
+    .expect("Could not register agent");
+
+    // These queries cover all the supported types of dynamic
+    let queries = vec![
+        CosmosQuery::Croncat(CroncatQuery {
+            contract_addr: balances_addr.to_string(),
+            msg: to_binary(&BalancesQueryMsg::GetBalance {
+                address: Addr::unchecked(ANYONE).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
+            check_result: true,
+        }),
+        CosmosQuery::Wasm(WasmQuery::Smart {
+            contract_addr: cw20_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::TokenInfo {}).unwrap(),
+        }),
+        CosmosQuery::Wasm(WasmQuery::Raw {
+            contract_addr: tasks_addr.to_string(),
+            key: Binary::from("contract_info".to_string().into_bytes()),
+        }),
+        CosmosQuery::Wasm(WasmQuery::ContractInfo {
+            contract_addr: tasks_addr.to_string(),
+        }),
+    ];
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        // queries: None,
+        queries: Some(queries),
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(500_000, DENOM),
+    )
+    .expect("Couldn't create task");
+
+    // Agent checks to see if there are tasks for them to do.
+    // Note: we hit the Tasks contract for this one. Manager for regular tasks.
+    let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let mut evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should only have one evented task"
+    );
+
+    // Have agent call proxy call (without hash), and check how it went
+    let proxy_call_res = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyCall { task_hash: None },
+        &[], // Attach no funds
+    );
+    let contract_error: ContractError = proxy_call_res.unwrap_err().downcast().unwrap();
+    // Should be no "regular" tasks, only the one evented one
+    assert_eq!(contract_error, ContractError::NoTaskForAgent {});
+
+    // Now check that the evented one returns true and completez
+    let task_hash: String = evented_task_info[0].clone().task_hash;
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr,
+        &ProxyCall {
+            task_hash: Some(task_hash),
+        },
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since the check_return comes back true"
+    );
+    let pc_res: AppResponse = pc_result.unwrap();
+    // we expect the queries to pass and the task to reschedule after success
+    assert!(pc_res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            .any(|attr| attr.key == "action" && attr.value == "reschedule_task")
+    }));
 
     // Check that the one tasks still exists
     tasks_for_agent = app

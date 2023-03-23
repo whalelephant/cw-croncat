@@ -184,11 +184,18 @@ fn execute_reschedule_task(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     let mut task_to_remove = None;
+    let mut res_attributes: Vec<Attribute> = vec![];
+
     // Check default map
     let (next_id, slot_kind) = if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
         let (next_id, slot_kind) =
             task.interval
                 .next(&env, &task.boundary, config.slot_granularity_time);
+
+        res_attributes.push(Attribute::new(
+            "task_hash",
+            task.to_hash(&config.chain_name),
+        ));
 
         // NOTE: If task is evented, we dont want to "schedule" inside slots
         // but we also dont want to remove unless it was Interval::Once
@@ -268,6 +275,7 @@ fn execute_reschedule_task(
 
     Ok(Response::new()
         .add_attribute("action", "reschedule_task")
+        .add_attributes(res_attributes)
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
         .set_data(to_binary(&task_to_remove)?))

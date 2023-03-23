@@ -168,7 +168,6 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                         });
                     }
                     _ => {
-                        println!("WasmQuery::Unknown");
                         return Err(StdError::GenericErr {
                             msg: "Unknown Query Type".to_string(),
                         });

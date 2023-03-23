@@ -232,6 +232,51 @@ mod tests {
         let contract_info: ContractInfoResponse = from_binary(&res.data)?;
         assert_eq!(contract_info.code_id, 1);
 
+        let queries = vec![
+            CosmosQuery::Croncat(CroncatQuery {
+                contract_addr: balances_addr.to_string(),
+                msg: to_binary(&BalancesQueryMsg::GetBalance {
+                    address: Addr::unchecked(ANYONE).to_string(),
+                    denom: NATIVE_DENOM.to_string(),
+                })?,
+                check_result: true,
+            }),
+            // Now this should resolve to FALSE
+            CosmosQuery::Croncat(CroncatQuery {
+                contract_addr: balances_addr.to_string(),
+                msg: to_binary(&BalancesQueryMsg::HasBalanceComparator(
+                    HasBalanceComparator {
+                        address: ANYONE.to_string(),
+                        required_balance: Balance::Native(NativeBalance(coins(
+                            10_000u128,
+                            NATIVE_DENOM.to_string(),
+                        ))),
+                        comparator: BalanceComparator::Gte,
+                    },
+                ))?,
+                check_result: true,
+            }),
+            CosmosQuery::Wasm(WasmQuery::Smart {
+                contract_addr: cw20_addr.to_string(),
+                msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
+            }),
+            CosmosQuery::Wasm(WasmQuery::Raw {
+                contract_addr: contract_addr.to_string(),
+                key: Binary::from("contract_info".to_string().into_bytes()),
+            }),
+            CosmosQuery::Wasm(WasmQuery::ContractInfo {
+                contract_addr: contract_addr.to_string(),
+            }),
+        ];
+        let result: Option<QueryResponse> = app.wrap().query(
+            &WasmQuery::Smart {
+                contract_addr: contract_addr.to_string(),
+                msg: to_binary(&QueryMsg::BatchQuery { queries })?,
+            }
+            .into(),
+        )?;
+        assert!(result.is_none());
+
         Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use std::vec;
 
+use cosmwasm_schema::schemars::_serde_json::Value;
 use cosmwasm_std::{
     coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
     MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
@@ -486,32 +487,37 @@ pub fn process_queries(
                 // Cover all native wasm query types
                 match wq {
                     WasmQuery::Smart { contract_addr, msg } => {
-                        let data = deps.querier.query(
+                        let data: Result<Value, StdError> = deps.querier.query(
                             &WasmQuery::Smart {
                                 contract_addr: contract_addr.clone().to_string(),
                                 msg: msg.clone(),
                             }
                             .into(),
-                        )?;
-                        // Chuck it in there already!
-                        query_responses.push(data);
+                        );
+                        match data {
+                            Err(..) => (),
+                            Ok(d) => {
+                                // Chuck it in there already!
+                                query_responses.push(to_binary(&d)?);
+                            }
+                        }
                     }
                     WasmQuery::Raw { contract_addr, key } => {
-                        let res: Option<Vec<u8>> = deps.querier.query(
+                        let res: Result<Option<Vec<u8>>, StdError> = deps.querier.query(
                             &WasmQuery::Raw {
                                 contract_addr: contract_addr.clone().to_string(),
                                 key: key.clone(),
                             }
                             .into(),
-                        )?;
-                        // Optimistically respond to maintain orderly processing
-                        let data = if let Some(r) = res {
-                            to_binary(&r)?
-                        } else {
-                            Binary::default()
-                        };
-                        // its so raw
-                        query_responses.push(data);
+                        );
+                        match res {
+                            Err(..) => (),
+                            Ok(d) => {
+                                if let Some(r) = d {
+                                    query_responses.push(to_binary(&r)?);
+                                }
+                            }
+                        }
                     }
                     WasmQuery::ContractInfo { contract_addr } => {
                         let res = deps
@@ -525,7 +531,11 @@ pub fn process_queries(
                         // super helpful for security checks against checksum or code_id changes bruv
                         query_responses.push(to_binary(&res)?);
                     }
-                    _ => unimplemented!(),
+                    _ => {
+                        return Err(ContractError::Std(StdError::GenericErr {
+                            msg: "Unknown Query Type".to_string(),
+                        }));
+                    }
                 }
             }
         }
