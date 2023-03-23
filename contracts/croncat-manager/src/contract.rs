@@ -259,7 +259,8 @@ fn execute_proxy_call(
         // No task
         return Err(ContractError::NoTask {});
     };
-    let task_hash = task.clone().task_hash;
+    let task_hash = task.task_hash.to_owned();
+    let task_version = task.version.to_owned();
 
     // check if ready between boundary (if any)
     if is_before_boundary(&env.block, Some(&task.boundary)) {
@@ -276,6 +277,7 @@ fn execute_proxy_call(
             Some(vec![
                 Attribute::new("lifecycle", "task_ended"),
                 Attribute::new("task_hash", task_hash),
+                Attribute::new("task_version", task_version),
             ]),
             true,
         );
@@ -316,6 +318,7 @@ fn execute_proxy_call(
                 Some(vec![
                     Attribute::new("lifecycle", "task_invalidated"),
                     Attribute::new("task_hash", task_hash),
+                    Attribute::new("task_version", task_version),
                 ]),
                 false,
             );

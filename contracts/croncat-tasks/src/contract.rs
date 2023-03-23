@@ -12,7 +12,7 @@ use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
-    SlotTasksTotalResponse, SlotType, Task, TaskCreationInfo, TaskInfo, TaskRequest, TaskResponse,
+    SlotTasksTotalResponse, SlotType, Task, TaskExecutionInfo, TaskInfo, TaskRequest, TaskResponse,
 };
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
@@ -196,6 +196,7 @@ fn execute_reschedule_task(
             "task_hash",
             task.to_hash(&config.chain_name),
         ));
+        res_attributes.push(Attribute::new("task_version", task.version.to_owned()));
 
         // NOTE: If task is evented, we dont want to "schedule" inside slots
         // but we also dont want to remove unless it was Interval::Once
@@ -456,7 +457,8 @@ fn execute_create_task(
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
-    let response_data = TaskCreationInfo {
+    let response_data = TaskExecutionInfo {
+        block_height: env.block.height,
         task_hash: hash.clone(),
         owner_addr: item.owner_addr,
         amount_for_one_task: item.amount_for_one_task,

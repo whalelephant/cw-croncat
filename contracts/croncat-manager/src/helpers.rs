@@ -456,8 +456,9 @@ pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Bounda
 pub fn process_queries(
     deps: &DepsMut,
     task: &TaskInfo,
-) -> Result<Vec<cosmwasm_std::Binary>, ContractError> {
-    let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
+) -> Result<Vec<Option<cosmwasm_std::Binary>>, ContractError> {
+    let mut responses: Vec<Option<Binary>> =
+        Vec::with_capacity(task.queries.as_ref().unwrap().len());
 
     let queries = if let Some(qs) = &task.queries {
         qs
@@ -481,7 +482,7 @@ pub fn process_queries(
                 if q.check_result && !res.result {
                     return Err(ContractError::TaskQueryResultFalse {});
                 }
-                query_responses.push(res.data);
+                responses.push(Some(res.data));
             }
             CosmosQuery::Wasm(wq) => {
                 // Cover all native wasm query types
@@ -495,10 +496,10 @@ pub fn process_queries(
                             .into(),
                         );
                         match data {
-                            Err(..) => (),
+                            Err(..) => responses.push(None),
                             Ok(d) => {
                                 // Chuck it in there already!
-                                query_responses.push(to_binary(&d)?);
+                                responses.push(Some(to_binary(&d)?));
                             }
                         }
                     }
@@ -511,10 +512,12 @@ pub fn process_queries(
                             .into(),
                         );
                         match res {
-                            Err(..) => (),
+                            Err(..) => responses.push(None),
                             Ok(d) => {
                                 if let Some(r) = d {
-                                    query_responses.push(to_binary(&r)?);
+                                    responses.push(Some(to_binary(&r)?));
+                                } else {
+                                    responses.push(None)
                                 }
                             }
                         }
@@ -522,14 +525,24 @@ pub fn process_queries(
                     WasmQuery::ContractInfo { contract_addr } => {
                         let res = deps
                             .querier
-                            .query_wasm_contract_info(contract_addr.clone().to_string())?;
-                        // lets find out whos responsible for this code already!
-                        query_responses.push(to_binary(&res)?);
+                            .query_wasm_contract_info(contract_addr.clone().to_string());
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // lets find out whos responsible for this code already!
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
                     }
                     WasmQuery::CodeInfo { code_id } => {
-                        let res = deps.querier.query_wasm_code_info(*code_id)?;
-                        // super helpful for security checks against checksum or code_id changes bruv
-                        query_responses.push(to_binary(&res)?);
+                        let res = deps.querier.query_wasm_code_info(*code_id);
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // super helpful for security checks against checksum or code_id changes bruv
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
                     }
                     _ => {
                         return Err(ContractError::Std(StdError::GenericErr {
@@ -541,14 +554,14 @@ pub fn process_queries(
         }
     }
 
-    Ok(query_responses)
+    Ok(responses)
 }
 
 /// Replace values to the result value from the rules
 /// Recalculate cw20 usage if any replacements
 pub fn replace_values(
     task: &mut TaskInfo,
-    construct_res_data: Vec<cosmwasm_std::Binary>,
+    query_response_data: Vec<Option<cosmwasm_std::Binary>>,
 ) -> Result<(), ContractError> {
     for transform in task.transforms.iter() {
         let wasm_msg = task
@@ -568,20 +581,21 @@ pub fn replace_values(
             })
             .ok_or(ContractError::TaskNotReady {})?;
         let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
+        let query_bin = query_response_data
+            .get(transform.query_idx as usize)
+            .ok_or::<Option<Binary>>(None)
+            .unwrap();
 
-        let mut q_val = {
-            let bin = construct_res_data
-                .get(transform.query_idx as usize)
-                .ok_or(ContractError::TaskNotReady {})?;
-            cosmwasm_std::from_binary(bin)?
-        };
-        let replace_value = transform.query_response_path.find_value(&mut q_val)?;
-        let replaced_value = transform.action_path.find_value(&mut action_value)?;
-        *replaced_value = replace_value.clone();
-        *wasm_msg = Binary(
-            serde_json_wasm::to_vec(&action_value)
-                .map_err(|e| StdError::generic_err(e.to_string()))?,
-        );
+        if let Some(bin) = query_bin {
+            let mut q_val = { cosmwasm_std::from_binary(bin)? };
+            let replace_value = transform.query_response_path.find_value(&mut q_val)?;
+            let replaced_value = transform.action_path.find_value(&mut action_value)?;
+            *replaced_value = replace_value.clone();
+            *wasm_msg = Binary(
+                serde_json_wasm::to_vec(&action_value)
+                    .map_err(|e| StdError::generic_err(e.to_string()))?,
+            );
+        }
     }
     Ok(())
 }

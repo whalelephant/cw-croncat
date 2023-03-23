@@ -74,11 +74,13 @@ fn generic_query(deps: Deps, query: GenericQuery) -> StdResult<QueryResponse> {
 /// Query an ordered set of cosmos queries
 ///
 /// Response: QueryResponse
-/// Returns true if the pre-defined ordering is satisfied
-/// Data contains the LAST value which we received by querying
-fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryResponse>> {
-    // Process all the queries
-    let mut last_response: Option<QueryResponse> = None;
+/// Returns true if the pre-defined ordering is satisfied across ALL queries
+/// Data contains the array of values we received by querying
+fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<QueryResponse> {
+    // Optional here so we preserve request indexed responses
+    let mut responses: Vec<Option<Binary>> = Vec::with_capacity(queries.len());
+    let mut result = true;
+
     for query in &queries {
         match query {
             CosmosQuery::Croncat(q) => {
@@ -89,11 +91,14 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                     }
                     .into(),
                 )?;
+                // Collect all the dataz we canz
+                responses.push(Some(res.data));
+
+                // Only stop this train if a query result is false
                 if q.check_result && !res.result {
-                    last_response = None;
+                    result = res.result;
                     break;
                 }
-                last_response = Some(res);
             }
             CosmosQuery::Wasm(wq) => {
                 // Cover all native wasm query types
@@ -106,17 +111,10 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                             }
                             .into(),
                         );
-                        // conform response to expected end result,
-                        // always true since we just wanna use values in transforms later
                         match data {
-                            Err(..) => {
-                                last_response = None;
-                            }
+                            Err(..) => responses.push(None),
                             Ok(d) => {
-                                last_response = Some(QueryResponse {
-                                    result: true,
-                                    data: to_binary(&d)?,
-                                });
+                                responses.push(Some(to_binary(&d)?));
                             }
                         }
                     }
@@ -125,23 +123,13 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                             deps.querier.query_wasm_raw(contract_addr, key.clone());
 
                         match res {
-                            Err(..) => {
-                                last_response = None;
-                            }
+                            Err(..) => responses.push(None),
                             Ok(d) => {
                                 // Optimistically respond
                                 if let Some(r) = d {
-                                    // conform response to expected end result,
-                                    // always true since we just wanna use values in transforms later
-                                    last_response = Some(QueryResponse {
-                                        result: true,
-                                        data: to_binary(&r)?,
-                                    });
+                                    responses.push(Some(to_binary(&r)?));
                                 } else {
-                                    last_response = Some(QueryResponse {
-                                        result: true,
-                                        data: Binary::default(),
-                                    });
+                                    responses.push(None);
                                 };
                             }
                         }
@@ -149,23 +137,23 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                     WasmQuery::ContractInfo { contract_addr } => {
                         let res = deps
                             .querier
-                            .query_wasm_contract_info(contract_addr.clone().to_string())?;
-                        // conform response to expected end result,
-                        // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse {
-                            result: true,
-                            data: to_binary(&res)?,
-                        });
+                            .query_wasm_contract_info(contract_addr.clone().to_string());
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
                     }
                     // NOTE: This is dependent on features = ["cosmwasm_1_2"]
                     WasmQuery::CodeInfo { code_id } => {
-                        let res = deps.querier.query_wasm_code_info(*code_id)?;
-                        // conform response to expected end result,
-                        // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse {
-                            result: true,
-                            data: to_binary(&res)?,
-                        });
+                        let res = deps.querier.query_wasm_code_info(*code_id);
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
                     }
                     _ => {
                         return Err(StdError::GenericErr {
@@ -177,5 +165,8 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
         }
     }
 
-    Ok(last_response)
+    Ok(QueryResponse {
+        result,
+        data: to_binary(&responses)?,
+    })
 }

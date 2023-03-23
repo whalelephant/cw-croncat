@@ -351,7 +351,8 @@ pub struct TaskResponse {
     pub task: Option<TaskInfo>,
 }
 #[cw_serde]
-pub struct TaskCreationInfo {
+pub struct TaskExecutionInfo {
+    pub block_height: u64,
     pub task_hash: String,
     pub owner_addr: Addr,
     pub amount_for_one_task: AmountForOneTask,

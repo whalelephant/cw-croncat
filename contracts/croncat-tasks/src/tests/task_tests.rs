@@ -19,7 +19,7 @@ use croncat_sdk_tasks::{
     types::{
         Action, Boundary, BoundaryHeight, BoundaryTime, Config, CosmosQuery, CroncatQuery,
         CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotTasksTotalResponse, Task,
-        TaskCreationInfo, TaskInfo, TaskRequest, TaskResponse, Transform,
+        TaskExecutionInfo, TaskInfo, TaskRequest, TaskResponse, Transform,
     },
 };
 use cw20::Cw20ExecuteMsg;
@@ -198,7 +198,7 @@ fn create_task_without_query() {
         .unwrap();
 
     // check it created task with responded task hash and can be queried from anywhere
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     assert!(task_hash.starts_with("atom:"));
     let tasks: Vec<TaskInfo> = app
@@ -353,7 +353,7 @@ fn create_task_without_query() {
         )
         .unwrap();
 
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     assert!(task_hash.starts_with("atom:"));
     let responses: Vec<TaskInfo> = app
@@ -614,7 +614,7 @@ fn create_task_with_wasm() {
         &coins(30000, DENOM),
     )
     .unwrap();
-    // let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    // let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     // let task_hash = task_data.task_hash;
 
     // check total tasks
@@ -716,7 +716,7 @@ fn create_tasks_with_queries_and_transforms() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let tasks: Vec<TaskInfo> = app
         .wrap()
@@ -885,7 +885,7 @@ fn remove_tasks_fail() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_with_queries = task_data.task_hash;
 
     // Without queries
@@ -915,7 +915,7 @@ fn remove_tasks_fail() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_without_queries = task_data.task_hash;
 
     // Another user tries to remove the task
@@ -1111,7 +1111,7 @@ fn remove_tasks_with_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_block_with_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
@@ -1216,7 +1216,7 @@ fn remove_tasks_with_queries_success() {
             &coins(90000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_cron_with_queries_checked = task_data.task_hash;
     assert_eq!(
         task_hash_cron_with_queries_checked,
@@ -1233,7 +1233,7 @@ fn remove_tasks_with_queries_success() {
             &coins(90000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_cron_with_queries_unchecked = task_data.task_hash;
 
     let evented_ids: Vec<u64> = app
@@ -1445,7 +1445,7 @@ fn remove_tasks_without_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_block_without_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
@@ -1497,7 +1497,7 @@ fn remove_tasks_without_queries_success() {
             &coins(50000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash_cron_without_queries = task_data.task_hash;
 
     // check it created balance on the manager contract
@@ -1982,7 +1982,7 @@ fn remove_task_negative() {
         )
         .unwrap();
 
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // Not task owner tries to remove a task
@@ -2023,7 +2023,7 @@ fn remove_task_negative() {
         )
         .unwrap();
 
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // Not a task owner tries to remove a task with queries
@@ -2638,7 +2638,7 @@ fn query_slot_hashes_test() {
             &coins(30000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let block_task_hash1 = task_data.task_hash;
 
     let task2 = TaskRequest {
@@ -2663,7 +2663,7 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let block_task_hash2 = task_data.task_hash;
 
     let task3 = TaskRequest {
@@ -2688,7 +2688,7 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let block_task_hash3 = task_data.task_hash;
 
     let task4 = TaskRequest {
@@ -2713,7 +2713,7 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let block_task_hash4 = task_data.task_hash;
 
     let task5 = TaskRequest {
@@ -2735,7 +2735,7 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let time_task_hash1 = task_data.task_hash;
 
     let task6 = TaskRequest {
@@ -2757,7 +2757,7 @@ fn query_slot_hashes_test() {
             &coins(53000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let time_task_hash2 = task_data.task_hash;
 
     let hashes: SlotHashesResponse = app
@@ -3242,7 +3242,7 @@ fn poc_case1_case2() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let _t2: String = task_hash.clone();
     let task_response: TaskResponse = app
@@ -3375,7 +3375,7 @@ fn poc_case1_case2() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let _t2: String = task_hash.clone();
     let _task_response: TaskResponse = app

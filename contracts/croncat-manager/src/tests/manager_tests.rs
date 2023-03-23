@@ -13,7 +13,7 @@ use croncat_sdk_manager::{
 };
 use croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask;
 use croncat_sdk_tasks::types::CosmosQuery;
-use croncat_sdk_tasks::types::TaskCreationInfo;
+use croncat_sdk_tasks::types::TaskExecutionInfo;
 use croncat_sdk_tasks::types::TaskRequest;
 use croncat_sdk_tasks::types::{
     Action, Boundary, BoundaryHeight, BoundaryTime, CroncatQuery, Interval, TaskResponse, Transform,
@@ -779,7 +779,7 @@ fn simple_bank_transfers_block() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -916,7 +916,7 @@ fn simple_bank_transfers_block() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1060,7 +1060,7 @@ fn simple_bank_transfers_cron() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1239,7 +1239,7 @@ fn simple_bank_transfers_cron() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1433,7 +1433,7 @@ fn multi_coin_bank_transfers() {
             &attach_funds,
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1597,7 +1597,7 @@ fn cw20_action_transfer() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1791,7 +1791,7 @@ fn task_with_query() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -1944,7 +1944,7 @@ fn task_with_query() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2081,7 +2081,7 @@ fn recurring_task_block_immediate() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2230,7 +2230,7 @@ fn recurring_task_block_immediate() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2374,7 +2374,7 @@ fn recurring_task_block_block_interval() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2542,7 +2542,7 @@ fn recurring_task_cron() {
             &coins(75000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2691,7 +2691,7 @@ fn recurring_task_cron() {
             &coins(75000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -2893,7 +2893,7 @@ fn negative_proxy_call() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
@@ -3119,7 +3119,7 @@ fn test_withdraw_agent_success() {
         .unwrap();
 
     // Get task info
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
     let task_response: TaskResponse = app
         .wrap()
@@ -3441,7 +3441,7 @@ fn refill_task_balance_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
@@ -3610,7 +3610,7 @@ fn refill_task_balance_fail() {
             &[coin(600_000, DENOM), coin(50_000, "ibc")],
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // Check PARTICIPANT0 balance
@@ -3751,7 +3751,7 @@ fn refill_task_balance_success() {
             &[coin(600_000, DENOM), coin(50_000, "ibc")],
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 balances
@@ -3915,7 +3915,7 @@ fn refill_task_cw20_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     app.update_block(add_little_time);
@@ -4106,7 +4106,7 @@ fn refill_task_cw20_fail() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 spent 100 coins
@@ -4325,7 +4325,7 @@ fn refill_task_cw20_success() {
             &coins(600_000, DENOM),
         )
         .unwrap();
-    let task_data: TaskCreationInfo = from_binary(&res.data.unwrap()).unwrap();
+    let task_data: TaskExecutionInfo = from_binary(&res.data.unwrap()).unwrap();
     let task_hash = task_data.task_hash;
 
     // PARTICIPANT0 spent 455 coins
