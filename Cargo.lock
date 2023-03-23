@@ -350,6 +350,7 @@ dependencies = [
  "cosmwasm-std",
  "croncat-mod-balances",
  "cw-multi-test",
+ "cw-utils 0.16.0",
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",

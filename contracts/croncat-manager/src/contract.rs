@@ -284,7 +284,9 @@ fn execute_proxy_call(
     if task.queries.is_some() {
         // Process all the queries
         let query_responses = process_queries(&deps, &task)?;
-        replace_values(&mut task, query_responses)?;
+        if !query_responses.is_empty() {
+            replace_values(&mut task, query_responses)?;
+        }
 
         // Recalculate cw20 usage and re-check for self-calls
         let invalidated_after_transform = if let Ok(amounts) =

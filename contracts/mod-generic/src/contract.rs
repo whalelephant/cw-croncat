@@ -5,6 +5,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use mod_sdk::types::QueryResponse;
+use serde_cw_value::Value;
 
 use crate::helpers::{bin_to_value, query_wasm_smart_raw};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -98,34 +99,52 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                 // Cover all native wasm query types
                 match wq {
                     WasmQuery::Smart { contract_addr, msg } => {
-                        let data = deps.querier.query(
+                        let data: Result<Value, StdError> = deps.querier.query(
                             &WasmQuery::Smart {
                                 contract_addr: contract_addr.clone().to_string(),
                                 msg: msg.clone(),
                             }
                             .into(),
-                        )?;
+                        );
                         // conform response to expected end result,
                         // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse { result: true, data });
+                        match data {
+                            Err(..) => {
+                                last_response = None;
+                            }
+                            Ok(d) => {
+                                last_response = Some(QueryResponse {
+                                    result: true,
+                                    data: to_binary(&d)?,
+                                });
+                            }
+                        }
                     }
                     WasmQuery::Raw { contract_addr, key } => {
-                        let res: Option<Vec<u8>> = deps.querier.query(
-                            &WasmQuery::Raw {
-                                contract_addr: contract_addr.clone().to_string(),
-                                key: key.clone(),
+                        let res: Result<Option<Vec<u8>>, StdError> =
+                            deps.querier.query_wasm_raw(contract_addr, key.clone());
+
+                        match res {
+                            Err(..) => {
+                                last_response = None;
                             }
-                            .into(),
-                        )?;
-                        // Optimistically respond
-                        let data = if let Some(r) = res {
-                            to_binary(&r)?
-                        } else {
-                            Binary::default()
-                        };
-                        // conform response to expected end result,
-                        // always true since we just wanna use values in transforms later
-                        last_response = Some(QueryResponse { result: true, data });
+                            Ok(d) => {
+                                // Optimistically respond
+                                if let Some(r) = d {
+                                    // conform response to expected end result,
+                                    // always true since we just wanna use values in transforms later
+                                    last_response = Some(QueryResponse {
+                                        result: true,
+                                        data: to_binary(&r)?,
+                                    });
+                                } else {
+                                    last_response = Some(QueryResponse {
+                                        result: true,
+                                        data: Binary::default(),
+                                    });
+                                };
+                            }
+                        }
                     }
                     WasmQuery::ContractInfo { contract_addr } => {
                         let res = deps
@@ -138,6 +157,7 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                             data: to_binary(&res)?,
                         });
                     }
+                    // NOTE: This is dependent on features = ["cosmwasm_1_2"]
                     WasmQuery::CodeInfo { code_id } => {
                         let res = deps.querier.query_wasm_code_info(*code_id)?;
                         // conform response to expected end result,
@@ -147,7 +167,12 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<Option<QueryR
                             data: to_binary(&res)?,
                         });
                     }
-                    _ => unimplemented!(),
+                    _ => {
+                        println!("WasmQuery::Unknown");
+                        return Err(StdError::GenericErr {
+                            msg: "Unknown Query Type".to_string(),
+                        });
+                    }
                 }
             }
         }

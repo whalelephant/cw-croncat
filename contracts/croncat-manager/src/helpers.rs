@@ -470,9 +470,6 @@ pub fn process_queries(
     for query in queries {
         match query {
             CosmosQuery::Croncat(q) => {
-                // let res: mod_sdk::types::QueryResponse = deps
-                //     .querier
-                //     .query_wasm_smart(q.contract_addr.to_string(), &q.msg.clone())?;
                 let res: mod_sdk::types::QueryResponse = deps.querier.query(
                     &WasmQuery::Smart {
                         contract_addr: q.contract_addr.clone(),
@@ -507,7 +504,6 @@ pub fn process_queries(
                             }
                             .into(),
                         )?;
-                        // .query_wasm_raw(contract_addr.clone().to_string(), key.clone())?;
                         // Optimistically respond to maintain orderly processing
                         let data = if let Some(r) = res {
                             to_binary(&r)?
