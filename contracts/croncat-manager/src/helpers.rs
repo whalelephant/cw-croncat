@@ -579,7 +579,7 @@ pub fn replace_values(
                     None
                 }
             })
-            .ok_or(ContractError::TaskNotReady {})?;
+            .ok_or(ContractError::TaskInvalidTransform {})?;
         let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
         let query_bin = query_response_data
             .get(transform.query_idx as usize)
