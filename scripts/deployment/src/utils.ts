@@ -1,8 +1,43 @@
 import path from 'path'
 import * as fs from "fs"
 import toml from 'toml'
+import { fromBech32 } from "@cosmjs/encoding";
+import { chains } from "chain-registry"
+import { config } from "dotenv"
+config({ path: '.env' })
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 const contractsRoot = `${process.cwd()}/../../contracts`
+
+const networkType = process.env.NETWORK_TYPE || 'testnet'
+
+// NOTE: MUST Be a contract wallet - multisig prefered!
+// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
+export const pauseAdmins = {
+  junotestnet: process.env.PAUSE_ADMIN_MULTISIG_JUNOTESTNET || '',
+  juno: process.env.PAUSE_ADMIN_MULTISIG_JUNO || '',
+  osmosistestnet: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET || '',
+  osmosis: process.env.PAUSE_ADMIN_MULTISIG_OSMOSIS || '',
+  stargazetestnet: process.env.PAUSE_ADMIN_MULTISIG_STARGAZETESTNET || '',
+  stargaze: process.env.PAUSE_ADMIN_MULTISIG_STARGAZE || '',
+}
+
+export const getSupportedNetworks = () => {
+  // Get env list, then parse
+  const chainNames = `${process.env.SUPPORTED_CHAIN_NAMES || ''}`.split(',')
+  if (!chainNames || !chainNames.length) return []
+
+  // Get chain registry for each one, if found
+  return chainNames.map(cn => {
+    return chains.find(c => c.chain_name === cn)
+  }).filter(c => c != null)
+}
+
+export const getChainByChainName = cn => chains.find(c => c.chain_name === cn)
+
+export const getChainForAccount = address => {
+  const { prefix } = fromBech32(address);
+  return chains.find(n => n?.bech32_prefix === prefix && n?.network_type === networkType);
+}
 
 export const getChecksums = async (): Promise<any> => {
   const sums = fs.readFileSync(`${artifactsRoot}/checksums.txt`, 'utf8')
@@ -31,4 +66,22 @@ export const getGitHash = () => {
       res(stdout)
     })
   })
+}
+
+export const getTaskHashFromLogs = (data: any) => {
+  let task_hash
+
+  data.events.forEach(e => {
+    if (e.type === 'wasm') {
+      e.attributes.forEach(a => {
+        if (a.key === 'task_hash') task_hash = a.value
+      })
+    }
+  })
+
+  return task_hash
+}
+
+export function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }

@@ -1,31 +1,37 @@
-import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { Coin, StdFee, QueryClient } from "@cosmjs/stargate";
+import { ExecuteResult } from "@cosmjs/cosmwasm-stargate";
+import { Coin, StdFee, QueryClient, calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
-import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
-const prefix: string = process.env.PREFIX
+import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
+import { DeploySigner } from "./signer"
 
 export class TaskClient {
-  client: SigningCosmWasmClient;
+  client: DeploySigner;
   querier: any;
+  uploadGas: any;
+  executeGas: any;
+  codeId: number;
+  address: string;
 
-  constructor(client: SigningCosmWasmClient, querier?: QueryClient) {
+  constructor(client: DeploySigner, address?: string, querier?: QueryClient) {
     this.client = client;
-    this.querier = querier;
+    this.querier = querier || client.querier;
+
+    if (address) this.address = address;
   }
 
   async deploy(
     artifactsRoot: string,
-    sender: string,
     factoryAddress: string,
-    pauserAddress: string,
-    uploadGas: StdFee,
-    executeGas: StdFee
   ): Promise<[number, string]> {
-    const wasm = fs.readFileSync(`${artifactsRoot}/croncat_tasks.wasm`)
-    const uploadRes = await this.client.upload(sender, wasm, uploadGas)
-    const codeId = uploadRes.codeId
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
+    this.uploadGas = calculateFee(4_400_000, this.client.defaultGasPrice)
+    this.executeGas = calculateFee(555_000, this.client.defaultGasPrice)
+		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_tasks.wasm`)
+    const uploadRes = await this.client.client.upload(this.client.accounts.deployer, wasm, this.uploadGas)
+    this.codeId = uploadRes.codeId
+
     const checksums = await getChecksums()
     const githash = await getGitHash()
 
@@ -37,16 +43,16 @@ export class TaskClient {
       "deploy": {
         "kind": "tasks",
         "module_instantiate_info": {
-          "code_id": codeId,
+          "code_id": this.codeId,
           "version": version,
           "commit_id": githash || '-',
           "checksum": checksums.tasks || '-',
           "changelog_url": "https://github.com/croncats",
           "schema": "",
           "msg": Buffer.from(JSON.stringify({
-            chain_name: prefix || 'juno',
+            chain_name: this.client.prefix || 'juno',
             version: `${version[0]}.${version[1]}`,
-            pause_admin: `${pauserAddress}`,
+            pause_admin: `${this.client.accounts.pause_admin}`,
             croncat_manager_key: ['manager', version || [0, 1]],
             croncat_agents_key: ['agents', version || [0, 1]],
             // slot_granularity_time: '',
@@ -59,28 +65,31 @@ export class TaskClient {
         }
       }
     }
-    const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas);
-    const address: string = instRes.logs[0].events[1].attributes[0].value
+    const instRes = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, deployMsg, this.executeGas);
+    this.address = instRes.logs[0].events[1].attributes[0].value
 
-    return [codeId, address];
+    return [this.codeId, this.address];
   }
 
-  async getTasks(contractAddr: string): Promise<any> {
+  async getTasks(): Promise<any> {
+    if (!this.querier) return Promise.reject(`No querier found for ${this.client.chain.chain_name}!`)
     const q = { tasks: {} };
     // const q = { tasks_with_queries: {} };
-    const response = await this.querier.wasm.queryContractSmart(contractAddr, q);
+    const response = await this.querier.wasm.queryContractSmart(this.address, q);
     return response;
   }
 
-  async create(sender: string, contractAddr: string, gas: StdFee, task: any, funds: Coin[]): Promise<ExecuteResult> {
+  async create(sender: string, gas: StdFee, task: any, funds: Coin[]): Promise<ExecuteResult> {
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
     const msg = { create_task: { task } };
-    const response = await this.client.execute(sender, contractAddr, msg, gas, undefined, funds);
+    const response = await this.client.client.execute(sender, this.address, msg, gas, undefined, funds);
     return response;
   }
 
-  async remove(sender: string, contractAddr: string, gas: StdFee, task_hash: any): Promise<ExecuteResult> {
+  async remove(sender: string, gas: StdFee, task_hash: any): Promise<ExecuteResult> {
+    if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
     const msg = { remove_task: { task_hash } };
-    const response = await this.client.execute(sender, contractAddr, msg, gas);
+    const response = await this.client.client.execute(sender, this.address, msg, gas);
     return response;
   }
 }

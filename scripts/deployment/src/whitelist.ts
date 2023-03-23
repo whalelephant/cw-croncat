@@ -1,31 +1,14 @@
-import { setupWasmExtension, SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate'
-import { coins, DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
-import { HdPath, stringToPath } from "@cosmjs/crypto"
-import { HttpBatchClient, Tendermint34Client, TxResponse } from "@cosmjs/tendermint-rpc"
-import { QueryClient } from "@cosmjs/stargate";
-import { fromHex } from "@cosmjs/encoding";
 import { config } from "dotenv"
-import { GasPrice, StdFee, calculateFee } from "@cosmjs/stargate"
+import { calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
-import * as util from "util"
+import { getChainForAccount } from './utils'
+import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 config({ path: '.env' })
-// Get values from the environment variables located in the .env file
-const seedPhrase: string = process.env.SEED_PHRASE
-const prefix: string = process.env.PREFIX
-const endpoint: string = process.env.RPC_ENDPOINT
-// NOTE: MUST Be a contract wallet - multisig prefered!
-// If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
-const pauseAdminAddress: string = process.env.PAUSE_ADMIN_MULTISIG || ''
-const denom: string = process.env.DENOM
-const defaultGasPrice = GasPrice.fromString(`0.025${denom}`)
 const artifactsRoot = `${process.cwd()}/../../artifacts`
 
 import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
-
-// Gas vals
-const executeGas = calculateFee(999_000, defaultGasPrice)
 
 // CMD: yarn whitelist stars1b4kls73st8k5flxkwjyr4dfa3rwqtfary7ku86
 const start = async () => {
@@ -37,29 +20,15 @@ const start = async () => {
   const whitelistAddr = args._[0]
   console.info(`Adding ${whitelistAddr} to whitelisted agents...`)
 
-	const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, {
-		prefix,
-		hdPaths: [
-			// for easier coinage management
-			stringToPath(`m/44'/118'/0'/0/0`),
-			stringToPath(`m/44'/118'/0'/0/1`),
-			stringToPath(`m/44'/118'/0'/0/2`),
-			stringToPath(`m/44'/118'/0'/0/3`),
-			stringToPath(`m/44'/118'/0'/0/4`),
-		]
-	})
-	const accts = await signerWallet.getAccounts()
-	const userAddress = accts[0].address
-
-	const cwClient = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, { prefix, gasPrice: defaultGasPrice })
-	const httpBatchClient = new HttpBatchClient(endpoint, {
-			batchSizeLimit: 2,
-			dispatchInterval: 500
-	})
-	const tmClient = await Tendermint34Client.create(httpBatchClient)
-	const queryClient = QueryClient.withExtensions(tmClient, setupWasmExtension)
-	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${process.env.CHAIN_ID}_deployed_contracts.json`, 'utf8')
-	if (!rawDeployed) process.exit(1)
+	// Get the network client based on prefix from address
+	const network = getChainForAccount(whitelistAddr)
+	const ds = new DeploySigner()
+	const cwClient = await ds.init(network)
+	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${cwClient.chain.chain_name}-deployed_contracts.json`, 'utf8')
+	if (!rawDeployed) {
+		console.error(`No deployed contracts found for ${cwClient.chain.pretty_name}`)
+		process.exit(1)
+	}
 	const deployedContracts = JSON.parse(rawDeployed)
 	const contracts: any = {}
 	deployedContracts.forEach(d => {
@@ -68,10 +37,10 @@ const start = async () => {
 	})
 
 	// Classes
-	const factoryClient = new FactoryClient(cwClient, queryClient);
+	const factoryClient = new FactoryClient(cwClient, contracts.factory.address);
 
 	// Pre-logic: get latest versions from factory
-	const allVersions: any[] = await factoryClient.getLatestContracts(contracts.factory.address)
+	const allVersions: any[] = await factoryClient.getLatestContracts()
 	const versions: any = {}
 	allVersions.forEach((v: any) => {
 		// create a map instead of array
@@ -82,15 +51,13 @@ const start = async () => {
 	// Add first agent Register & check status
 	try {
 		const r = await factoryClient.addWhitelistedAgent(
-			userAddress,
-			contracts.factory.address,
 			versions.agents.contract_addr,
       whitelistAddr,
-			executeGas
+			calculateFee(555_000, cwClient.defaultGasPrice)
 		);
-		console.info(`Agents Add to Whitelist SUCCESS\n`, JSON.stringify(r), '\n')
+		console.info(`Agents Add to Whitelist on ${cwClient.chain.pretty_name} SUCCESS\n`, JSON.stringify(r), '\n')
 	} catch (e) {
-		console.info(`Agents Add to Whitelist ERROR`, e)
+		console.info(`Agents Add to Whitelist on ${cwClient.chain.pretty_name} ERROR`, e)
 	}
 
 	process.exit()

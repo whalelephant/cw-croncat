@@ -1,30 +1,35 @@
-import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { coin, Coin, StdFee } from "@cosmjs/stargate";
+import { ExecuteResult } from "@cosmjs/cosmwasm-stargate";
+import { StdFee, calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
-import { getContractVersionFromCargoToml } from './utils'
 config({ path: '.env' })
-import { getGitHash, getChecksums } from './utils'
+import { getContractVersionFromCargoToml, getGitHash, getChecksums } from './utils'
+import { DeploySigner } from "./signer"
 
 export class ManagerClient {
-	client: SigningCosmWasmClient;
+	client: DeploySigner;
+	uploadGas: any;
+	executeGas: any;
+	codeId: number;
+	address: string;
 
-	constructor(client: SigningCosmWasmClient) {
+	constructor(client: DeploySigner, address?: string) {
 		this.client = client;
+
+		if (address) this.address = address;
 	}
 
 	async deploy(
 		artifactsRoot: string,
-		sender: string,
 		factoryAddress: string,
-		pauserAddress: string,
-		treasuryAddress: string,
-		uploadGas: StdFee,
-		executeGas: StdFee
 	): Promise<[number, string]> {
+		if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
+		this.uploadGas = calculateFee(4_400_000, this.client.defaultGasPrice)
+		this.executeGas = calculateFee(555_000, this.client.defaultGasPrice)
 		const wasm = fs.readFileSync(`${artifactsRoot}/croncat_manager.wasm`)
-		const uploadRes = await this.client.upload(sender, wasm, uploadGas)
-		const codeId = uploadRes.codeId
+		const uploadRes = await this.client.client.upload(this.client.accounts.deployer, wasm, this.uploadGas)
+		this.codeId = uploadRes.codeId
+
 		const checksums = await getChecksums()
 		const githash = await getGitHash()
 
@@ -33,8 +38,8 @@ export class ManagerClient {
 
 		let base64ManagerInst = Buffer.from(JSON.stringify({
 			"version": `${version[0]}.${version[1]}`,
-			"pause_admin": `${pauserAddress}`,
-			"treasury_addr": `${treasuryAddress}`,
+			"pause_admin": `${this.client.accounts.pause_admin}`,
+			"treasury_addr": `${this.client.accounts.treasury}`,
 			"croncat_tasks_key": ["tasks", version || [0, 1]],
 			"croncat_agents_key": ["agents", version || [0, 1]]
 		})).toString('base64')
@@ -44,7 +49,7 @@ export class ManagerClient {
 			"deploy": {
 				"kind": "manager",
 				"module_instantiate_info": {
-					"code_id": codeId,
+					"code_id": this.codeId,
 					"version": version,
 					"commit_id": githash || '-',
 					"checksum": checksums.manager || '-',
@@ -56,45 +61,44 @@ export class ManagerClient {
 			}
 		}
 
-		const instRes = await this.client.execute(sender, factoryAddress, deployMsg, executeGas);
-		const address: string = instRes.logs[0].events[1].attributes[0].value
+		const instRes = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, deployMsg, this.executeGas);
+		this.address = instRes.logs[0].events[1].attributes[0].value
 
-		return [codeId, address];
+		return [this.codeId, this.address];
 	}
 
-	async proxyCall(sender: string, contractAddr: string, gas: StdFee, task_hash?: any): Promise<ExecuteResult> {
+	async proxyCall(sender: string, gas: StdFee, task_hash?: any): Promise<ExecuteResult> {
+		if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
 		const msg = { proxy_call: { task_hash } };
-		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		const response = await this.client.client.execute(sender, this.address, msg, gas);
 		return response;
 	}
 
-	async tick(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
-		const msg = { tick: {} };
-		const response = await this.client.execute(sender, contractAddr, msg, gas);
-		return response;
-	}
+	// NOTE: This can only be done via factory!
+	// async ownerWithdraw(sender: string, gas: StdFee): Promise<ExecuteResult> {
+	// 	const msg = { owner_withdraw: {} };
+	// 	const response = await this.client.client.execute(sender, this.address, msg, gas);
+	// 	return response;
+	// }
 
-	async ownerWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
-		const msg = { owner_withdraw: {} };
-		const response = await this.client.execute(sender, contractAddr, msg, gas);
-		return response;
-	}
-
-	async userWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+	async userWithdraw(sender: string, gas: StdFee): Promise<ExecuteResult> {
+		if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
 		const msg = { user_withdraw: {} };
-		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		const response = await this.client.client.execute(sender, this.address, msg, gas);
 		return response;
 	}
 
-	async agentWithdraw(sender: string, contractAddr: string, gas: StdFee): Promise<ExecuteResult> {
+	async agentWithdraw(sender: string, gas: StdFee): Promise<ExecuteResult> {
+		if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
 		const msg = { agent_withdraw: null };
-		const response = await this.client.execute(sender, contractAddr, msg, gas);
+		const response = await this.client.client.execute(sender, this.address, msg, gas);
 		return response;
 	}
 
-	async refillTaskBalance(sender: string, contractAddr: string, gas: StdFee, task_hash: any, funds: string): Promise<ExecuteResult> {
+	async refillTaskBalance(sender: string, gas: StdFee, task_hash: any, funds: string): Promise<ExecuteResult> {
+		if (!this.client.client) return Promise.reject(`No signer found for ${this.client.chain.chain_name}!`)
 		const msg = { refill_task_balance: { task_hash } };
-		const response = await this.client.execute(sender, contractAddr, msg, gas, funds);
+		const response = await this.client.client.execute(sender, this.address, msg, gas, funds);
 		return response;
 	}
 }
