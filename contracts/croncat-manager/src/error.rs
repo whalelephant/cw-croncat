@@ -77,7 +77,7 @@ pub enum ContractError {
     #[error("Task is not ready yet")]
     TaskNotReady {},
 
-    #[error("Task transform is either looking at wrong indexes or has malformed pointers")]
+    #[error("Task transform is either looking at wrong indices or has malformed pointers")]
     TaskInvalidTransform {},
 
     #[error("Task query result says not ready yet")]
