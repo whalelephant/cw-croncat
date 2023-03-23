@@ -1,12 +1,15 @@
+use std::vec;
+
+use cosmwasm_schema::schemars::_serde_json::Value;
 use cosmwasm_std::{
     coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
     MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
-    WasmMsg,
+    WasmMsg, WasmQuery,
 };
 use croncat_sdk_agents::msg::AgentResponse;
 use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::AmountForOneTask};
 use croncat_sdk_manager::types::{Config, TaskBalance};
-use croncat_sdk_tasks::types::{Boundary, TaskInfo};
+use croncat_sdk_tasks::types::{Boundary, CosmosQuery, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 
 use crate::{
@@ -443,11 +446,122 @@ pub(crate) fn is_after_boundary(block_info: &BlockInfo, boundary: Option<&Bounda
     }
 }
 
+/// Query all task queries in sequence, return all binary data if found.
+/// Response order is important to maintain for transforms
+/// NOTE: SystemError's such as InvalidRequest or UnsupportedRequest are not match-able in the QuerierWrapper
+/// As such, we require the task creator to validate queries externally before creating a task
+/// either with simulation or direct checks. Future support possible but not created here.
+///
+/// NOTE: Future impls will include recursive query transforms, hence the task info here
+pub fn process_queries(
+    deps: &DepsMut,
+    task: &TaskInfo,
+) -> Result<Vec<Option<cosmwasm_std::Binary>>, ContractError> {
+    let mut responses: Vec<Option<Binary>> =
+        Vec::with_capacity(task.queries.as_ref().unwrap().len());
+
+    let queries = if let Some(qs) = &task.queries {
+        qs
+    } else {
+        // No error here since we want to just simply progress through call stack if we dont have queries
+        // Likely this is NOOP
+        return Ok(vec![]);
+    };
+
+    // Process all the queries
+    for query in queries {
+        match query {
+            CosmosQuery::Croncat(q) => {
+                let res: mod_sdk::types::QueryResponse = deps.querier.query(
+                    &WasmQuery::Smart {
+                        contract_addr: q.contract_addr.clone(),
+                        msg: q.msg.clone(),
+                    }
+                    .into(),
+                )?;
+                if q.check_result && !res.result {
+                    return Err(ContractError::TaskQueryResultFalse {});
+                }
+                responses.push(Some(res.data));
+            }
+            CosmosQuery::Wasm(wq) => {
+                // Cover all native wasm query types
+                match wq {
+                    WasmQuery::Smart { contract_addr, msg } => {
+                        let data: Result<Value, StdError> = deps.querier.query(
+                            &WasmQuery::Smart {
+                                contract_addr: contract_addr.clone().to_string(),
+                                msg: msg.clone(),
+                            }
+                            .into(),
+                        );
+                        match data {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // Chuck it in there already!
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    WasmQuery::Raw { contract_addr, key } => {
+                        let res: Result<Option<Vec<u8>>, StdError> = deps.querier.query(
+                            &WasmQuery::Raw {
+                                contract_addr: contract_addr.clone().to_string(),
+                                key: key.clone(),
+                            }
+                            .into(),
+                        );
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                if let Some(r) = d {
+                                    responses.push(Some(to_binary(&r)?));
+                                } else {
+                                    responses.push(None)
+                                }
+                            }
+                        }
+                    }
+                    WasmQuery::ContractInfo { contract_addr } => {
+                        let res = deps
+                            .querier
+                            .query_wasm_contract_info(contract_addr.clone().to_string());
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // lets find out whos responsible for this code already!
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    WasmQuery::CodeInfo { code_id } => {
+                        let res = deps.querier.query_wasm_code_info(*code_id);
+                        match res {
+                            Err(..) => responses.push(None),
+                            Ok(d) => {
+                                // super helpful for security checks against checksum or code_id changes bruv
+                                responses.push(Some(to_binary(&d)?));
+                            }
+                        }
+                    }
+                    _ => {
+                        return Err(ContractError::Std(StdError::GenericErr {
+                            msg: "Unknown Query Type".to_string(),
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(responses)
+}
+
 /// Replace values to the result value from the rules
 /// Recalculate cw20 usage if any replacements
 pub fn replace_values(
     task: &mut TaskInfo,
-    construct_res_data: Vec<cosmwasm_std::Binary>,
+    query_response_data: Vec<Option<cosmwasm_std::Binary>>,
 ) -> Result<(), ContractError> {
     for transform in task.transforms.iter() {
         let wasm_msg = task
@@ -465,22 +579,23 @@ pub fn replace_values(
                     None
                 }
             })
-            .ok_or(ContractError::TaskNotReady {})?;
+            .ok_or(ContractError::TaskInvalidTransform {})?;
         let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
+        let query_bin = query_response_data
+            .get(transform.query_idx as usize)
+            .ok_or::<Option<Binary>>(None)
+            .unwrap();
 
-        let mut q_val = {
-            let bin = construct_res_data
-                .get(transform.query_idx as usize)
-                .ok_or(ContractError::TaskNotReady {})?;
-            cosmwasm_std::from_binary(bin)?
-        };
-        let replace_value = transform.query_response_path.find_value(&mut q_val)?;
-        let replaced_value = transform.action_path.find_value(&mut action_value)?;
-        *replaced_value = replace_value.clone();
-        *wasm_msg = Binary(
-            serde_json_wasm::to_vec(&action_value)
-                .map_err(|e| StdError::generic_err(e.to_string()))?,
-        );
+        if let Some(bin) = query_bin {
+            let mut q_val = cosmwasm_std::from_binary(bin)?;
+            let replace_value = transform.query_response_path.find_value(&mut q_val)?;
+            let replaced_value = transform.action_path.find_value(&mut action_value)?;
+            *replaced_value = replace_value.clone();
+            *wasm_msg = Binary(
+                serde_json_wasm::to_vec(&action_value)
+                    .map_err(|e| StdError::generic_err(e.to_string()))?,
+            );
+        }
     }
     Ok(())
 }

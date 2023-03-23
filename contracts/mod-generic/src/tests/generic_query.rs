@@ -12,7 +12,7 @@ use crate::value_ordering::ValueOrdering;
 fn test_generic() {
     // Instantiate generic query contract and
     // cw4 contract with "alice" weight 1 and "bob" weight 2
-    let (app, contract_addr, cw4_addr, _) = proper_instantiate();
+    let (app, contract_addr, cw4_addr, _, _) = proper_instantiate();
 
     // We create a query that checks if the weight of the second member ("bob") is greater than 1
     // "msg" creates a query to "contract_addr" to list all members with their weights
@@ -133,7 +133,7 @@ fn test_generic() {
 fn test_generic_json_repr() {
     // Instantiate generic query contract and
     // cw4 contract with "alice" weight 1 and "bob" weight 2
-    let (app, contract_addr, cw4_addr, _) = proper_instantiate();
+    let (app, contract_addr, cw4_addr, _, _) = proper_instantiate();
 
     // Tests with UnitBelow
     let query_binary = to_binary(&cw4::Cw4QueryMsg::ListMembers {
@@ -237,7 +237,7 @@ fn test_generic_json_repr() {
 #[test]
 fn test_generic_bigint() {
     // Instantiate generic query and cw20 contracts with total supply equal to 2022
-    let (app, contract_addr, _, cw20_addr) = proper_instantiate();
+    let (app, contract_addr, _, cw20_addr, _) = proper_instantiate();
 
     // Tests with Equal
     let generic_query = GenericQuery {

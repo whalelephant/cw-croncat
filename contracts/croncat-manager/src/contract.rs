@@ -2,7 +2,7 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdError, StdResult, Uint128, WasmQuery,
+    Reply, Response, StdError, StdResult, Uint128,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
@@ -21,8 +21,8 @@ use crate::helpers::{
     assert_caller_is_agent_contract, attached_natives, calculate_required_natives,
     check_if_sender_is_tasks, check_ready_for_execution, create_bank_send_message,
     create_task_completed_msg, finalize_task, gas_with_fees, get_agents_addr, get_tasks_addr,
-    is_after_boundary, is_before_boundary, parse_reply_msg, query_agent, recalculate_cw20,
-    remove_task_balance, replace_values, task_sub_msgs,
+    is_after_boundary, is_before_boundary, parse_reply_msg, process_queries, query_agent,
+    recalculate_cw20, remove_task_balance, replace_values, task_sub_msgs,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -259,6 +259,8 @@ fn execute_proxy_call(
         // No task
         return Err(ContractError::NoTask {});
     };
+    let task_hash = task.task_hash.to_owned();
+    let task_version = task.version.to_owned();
 
     // check if ready between boundary (if any)
     if is_before_boundary(&env.block, Some(&task.boundary)) {
@@ -272,34 +274,21 @@ fn execute_proxy_call(
             config,
             agent_addr,
             tasks_addr,
-            Some(vec![Attribute::new("lifecycle", "task_ended")]),
+            Some(vec![
+                Attribute::new("lifecycle", "task_ended"),
+                Attribute::new("task_hash", task_hash),
+                Attribute::new("task_version", task_version),
+            ]),
             true,
         );
     }
 
-    if let Some(queries) = task.queries.as_ref() {
-        let event_based = queries.iter().any(|q| q.check_result);
-        if event_based && !(task.interval == Interval::Once || task.interval == Interval::Immediate)
-        {
-            return Err(ContractError::TaskNoLongerValid {});
-        }
-
+    if task.queries.is_some() {
         // Process all the queries
-        let mut query_responses = Vec::with_capacity(task.queries.as_ref().unwrap().len());
-        for query in task.queries.iter().flatten() {
-            let query_res: mod_sdk::types::QueryResponse = deps.querier.query(
-                &WasmQuery::Smart {
-                    contract_addr: query.contract_addr.clone(),
-                    msg: query.msg.clone(),
-                }
-                .into(),
-            )?;
-            if query.check_result && !query_res.result {
-                return Err(ContractError::TaskQueryResultFalse {});
-            }
-            query_responses.push(query_res.data);
+        let query_responses = process_queries(&deps, &task)?;
+        if !query_responses.is_empty() {
+            replace_values(&mut task, query_responses)?;
         }
-        replace_values(&mut task, query_responses)?;
 
         // Recalculate cw20 usage and re-check for self-calls
         let invalidated_after_transform = if let Ok(amounts) =
@@ -313,7 +302,7 @@ fn execute_proxy_call(
 
         // Need to re-check if task has enough cw20's
         // because it could have been changed through transform
-        let task_balance = TASKS_BALANCES.load(deps.storage, task.task_hash.as_bytes())?;
+        let task_balance = TASKS_BALANCES.load(deps.storage, task_hash.as_bytes())?;
         if invalidated_after_transform
             || task_balance
                 .verify_enough_cw20(task.amount_for_one_task.cw20.clone(), Uint128::new(1))
@@ -326,7 +315,11 @@ fn execute_proxy_call(
                 config,
                 agent_addr,
                 tasks_addr,
-                Some(vec![Attribute::new("lifecycle", "task_invalidated")]),
+                Some(vec![
+                    Attribute::new("lifecycle", "task_invalidated"),
+                    Attribute::new("task_hash", task_hash),
+                    Attribute::new("task_version", task_version),
+                ]),
                 false,
             );
         }
@@ -403,7 +396,7 @@ fn end_task(
         amount: coins_transfer,
     };
     Ok(Response::new()
-        .add_attribute("action", "remove_task")
+        .add_attribute("action", "end_task")
         .add_attributes(attrs.unwrap_or_default())
         .add_message(msg)
         .add_message(bank_send))

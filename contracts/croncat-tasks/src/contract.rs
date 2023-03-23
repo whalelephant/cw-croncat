@@ -12,7 +12,7 @@ use croncat_sdk_core::types::{DEFAULT_PAGINATION_FROM_INDEX, DEFAULT_PAGINATION_
 use croncat_sdk_tasks::msg::UpdateConfigMsg;
 use croncat_sdk_tasks::types::{
     Config, CurrentTaskInfoResponse, Interval, SlotHashesResponse, SlotIdsResponse,
-    SlotTasksTotalResponse, SlotType, Task, TaskInfo, TaskRequest, TaskResponse,
+    SlotTasksTotalResponse, SlotType, Task, TaskExecutionInfo, TaskInfo, TaskRequest, TaskResponse,
 };
 use cw2::set_contract_version;
 use cw20::Cw20CoinVerified;
@@ -184,11 +184,19 @@ fn execute_reschedule_task(
     check_if_sender_is_manager(&deps.querier, &config, &info.sender)?;
 
     let mut task_to_remove = None;
+    let mut res_attributes: Vec<Attribute> = vec![];
+
     // Check default map
     let (next_id, slot_kind) = if let Some(task) = tasks_map().may_load(deps.storage, &task_hash)? {
         let (next_id, slot_kind) =
             task.interval
                 .next(&env, &task.boundary, config.slot_granularity_time);
+
+        res_attributes.push(Attribute::new(
+            "task_hash",
+            task.to_hash(&config.chain_name),
+        ));
+        res_attributes.push(Attribute::new("task_version", task.version.to_owned()));
 
         // NOTE: If task is evented, we dont want to "schedule" inside slots
         // but we also dont want to remove unless it was Interval::Once
@@ -268,6 +276,7 @@ fn execute_reschedule_task(
 
     Ok(Response::new()
         .add_attribute("action", "reschedule_task")
+        .add_attributes(res_attributes)
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
         .set_data(to_binary(&task_to_remove)?))
@@ -372,15 +381,12 @@ fn execute_create_task(
         stop_on_fail: task.stop_on_fail,
         amount_for_one_task: amount_for_one_task.clone(),
         actions: task.actions,
+        // NOTE: See process_queries in manager contract for details on limitations of malformed queries
         queries: task.queries.unwrap_or_default(),
         transforms: task.transforms.unwrap_or_default(),
         version: config.version.clone(),
     };
-    let event_based = item.is_evented();
-    if !item.interval.is_valid()
-        || (event_based
-            && !(item.interval == Interval::Once || item.interval == Interval::Immediate))
-    {
+    if !item.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
 
@@ -419,7 +425,7 @@ fn execute_create_task(
         }
     };
 
-    if event_based {
+    if item.is_evented() {
         EVENTED_TASKS_LOOKUP.update(deps.storage, next_id, update_vec_data)?;
         attributes.push(Attribute::new("evented_id", next_id.to_string()));
     } else {
@@ -451,11 +457,19 @@ fn execute_create_task(
 
     let agent_addr = get_agents_addr(&deps.querier, &config)?;
     let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
+    let response_data = TaskExecutionInfo {
+        block_height: env.block.height,
+        task_hash: hash.clone(),
+        owner_addr: item.owner_addr,
+        amount_for_one_task: item.amount_for_one_task,
+        version: item.version.clone(),
+    };
     Ok(Response::new()
-        .set_data(hash.as_bytes())
+        .set_data(to_binary(&response_data)?)
         .add_attribute("action", "create_task")
         .add_attributes(attributes)
         .add_attribute("task_hash", hash)
+        .add_attribute("task_version", item.version)
         .add_message(manager_create_task_balance_msg)
         .add_message(agent_new_task_msg))
 }

@@ -37,12 +37,88 @@
           }
         },
         "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "batch_query"
+        ],
+        "properties": {
+          "batch_query": {
+            "type": "object",
+            "required": [
+              "queries"
+            ],
+            "properties": {
+              "queries": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/CosmosQuery_for_WasmQuery"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
       }
     ],
     "definitions": {
       "Binary": {
         "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
         "type": "string"
+      },
+      "CosmosQuery_for_WasmQuery": {
+        "description": "Query given module contract with a message",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "croncat"
+            ],
+            "properties": {
+              "croncat": {
+                "$ref": "#/definitions/CroncatQuery"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "wasm"
+            ],
+            "properties": {
+              "wasm": {
+                "$ref": "#/definitions/WasmQuery"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "CroncatQuery": {
+        "description": "Query given module contract with a message",
+        "type": "object",
+        "required": [
+          "check_result",
+          "contract_addr",
+          "msg"
+        ],
+        "properties": {
+          "check_result": {
+            "description": "For queries with `check_result`: query return value should be formatted as a: [`QueryResponse`](mod_sdk::types::QueryResponse)",
+            "type": "boolean"
+          },
+          "contract_addr": {
+            "description": "This is address of the queried module contract. For the addr can use one of our croncat-mod-* contracts, or custom contracts",
+            "type": "string"
+          },
+          "msg": {
+            "$ref": "#/definitions/Binary"
+          }
+        },
+        "additionalProperties": false
       },
       "GenericQuery": {
         "type": "object",
@@ -118,12 +194,145 @@
           "equal",
           "not_equal"
         ]
+      },
+      "WasmQuery": {
+        "oneOf": [
+          {
+            "description": "this queries the public API of another contract at a known address (with known ABI) Return value is whatever the contract returns (caller should know), wrapped in a ContractResult that is JSON encoded.",
+            "type": "object",
+            "required": [
+              "smart"
+            ],
+            "properties": {
+              "smart": {
+                "type": "object",
+                "required": [
+                  "contract_addr",
+                  "msg"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  },
+                  "msg": {
+                    "description": "msg is the json-encoded QueryMsg struct",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "this queries the raw kv-store of the contract. returns the raw, unparsed data stored at that key, which may be an empty vector if not present",
+            "type": "object",
+            "required": [
+              "raw"
+            ],
+            "properties": {
+              "raw": {
+                "type": "object",
+                "required": [
+                  "contract_addr",
+                  "key"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "description": "Key is the raw key used in the contracts Storage",
+                    "allOf": [
+                      {
+                        "$ref": "#/definitions/Binary"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Returns a [`ContractInfoResponse`] with metadata on the contract from the runtime",
+            "type": "object",
+            "required": [
+              "contract_info"
+            ],
+            "properties": {
+              "contract_info": {
+                "type": "object",
+                "required": [
+                  "contract_addr"
+                ],
+                "properties": {
+                  "contract_addr": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "description": "Returns a [`CodeInfoResponse`] with metadata of the code",
+            "type": "object",
+            "required": [
+              "code_info"
+            ],
+            "properties": {
+              "code_info": {
+                "type": "object",
+                "required": [
+                  "code_id"
+                ],
+                "properties": {
+                  "code_id": {
+                    "type": "integer",
+                    "format": "uint64",
+                    "minimum": 0.0
+                  }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
       }
     }
   },
   "migrate": null,
   "sudo": null,
   "responses": {
+    "batch_query": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "QueryResponse_for_Binary",
+      "description": "The response required by all queries. Bool is needed for croncat, T allows flexible rule engine",
+      "type": "object",
+      "required": [
+        "data",
+        "result"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/definitions/Binary"
+        },
+        "result": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "definitions": {
+        "Binary": {
+          "description": "Binary is a wrapper around Vec<u8> to add base64 de/serialization with serde. It also adds some helper methods to help encode inline.\n\nThis is only needed as serde-json-{core,wasm} has a horrible encoding for Vec<u8>. See also <https://github.com/CosmWasm/cosmwasm/blob/main/docs/MESSAGE_TYPES.md>.",
+          "type": "string"
+        }
+      }
+    },
     "generic_query": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "QueryResponse_for_Binary",
