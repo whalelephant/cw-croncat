@@ -587,7 +587,7 @@ pub fn replace_values(
             .unwrap();
 
         if let Some(bin) = query_bin {
-            let mut q_val = { cosmwasm_std::from_binary(bin)? };
+            let mut q_val = cosmwasm_std::from_binary(bin)?;
             let replace_value = transform.query_response_path.find_value(&mut q_val)?;
             let replaced_value = transform.action_path.find_value(&mut action_value)?;
             *replaced_value = replace_value.clone();
