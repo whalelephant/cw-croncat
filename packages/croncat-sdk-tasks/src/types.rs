@@ -263,7 +263,6 @@ impl Task {
     }
 
     pub fn is_evented(&self) -> bool {
-        // self.queries.iter().any(|q| q.check_result)
         !self.queries.is_empty()
             && (self.interval == Interval::Once || self.interval == Interval::Immediate)
     }
