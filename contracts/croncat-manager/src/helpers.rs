@@ -534,16 +534,17 @@ pub fn process_queries(
                             }
                         }
                     }
-                    WasmQuery::CodeInfo { code_id } => {
-                        let res = deps.querier.query_wasm_code_info(*code_id);
-                        match res {
-                            Err(..) => responses.push(None),
-                            Ok(d) => {
-                                // super helpful for security checks against checksum or code_id changes bruv
-                                responses.push(Some(to_binary(&d)?));
-                            }
-                        }
-                    }
+                    // // NOTE: This is dependent on features = ["cosmwasm_1_2"]
+                    // WasmQuery::CodeInfo { code_id } => {
+                    //     let res = deps.querier.query_wasm_code_info(*code_id);
+                    //     match res {
+                    //         Err(..) => responses.push(None),
+                    //         Ok(d) => {
+                    //             // super helpful for security checks against checksum or code_id changes bruv
+                    //             responses.push(Some(to_binary(&d)?));
+                    //         }
+                    //     }
+                    // }
                     _ => {
                         return Err(ContractError::Std(StdError::GenericErr {
                             msg: "Unknown Query Type".to_string(),

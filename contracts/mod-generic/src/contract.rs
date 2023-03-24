@@ -145,16 +145,16 @@ fn batch_query(deps: Deps, queries: Vec<CosmosQuery>) -> StdResult<QueryResponse
                             }
                         }
                     }
-                    // NOTE: This is dependent on features = ["cosmwasm_1_2"]
-                    WasmQuery::CodeInfo { code_id } => {
-                        let res = deps.querier.query_wasm_code_info(*code_id);
-                        match res {
-                            Err(..) => responses.push(None),
-                            Ok(d) => {
-                                responses.push(Some(to_binary(&d)?));
-                            }
-                        }
-                    }
+                    // // NOTE: This is dependent on features = ["cosmwasm_1_2"]
+                    // WasmQuery::CodeInfo { code_id } => {
+                    //     let res = deps.querier.query_wasm_code_info(*code_id);
+                    //     match res {
+                    //         Err(..) => responses.push(None),
+                    //         Ok(d) => {
+                    //             responses.push(Some(to_binary(&d)?));
+                    //         }
+                    //     }
+                    // }
                     _ => {
                         return Err(StdError::GenericErr {
                             msg: "Unknown Query Type".to_string(),
