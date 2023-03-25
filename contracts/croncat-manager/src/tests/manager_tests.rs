@@ -2,14 +2,14 @@ use cosmwasm_std::from_binary;
 use cosmwasm_std::Attribute;
 use cosmwasm_std::BlockInfo;
 use cosmwasm_std::WasmQuery;
-use cosmwasm_std::{coins, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
+use cosmwasm_std::{coins, from_slice, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_factory::msg::ContractMetadataResponse;
 use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
-    types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
+    types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig, LAST_TASK_EXECUTION_INFO_KEY},
 };
 use croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask;
 use croncat_sdk_tasks::types::CosmosQuery;
@@ -38,7 +38,7 @@ use crate::{
 };
 use cosmwasm_std::{coin, StdError};
 use croncat_mod_balances::msg::QueryMsg as BalancesQueryMsg;
-use croncat_sdk_core::types::GasPrice;
+use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
 use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
 use cw_multi_test::{BankSudo, Executor};
@@ -5320,4 +5320,109 @@ fn pause_admin_cases() {
         .query_wasm_smart(croncat_manager_addr, &QueryMsg::Paused {})
         .unwrap();
     assert!(!is_paused);
+}
+
+#[test]
+fn last_task_execution_info_simple() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let manager_addr = init_manager(&mut app, &default_instantiate_message(), &factory_addr, &[]);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+
+    // Right after instantiation, expect it to return all default vals
+    let mut raw_task_execution_info_res = app
+        .wrap()
+        .query_wasm_raw(manager_addr.clone(), b"last_task_execution_info".as_slice())
+        .unwrap();
+    let mut raw_task_execution_info: TaskExecutionInfo =
+        from_slice(raw_task_execution_info_res.unwrap().as_slice()).unwrap();
+    assert_eq!(
+        raw_task_execution_info,
+        TaskExecutionInfo {
+            block_height: u64::default(),
+            tx_index: u32::default(),
+            task_hash: String::default(),
+            owner_addr: Addr::unchecked(""),
+            amount_for_one_task: AmountForOneTask::default(),
+            version: String::default(),
+        },
+        "After instantiate, should have all default values"
+    );
+
+    activate_agent(&mut app, &agents_addr);
+
+    // Create a task
+    let task = TaskRequest {
+        interval: Interval::Once,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "frob".to_owned(),
+                amount: coins(19, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let create_task_res = app
+        .execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr,
+            &CreateTask {
+                task: Box::new(task),
+            },
+            &coins(600_000, DENOM),
+        )
+        .unwrap()
+        .data
+        .unwrap();
+
+    // This contains info about the task after creation
+    let mut task_execution_info_creation: TaskExecutionInfo =
+        from_binary(&create_task_res).unwrap();
+
+    app.update_block(add_little_time);
+
+    // Proxy call
+    assert!(app
+        .execute_contract(
+            Addr::unchecked(AGENT0),
+            manager_addr.clone(),
+            &ProxyCall { task_hash: None },
+            &[],
+        )
+        .is_ok());
+
+    // Check the block height that proxy_call happened on
+    let proxy_call_height = app.block_info().height;
+
+    // Now we compare the saved value with the state key last_task_execution_info
+    raw_task_execution_info_res = app
+        .wrap()
+        .query_wasm_raw(manager_addr, LAST_TASK_EXECUTION_INFO_KEY.as_bytes())
+        .unwrap();
+    raw_task_execution_info = from_slice(raw_task_execution_info_res.unwrap().as_slice()).unwrap();
+
+    // We must modify the data we received upon task creation
+    // since the block height returned was for the creation time,
+    // not representing task execution that happens a block later.
+    task_execution_info_creation.block_height = proxy_call_height;
+
+    assert_eq!(
+        task_execution_info_creation,
+        TaskExecutionInfo {
+            block_height: proxy_call_height,
+            // Since there was only one transaction, it should be the zeroth index
+            tx_index: 0,
+            task_hash: raw_task_execution_info.task_hash,
+            owner_addr: raw_task_execution_info.owner_addr,
+            amount_for_one_task: raw_task_execution_info.amount_for_one_task,
+            version: raw_task_execution_info.version,
+        }
+    );
 }
