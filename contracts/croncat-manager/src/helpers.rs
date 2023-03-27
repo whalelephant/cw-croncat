@@ -1,6 +1,5 @@
 use std::vec;
 
-use cosmwasm_schema::schemars::_serde_json::Value;
 use cosmwasm_std::{
     coin, to_binary, Addr, BankMsg, Binary, BlockInfo, Coin, CosmosMsg, Deps, DepsMut, Empty,
     MessageInfo, QuerierWrapper, Reply, Response, StdError, StdResult, Storage, SubMsg, Uint128,
@@ -11,6 +10,7 @@ use croncat_sdk_core::{internal_messages::agents::AgentOnTaskCompleted, types::A
 use croncat_sdk_manager::types::{Config, TaskBalance};
 use croncat_sdk_tasks::types::{Boundary, CosmosQuery, TaskInfo};
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
+use serde_cw_value::Value;
 
 use crate::{
     balances::{add_fee_rewards, add_user_cw20},
