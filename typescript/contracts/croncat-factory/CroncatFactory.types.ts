@@ -56,16 +56,6 @@ export type WasmMsg = {
     [k: string]: unknown;
   };
 } | {
-  instantiate2: {
-    admin?: string | null;
-    code_id: number;
-    funds: Coin[];
-    label: string;
-    msg: Binary;
-    salt: Binary;
-    [k: string]: unknown;
-  };
-} | {
   migrate: {
     contract_addr: string;
     msg: Binary;

@@ -197,8 +197,12 @@ fn query_get_agent(deps: Deps, env: Env, account_id: String) -> StdResult<AgentR
             status: agent_status,
             payable_account_id: a.payable_account_id,
             balance: rewards,
-            last_executed_slot: stats.last_executed_slot,
             register_start: a.register_start,
+            last_executed_slot: stats.last_executed_slot,
+            completed_block_tasks: Uint64::from(stats.completed_block_tasks),
+            completed_cron_tasks: Uint64::from(stats.completed_cron_tasks),
+            missed_blocked_tasks: Uint64::from(stats.missed_blocked_tasks),
+            missed_cron_tasks: Uint64::from(stats.missed_cron_tasks),
         }),
     };
     Ok(agent_response)

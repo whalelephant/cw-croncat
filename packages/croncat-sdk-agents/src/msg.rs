@@ -131,12 +131,17 @@ pub struct AgentInfo {
     pub status: AgentStatus,
     /// Account where agent will move all his rewards
     pub payable_account_id: Addr,
-    /// Agent balance
+    /// Agent reward balance
     pub balance: Uint128,
     /// Last executed slot number
     pub last_executed_slot: u64,
     /// Registration time
     pub register_start: Timestamp,
+    /// Execution Totals - helpful for alerting & displays
+    pub completed_block_tasks: Uint64,
+    pub completed_cron_tasks: Uint64,
+    pub missed_blocked_tasks: Uint64,
+    pub missed_cron_tasks: Uint64,
 }
 /// Agent response containing agent information
 #[cw_serde]

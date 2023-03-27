@@ -277,29 +277,6 @@
               }
             },
             "additionalProperties": false
-          },
-          {
-            "description": "Returns a [`CodeInfoResponse`] with metadata of the code",
-            "type": "object",
-            "required": [
-              "code_info"
-            ],
-            "properties": {
-              "code_info": {
-                "type": "object",
-                "required": [
-                  "code_id"
-                ],
-                "properties": {
-                  "code_id": {
-                    "type": "integer",
-                    "format": "uint64",
-                    "minimum": 0.0
-                  }
-                }
-              }
-            },
-            "additionalProperties": false
           }
         ]
       }

@@ -142,16 +142,6 @@ export type WasmMsg = {
     [k: string]: unknown;
   };
 } | {
-  instantiate2: {
-    admin?: string | null;
-    code_id: number;
-    funds: Coin[];
-    label: string;
-    msg: Binary;
-    salt: Binary;
-    [k: string]: unknown;
-  };
-} | {
   migrate: {
     contract_addr: string;
     msg: Binary;
@@ -176,15 +166,8 @@ export type GovMsg = {
     vote: VoteOption;
     [k: string]: unknown;
   };
-} | {
-  vote_weighted: {
-    options: WeightedVoteOption[];
-    proposal_id: number;
-    [k: string]: unknown;
-  };
 };
 export type VoteOption = "yes" | "no" | "abstain" | "no_with_veto";
-export type Decimal = string;
 export type Boundary = {
   height: BoundaryHeight;
 } | {
@@ -215,11 +198,6 @@ export type WasmQuery = {
 } | {
   contract_info: {
     contract_addr: string;
-    [k: string]: unknown;
-  };
-} | {
-  code_info: {
-    code_id: number;
     [k: string]: unknown;
   };
 };
@@ -268,11 +246,6 @@ export interface IbcTimeout {
 export interface IbcTimeoutBlock {
   height: number;
   revision: number;
-  [k: string]: unknown;
-}
-export interface WeightedVoteOption {
-  option: VoteOption;
-  weight: Decimal;
   [k: string]: unknown;
 }
 export interface BoundaryHeight {
