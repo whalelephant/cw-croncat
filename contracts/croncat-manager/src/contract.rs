@@ -342,8 +342,7 @@ fn execute_proxy_call(
 
     let last_task_execution_info = TaskExecutionInfo {
         block_height: env.block.height,
-        // We can safely unwrap since our context is an execute message
-        tx_index: env.transaction.unwrap().index,
+        tx_info: env.transaction,
         task_hash: task.task_hash,
         owner_addr: task.owner_addr,
         amount_for_one_task: task.amount_for_one_task,

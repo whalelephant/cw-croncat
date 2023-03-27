@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, Uint64, WasmQuery};
+use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, TransactionInfo, Uint64, WasmQuery};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;
@@ -352,7 +352,7 @@ pub struct TaskResponse {
 #[cw_serde]
 pub struct TaskExecutionInfo {
     pub block_height: u64,
-    pub tx_index: u32,
+    pub tx_info: Option<TransactionInfo>,
     pub task_hash: String,
     pub owner_addr: Addr,
     pub amount_for_one_task: AmountForOneTask,
@@ -363,7 +363,7 @@ impl Default for TaskExecutionInfo {
     fn default() -> Self {
         Self {
             block_height: u64::default(),
-            tx_index: u32::default(),
+            tx_info: None,
             task_hash: String::default(),
             owner_addr: Addr::unchecked(""),
             amount_for_one_task: AmountForOneTask::default(),

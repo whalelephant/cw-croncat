@@ -2,7 +2,7 @@ use cosmwasm_std::from_binary;
 use cosmwasm_std::Attribute;
 use cosmwasm_std::BlockInfo;
 use cosmwasm_std::WasmQuery;
-use cosmwasm_std::{coins, from_slice, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg};
+use cosmwasm_std::{coins, from_slice, to_binary, Addr, BankMsg, Binary, Coin, Uint128, WasmMsg, TransactionInfo};
 use croncat_mod_balances::types::HasBalanceComparator;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
@@ -5341,7 +5341,7 @@ fn last_task_execution_info_simple() {
         raw_task_execution_info,
         TaskExecutionInfo {
             block_height: u64::default(),
-            tx_index: u32::default(),
+            tx_info: None,
             task_hash: String::default(),
             owner_addr: Addr::unchecked(""),
             amount_for_one_task: AmountForOneTask::default(),
@@ -5417,8 +5417,9 @@ fn last_task_execution_info_simple() {
         task_execution_info_creation,
         TaskExecutionInfo {
             block_height: proxy_call_height,
-            // Since there was only one transaction, it should be the zeroth index
-            tx_index: 0,
+            tx_info: Some(TransactionInfo {
+                index: 0,
+            }),
             task_hash: raw_task_execution_info.task_hash,
             owner_addr: raw_task_execution_info.owner_addr,
             amount_for_one_task: raw_task_execution_info.amount_for_one_task,
