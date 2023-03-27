@@ -1,6 +1,6 @@
 {
   "contract_name": "croncat-agents",
-  "contract_version": "0.1.2",
+  "contract_version": "0.1.3",
   "idl_version": "1.0.0",
   "instantiate": {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -795,25 +795,46 @@
           "type": "object",
           "required": [
             "balance",
+            "completed_block_tasks",
+            "completed_cron_tasks",
             "last_executed_slot",
+            "missed_blocked_tasks",
+            "missed_cron_tasks",
             "payable_account_id",
             "register_start",
             "status"
           ],
           "properties": {
             "balance": {
-              "description": "Agent balance",
+              "description": "Agent reward balance",
               "allOf": [
                 {
                   "$ref": "#/definitions/Uint128"
                 }
               ]
             },
+            "completed_block_tasks": {
+              "description": "Execution Totals - helpful for alerting & displays",
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Uint64"
+                }
+              ]
+            },
+            "completed_cron_tasks": {
+              "$ref": "#/definitions/Uint64"
+            },
             "last_executed_slot": {
               "description": "Last executed slot number",
               "type": "integer",
               "format": "uint64",
               "minimum": 0.0
+            },
+            "missed_blocked_tasks": {
+              "$ref": "#/definitions/Uint64"
+            },
+            "missed_cron_tasks": {
+              "$ref": "#/definitions/Uint64"
             },
             "payable_account_id": {
               "description": "Account where agent will move all his rewards",

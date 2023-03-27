@@ -107,15 +107,19 @@ export interface Config {
   public_registration: boolean;
 }
 export type Uint128 = string;
-export type Timestamp = Uint64;
 export type Uint64 = string;
+export type Timestamp = Uint64;
 export type AgentStatus = "active" | "pending" | "nominated";
 export interface AgentResponse {
   agent?: AgentInfo | null;
 }
 export interface AgentInfo {
   balance: Uint128;
+  completed_block_tasks: Uint64;
+  completed_cron_tasks: Uint64;
   last_executed_slot: number;
+  missed_blocked_tasks: Uint64;
+  missed_cron_tasks: Uint64;
   payable_account_id: Addr;
   register_start: Timestamp;
   status: AgentStatus;

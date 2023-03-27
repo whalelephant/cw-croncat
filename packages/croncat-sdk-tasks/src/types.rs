@@ -1,7 +1,9 @@
 use std::{fmt::Display, str::FromStr};
 
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, CosmosMsg, Empty, Env, Timestamp, TransactionInfo, Uint64, WasmQuery};
+use cosmwasm_std::{
+    Addr, Binary, CosmosMsg, Empty, Env, Timestamp, TransactionInfo, Uint64, WasmQuery,
+};
 use cron_schedule::Schedule;
 use croncat_mod_generic::types::PathToValue;
 pub use croncat_sdk_core::types::AmountForOneTask;

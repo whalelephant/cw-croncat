@@ -45,11 +45,6 @@ export type WasmQuery = {
     contract_addr: string;
     [k: string]: unknown;
   };
-} | {
-  code_info: {
-    code_id: number;
-    [k: string]: unknown;
-  };
 };
 export interface GenericQuery {
   contract_addr: string;
