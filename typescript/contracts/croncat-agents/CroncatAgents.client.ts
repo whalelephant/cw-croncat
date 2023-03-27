@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { Coin, StdFee } from "@cosmjs/amino";
-import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Timestamp, Uint64, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, ApprovedAgentAddresses, Boolean } from "./CroncatAgents.types";
+import { Addr, InstantiateMsg, ExecuteMsg, AgentOnTaskCreated, AgentOnTaskCompleted, UpdateConfig, QueryMsg, Config, Uint128, Uint64, Timestamp, AgentStatus, AgentResponse, AgentInfo, GetAgentIdsResponse, AgentTaskResponse, TaskStats, ApprovedAgentAddresses, Boolean } from "./CroncatAgents.types";
 export interface CroncatAgentsReadOnlyInterface {
   contractAddress: string;
   getAgent: ({
