@@ -5426,4 +5426,12 @@ fn last_task_execution_info_simple() {
             version: raw_task_execution_info.version,
         }
     );
+
+    // TODO: this test is somewhat incomplete in the sense that at the time of
+    // this writing, the TransactionInfo doesn't seem to return a non-zero
+    // index. This curious behavior is captured here:
+    // https://github.com/CosmWasm/cosmwasm/issues/1651
+    // If this issue gets ironed out, please modify this test such that
+    // We perform multiple proxy_call executions in the same block and
+    // can confirm that the TransactionInfo's index increases.
 }
