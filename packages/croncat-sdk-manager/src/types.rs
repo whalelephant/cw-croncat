@@ -5,6 +5,8 @@ use cw20::Cw20CoinVerified;
 
 use crate::error::SdkError;
 
+pub const LAST_TASK_EXECUTION_INFO_KEY: &str = "last_task_execution_info";
+
 #[cw_serde]
 pub struct TaskBalanceResponse {
     pub balance: Option<TaskBalance>,

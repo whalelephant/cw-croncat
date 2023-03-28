@@ -459,6 +459,10 @@ fn execute_create_task(
     let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
     let response_data = TaskExecutionInfo {
         block_height: env.block.height,
+        // We should be able to safely unwrap since our context is an execute message
+        // but it appears there's an issue as of the time of this writing
+        // Please refer to this issue: https://github.com/CosmWasm/cosmwasm/issues/1651
+        tx_info: env.transaction,
         task_hash: hash.clone(),
         owner_addr: item.owner_addr,
         amount_for_one_task: item.amount_for_one_task,
