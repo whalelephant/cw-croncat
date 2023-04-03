@@ -34,11 +34,10 @@ export class DeploySigner {
   // TODO: Add "pause_admin" address, based on .env config
   pauseAdmin: string;
 
-  constructor() {
-	}
+  constructor() {}
 
   // NOTE: Prefix is the Bech32 prefix for given network
-	async init(chain: Chain) {
+  async init(chain: Chain) {
     this.mnemonic = seedPhrase;
     this.chain = chain;
     this.prefix = chain.bech32_prefix;
@@ -89,31 +88,26 @@ export class DeploySigner {
     // signer client
     const options = { prefix: this.prefix, gasPrice: this.defaultGasPrice }
 
-    // osmosis testnet doesnt support clients correctly!?.............
-    if (chain.chain_name !== 'osmosistestnet') {
-      try {
-        this.client = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, options)
-      } catch (e) {
-        console.log('failed to create client for', prefix, e);
-        return Promise.reject(e)
-      }
+    try {
+      this.client = await SigningCosmWasmClient.connectWithSigner(endpoint, signerWallet, options)
+    } catch (e) {
+      console.log('failed to create client for', prefix, e);
+      return Promise.reject(e)
+    }
 
-      try {
-        const httpBatchClient = new HttpBatchClient(`${endpoint}`, {
-          batchSizeLimit: 10,
-          dispatchInterval: 500
-        })
-        this.tmClient = await Tendermint34Client.create(httpBatchClient)
-        this.querier = QueryClient.withExtensions(this.tmClient, setupWasmExtension)
-      } catch (e) {
-        return Promise.reject(e)
-      }
-    } else {
-      console.log('TODO: Fix osmosistestnet!', endpoint, chain);
+    try {
+      const httpBatchClient = new HttpBatchClient(`${endpoint}`, {
+        batchSizeLimit: 10,
+        dispatchInterval: 500
+      })
+      this.tmClient = await Tendermint34Client.create(httpBatchClient)
+      this.querier = QueryClient.withExtensions(this.tmClient, setupWasmExtension)
+    } catch (e) {
+      return Promise.reject(e)
     }
 
     return this
-	}
+  }
 
   // loop accounts for all networks & get each balance, print to console
   async listAccounts() {
