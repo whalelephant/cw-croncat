@@ -563,9 +563,8 @@ pub fn process_queries(
 ///
 /// Gotchas:
 /// 1. Transforms will only validate indexes, but never content
-/// 2. Content is passive: Only update if possible, but don't error
+/// 2. Transforms are strict: If a query cannot find data or replace as intended, error
 /// 3. Only supported message types, otherwise dont use a transform until supported
-/// 4. Invalid keys will occur when either a query or action transform value path do not reference correctly.
 pub fn replace_values(
     task: &mut TaskInfo,
     query_response_data: Vec<Option<cosmwasm_std::Binary>>,
@@ -589,14 +588,9 @@ pub fn replace_values(
             .get(transform.query_idx as usize)
             .and_then(|opt| opt.as_ref())
         {
-            let mut qv_res = cosmwasm_std::from_binary(query_bin);
-            let replace_value = match qv_res {
-                Ok(ref mut q_val) => transform.query_response_path.find_value(q_val)?,
-                Err(_) => {
-                    // See "Gotchas" above, passive
-                    continue;
-                }
-            };
+            let mut q_val = cosmwasm_std::from_binary(query_bin)
+                .map_err(|e| StdError::generic_err(e.to_string()))?;
+            let replace_value = transform.query_response_path.find_value(&mut q_val)?;
 
             if let Some(action) = task.actions.get_mut(transform.action_idx as usize) {
                 // NOTE: This only covers the supported methods known to valid task actions!
@@ -606,21 +600,13 @@ pub fn replace_values(
                         msg,
                         funds: _,
                     }) => {
-                        // let mut action_value = cosmwasm_std::from_binary(msg)
-                        //     .map_err(|e| StdError::generic_err(e.to_string()))?;
-                        // let replaced_value = transform.action_path.find_value(&mut action_value)?;
-                        let mut action_res = cosmwasm_std::from_binary(msg);
-                        let replaced_value = match action_res {
-                            Ok(ref mut a_val) => transform.action_path.find_value(a_val)?,
-                            Err(_) => {
-                                // See "Gotchas" above, passive
-                                continue;
-                            }
-                        };
+                        let mut action_value = cosmwasm_std::from_binary(msg)
+                            .map_err(|e| StdError::generic_err(e.to_string()))?;
+                        let replaced_value = transform.action_path.find_value(&mut action_value)?;
                         *replaced_value = replace_value.clone();
                         *msg = Binary(
-                            // See "Gotchas" above, passive
-                            serde_json_wasm::to_vec(&action_res?).unwrap(),
+                            serde_json_wasm::to_vec(&action_value)
+                                .map_err(|e| StdError::generic_err(e.to_string()))?,
                         );
                     }
                     CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
