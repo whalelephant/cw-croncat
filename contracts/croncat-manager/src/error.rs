@@ -91,10 +91,4 @@ pub enum ContractError {
 
     #[error("Must provide percentage value (0-100) for field: {field}")]
     InvalidPercentage { field: String },
-
-    #[error("Deserialization Error {msg}")]
-    DeserializationError { msg: String },
-
-    #[error("Serialization Error {msg}")]
-    SerializationError { msg: String },
 }
