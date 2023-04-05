@@ -80,6 +80,9 @@ pub enum ContractError {
     #[error("Task transform is either looking at wrong indices or has malformed pointers")]
     TaskInvalidTransform {},
 
+    #[error("Task transform is unsupported type")]
+    TaskTransformUnsupported {},
+
     #[error("Task query result says not ready yet")]
     TaskQueryResultFalse {},
 
@@ -88,4 +91,10 @@ pub enum ContractError {
 
     #[error("Must provide percentage value (0-100) for field: {field}")]
     InvalidPercentage { field: String },
+
+    #[error("Deserialization Error {msg}")]
+    DeserializationError { msg: String },
+
+    #[error("Serialization Error {msg}")]
+    SerializationError { msg: String },
 }
