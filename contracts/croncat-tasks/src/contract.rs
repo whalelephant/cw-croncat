@@ -21,7 +21,7 @@ use cw_storage_plus::Bound;
 use crate::error::ContractError;
 use crate::helpers::{
     check_if_sender_is_manager, get_agents_addr, get_manager_addr, remove_task, validate_boundary,
-    validate_msg_calculate_usage,
+    validate_msg_calculate_usage, validate_queries, validate_transforms,
 };
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -388,6 +388,12 @@ fn execute_create_task(
     };
     if !item.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
+    }
+    if !validate_queries(&deps, &item.queries) {
+        return Err(ContractError::InvalidQueries {});
+    }
+    if !validate_transforms(&item) {
+        return Err(ContractError::InvalidTransform {});
     }
 
     let hash_prefix = &config.chain_name;

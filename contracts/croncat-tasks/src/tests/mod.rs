@@ -1,6 +1,7 @@
 mod common;
 mod contracts;
 mod helpers;
+mod helpers_tests;
 mod task_tests;
 
 /// We set this to "TOKEN" to match the denom here:

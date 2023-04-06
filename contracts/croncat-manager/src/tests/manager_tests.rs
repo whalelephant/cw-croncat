@@ -6,6 +6,8 @@ use cosmwasm_std::{
     coins, from_slice, to_binary, Addr, BankMsg, Binary, Coin, TransactionInfo, Uint128, WasmMsg,
 };
 use croncat_mod_balances::types::HasBalanceComparator;
+use croncat_mod_generic::types::PathToValue;
+use croncat_mod_generic::types::ValueIndex;
 use croncat_sdk_agents::msg::ExecuteMsg::RegisterAgent;
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_factory::msg::ContractMetadataResponse;
@@ -4521,6 +4523,7 @@ fn event_task_with_boundary_issue() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
     let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
     let agent_addr = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     // Register an agent
     app.execute_contract(
@@ -4535,21 +4538,35 @@ fn event_task_with_boundary_issue() {
 
     let queries = vec![
         CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha123".to_owned(),
-            msg: Binary::from([4, 2]),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT1).to_string(),
+                denom: DENOM.to_string(),
+            }).unwrap(),
             check_result: true,
         }),
         CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha321".to_owned(),
-            msg: Binary::from([2, 4]),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT2).to_string(),
+                denom: DENOM.to_string(),
+            }).unwrap(),
             check_result: true,
         }),
     ];
     let transforms = vec![Transform {
-        action_idx: 1,
-        query_idx: 2,
-        action_path: vec![5u64.into()].into(),
-        query_response_path: vec![5u64.into()].into(),
+        action_idx: 0,
+        query_idx: 0,
+        query_response_path: PathToValue::from(vec![
+            ValueIndex::Key("amount".to_string()),
+        ]),
+        action_path: PathToValue::from(vec![
+            ValueIndex::Key("bank".to_string()),
+            ValueIndex::Key("send".to_string()),
+            ValueIndex::Key("amount".to_string()),
+            ValueIndex::Index(0),
+            ValueIndex::Key("amount".to_string()),
+        ]),
     }];
 
     // Create a task (queries and transforms) with a Boundary that is soon
@@ -4782,7 +4799,7 @@ fn event_task_with_all_query_types() {
         }),
         CosmosQuery::Wasm(WasmQuery::Raw {
             contract_addr: tasks_addr.to_string(),
-            key: Binary::from("contract_info".to_string().into_bytes()),
+            key: Binary::from("config".to_string().into_bytes()),
         }),
         CosmosQuery::Wasm(WasmQuery::ContractInfo {
             contract_addr: tasks_addr.to_string(),
