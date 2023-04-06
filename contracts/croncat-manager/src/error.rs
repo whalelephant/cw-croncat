@@ -80,6 +80,9 @@ pub enum ContractError {
     #[error("Task transform is either looking at wrong indices or has malformed pointers")]
     TaskInvalidTransform {},
 
+    #[error("Task transform is unsupported type")]
+    TaskTransformUnsupported {},
+
     #[error("Task query result says not ready yet")]
     TaskQueryResultFalse {},
 

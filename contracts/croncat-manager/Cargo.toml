@@ -52,3 +52,4 @@ croncat-agents = { workspace = true }
 croncat-mod-balances = { workspace = true }
 croncat-mod-generic = { workspace = true }
 cw-boolean-contract = { workspace = true }
+serde_json = { workspace = true }

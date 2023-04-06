@@ -303,6 +303,7 @@ dependencies = [
  "mod-sdk 0.1.4",
  "serde-cw-value",
  "serde-json-wasm",
+ "serde_json",
  "thiserror",
 ]
 
