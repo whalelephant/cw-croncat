@@ -12,11 +12,8 @@ mod tests {
 
     #[test]
     fn test_validate_transforms() {
-        let action_msg = r#"{"transfer":{"recipient":"terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v","amount":"1000"}}"#.as_bytes();
-
-        let query_msg = r#"{"balance":{"address":"terra1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v"}}"#.as_bytes();
-
-        // let query_response = r#"{"balance":"1000","denom":"uluna"}"#;
+        let action_msg = r#"{"transfer":{"recipient":"cosmosx46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v","amount":"100"}}"#.as_bytes();
+        let query_msg = r#"{"balance":{"address":"cosmos1x46rqay4d3cssq8gxxvqz8xt6nwlz4td20k38v"}}"#.as_bytes();
 
         let action = Action {
             msg: CosmosMsg::Wasm(WasmMsg::Execute {
