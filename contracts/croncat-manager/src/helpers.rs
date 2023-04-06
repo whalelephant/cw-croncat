@@ -558,44 +558,131 @@ pub fn process_queries(
     Ok(responses)
 }
 
-/// Replace values to the result value from the rules
-/// Recalculate cw20 usage if any replacements
+/// Replace action values with the result value from the queries
+/// As long as the transforms are valid
+///
+/// Gotchas:
+/// 1. Transforms will only validate indexes, but never content
+/// 2. Transforms are strict: If a query cannot find data or replace as intended, error
+/// 3. Only supported message types, otherwise dont use a transform until supported
 pub fn replace_values(
     task: &mut TaskInfo,
     query_response_data: Vec<Option<cosmwasm_std::Binary>>,
 ) -> Result<(), ContractError> {
     for transform in task.transforms.iter() {
-        let wasm_msg = task
-            .actions
-            .get_mut(transform.action_idx as usize)
-            .and_then(|action| {
-                if let CosmosMsg::Wasm(WasmMsg::Execute {
-                    contract_addr: _,
-                    msg,
-                    funds: _,
-                }) = &mut action.msg
-                {
-                    Some(msg)
-                } else {
-                    None
+        // Validate transform index range
+        if transform.action_idx as usize > task.actions.len() - 1 {
+            return Err(ContractError::TaskInvalidTransform {});
+        }
+        match &task.queries {
+            Some(q) => {
+                if transform.query_idx as usize > q.len() - 1 {
+                    return Err(ContractError::TaskInvalidTransform {});
                 }
-            })
-            .ok_or(ContractError::TaskInvalidTransform {})?;
-        let mut action_value = cosmwasm_std::from_binary(wasm_msg)?;
-        let query_bin = query_response_data
-            .get(transform.query_idx as usize)
-            .ok_or::<Option<Binary>>(None)
-            .unwrap();
+            }
+            None => return Err(ContractError::TaskInvalidTransform {}),
+        }
 
-        if let Some(bin) = query_bin {
-            let mut q_val = cosmwasm_std::from_binary(bin)?;
+        // Process known queries
+        if let Some(query_bin) = query_response_data
+            .get(transform.query_idx as usize)
+            .and_then(|opt| opt.as_ref())
+        {
+            let mut q_val = cosmwasm_std::from_binary(query_bin)
+                .map_err(|e| StdError::generic_err(e.to_string()))?;
             let replace_value = transform.query_response_path.find_value(&mut q_val)?;
-            let replaced_value = transform.action_path.find_value(&mut action_value)?;
-            *replaced_value = replace_value.clone();
-            *wasm_msg = Binary(
-                serde_json_wasm::to_vec(&action_value)
-                    .map_err(|e| StdError::generic_err(e.to_string()))?,
-            );
+
+            if let Some(action) = task.actions.get_mut(transform.action_idx as usize) {
+                // NOTE: This only covers the supported methods known to valid task actions!
+                match &mut action.msg {
+                    CosmosMsg::Wasm(WasmMsg::Execute {
+                        contract_addr: _,
+                        msg,
+                        funds: _,
+                    }) => {
+                        let mut action_value = cosmwasm_std::from_binary(msg)
+                            .map_err(|e| StdError::generic_err(e.to_string()))?;
+                        let replaced_value = transform.action_path.find_value(&mut action_value)?;
+                        *replaced_value = replace_value.clone();
+                        *msg = Binary(
+                            serde_json_wasm::to_vec(&action_value)
+                                .map_err(|e| StdError::generic_err(e.to_string()))?,
+                        );
+                    }
+                    CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+                        let mut action_value = serde_json_wasm::from_str::<Value>(&format!(
+                            r#"{{"bank":{{"send":{{"to_address": "{}", "amount": {}}}}}}}"#,
+                            to_address,
+                            serde_json_wasm::to_string(amount).unwrap()
+                        ))
+                        .unwrap();
+                        let replaced_value = transform.action_path.find_value(&mut action_value)?;
+                        *replaced_value = replace_value.clone();
+
+                        // we mutated, now apply back to bank msg
+                        // could this be more insane? probably. For now, hooray we hax'd it to werkz! :D
+                        if let Value::Map(parent_map) = &action_value {
+                            if let Some(Value::Map(bank_send_map)) =
+                                &parent_map.get(&Value::String("bank".to_string()))
+                            {
+                                if let Some(Value::Map(ref send_map)) =
+                                    bank_send_map.get(&Value::String("send".to_string()))
+                                {
+                                    if let Some(Value::String(ref new_to_address)) =
+                                        send_map.get(&Value::String("to_address".to_string()))
+                                    {
+                                        *to_address = new_to_address.clone();
+                                    }
+                                    if let Some(Value::Seq(ref new_amount)) =
+                                        send_map.get(&Value::String("amount".to_string()))
+                                    {
+                                        let coins: Vec<Coin> = new_amount
+                                            .iter()
+                                            .filter_map(|value| {
+                                                if let Value::Map(coin_map) = value {
+                                                    let amount = coin_map
+                                                        .get(&Value::String("amount".to_string()))
+                                                        .and_then(|v| {
+                                                            if let Value::String(amount_str) = v {
+                                                                amount_str.parse::<u128>().ok()
+                                                            } else {
+                                                                None
+                                                            }
+                                                        });
+                                                    let denom = coin_map
+                                                        .get(&Value::String("denom".to_string()))
+                                                        .and_then(|v| {
+                                                            if let Value::String(denom_str) = v {
+                                                                Some(denom_str.to_string())
+                                                            } else {
+                                                                None
+                                                            }
+                                                        });
+
+                                                    if let (Some(amount), Some(denom)) =
+                                                        (amount, denom)
+                                                    {
+                                                        Some(Coin {
+                                                            denom,
+                                                            amount: amount.into(),
+                                                        })
+                                                    } else {
+                                                        None
+                                                    }
+                                                } else {
+                                                    None
+                                                }
+                                            })
+                                            .collect();
+                                        *amount = coins;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => return Err(ContractError::TaskTransformUnsupported {}),
+                }
+            }
         }
     }
     Ok(())
