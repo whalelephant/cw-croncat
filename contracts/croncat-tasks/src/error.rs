@@ -21,6 +21,12 @@ pub enum ContractError {
     #[error("Actions message unsupported or invalid message data")]
     InvalidAction {},
 
+    #[error("Query validation failed, either missing contract or invalid method")]
+    InvalidQueries {},
+
+    #[error("Task transform is either looking at wrong indices or has malformed pointers")]
+    InvalidTransform {},
+
     #[error("Supplied address is not valid address")]
     InvalidAddress {},
 
