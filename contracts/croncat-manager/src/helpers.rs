@@ -504,10 +504,9 @@ pub fn process_queries(
                         }
                     }
                     WasmQuery::Raw { contract_addr, key } => {
-                        let res: Result<Option<Vec<u8>>, StdError> = deps.querier.query_wasm_raw(
-                            contract_addr.clone().to_string(),
-                            key.clone(),
-                        );
+                        let res: Result<Option<Vec<u8>>, StdError> = deps
+                            .querier
+                            .query_wasm_raw(contract_addr.clone().to_string(), key.clone());
                         match res {
                             Err(..) => responses.push(None),
                             Ok(d) => {

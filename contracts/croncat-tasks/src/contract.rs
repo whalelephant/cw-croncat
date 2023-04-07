@@ -389,7 +389,7 @@ fn execute_create_task(
     if !item.interval.is_valid() {
         return Err(ContractError::InvalidInterval {});
     }
-    if !validate_queries(&deps, &item.queries) {
+    if !validate_queries(&deps.as_ref(), &item.queries) {
         return Err(ContractError::InvalidQueries {});
     }
     if !validate_transforms(&item) {

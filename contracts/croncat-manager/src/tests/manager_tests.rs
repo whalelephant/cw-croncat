@@ -4542,7 +4542,8 @@ fn event_task_with_boundary_issue() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT1).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
         }),
         CosmosQuery::Croncat(CroncatQuery {
@@ -4550,16 +4551,15 @@ fn event_task_with_boundary_issue() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT2).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
         }),
     ];
     let transforms = vec![Transform {
         action_idx: 0,
         query_idx: 0,
-        query_response_path: PathToValue::from(vec![
-            ValueIndex::Key("amount".to_string()),
-        ]),
+        query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
         action_path: PathToValue::from(vec![
             ValueIndex::Key("bank".to_string()),
             ValueIndex::Key("send".to_string()),

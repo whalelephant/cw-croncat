@@ -5,8 +5,9 @@ use super::{
 };
 use crate::msg::InstantiateMsg;
 
-use cosmwasm_std::{coins, to_binary, Addr, BlockInfo};
+use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Uint128};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
+use cw20::Cw20Coin;
 use cw_multi_test::{App, AppBuilder, Executor};
 
 pub(crate) fn default_app() -> App {
@@ -251,4 +252,33 @@ pub(crate) fn init_mod_balances(app: &mut App, factory_addr: &Addr) -> Addr {
         )
         .unwrap();
     metadata.metadata.unwrap().contract_addr
+}
+
+pub(crate) fn init_cw20(app: &mut App) -> Addr {
+    let code_id = app.store_code(contracts::cw20_contract());
+    app.instantiate_contract(
+        code_id,
+        Addr::unchecked(ADMIN),
+        &cw20_base::msg::InstantiateMsg {
+            name: "coin_name".to_owned(),
+            symbol: "con".to_owned(),
+            decimals: 6,
+            initial_balances: vec![
+                Cw20Coin {
+                    address: ADMIN.to_owned(),
+                    amount: Uint128::new(100_000_000),
+                },
+                Cw20Coin {
+                    address: PARTICIPANT0.to_owned(),
+                    amount: Uint128::new(100_000_000),
+                },
+            ],
+            mint: None,
+            marketing: None,
+        },
+        &[],
+        "cw20",
+        None,
+    )
+    .unwrap()
 }

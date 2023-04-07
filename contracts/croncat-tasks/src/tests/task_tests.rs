@@ -1,10 +1,10 @@
 use crate::tests::{
     common::add_seconds_to_block, helpers::increment_block_height, AGENT0, AGENT1, PARTICIPANT0,
-    PARTICIPANT1, PAUSE_ADMIN, PARTICIPANT2,
+    PARTICIPANT1, PARTICIPANT2, PAUSE_ADMIN,
 };
 use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, BankMsg, StakingMsg, StdError, Timestamp,
-    Uint128, Uint64, WasmMsg,
+    coin, coins, from_binary, to_binary, Addr, BankMsg, StakingMsg, StdError, Timestamp, Uint128,
+    Uint64, WasmMsg,
 };
 use croncat_mod_generic::types::{PathToValue, ValueIndex};
 use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
@@ -683,7 +683,8 @@ fn create_tasks_with_queries_and_transforms() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT1).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
         }),
         CosmosQuery::Croncat(CroncatQuery {
@@ -691,16 +692,15 @@ fn create_tasks_with_queries_and_transforms() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT2).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
         }),
     ];
     let transforms = vec![Transform {
         action_idx: 0,
         query_idx: 0,
-        query_response_path: PathToValue::from(vec![
-            ValueIndex::Key("amount".to_string()),
-        ]),
+        query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
         action_path: PathToValue::from(vec![
             ValueIndex::Key("bank".to_string()),
             ValueIndex::Key("send".to_string()),
@@ -878,7 +878,8 @@ fn remove_tasks_fail() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT1).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
@@ -886,16 +887,15 @@ fn remove_tasks_fail() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT2).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 0,
             query_idx: 0,
-            query_response_path: PathToValue::from(vec![
-                ValueIndex::Key("amount".to_string()),
-            ]),
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
             action_path: PathToValue::from(vec![
                 ValueIndex::Key("bank".to_string()),
                 ValueIndex::Key("send".to_string()),
@@ -1053,7 +1053,8 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT1).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
@@ -1061,16 +1062,15 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT2).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 0,
             query_idx: 0,
-            query_response_path: PathToValue::from(vec![
-                ValueIndex::Key("amount".to_string()),
-            ]),
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
             action_path: PathToValue::from(vec![
                 ValueIndex::Key("bank".to_string()),
                 ValueIndex::Key("send".to_string()),
@@ -1120,9 +1120,10 @@ fn remove_tasks_with_queries_success() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT1).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
-        }),],
+        })],
         transforms: task.transforms.clone().unwrap(),
         version: "0.1".to_string(),
         amount_for_one_task: AmountForOneTask {
@@ -1203,7 +1204,8 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT1).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
@@ -1211,16 +1213,15 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT2).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 0,
             query_idx: 0,
-            query_response_path: PathToValue::from(vec![
-                ValueIndex::Key("amount".to_string()),
-            ]),
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
             action_path: PathToValue::from(vec![
                 ValueIndex::Key("bank".to_string()),
                 ValueIndex::Key("send".to_string()),
@@ -1253,7 +1254,8 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT1).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: false,
             }),
             CosmosQuery::Croncat(CroncatQuery {
@@ -1261,16 +1263,15 @@ fn remove_tasks_with_queries_success() {
                 msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                     address: Addr::unchecked(PARTICIPANT2).to_string(),
                     denom: DENOM.to_string(),
-                }).unwrap(),
+                })
+                .unwrap(),
                 check_result: false,
             }),
         ]),
         transforms: Some(vec![Transform {
             action_idx: 0,
             query_idx: 0,
-            query_response_path: PathToValue::from(vec![
-                ValueIndex::Key("amount".to_string()),
-            ]),
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
             action_path: PathToValue::from(vec![
                 ValueIndex::Key("bank".to_string()),
                 ValueIndex::Key("send".to_string()),
@@ -1953,9 +1954,10 @@ fn negative_create_task() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT1).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
-        }),]),
+        })]),
         transforms: None,
         cw20: None,
     };
@@ -2091,7 +2093,8 @@ fn remove_task_negative() {
             msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
                 address: Addr::unchecked(PARTICIPANT1).to_string(),
                 denom: DENOM.to_string(),
-            }).unwrap(),
+            })
+            .unwrap(),
             check_result: true,
         })]),
         transforms: None,

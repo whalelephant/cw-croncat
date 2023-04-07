@@ -1,9 +1,10 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper, StdResult,
-    Storage, WasmMsg, StdError, WasmQuery, DepsMut,
+    Addr, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper, StdError,
+    StdResult, Storage, WasmMsg, WasmQuery,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, Interval, TaskRequest, CosmosQuery, Task,
+    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, CosmosQuery, Interval, Task,
+    TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
 use serde_cw_value::Value;
@@ -57,12 +58,9 @@ pub(crate) fn validate_boundary(
 }
 
 /// Query against all to validate the query is possible, rather than open ended failures
-/// This does NOT evaluate the contents which could change, allowing reactivity later. 
+/// This does NOT evaluate the contents which could change, allowing reactivity later.
 /// Errors are assessed against contract and method availability
-pub(crate) fn validate_queries(
-    deps: &DepsMut,
-    queries: &Vec<CosmosQuery>,
-) -> bool {
+pub(crate) fn validate_queries(deps: &Deps, queries: &Vec<CosmosQuery>) -> bool {
     if queries.is_empty() {
         // no queries, so nothing to check
         return true;
@@ -81,7 +79,6 @@ pub(crate) fn validate_queries(
                 );
                 // only handle error
                 if res.is_err() {
-                    println!("CosmosQuery::Croncat ERRRRRRR {:?}", res);
                     return false;
                 }
             }
@@ -98,15 +95,13 @@ pub(crate) fn validate_queries(
                         );
                         // only handle error
                         if data.is_err() {
-                            println!("WasmQuery::Smart ERRRRRRR {:?}", data);
                             return false;
                         }
                     }
                     WasmQuery::Raw { contract_addr, key } => {
-                        let res = deps.querier.query_wasm_raw(
-                            contract_addr.clone().to_string(),
-                            key.clone(),
-                        );
+                        let res = deps
+                            .querier
+                            .query_wasm_raw(contract_addr.clone().to_string(), key.clone());
                         // only handle error
                         if res.is_err() {
                             return false;
@@ -118,7 +113,6 @@ pub(crate) fn validate_queries(
                             .query_wasm_contract_info(contract_addr.clone().to_string());
                         // only handle error
                         if res.is_err() {
-                            println!("WasmQuery::ContractInfo ERRRRRRR {:?}", res);
                             return false;
                         }
                     }
@@ -139,12 +133,12 @@ pub(crate) fn validate_queries(
 
 /// Transforms need valid indexes, valid action paths
 /// NOTE: Cannot validate the query response path, as it is determined at time of execution
-pub(crate) fn validate_transforms(
-    task: &Task,
-) -> bool {
+pub(crate) fn validate_transforms(task: &Task) -> bool {
     for transform in task.transforms.iter() {
         // Validate transform index range
-        if (transform.action_idx as usize > task.actions.len() - 1) || (transform.query_idx as usize > task.queries.len() - 1) {
+        if (transform.action_idx as usize > task.actions.len() - 1)
+            || (transform.query_idx as usize > task.queries.len() - 1)
+        {
             return false;
         }
 
@@ -154,7 +148,8 @@ pub(crate) fn validate_transforms(
             match &action.msg {
                 CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
                     let mut action_value = cosmwasm_std::from_binary(msg)
-                        .map_err(|e| StdError::generic_err(e.to_string())).unwrap();
+                        .map_err(|e| StdError::generic_err(e.to_string()))
+                        .unwrap();
                     if transform.action_path.find_value(&mut action_value).is_err() {
                         return false;
                     }
