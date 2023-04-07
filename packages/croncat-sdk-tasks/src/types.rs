@@ -486,7 +486,11 @@ pub(crate) fn get_next_block_by_offset(
                 end.u64()
             };
             // we ONLY want to catch if we're passed the end block height
-            std::cmp::min(next_block_height, end_height)
+            if next_block_height > end_height {
+                0
+            } else {
+                next_block_height
+            }
         }
         None => next_block_height,
     }
@@ -817,7 +821,7 @@ mod test {
                     start: Some(Uint64::new(12345)),
                     end: Some(Uint64::new(12345)),
                 }),
-                12345,
+                0,
                 SlotType::Block,
             ),
             (
@@ -835,7 +839,7 @@ mod test {
                     start: Some(Uint64::new(12345)),
                     end: Some(Uint64::new(12355)),
                 }),
-                12300,
+                0,
                 SlotType::Block,
             ),
             (
@@ -863,6 +867,15 @@ mod test {
                     end: Some(Uint64::new(11545)),
                 }),
                 0,
+                SlotType::Block,
+            ),
+            (
+                Interval::Block(100_000),
+                Boundary::Height(BoundaryHeight {
+                    start: Some(Uint64::new(12345)),
+                    end: Some(Uint64::new(120355)),
+                }),
+                100_000,
                 SlotType::Block,
             ),
             // wrong block interval

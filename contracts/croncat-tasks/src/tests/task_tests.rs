@@ -23,7 +23,7 @@ use croncat_sdk_tasks::{
     },
 };
 use cw20::Cw20ExecuteMsg;
-use cw_multi_test::{BankSudo, Executor};
+use cw_multi_test::{AppResponse, BankSudo, Executor};
 
 use super::{
     contracts,
@@ -3879,4 +3879,108 @@ fn pause_admin_cases() {
         .query_wasm_smart(croncat_tasks_addr, &QueryMsg::Paused {})
         .unwrap();
     assert!(!is_paused);
+}
+
+#[test]
+fn check_task_reschedule_interval() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+    let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
+    let manager_addr = init_manager(&mut app, &factory_addr);
+    let agents_addr = init_agents(&mut app, &factory_addr);
+
+    //init agent
+    activate_agent(&mut app, &agents_addr);
+
+    // NOTE: This task is configured based on a sample case found on testnet
+    // Reproduction here confirms all is working as expected.
+    // Testnet issue showed 3 attempts to reschedule at the end of a block that had already passed until funds were out.
+    let block_end = app.block_info().height + (12u64 * 7u64);
+    let task = TaskRequest {
+        interval: Interval::Block(12),
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: Some(block_end.into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: "alice".to_owned(),
+                amount: coins(1, DENOM),
+            }
+            .into(),
+            gas_limit: None,
+        }],
+        queries: None,
+        transforms: None,
+        cw20: None,
+    };
+    let res = app
+        .execute_contract(
+            Addr::unchecked(ADMIN),
+            tasks_addr,
+            &ExecuteMsg::CreateTask {
+                task: Box::new(task),
+            },
+            &coins(700_000, DENOM), // too much to fail :P
+        )
+        .unwrap();
+
+    fn get_slot_id_from_events(res: AppResponse) -> String {
+        let mut s: String = String::default();
+        for ev in res.events.iter() {
+            for attr in ev.attributes.iter() {
+                if attr.key == "slot_id" {
+                    s = attr.value.clone();
+                }
+            }
+        }
+        s
+    }
+
+    // Assert next slot
+    // Next slot: 12348 (12345 % 12)
+    let mut prev_slot_id = get_slot_id_from_events(res);
+    assert_eq!(prev_slot_id, "12348");
+
+    // Should actually end at 7, but validating reschedule doesnt occur post-end
+    // Looping at the block level to make sure of valid rescheduling
+    let mut proxy_call_total = 0;
+    for _i in 1..150 {
+        app.update_block(add_little_time);
+        if app.block_info().height % 12 == 0 {
+            let respc = app.execute_contract(
+                Addr::unchecked(AGENT0),
+                manager_addr.clone(),
+                &ManagerExecuteMsg::ProxyCall { task_hash: None },
+                &[],
+            );
+
+            // Break the loop if we find the remove_task
+            let mut ended = false;
+            for ev in respc.as_ref().unwrap().events.iter() {
+                for attr in ev.attributes.iter() {
+                    if attr.key == "action" && attr.value == "remove_task" {
+                        // Assert total matches intent!
+                        // Should match the value of times we multiplied by 12 above! (zero indexed)
+                        assert_eq!(proxy_call_total, 6);
+                        ended = true;
+                        break;
+                    }
+                }
+            }
+            if ended {
+                break;
+            }
+
+            assert!(respc.is_ok());
+            // We want to assert we're never seeing the same scheduling twice
+            // Even if "Immediate" we still will ultimately execute next block.
+            let curr_slot_id = get_slot_id_from_events(respc.as_ref().unwrap().clone());
+            assert_ne!(curr_slot_id, prev_slot_id);
+            prev_slot_id = curr_slot_id;
+            proxy_call_total += 1;
+        }
+    }
 }

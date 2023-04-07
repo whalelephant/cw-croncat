@@ -2340,7 +2340,7 @@ fn recurring_task_block_block_interval() {
         // repeat it three times
         boundary: Some(Boundary::Height(BoundaryHeight {
             start: None,
-            end: Some((app.block_info().height + 8).into()),
+            end: Some((app.block_info().height + 9).into()),
         })),
         stop_on_fail: false,
         actions: vec![
@@ -4868,7 +4868,8 @@ fn event_task_with_all_query_types() {
     assert!(pc_res.events.iter().any(|ev| {
         ev.attributes
             .iter()
-            .any(|attr| attr.key == "action" && attr.value == "reschedule_task")
+            // NOTE: "continue_task" will appear only for evented tasks, so annotate incomplete but continuing
+            .any(|attr| attr.key == "action" && attr.value == "continue_task")
     }));
 
     // Check that the one tasks still exists
