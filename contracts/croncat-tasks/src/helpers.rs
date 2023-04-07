@@ -1,11 +1,13 @@
 use cosmwasm_std::{
-    Addr, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper, StdResult,
-    Storage, WasmMsg,
+    Addr, BankMsg, Binary, BlockInfo, CosmosMsg, Deps, Empty, Order, QuerierWrapper, StdError,
+    StdResult, Storage, WasmMsg, WasmQuery,
 };
 use croncat_sdk_tasks::types::{
-    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, Interval, TaskRequest,
+    AmountForOneTask, Boundary, BoundaryHeight, BoundaryTime, Config, CosmosQuery, Interval, Task,
+    TaskRequest,
 };
 use cw20::{Cw20CoinVerified, Cw20ExecuteMsg};
+use serde_cw_value::Value;
 
 use crate::{
     state::{tasks_map, BLOCK_SLOTS, EVENTED_TASKS_LOOKUP, TASKS_TOTAL, TIME_SLOTS},
@@ -53,6 +55,121 @@ pub(crate) fn validate_boundary(
         })),
         _ => Err(ContractError::InvalidBoundary {}),
     }
+}
+
+/// Query against all to validate the query is possible, rather than open ended failures
+/// This does NOT evaluate the contents which could change, allowing reactivity later.
+/// Errors are assessed against contract and method availability
+pub(crate) fn validate_queries(deps: &Deps, queries: &Vec<CosmosQuery>) -> bool {
+    if queries.is_empty() {
+        // no queries, so nothing to check
+        return true;
+    }
+
+    // Process all the queries
+    for query in queries {
+        match query {
+            CosmosQuery::Croncat(q) => {
+                let res: Result<mod_sdk::types::QueryResponse, StdError> = deps.querier.query(
+                    &WasmQuery::Smart {
+                        contract_addr: q.contract_addr.clone(),
+                        msg: q.msg.clone(),
+                    }
+                    .into(),
+                );
+                // only handle error
+                if res.is_err() {
+                    return false;
+                }
+            }
+            CosmosQuery::Wasm(wq) => {
+                // Cover all native wasm query types
+                match wq {
+                    WasmQuery::Smart { contract_addr, msg } => {
+                        let data: Result<Value, StdError> = deps.querier.query(
+                            &WasmQuery::Smart {
+                                contract_addr: contract_addr.clone().to_string(),
+                                msg: msg.clone(),
+                            }
+                            .into(),
+                        );
+                        // only handle error
+                        if data.is_err() {
+                            return false;
+                        }
+                    }
+                    WasmQuery::Raw { contract_addr, key } => {
+                        let res = deps
+                            .querier
+                            .query_wasm_raw(contract_addr.clone().to_string(), key.clone());
+                        // only handle error
+                        if res.is_err() {
+                            return false;
+                        }
+                    }
+                    WasmQuery::ContractInfo { contract_addr } => {
+                        let res = deps
+                            .querier
+                            .query_wasm_contract_info(contract_addr.clone().to_string());
+                        // only handle error
+                        if res.is_err() {
+                            return false;
+                        }
+                    }
+                    // // NOTE: This is dependent on features = ["cosmwasm_1_2"]
+                    // WasmQuery::CodeInfo { code_id } => {
+                    //     let res = deps.querier.query_wasm_code_info(*code_id);
+                    // }
+                    _ => {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    true
+}
+
+/// Transforms need valid indexes, valid action paths
+/// NOTE: Cannot validate the query response path, as it is determined at time of execution
+pub(crate) fn validate_transforms(task: &Task) -> bool {
+    for transform in task.transforms.iter() {
+        // Validate transform index range
+        if (transform.action_idx as usize > task.actions.len() - 1)
+            || (transform.query_idx as usize > task.queries.len() - 1)
+        {
+            return false;
+        }
+
+        // Validate action path
+        if let Some(action) = task.actions.get(transform.action_idx as usize) {
+            // NOTE: This only covers the supported methods known to valid task actions!
+            match &action.msg {
+                CosmosMsg::Wasm(WasmMsg::Execute { msg, .. }) => {
+                    let mut action_value = cosmwasm_std::from_binary(msg)
+                        .map_err(|e| StdError::generic_err(e.to_string()))
+                        .unwrap();
+                    if transform.action_path.find_value(&mut action_value).is_err() {
+                        return false;
+                    }
+                }
+                CosmosMsg::Bank(BankMsg::Send { to_address, amount }) => {
+                    let mut action_value = serde_json_wasm::from_str::<Value>(&format!(
+                        r#"{{"bank":{{"send":{{"to_address": "{}", "amount": {}}}}}}}"#,
+                        to_address,
+                        serde_json_wasm::to_string(amount).unwrap()
+                    ))
+                    .unwrap();
+                    if transform.action_path.find_value(&mut action_value).is_err() {
+                        return false;
+                    }
+                }
+                _ => return false,
+            }
+        }
+    }
+    true
 }
 
 /// Check for calls of our contracts

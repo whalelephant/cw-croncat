@@ -28,6 +28,8 @@ library = []
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
+serde-json-wasm = { workspace = true }
+serde-cw-value = { workspace = true }
 thiserror = { workspace = true }
 croncat-sdk-tasks = { workspace = true }
 cw-storage-plus = { workspace = true }
@@ -38,6 +40,7 @@ croncat-sdk-factory = { workspace = true }
 croncat-sdk-core = { workspace = true }
 croncat-sdk-manager = { workspace = true }
 croncat-sdk-agents = { workspace = true }
+mod-sdk = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }
@@ -47,5 +50,7 @@ croncat-agents = { workspace = true }
 croncat-sdk-factory = { workspace = true }
 croncat-sdk-manager = { workspace = true }
 croncat-mod-balances = { workspace = true }
+croncat-mod-generic = { workspace = true }
 anyhow = { workspace = true }
 cw-utils = { workspace = true }
+cw20-base = { workspace = true }

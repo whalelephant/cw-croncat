@@ -1,11 +1,12 @@
 use crate::tests::{
     common::add_seconds_to_block, helpers::increment_block_height, AGENT0, AGENT1, PARTICIPANT0,
-    PARTICIPANT1, PAUSE_ADMIN,
+    PARTICIPANT1, PARTICIPANT2, PAUSE_ADMIN,
 };
 use cosmwasm_std::{
-    coin, coins, from_binary, to_binary, Addr, BankMsg, Binary, StakingMsg, StdError, Timestamp,
-    Uint128, Uint64, WasmMsg,
+    coin, coins, from_binary, to_binary, Addr, BankMsg, StakingMsg, StdError, Timestamp, Uint128,
+    Uint64, WasmMsg,
 };
+use croncat_mod_generic::types::{PathToValue, ValueIndex};
 use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
 use croncat_sdk_factory::msg::{
     ContractMetadataResponse, FactoryExecuteMsg, ModuleInstantiateInfo, VersionKind,
@@ -666,6 +667,7 @@ fn create_tasks_with_queries_and_transforms() {
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
     let _ = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     let action = Action {
         msg: BankMsg::Send {
@@ -677,21 +679,35 @@ fn create_tasks_with_queries_and_transforms() {
     };
     let queries = vec![
         CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha123".to_owned(),
-            msg: Binary::from([4, 2]),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT1).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
             check_result: true,
         }),
         CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha321".to_owned(),
-            msg: Binary::from([2, 4]),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT2).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
             check_result: true,
         }),
     ];
     let transforms = vec![Transform {
-        action_idx: 1,
-        query_idx: 2,
-        action_path: vec![5u64.into()].into(),
-        query_response_path: vec![5u64.into()].into(),
+        action_idx: 0,
+        query_idx: 0,
+        query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
+        action_path: PathToValue::from(vec![
+            ValueIndex::Key("bank".to_string()),
+            ValueIndex::Key("send".to_string()),
+            ValueIndex::Key("amount".to_string()),
+            ValueIndex::Index(0),
+            ValueIndex::Key("amount".to_string()),
+        ]),
     }];
 
     let task = TaskRequest {
@@ -825,6 +841,7 @@ fn remove_tasks_fail() {
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let _ = init_manager(&mut app, &factory_addr);
     let _ = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     // Try RemoveTask with wrong hash
     let err: ContractError = app
@@ -857,21 +874,35 @@ fn remove_tasks_fail() {
         }],
         queries: Some(vec![
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha123".to_owned(),
-                msg: Binary::from([4, 2]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT1).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha321".to_owned(),
-                msg: Binary::from([2, 4]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT2).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
-            action_idx: 1,
-            query_idx: 2,
-            action_path: vec![5u64.into()].into(),
-            query_response_path: vec![5u64.into()].into(),
+            action_idx: 0,
+            query_idx: 0,
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
+            action_path: PathToValue::from(vec![
+                ValueIndex::Key("bank".to_string()),
+                ValueIndex::Key("send".to_string()),
+                ValueIndex::Key("amount".to_string()),
+                ValueIndex::Index(0),
+                ValueIndex::Key("amount".to_string()),
+            ]),
         }]),
         cw20: None,
     };
@@ -998,6 +1029,7 @@ fn remove_tasks_with_queries_success() {
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let manager_addr = init_manager(&mut app, &factory_addr);
     let _ = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     // Create one block and one cron with queries and then remove one by one
     let task = TaskRequest {
@@ -1017,21 +1049,35 @@ fn remove_tasks_with_queries_success() {
         }],
         queries: Some(vec![
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha123".to_owned(),
-                msg: Binary::from([4, 2]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT1).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha321".to_owned(),
-                msg: Binary::from([2, 4]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT2).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
-            action_idx: 1,
-            query_idx: 2,
-            action_path: vec![5u64.into()].into(),
-            query_response_path: vec![5u64.into()].into(),
+            action_idx: 0,
+            query_idx: 0,
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
+            action_path: PathToValue::from(vec![
+                ValueIndex::Key("bank".to_string()),
+                ValueIndex::Key("send".to_string()),
+                ValueIndex::Key("amount".to_string()),
+                ValueIndex::Index(0),
+                ValueIndex::Key("amount".to_string()),
+            ]),
         }]),
         cw20: None,
     };
@@ -1070,9 +1116,13 @@ fn remove_tasks_with_queries_success() {
         stop_on_fail: task.stop_on_fail,
         actions: task.actions.clone(),
         queries: vec![CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha321".to_owned(),
-            msg: Binary::from([2, 4]),
-            check_result: false,
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT1).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
+            check_result: true,
         })],
         transforms: task.transforms.clone().unwrap(),
         version: "0.1".to_string(),
@@ -1150,21 +1200,35 @@ fn remove_tasks_with_queries_success() {
         }],
         queries: Some(vec![
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha123".to_owned(),
-                msg: Binary::from([4, 2]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT1).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha321".to_owned(),
-                msg: Binary::from([2, 4]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT2).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: true,
             }),
         ]),
         transforms: Some(vec![Transform {
-            action_idx: 1,
-            query_idx: 2,
-            action_path: vec![5u64.into()].into(),
-            query_response_path: vec![5u64.into()].into(),
+            action_idx: 0,
+            query_idx: 0,
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
+            action_path: PathToValue::from(vec![
+                ValueIndex::Key("bank".to_string()),
+                ValueIndex::Key("send".to_string()),
+                ValueIndex::Key("amount".to_string()),
+                ValueIndex::Index(0),
+                ValueIndex::Key("amount".to_string()),
+            ]),
         }]),
         cw20: None,
     };
@@ -1186,21 +1250,35 @@ fn remove_tasks_with_queries_success() {
         }],
         queries: Some(vec![
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha123".to_owned(),
-                msg: Binary::from([4, 2]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT1).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: false,
             }),
             CosmosQuery::Croncat(CroncatQuery {
-                contract_addr: "aloha321".to_owned(),
-                msg: Binary::from([2, 4]),
+                contract_addr: mod_balances_addr.to_string(),
+                msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                    address: Addr::unchecked(PARTICIPANT2).to_string(),
+                    denom: DENOM.to_string(),
+                })
+                .unwrap(),
                 check_result: false,
             }),
         ]),
         transforms: Some(vec![Transform {
-            action_idx: 1,
-            query_idx: 2,
-            action_path: vec![5u64.into()].into(),
-            query_response_path: vec![5u64.into()].into(),
+            action_idx: 0,
+            query_idx: 0,
+            query_response_path: PathToValue::from(vec![ValueIndex::Key("amount".to_string())]),
+            action_path: PathToValue::from(vec![
+                ValueIndex::Key("bank".to_string()),
+                ValueIndex::Key("send".to_string()),
+                ValueIndex::Key("amount".to_string()),
+                ValueIndex::Index(0),
+                ValueIndex::Key("amount".to_string()),
+            ]),
         }]),
         cw20: None,
     };
@@ -1220,7 +1298,7 @@ fn remove_tasks_with_queries_success() {
     let task_hash_cron_with_queries_checked = task_data.task_hash;
     assert_eq!(
         task_hash_cron_with_queries_checked,
-        "atom:cc4909816ce7ff69f5804e2416d3c437d7367bc7751596845c658050df7"
+        "atom:4c62ca66ddb5eb374f1e56259bf399f87946d2b6b0c336d8b1e76a2b78c"
     );
 
     let res = app
@@ -1703,6 +1781,7 @@ fn negative_create_task() {
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let _ = init_manager(&mut app, &factory_addr);
     let _ = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     let action = Action {
         msg: BankMsg::Send {
@@ -1871,8 +1950,12 @@ fn negative_create_task() {
         stop_on_fail: false,
         actions: vec![action],
         queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha".to_owned(),
-            msg: Default::default(),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT1).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
             check_result: true,
         })]),
         transforms: None,
@@ -1953,6 +2036,7 @@ fn remove_task_negative() {
     let tasks_addr = init_tasks(&mut app, &instantiate_msg, &factory_addr);
     let _manager_addr = init_manager(&mut app, &factory_addr);
     let _agent_addr = init_agents(&mut app, &factory_addr);
+    let mod_balances_addr = init_mod_balances(&mut app, &factory_addr);
 
     let action = Action {
         msg: BankMsg::Send {
@@ -2005,8 +2089,12 @@ fn remove_task_negative() {
         stop_on_fail: false,
         actions: vec![action],
         queries: Some(vec![CosmosQuery::Croncat(CroncatQuery {
-            contract_addr: "aloha".to_owned(),
-            msg: Default::default(),
+            contract_addr: mod_balances_addr.to_string(),
+            msg: to_binary(&croncat_mod_balances::msg::QueryMsg::GetBalance {
+                address: Addr::unchecked(PARTICIPANT1).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
             check_result: true,
         })]),
         transforms: None,
