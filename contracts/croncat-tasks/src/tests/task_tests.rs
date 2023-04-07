@@ -178,8 +178,8 @@ fn create_task_without_query() {
     let task = TaskRequest {
         interval: Interval::Once,
         boundary: Some(Boundary::Height(BoundaryHeight {
-            start: Some((app.block_info().height).into()),
-            end: Some((app.block_info().height + 10).into()),
+            start: Some((app.block_info().height + 2).into()),
+            end: Some((app.block_info().height + 12).into()),
         })),
         stop_on_fail: false,
         actions: vec![action1.clone(), action2.clone()],
@@ -228,8 +228,8 @@ fn create_task_without_query() {
             owner_addr: Addr::unchecked(ANYONE),
             interval: Interval::Once,
             boundary: Boundary::Height(BoundaryHeight {
-                start: Some(app.block_info().height.into()),
-                end: Some((app.block_info().height + 10).into()),
+                start: Some((app.block_info().height + 2).into()),
+                end: Some((app.block_info().height + 12).into()),
             }),
             stop_on_fail: false,
             amount_for_one_task: AmountForOneTask {
@@ -2955,7 +2955,7 @@ fn query_slot_tasks_total_test() {
         .into(),
         gas_limit: Some(100_000),
     };
-    let current_block: Uint64 = app.block_info().height.into(); // 12_345
+    let current_block: Uint64 = (app.block_info().height + 2).into(); // 12_345 + 2 = 12_347
 
     // Create several tasks
     let task1 = TaskRequest {
@@ -3068,7 +3068,7 @@ fn query_slot_tasks_total_test() {
     .unwrap();
 
     // Takes block 12345 and timestamp 1571797410000000000
-    // No task scheduled for these slots
+    // only cron/time scheduled for these slots
     let slots: SlotTasksTotalResponse = app
         .wrap()
         .query_wasm_smart(
@@ -3080,36 +3080,18 @@ fn query_slot_tasks_total_test() {
         slots,
         SlotTasksTotalResponse {
             block_tasks: 0,
-            cron_tasks: 0,
-            evented_tasks: 0
-        }
-    );
-
-    // Takes block 12346 and timestamp 1571797420000000000
-    // Tasks 1, 2 (block) and 5(time) are scheduled
-    let slots: SlotTasksTotalResponse = app
-        .wrap()
-        .query_wasm_smart(
-            tasks_addr.clone(),
-            &QueryMsg::SlotTasksTotal { offset: Some(1) },
-        )
-        .unwrap();
-    assert_eq!(
-        slots,
-        SlotTasksTotalResponse {
-            block_tasks: 2,
             cron_tasks: 1,
             evented_tasks: 0
         }
     );
 
-    // Takes block 12350 and timestamp 1571797460000000000
-    // Tasks 3 and 4 (block) are scheduled
+    // Takes block 12346 and timestamp 1571797420000000000
+    // Tasks 1, 2 (block)
     let slots: SlotTasksTotalResponse = app
         .wrap()
         .query_wasm_smart(
             tasks_addr.clone(),
-            &QueryMsg::SlotTasksTotal { offset: Some(5) },
+            &QueryMsg::SlotTasksTotal { offset: Some(2) },
         )
         .unwrap();
     assert_eq!(
@@ -3121,7 +3103,27 @@ fn query_slot_tasks_total_test() {
         }
     );
 
-    // Add 5 blocks
+    // Takes block 12352 and timestamp 1571797460000000000
+    // Tasks 3 and 4 (block) are scheduled
+    let slots: SlotTasksTotalResponse = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &QueryMsg::SlotTasksTotal { offset: Some(7) },
+        )
+        .unwrap();
+    assert_eq!(
+        slots,
+        SlotTasksTotalResponse {
+            block_tasks: 1,
+            cron_tasks: 0,
+            evented_tasks: 0
+        }
+    );
+
+    // Add 7 blocks
+    app.update_block(add_little_time);
+    app.update_block(add_little_time);
     app.update_block(add_little_time);
     app.update_block(add_little_time);
     app.update_block(add_little_time);

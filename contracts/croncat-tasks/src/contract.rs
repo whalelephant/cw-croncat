@@ -559,6 +559,9 @@ fn query_current_task_info(deps: Deps, _env: Env) -> StdResult<CurrentTaskInfoRe
     })
 }
 
+// Offset can be defined for forward looking task amounts, but will default to current block - 1
+// NOTE: Subtracts 1 block so that during the current finalized block we can see the upcoming work
+// and react accordingly - current task will always be 1 block ahead for signing to occur accurately.
 fn query_slot_tasks_total(
     deps: Deps,
     env: Env,
@@ -591,11 +594,15 @@ fn query_slot_tasks_total(
             evented_tasks,
         })
     } else {
+        // NOTE: Using addition here since the range uses "max", which is still subtracting current block
+        let block_height = env.block.height.saturating_add(1);
+        // Follows the same logic as block, needs to be far enough in past to cover ready tasks
+        let block_time = env.block.time.plus_seconds(6).nanos();
         let block_slots: Vec<(u64, Vec<Vec<u8>>)> = BLOCK_SLOTS
             .range(
                 deps.storage,
                 None,
-                Some(Bound::inclusive(env.block.height)),
+                Some(Bound::inclusive(block_height)),
                 Order::Ascending,
             )
             .collect::<StdResult<_>>()?;
@@ -608,7 +615,7 @@ fn query_slot_tasks_total(
             .range(
                 deps.storage,
                 None,
-                Some(Bound::inclusive(env.block.height)),
+                Some(Bound::inclusive(block_height)),
                 Order::Ascending,
             )
             .collect::<StdResult<_>>()?;
@@ -621,7 +628,7 @@ fn query_slot_tasks_total(
             .range(
                 deps.storage,
                 None,
-                Some(Bound::inclusive(env.block.time.nanos())),
+                Some(Bound::inclusive(block_time)),
                 Order::Ascending,
             )
             .collect::<StdResult<_>>()?;
@@ -653,7 +660,9 @@ fn query_current_task(deps: Deps, env: Env) -> StdResult<TaskResponse> {
         .range(
             deps.storage,
             None,
-            Some(Bound::inclusive(env.block.height)),
+            // NOTE: Remove 1 block so that during the current finalized block we can see the upcoming work
+            // and react accordingly - current task will always be 1 block ahead for signing to occur accurately.
+            Some(Bound::inclusive(env.block.height.saturating_add(1))),
             Order::Ascending,
         )
         .take(1)
@@ -667,7 +676,7 @@ fn query_current_task(deps: Deps, env: Env) -> StdResult<TaskResponse> {
             .range(
                 deps.storage,
                 None,
-                Some(Bound::inclusive(env.block.time.nanos())),
+                Some(Bound::inclusive(env.block.time.plus_nanos(6).nanos())),
                 Order::Ascending,
             )
             .take(1)
