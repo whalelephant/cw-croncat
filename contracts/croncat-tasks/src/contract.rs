@@ -201,6 +201,7 @@ fn execute_reschedule_task(
         // NOTE: If task is evented, we dont want to "schedule" inside slots
         // but we also dont want to remove unless it was Interval::Once
         if next_id != 0 && !task.is_evented() && task.interval != Interval::Once {
+            res_attributes.push(Attribute::new("action", "reschedule_task"));
             // Get previous task hashes in slot, add as needed
             let update_vec_data = |d: Option<Vec<Vec<u8>>>| -> StdResult<Vec<Vec<u8>>> {
                 match d {
@@ -268,6 +269,10 @@ fn execute_reschedule_task(
                 sender: task.owner_addr,
                 task_hash,
             });
+            res_attributes.push(Attribute::new("action", "remove_task"));
+        } else if task.is_evented() {
+            // Seems like overkill but super nice to know we didn't remove an evented task
+            res_attributes.push(Attribute::new("action", "continue_task"));
         }
         (next_id, slot_kind)
     } else {
@@ -275,7 +280,6 @@ fn execute_reschedule_task(
     };
 
     Ok(Response::new()
-        .add_attribute("action", "reschedule_task")
         .add_attributes(res_attributes)
         .add_attribute("slot_id", next_id.to_string())
         .add_attribute("slot_kind", slot_kind.to_string())
