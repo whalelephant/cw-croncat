@@ -66,6 +66,12 @@ impl From<Vec<ValueIndex>> for PathToValue {
 impl PathToValue {
     /// Find the value by the "key" path
     pub fn find_value<'a>(&self, val: &'a mut Value) -> StdResult<&'a mut Value> {
+        // If empty pointer, return the entirety
+        if self.0.is_empty() {
+            return Ok(val);
+        }
+
+        // Follow the path of the pointer
         let mut current_val = val;
         for get in self.0.iter() {
             match get {

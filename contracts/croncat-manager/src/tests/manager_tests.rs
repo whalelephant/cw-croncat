@@ -2880,7 +2880,7 @@ fn negative_proxy_call() {
             action_idx: 0,
             query_idx: 0,
             action_path: vec!["transfer".to_owned().into(), "amount".to_owned().into()].into(),
-            query_response_path: vec![].into(),
+            query_response_path: vec!["amount".to_owned().into()].into(),
         }]),
         cw20: Some(Cw20Coin {
             address: cw20_addr.to_string(),

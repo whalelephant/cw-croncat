@@ -129,9 +129,10 @@ const e2e = async (cwClient) => {
 				"boundary": null,
 				"cw20": null,
 				"interval": {
-					"block": 1
+					// NOTE: Using a semi-unique number here, just so its a super simple identifier
+					"block": 1003
 				},
-				"stop_on_fail": true,
+				"stop_on_fail": false,
 				"queries": null,
 				"transforms": null
 			}
@@ -172,7 +173,8 @@ const e2e = async (cwClient) => {
 			versions.tasks.contract_addr,
 			factoryTask1,
 			executeGas,
-			coins(60_000, cwClient.fee_token.denom)
+			// Using 2 native tokens here to kick off with sufficient longer lived tasks
+			coins(2_000_000, cwClient.fee_token.denom)
 		);
 		console.info(`Factory Task 1 Create SUCCESS\n`, JSON.stringify(t1), '\n')
 	} catch (e) {
