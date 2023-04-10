@@ -314,9 +314,11 @@ export const getQueryMsgByTypes = (contract_addr: string, type: string, method: 
   //   check_result: true,
   // }
   return {
-    msg: to_binary(queries[type][method](args)),
-    contract_addr: contract_addr,
-    check_result,
+    croncat: {
+      msg: to_binary(queries[type][method](args)),
+      contract_addr: contract_addr,
+      check_result,
+    }
   }
 }
 
