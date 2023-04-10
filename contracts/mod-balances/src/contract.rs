@@ -120,7 +120,7 @@ fn query_has_balance_comparator(
     let valid_address = deps.api.addr_validate(&address)?;
 
     // NOTE: This implementation requires only 1 coin to be compared.
-    let (balance_amount, required_amount) = match required_balance {
+    let (balance_amount, denom, required_amount) = match required_balance {
         Balance::Native(required_native) => {
             // Get the required denom from required_balance
             // then loop the queried chain balances to find matching required denom
@@ -128,7 +128,7 @@ fn query_has_balance_comparator(
             let native = native_vec.first().cloned();
             if let Some(native) = native {
                 let balance = deps.querier.query_balance(valid_address, native.denom)?;
-                (balance.amount, native.amount)
+                (balance.amount, balance.denom, native.amount)
             } else {
                 return Ok(QueryResponse {
                     result: false,
@@ -141,7 +141,11 @@ fn query_has_balance_comparator(
                 required_cw20.address.clone(),
                 &cw20::Cw20QueryMsg::Balance { address },
             )?;
-            (balance_response.balance, required_cw20.amount)
+            (
+                balance_response.balance,
+                required_cw20.address.to_string(),
+                required_cw20.amount,
+            )
         }
     };
 
@@ -154,8 +158,9 @@ fn query_has_balance_comparator(
         BalanceComparator::Lte => required_amount >= balance_amount,
     };
 
+    let coin = coin(balance_amount.into(), denom);
     Ok(QueryResponse {
         result,
-        data: to_binary(&balance_amount)?,
+        data: to_binary(&coin)?,
     })
 }
