@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, StdResult, Uint128, StdError};
+use cosmwasm_std::{Addr, Coin, StdError, StdResult, Uint128};
 use croncat_sdk_core::types::GasPrice;
 use cw20::Cw20CoinVerified;
 
@@ -104,13 +104,16 @@ impl TaskBalance {
 
     pub fn sub_coin(&mut self, coin: &Coin, native_denom: &str) -> StdResult<()> {
         if coin.denom == native_denom {
-            self.native_balance = self.native_balance.checked_sub(coin.amount)
+            self.native_balance = self
+                .native_balance
+                .checked_sub(coin.amount)
                 .map_err(|_| StdError::generic_err("Not enough native balance for operation"))?;
         } else {
             match &mut self.ibc_balance {
                 Some(task_coin) if task_coin.denom == coin.denom => {
-                    task_coin.amount = task_coin.amount.checked_sub(coin.amount)
-                        .map_err(|_| StdError::generic_err("Not enough ibc balance for operation"))?;
+                    task_coin.amount = task_coin.amount.checked_sub(coin.amount).map_err(|_| {
+                        StdError::generic_err("Not enough ibc balance for operation")
+                    })?;
                 }
                 _ => {
                     return Err(StdError::generic_err("No balance found for operation"));
@@ -124,13 +127,17 @@ impl TaskBalance {
         match &mut self.cw20_balance {
             Some(task_cw20) if task_cw20.address == cw20.address => {
                 // task_cw20.amount = task_cw20.amount.checked_sub(cw20.amount)?;
-                task_cw20.amount = task_cw20.amount.checked_sub(cw20.amount)
+                task_cw20.amount = task_cw20
+                    .amount
+                    .checked_sub(cw20.amount)
                     .map_err(|_| StdError::generic_err("Not enough cw20 balance for operation"))?;
             }
             _ => {
                 // If addresses doesn't match it means we have zero coins
                 // Uint128::zero().checked_sub(cw20.amount)?;
-                return Err(StdError::GenericErr { msg: "Not enough cw20 balance for operation".to_string() });
+                return Err(StdError::GenericErr {
+                    msg: "Not enough cw20 balance for operation".to_string(),
+                });
             }
         }
         Ok(())
@@ -184,7 +191,7 @@ pub struct UpdateConfig {
 
 #[cfg(test)]
 mod test {
-    use cosmwasm_std::{coin, Addr, Uint128, Coin};
+    use cosmwasm_std::{coin, Addr, Coin, Uint128};
     use cw20::Cw20CoinVerified;
 
     use crate::SdkError;
@@ -567,10 +574,7 @@ mod test {
         task_balance.sub_coin(&coin_ibc, native_denom).unwrap();
 
         assert_eq!(task_balance.native_balance, Uint128::new(50));
-        assert_eq!(
-            task_balance.ibc_balance.unwrap().amount,
-            Uint128::new(100)
-        );
+        assert_eq!(task_balance.ibc_balance.unwrap().amount, Uint128::new(100));
     }
 
     #[test]
@@ -608,7 +612,9 @@ mod test {
         assert!(task_balance
             .sub_coin(&coin_ibc_overflow, native_denom)
             .is_err());
-        assert!(task_balance.sub_coin(&coin_nonexistent, native_denom).is_err());
+        assert!(task_balance
+            .sub_coin(&coin_nonexistent, native_denom)
+            .is_err());
     }
 
     #[test]
@@ -628,8 +634,11 @@ mod test {
             amount: Uint128::from(50u128),
         };
 
-        assert_eq!(task_balance.sub_cw20(&cw20).unwrap(), ());
-        assert_eq!(task_balance.cw20_balance.unwrap().amount, Uint128::from(50u128));
+        assert!(task_balance.sub_cw20(&cw20).is_ok());
+        assert_eq!(
+            task_balance.cw20_balance.unwrap().amount,
+            Uint128::from(50u128)
+        );
     }
 
     #[test]
@@ -658,7 +667,7 @@ mod test {
         let cw20_address_2 = Addr::unchecked("cw20_address_2");
         let mut task_balance = TaskBalance {
             cw20_balance: Some(Cw20CoinVerified {
-                address: cw20_address.clone(),
+                address: cw20_address,
                 amount: Uint128::from(100u128),
             }),
             native_balance: Uint128::zero(),
