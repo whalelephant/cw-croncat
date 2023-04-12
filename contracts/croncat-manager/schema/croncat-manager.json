@@ -174,6 +174,31 @@
         "additionalProperties": false
       },
       {
+        "description": "Execute current task in the queue or task with queries if task_hash given",
+        "type": "object",
+        "required": [
+          "proxy_batch"
+        ],
+        "properties": {
+          "proxy_batch": {
+            "type": "object",
+            "required": [
+              "proxy_calls"
+            ],
+            "properties": {
+              "proxy_calls": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/definitions/ProxyCall"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Receive native coins to include them to the task",
         "type": "object",
         "required": [
@@ -579,6 +604,18 @@
               "format": "uint8",
               "minimum": 0.0
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProxyCall": {
+        "type": "object",
+        "properties": {
+          "task_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false

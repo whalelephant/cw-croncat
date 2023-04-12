@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, StdResult, StdError};
+use cosmwasm_std::{Coin, StdError, StdResult};
 use cw20::Cw20CoinVerified;
 
 use crate::error::SdkError;
@@ -87,9 +87,10 @@ impl AmountForOneTask {
             }
             [Some(c1), None] => {
                 if c1.denom == coin.denom {
-                    c1.amount = c1.amount.checked_add(coin.amount).map_err(|_| {
-                        StdError::generic_err("Overflow when adding coin 1")
-                    })?;
+                    c1.amount = c1
+                        .amount
+                        .checked_add(coin.amount)
+                        .map_err(|_| StdError::generic_err("Overflow when adding coin 1"))?;
                 } else {
                     self.coin[1] = Some(coin);
                 }
@@ -97,14 +98,16 @@ impl AmountForOneTask {
             }
             [Some(c1), Some(c2)] => {
                 if c1.denom == coin.denom {
-                    c1.amount = c1.amount.checked_add(coin.amount).map_err(|_| {
-                        StdError::generic_err("Overflow when adding coin 1")
-                    })?;
+                    c1.amount = c1
+                        .amount
+                        .checked_add(coin.amount)
+                        .map_err(|_| StdError::generic_err("Overflow when adding coin 1"))?;
                     Ok(true)
                 } else if c2.denom == coin.denom {
-                    c2.amount = c2.amount.checked_add(coin.amount).map_err(|_| {
-                        StdError::generic_err("Overflow when adding coin 2")
-                    })?;
+                    c2.amount = c2
+                        .amount
+                        .checked_add(coin.amount)
+                        .map_err(|_| StdError::generic_err("Overflow when adding coin 2"))?;
                     Ok(true)
                 } else {
                     Ok(false)
@@ -114,15 +117,15 @@ impl AmountForOneTask {
         }
     }
 
-
     pub fn add_cw20(&mut self, cw20: Cw20CoinVerified) -> StdResult<bool> {
         if let Some(cw20_inner) = &mut self.cw20 {
             if cw20_inner.address != cw20.address {
                 return Ok(false);
             }
-            cw20_inner.amount = cw20_inner.amount.checked_add(cw20.amount).map_err(|_| {
-                StdError::generic_err("Overflow when adding cw20")
-            })?;
+            cw20_inner.amount = cw20_inner
+                .amount
+                .checked_add(cw20.amount)
+                .map_err(|_| StdError::generic_err("Overflow when adding cw20"))?;
         } else {
             self.cw20 = Some(cw20);
         }
@@ -133,56 +136,66 @@ impl AmountForOneTask {
         match &mut self.coin {
             [Some(c1), Some(c2)] => {
                 if c1.denom == coin.denom {
-                    c1.amount = c1.amount.checked_sub(coin.amount).map_err(|_| {
-                        StdError::generic_err("Underflow when subtracting coin 1")
-                    })?;
+                    c1.amount = c1
+                        .amount
+                        .checked_sub(coin.amount)
+                        .map_err(|_| StdError::generic_err("Underflow when subtracting coin 1"))?;
                 } else if c2.denom == coin.denom {
-                    c2.amount = c2.amount.checked_sub(coin.amount).map_err(|_| {
-                        StdError::generic_err("Underflow when subtracting coin 2")
-                    })?;
+                    c2.amount = c2
+                        .amount
+                        .checked_sub(coin.amount)
+                        .map_err(|_| StdError::generic_err("Underflow when subtracting coin 2"))?;
                 } else {
-                    return Err(StdError::generic_err("No matching coin found for subtraction"));
+                    return Err(StdError::generic_err(
+                        "No matching coin found for subtraction",
+                    ));
                 }
             }
             [Some(c1), None] => {
                 if c1.denom == coin.denom {
-                    c1.amount = c1.amount.checked_sub(coin.amount).map_err(|_| {
-                        StdError::generic_err("Underflow when subtracting coin 1")
-                    })?;
+                    c1.amount = c1
+                        .amount
+                        .checked_sub(coin.amount)
+                        .map_err(|_| StdError::generic_err("Underflow when subtracting coin 1"))?;
                 } else {
-                    return Err(StdError::generic_err("No matching coin found for subtraction"));
+                    return Err(StdError::generic_err(
+                        "No matching coin found for subtraction",
+                    ));
                 }
             }
             [None, None] => {
-                return Err(StdError::generic_err("No matching coin found for subtraction"));
+                return Err(StdError::generic_err(
+                    "No matching coin found for subtraction",
+                ));
             }
             [None, Some(_)] => unreachable!(),
         }
         Ok(())
     }
 
-
     pub fn sub_cw20(&mut self, cw20: &Cw20CoinVerified) -> StdResult<()> {
         match &mut self.cw20 {
             Some(task_cw20) if task_cw20.address == cw20.address => {
-                task_cw20.amount = task_cw20.amount.checked_sub(cw20.amount).map_err(|_| {
-                    StdError::generic_err("Underflow when subtracting cw20")
-                })?;
+                task_cw20.amount = task_cw20
+                    .amount
+                    .checked_sub(cw20.amount)
+                    .map_err(|_| StdError::generic_err("Underflow when subtracting cw20"))?;
             }
             _ => {
                 // If addresses don't match, it means we have zero coins
-                return Err(StdError::generic_err("Not enough cw20 balance for operation"));
+                return Err(StdError::generic_err(
+                    "Not enough cw20 balance for operation",
+                ));
             }
         }
         Ok(())
     }
-
 }
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::{Uint128, Addr};
     use super::*;
+    use cosmwasm_std::{Addr, Uint128};
 
     fn create_test_coin(denom: &str, amount: u128) -> Coin {
         Coin {
@@ -221,7 +234,7 @@ mod tests {
         assert!(amount.add_coin(coin2.clone()).unwrap());
         assert_eq!(amount.coin[1].as_ref().unwrap(), &coin2);
 
-        assert!(!amount.add_coin(coin3.clone()).unwrap());
+        assert!(!amount.add_coin(coin3).unwrap());
     }
 
     #[test]
@@ -234,10 +247,10 @@ mod tests {
         assert!(amount.add_cw20(cw20_1.clone()).unwrap());
         assert_eq!(amount.cw20.as_ref().unwrap(), &cw20_1);
 
-        assert!(amount.add_cw20(cw20_2.clone()).unwrap());
+        assert!(amount.add_cw20(cw20_2).unwrap());
         assert_eq!(amount.cw20.as_ref().unwrap().amount, Uint128::from(150u128));
 
-        assert!(!amount.add_cw20(cw20_3.clone()).unwrap());
+        assert!(!amount.add_cw20(cw20_3).unwrap());
     }
 
     #[test]
@@ -249,14 +262,20 @@ mod tests {
         let coin4 = create_test_coin("test2", 50);
         let coin5 = create_test_coin("test3", 100);
 
-        amount.add_coin(coin1.clone()).unwrap();
-        amount.add_coin(coin3.clone()).unwrap();
+        amount.add_coin(coin1).unwrap();
+        amount.add_coin(coin3).unwrap();
 
         amount.sub_coin(&coin2).unwrap();
-        assert_eq!(amount.coin[0].as_ref().unwrap().amount, Uint128::from(50u128));
+        assert_eq!(
+            amount.coin[0].as_ref().unwrap().amount,
+            Uint128::from(50u128)
+        );
 
         amount.sub_coin(&coin4).unwrap();
-        assert_eq!(amount.coin[1].as_ref().unwrap().amount, Uint128::from(50u128));
+        assert_eq!(
+            amount.coin[1].as_ref().unwrap().amount,
+            Uint128::from(50u128)
+        );
 
         assert_eq!(
             amount.sub_coin(&coin5).unwrap_err(),
@@ -271,7 +290,7 @@ mod tests {
         let cw20_2 = create_test_cw20("addr1", 50);
         let cw20_3 = create_test_cw20("addr2", 100);
 
-        amount.add_cw20(cw20_1.clone()).unwrap();
+        amount.add_cw20(cw20_1).unwrap();
 
         amount.sub_cw20(&cw20_2).unwrap();
         assert_eq!(amount.cw20.as_ref().unwrap().amount, Uint128::from(50u128));
@@ -285,10 +304,10 @@ mod tests {
     #[test]
     fn test_add_coin_overflow() {
         let mut amount = AmountForOneTask::default();
-        let coin1 = create_test_coin("test1", u128::MAX.try_into().unwrap());
+        let coin1 = create_test_coin("test1", u128::MAX);
         let coin2 = create_test_coin("test1", 1);
 
-        amount.add_coin(coin1.clone()).unwrap();
+        amount.add_coin(coin1).unwrap();
         assert_eq!(
             amount.add_coin(coin2).unwrap_err(),
             StdError::generic_err("Overflow when adding coin 1")
@@ -298,10 +317,10 @@ mod tests {
     #[test]
     fn test_add_cw20_overflow() {
         let mut amount = AmountForOneTask::default();
-        let cw20_1 = create_test_cw20("addr1", u128::MAX.try_into().unwrap());
+        let cw20_1 = create_test_cw20("addr1", u128::MAX);
         let cw20_2 = create_test_cw20("addr1", 1);
 
-        amount.add_cw20(cw20_1.clone()).unwrap();
+        amount.add_cw20(cw20_1).unwrap();
         assert_eq!(
             amount.add_cw20(cw20_2).unwrap_err(),
             StdError::generic_err("Overflow when adding cw20")
@@ -314,7 +333,7 @@ mod tests {
         let coin1 = create_test_coin("test1", 50);
         let coin2 = create_test_coin("test1", 100);
 
-        amount.add_coin(coin1.clone()).unwrap();
+        amount.add_coin(coin1).unwrap();
         assert_eq!(
             amount.sub_coin(&coin2).unwrap_err(),
             StdError::generic_err("Underflow when subtracting coin 1")
@@ -328,8 +347,8 @@ mod tests {
         let coin2 = create_test_coin("test2", u128::MAX);
         let coin3 = create_test_coin("test2", 1);
 
-        amount.add_coin(coin1.clone()).unwrap();
-        amount.add_coin(coin2.clone()).unwrap();
+        amount.add_coin(coin1).unwrap();
+        amount.add_coin(coin2).unwrap();
         assert_eq!(
             amount.add_coin(coin3).unwrap_err(),
             StdError::generic_err("Overflow when adding coin 2")
@@ -342,7 +361,7 @@ mod tests {
         let cw20_1 = create_test_cw20("addr1", 50);
         let cw20_2 = create_test_cw20("addr1", 100);
 
-        amount.add_cw20(cw20_1.clone()).unwrap();
+        amount.add_cw20(cw20_1).unwrap();
         assert_eq!(
             amount.sub_cw20(&cw20_2).unwrap_err(),
             StdError::generic_err("Underflow when subtracting cw20")

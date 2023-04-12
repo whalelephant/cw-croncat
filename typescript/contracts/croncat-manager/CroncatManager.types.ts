@@ -26,6 +26,10 @@ export type ExecuteMsg = {
     task_hash?: string | null;
   };
 } | {
+  proxy_batch: {
+    proxy_calls: ProxyCall[];
+  };
+} | {
   refill_task_balance: {
     task_hash: string;
   };
@@ -63,6 +67,9 @@ export interface UpdateConfig {
   gas_price?: GasPrice | null;
   treasury_addr?: string | null;
   treasury_fee?: number | null;
+}
+export interface ProxyCall {
+  task_hash?: string | null;
 }
 export interface Cw20Coin {
   address: string;

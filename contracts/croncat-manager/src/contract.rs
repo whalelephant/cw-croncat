@@ -2,11 +2,11 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdError, StdResult, Uint128,
+    Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
-use croncat_sdk_manager::msg::AgentWithdrawCallback;
+use croncat_sdk_manager::msg::{AgentWithdrawCallback, ProxyCall};
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, Task, TaskExecutionInfo, TaskInfo};
 use cw2::set_contract_version;
@@ -138,6 +138,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
         ExecuteMsg::ProxyCall { task_hash } => execute_proxy_call(deps, env, info, task_hash),
+        ExecuteMsg::ProxyBatch { proxy_calls } => execute_proxy_batch(env, proxy_calls),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
         ExecuteMsg::RefillTaskBalance { task_hash } => {
             execute_refill_native_balance(deps, info, task_hash)
@@ -354,6 +355,29 @@ fn execute_proxy_call(
     Ok(Response::new()
         .add_attribute("action", "proxy_call")
         .add_submessages(sub_msgs))
+}
+
+/// Based on how tasks could fail & how batching task proxy_call can result in many tasks not
+/// executing at desired time, this method makes and effort to wrap a single signed TX into
+/// an optimistic batch. SubMsgs provide the only way to optimistically attempt all proxy call
+/// transaction/calls. Future CosmosSDK changes could allow this method not to be needed.
+fn execute_proxy_batch(env: Env, proxy_calls: Vec<ProxyCall>) -> Result<Response, ContractError> {
+    let mut sub_msgs = Vec::with_capacity(proxy_calls.len());
+
+    for call in proxy_calls {
+        sub_msgs.push(
+            // Not handling reply, as the individual proxy_call's will handle appropriately
+            SubMsg::new(WasmMsg::Execute {
+                // We can ONLY call ourselves
+                contract_addr: env.contract.address.to_string(),
+                // Instead of huge matcher, we require ONLY the proxy_call case
+                msg: to_binary(&call)?,
+                funds: vec![],
+            }),
+        );
+    }
+
+    Ok(Response::new().add_submessages(sub_msgs))
 }
 
 fn end_task(
