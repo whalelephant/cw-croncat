@@ -66,7 +66,6 @@ pub fn handle_incoming_task(
         to_length_prefixed_nested(&["contract_addrs".as_bytes(), "manager".as_bytes()]);
     state_key.extend_from_slice(versions.as_slice());
 
-    // let sanctioned_manager_res = deps.querier
     let sanctioned_manager_res = querier
         .query_wasm_raw(croncat_factory_address.to_string(), Binary::from(state_key))?;
 
