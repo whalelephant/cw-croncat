@@ -351,6 +351,12 @@ pub struct TaskInfo {
 pub struct TaskResponse {
     pub task: Option<TaskInfo>,
 }
+
+/// This struct is used in two important places.
+/// On the tasks contract, when [`create_task`](crate::msg::TasksExecuteMsg::CreateTask) is called, this struct
+/// is returned in the binary data field of the response.
+/// It's also saved on the manager contract before [`proxy_call`](https://docs.rs/croncat-sdk-manager/latest/croncat_sdk_manager/msg/enum.ManagerExecuteMsg.html#variant.ProxyCall), allowing for validation
+/// on the receiving contract, by doing a raw query to the manager's state key [LAST_TASK_EXECUTION_INFO_KEY](https://docs.rs/croncat-sdk-manager/latest/croncat_sdk_manager/types/constant.LAST_TASK_EXECUTION_INFO_KEY.html).
 #[cw_serde]
 pub struct TaskExecutionInfo {
     pub block_height: u64,

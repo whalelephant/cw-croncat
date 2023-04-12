@@ -77,3 +77,4 @@ mod-sdk = { path = "./packages/mod-sdk" }
 croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }
 croncat-sdk-manager = { path = "./packages/croncat-sdk-manager" }
 cw-boolean-contract = "0.1.2"
+cosmwasm-storage = "1.2.3"

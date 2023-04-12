@@ -202,9 +202,9 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-storage"
-version = "1.2.1"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18b4c99c6479e554ef1516950f1fa3d88bd7d0a8fc2367321c07ca0a33997dfc"
+checksum = "639bc36408bc1ac45e3323166ceeb8f0b91b55a941c4ad59d389829002fbbd94"
 dependencies = [
  "cosmwasm-std",
  "serde",
@@ -274,6 +274,22 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
+ "thiserror",
+]
+
+[[package]]
+name = "croncat-integration-utils"
+version = "0.1.4"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cosmwasm-storage",
+ "croncat-sdk-manager",
+ "croncat-sdk-tasks",
+ "cw-utils 0.16.0",
+ "cw20 0.16.0",
+ "serde-json-wasm",
+ "serde_json",
  "thiserror",
 ]
 
