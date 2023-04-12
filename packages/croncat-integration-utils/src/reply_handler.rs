@@ -17,7 +17,7 @@ pub fn reply_handle_task_creation(
     let msg_parsed = parse_reply_execute_data(msg);
     let msg_binary = msg_parsed.unwrap().data.unwrap();
 
-    let created_task_info_res = serde_json_wasm::from_slice(msg_binary.clone().as_slice());
+    let created_task_info_res = serde_json_wasm::from_slice(msg_binary.as_slice());
 
     if created_task_info_res.is_err() {
         return Err(CronCatContractError::ReplyError {

@@ -76,7 +76,7 @@ pub fn handle_incoming_task(
         });
     }
 
-    let sanctioned_manager_address = sanctioned_manager_res.clone().unwrap();
+    let sanctioned_manager_address = sanctioned_manager_res.unwrap();
 
     let quoted_sender = format!(r#""{}""#, sender);
     let quoted_sender_bytes = quoted_sender.as_bytes();
@@ -93,7 +93,7 @@ pub fn handle_incoming_task(
     // If this method is called normally (with disable_sync_check defaulting to false)
     // This will check for synchronous invocation from the CronCat manager.
     // This method can be called, ignoring this check by setting it to `true`.
-    if disable_sync_check == false {
+    if !disable_sync_check {
         // Require that this is both in the same block…
         let is_same_block_bool = env.block.height == latest_task_execution.block_height;
         // …and the same transaction index, meaning we're in the
@@ -109,12 +109,10 @@ pub fn handle_incoming_task(
     // Last, we check if the task creator is this contract, ensuring
     // this invocation hasn't happened from someone else's task.
     // In cases where that's too restrictive, you may specify
-    if disable_owner_check == false {
-        if latest_task_execution.owner_addr != owner {
-            return Err(CronCatContractError::WrongTaskOwner {
-                expected_owner: owner,
-            });
-        }
+    if !disable_owner_check && latest_task_execution.owner_addr != owner {
+        return Err(CronCatContractError::WrongTaskOwner {
+            expected_owner: owner,
+        });
     }
 
     Ok(latest_task_execution)
