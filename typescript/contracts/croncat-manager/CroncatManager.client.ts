@@ -127,6 +127,14 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
   }: {
     taskHash?: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  proxyBatch: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  proxyCallForwarded: ({
+    agentAddr,
+    taskHash
+  }: {
+    agentAddr: Addr;
+    taskHash?: string;
+  }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   refillTaskBalance: ({
     taskHash
   }: {
@@ -190,6 +198,8 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     this.contractAddress = contractAddress;
     this.updateConfig = this.updateConfig.bind(this);
     this.proxyCall = this.proxyCall.bind(this);
+    this.proxyBatch = this.proxyBatch.bind(this);
+    this.proxyCallForwarded = this.proxyCallForwarded.bind(this);
     this.refillTaskBalance = this.refillTaskBalance.bind(this);
     this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.receive = this.receive.bind(this);
@@ -238,6 +248,25 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
       proxy_call: {
+        task_hash: taskHash
+      }
+    }, fee, memo, funds);
+  };
+  proxyBatch = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      proxy_batch: {}
+    }, fee, memo, funds);
+  };
+  proxyCallForwarded = async ({
+    agentAddr,
+    taskHash
+  }: {
+    agentAddr: Addr;
+    taskHash?: string;
+  }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      proxy_call_forwarded: {
+        agent_addr: agentAddr,
         task_hash: taskHash
       }
     }, fee, memo, funds);

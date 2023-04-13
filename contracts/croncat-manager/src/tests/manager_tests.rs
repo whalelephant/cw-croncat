@@ -43,7 +43,7 @@ use crate::{
 use cosmwasm_std::{coin, StdError};
 use croncat_mod_balances::msg::QueryMsg as BalancesQueryMsg;
 use croncat_sdk_core::types::{AmountForOneTask, GasPrice};
-use croncat_sdk_manager::msg::ManagerExecuteMsg::ProxyCall;
+use croncat_sdk_manager::msg::ManagerExecuteMsg::{ProxyBatch, ProxyCall};
 use cw_boolean_contract::msgs::execute_msg::ExecuteMsg::Toggle;
 use cw_multi_test::{BankSudo, Executor};
 
@@ -5452,4 +5452,284 @@ fn last_task_execution_info_simple() {
     // If this issue gets ironed out, please modify this test such that
     // We perform multiple proxy_call executions in the same block and
     // can confirm that the TransactionInfo's index increases.
+}
+
+/// Check all the different query types within a task
+#[test]
+fn proxy_batch_cases() {
+    let mut app = default_app();
+    let factory_addr = init_factory(&mut app);
+
+    // let instantiate_msg: InstantiateMsg = default_instantiate_msg();
+    let instantiate_msg: InstantiateMsg = default_instantiate_message();
+    let tasks_addr = init_tasks(&mut app, &factory_addr);
+    let manager_addr = init_manager(&mut app, &instantiate_msg, &factory_addr, &[]);
+    let agent_addr = init_agents(&mut app, &factory_addr);
+    let balances_addr = init_mod_balances(&mut app, &factory_addr);
+    let cw20_addr = init_cw20(&mut app);
+
+    // Register an agent
+    activate_agent(&mut app, &agent_addr);
+    app.update_block(add_little_time);
+
+    // These queries cover all the supported types of dynamic
+    let queries = vec![
+        CosmosQuery::Croncat(CroncatQuery {
+            contract_addr: balances_addr.to_string(),
+            msg: to_binary(&BalancesQueryMsg::GetBalance {
+                address: Addr::unchecked(ANYONE).to_string(),
+                denom: DENOM.to_string(),
+            })
+            .unwrap(),
+            check_result: true,
+        }),
+        CosmosQuery::Wasm(WasmQuery::Smart {
+            contract_addr: cw20_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::TokenInfo {}).unwrap(),
+        }),
+    ];
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task = TaskRequest {
+        interval: Interval::Immediate,
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        // queries: None,
+        queries: Some(queries),
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(ANYONE),
+        tasks_addr.clone(),
+        &CreateTask {
+            task: Box::new(task),
+        },
+        &coins(500_000, DENOM),
+    )
+    .expect("Couldn't create task");
+
+    app.update_block(add_little_time);
+
+    // Agent checks to see if there are tasks for them to do.
+    // Note: we hit the Tasks contract for this one. Manager for regular tasks.
+    let mut tasks_for_agent: Option<Vec<croncat_sdk_tasks::types::TaskInfo>> = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    let mut evented_task_info = tasks_for_agent.expect("Error unwrapping evented task info");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should only have one evented task"
+    );
+
+    // Now check that the evented one returns true and completez
+    let task_hash: String = evented_task_info[0].clone().task_hash;
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyBatch(vec![Some(task_hash.clone())]),
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since the check_return comes back true"
+    );
+    let pc_res: AppResponse = pc_result.unwrap();
+    // we expect the queries to pass and the task to reschedule after success
+    assert!(pc_res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            // NOTE: "continue_task" will appear only for evented tasks, so annotate incomplete but continuing
+            .any(|attr| attr.key == "action" && attr.value == "continue_task")
+    }));
+
+    // app.update_block(add_little_time);
+
+    // Check that the one tasks still exists
+    tasks_for_agent = app
+        .wrap()
+        .query_wasm_smart(
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksQueryMsg::EventedTasks {
+                start: None,
+                from_index: None,
+                limit: None,
+            },
+        )
+        .unwrap();
+    evented_task_info =
+        tasks_for_agent.expect("Error unwrapping evented task info after failed proxy_call");
+    assert_eq!(
+        evented_task_info.len(),
+        1usize,
+        "Should still have one evented task"
+    );
+
+    // Attempt many moar
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyBatch(vec![
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash.clone()),
+            Some(task_hash),
+        ]),
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since the check_return comes back true"
+    );
+    let pc_res: AppResponse = pc_result.unwrap();
+    // we expect the queries to pass and the task to reschedule after success
+    assert!(pc_res.events.iter().any(|ev| {
+        ev.attributes
+            .iter()
+            // NOTE: "continue_task" will appear only for evented tasks, so annotate incomplete but continuing
+            .any(|attr| attr.key == "action" && attr.value == "continue_task")
+    }));
+
+    // Attempt none (no tasks for agent, but try anyway to sneakz)
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyBatch(vec![None]),
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_err(),
+        "Proxy call should not succeed since we didnt have scheduled tasks yet"
+    );
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task = TaskRequest {
+        interval: Interval::Block(1),
+        boundary: None,
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    app.execute_contract(
+        Addr::unchecked(PARTICIPANT0),
+        tasks_addr.clone(),
+        &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask {
+            task: Box::new(task),
+        },
+        &coins(600_000, DENOM),
+    )
+    .unwrap();
+
+    app.update_block(add_little_time);
+
+    // Attempt none (no tasks for agent, but try anyway to sneakz)
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr.clone(),
+        &ProxyBatch(vec![None]),
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since we have scheduled task"
+    );
+
+    // Create a task (queries and transforms) with a Boundary that is soon
+    let task1 = TaskRequest {
+        interval: Interval::Block(1),
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: None,
+            end: Some((app.block_info().height + 1).into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+    let task2 = TaskRequest {
+        interval: Interval::Block(1),
+        boundary: Some(Boundary::Height(BoundaryHeight {
+            start: Some((app.block_info().height).into()),
+            end: Some((app.block_info().height + 10).into()),
+        })),
+        stop_on_fail: false,
+        actions: vec![Action {
+            msg: BankMsg::Send {
+                to_address: Addr::unchecked(PARTICIPANT1).to_string(),
+                amount: coins(5, DENOM),
+            }
+            .into(),
+            gas_limit: Some(50_000),
+        }],
+        queries: None,
+        transforms: None, // No transforms in this task
+        cw20: None,
+    };
+
+    let tasks = vec![task1, task2];
+
+    for t in tasks {
+        app.execute_contract(
+            Addr::unchecked(PARTICIPANT0),
+            tasks_addr.clone(),
+            &croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask { task: Box::new(t) },
+            &coins(600_000, DENOM),
+        )
+        .unwrap();
+    }
+
+    app.update_block(add_little_time);
+
+    // Attempt none (no tasks for agent, but try anyway to sneakz)
+    let pc_result = app.execute_contract(
+        Addr::unchecked(AGENT0),
+        manager_addr,
+        &ProxyBatch(vec![None, None, None]),
+        &[], // Attach no funds ofc
+    );
+    assert!(
+        pc_result.is_ok(),
+        "Proxy call should succeed since we have scheduled task"
+    );
 }

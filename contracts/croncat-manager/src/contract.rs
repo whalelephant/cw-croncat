@@ -1,12 +1,14 @@
+use std::collections::HashSet;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Attribute, BankMsg, Binary, Deps, DepsMut, Env, MessageInfo,
-    Reply, Response, StdError, StdResult, Uint128,
+    Reply, Response, StdError, StdResult, SubMsg, Uint128, WasmMsg,
 };
 use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_core::internal_messages::manager::{ManagerCreateTaskBalance, ManagerRemoveTask};
-use croncat_sdk_manager::msg::AgentWithdrawCallback;
+use croncat_sdk_manager::msg::{AgentWithdrawCallback, ManagerExecuteMsg::ProxyCallForwarded};
 use croncat_sdk_manager::types::{TaskBalance, TaskBalanceResponse, UpdateConfig};
 use croncat_sdk_tasks::types::{Interval, Task, TaskExecutionInfo, TaskInfo};
 use cw2::set_contract_version;
@@ -138,6 +140,11 @@ pub fn execute(
     match msg {
         ExecuteMsg::UpdateConfig(msg) => execute_update_config(deps, info, *msg),
         ExecuteMsg::ProxyCall { task_hash } => execute_proxy_call(deps, env, info, task_hash),
+        ExecuteMsg::ProxyBatch(proxy_calls) => execute_proxy_batch(info, env, proxy_calls),
+        ExecuteMsg::ProxyCallForwarded {
+            agent_addr,
+            task_hash,
+        } => execute_proxy_call_forwarded(deps, env, info, task_hash, agent_addr),
         ExecuteMsg::Receive(msg) => execute_receive_cw20(deps, info, msg),
         ExecuteMsg::RefillTaskBalance { task_hash } => {
             execute_refill_native_balance(deps, info, task_hash)
@@ -181,17 +188,25 @@ fn execute_remove_task(
         .add_message(bank_send))
 }
 
-fn execute_proxy_call(
+fn execute_proxy_call_internal(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
     task_hash: Option<String>,
+    agent_fwd_addr: Option<Addr>,
 ) -> Result<Response, ContractError> {
-    let paused = PAUSED.load(deps.storage)?;
-    check_ready_for_execution(&info, paused)?;
     let config: Config = CONFIG.load(deps.storage)?;
 
-    let agent_addr = info.sender;
+    let agent_addr = if let Some(a) = agent_fwd_addr {
+        // we MUST confirm info.sender is THIS contract if agent addr fwded
+        if env.contract.address == info.sender {
+            a
+        } else {
+            return Err(ContractError::Unauthorized {});
+        }
+    } else {
+        info.sender
+    };
     let agents_addr = get_agents_addr(&deps.querier, &config)?;
     let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
 
@@ -354,6 +369,76 @@ fn execute_proxy_call(
     Ok(Response::new()
         .add_attribute("action", "proxy_call")
         .add_submessages(sub_msgs))
+}
+
+/// Regular direct entrypoint for proxy_call task execution
+fn execute_proxy_call(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    task_hash: Option<String>,
+) -> Result<Response, ContractError> {
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
+
+    execute_proxy_call_internal(deps, env, info, task_hash, None)
+}
+
+/// Forwarded entrypoint for proxy_call task execution via Batch
+/// Enables info.sender to carry in optimistic batch setup
+fn execute_proxy_call_forwarded(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    task_hash: Option<String>,
+    agent_addr: Addr,
+) -> Result<Response, ContractError> {
+    let paused = PAUSED.load(deps.storage)?;
+    check_ready_for_execution(&info, paused)?;
+
+    execute_proxy_call_internal(deps, env, info, task_hash, Some(agent_addr))
+}
+
+/// Based on how tasks could fail & how batching task proxy_call can result in many tasks not
+/// executing at desired time, this method makes and effort to wrap a single signed TX into
+/// an optimistic batch. SubMsgs provide the only way to optimistically attempt all proxy call
+/// transaction/calls. Future CosmosSDK changes could allow this method not to be needed.
+fn execute_proxy_batch(
+    info: MessageInfo,
+    env: Env,
+    proxy_calls: Vec<Option<String>>,
+) -> Result<Response, ContractError> {
+    let mut sub_msgs = Vec::with_capacity(proxy_calls.len());
+    let mut unique_hashes = HashSet::new();
+    let agent_addr = info.sender;
+
+    for task_hash in proxy_calls {
+        // Not handling reply, as the individual proxy_call's will handle appropriately
+        let msg = SubMsg::new(WasmMsg::Execute {
+            // We can ONLY call ourselves
+            contract_addr: env.contract.address.to_string(),
+            // Instead of huge matcher, we require ONLY the proxy_call case
+            msg: to_binary(&ProxyCallForwarded {
+                task_hash: task_hash.clone(),
+                agent_addr: agent_addr.clone(),
+            })?,
+            funds: vec![],
+        });
+
+        match task_hash {
+            Some(th) => {
+                // dedupe task hashes because we dont want DoS single tasks
+                if unique_hashes.insert(th) {
+                    sub_msgs.push(msg);
+                }
+            }
+            None => {
+                sub_msgs.push(msg);
+            }
+        }
+    }
+
+    Ok(Response::new().add_submessages(sub_msgs))
 }
 
 fn end_task(

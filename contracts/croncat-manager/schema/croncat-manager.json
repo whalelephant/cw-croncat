@@ -174,6 +174,53 @@
         "additionalProperties": false
       },
       {
+        "description": "Execute current task in the queue or task with queries if task_hash given",
+        "type": "object",
+        "required": [
+          "proxy_batch"
+        ],
+        "properties": {
+          "proxy_batch": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Execute task just like in ProxyCall but used in conjunction of ProxyBatch. Can only be used internally via ProxyBatch entry point.",
+        "type": "object",
+        "required": [
+          "proxy_call_forwarded"
+        ],
+        "properties": {
+          "proxy_call_forwarded": {
+            "type": "object",
+            "required": [
+              "agent_addr"
+            ],
+            "properties": {
+              "agent_addr": {
+                "$ref": "#/definitions/Addr"
+              },
+              "task_hash": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
         "description": "Receive native coins to include them to the task",
         "type": "object",
         "required": [

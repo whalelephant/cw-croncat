@@ -385,116 +385,106 @@ export const getEventedTasks = (options: any) => {
     })
   }
 
-  // Just QUERY samples
-  eventedTasks.push({
-    ...baseTask,
-    // interval: intervals[1], // immediate
-    interval: intervals[4], // 5 blocks
-    boundary: boundaries(options.currentHeight)[0], // null
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-    ],
-    transforms: [],
-  })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-    ],
-    transforms: [],
-  })
+  // // Just QUERY samples
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   // interval: intervals[1], // immediate
+  //   interval: intervals[4], // 5 blocks
+  //   boundary: boundaries(options.currentHeight)[0], // null
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [],
+  // })
 
-  // QUERY+TRANSFORM samples
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
-      getTransform(0, 0, 'denom', 'bank.send.amount.0.denom'), // not needed, but testing
-    ],
-  })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(
-        options.modBalancesAddr,
-        'balances',
-        'getBalanceComparator',
-        {
-          address: options.address,
-          comparator: options.comparator,
-          required_balance: {
-            native: [
-              {
-                amount: `${options.amount}`,
-                denom: options.denom
-              }
-            ]
-          }
-        },
-        true
-      ),
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
-      getTransform(0, 0, 'denom', 'bank.send.amount.0.denom'), // not needed, but testing
-    ],
-  })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[3], // 100 block range
-    actions: [actions(options)[0]], // bank send
-    queries: [
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
-    ],
-  })
-  eventedTasks.push({
-    ...baseTask,
-    interval: intervals[1], // immediate
-    boundary: boundaries(options.currentHeight)[2], // only start specified
-    actions: [actions(options)[0]], // bank send
-    queries: [
-      getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
-      getQueryMsgByTypes(
-        options.modBalancesAddr,
-        'balances',
-        'getBalanceComparator',
-        {
-          address: options.address,
-          comparator: options.comparator,
-          required_balance: {
-            native: [
-              {
-                amount: `${options.amount}`,
-                denom: options.denom
-              }
-            ]
-          }
-        },
-        true
-      ),
-    ],
-    transforms: [
-      getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
-      // insane - i know :P
-      getTransform(1, 0, 'denom', 'bank.send.amount.0.denom'),
-    ],
-  })
+  // // QUERY+TRANSFORM samples
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
+  //     getTransform(0, 0, 'denom', 'bank.send.amount.0.denom'), // not needed, but testing
+  //   ],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(
+  //       options.modBalancesAddr,
+  //       'balances',
+  //       'getBalanceComparator',
+  //       {
+  //         address: options.address,
+  //         comparator: options.comparator,
+  //         required_balance: {
+  //           native: [
+  //             {
+  //               amount: `${options.amount}`,
+  //               denom: options.denom
+  //             }
+  //           ]
+  //         }
+  //       },
+  //       true
+  //     ),
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
+  //     getTransform(0, 0, 'denom', 'bank.send.amount.0.denom'), // not needed, but testing
+  //   ],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[3], // 100 block range
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
+  //   ],
+  // })
+  // eventedTasks.push({
+  //   ...baseTask,
+  //   interval: intervals[1], // immediate
+  //   boundary: boundaries(options.currentHeight)[2], // only start specified
+  //   actions: [actions(options)[0]], // bank send
+  //   queries: [
+  //     getQueryMsgByTypes(options.modBalancesAddr, 'balances', 'getBalance', { address: options.address, denom: options.denom }, true),
+  //     getQueryMsgByTypes(
+  //       options.modBalancesAddr,
+  //       'balances',
+  //       'getBalanceComparator',
+  //       {
+  //         address: options.address,
+  //         comparator: options.comparator,
+  //         required_balance: {
+  //           native: [
+  //             {
+  //               amount: `${options.amount}`,
+  //               denom: options.denom
+  //             }
+  //           ]
+  //         }
+  //       },
+  //       true
+  //     ),
+  //   ],
+  //   transforms: [
+  //     getTransform(0, 0, 'amount', 'bank.send.amount.0.amount'),
+  //     // insane - i know :P
+  //     getTransform(1, 0, 'denom', 'bank.send.amount.0.denom'),
+  //   ],
+  // })
 
   return eventedTasks
 }

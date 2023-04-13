@@ -42,6 +42,16 @@ pub enum ManagerExecuteMsg {
         task_hash: Option<String>,
     },
 
+    /// Execute current task in the queue or task with queries if task_hash given
+    ProxyBatch(Vec<Option<String>>),
+
+    /// Execute task just like in ProxyCall but used in conjunction of ProxyBatch.
+    /// Can only be used internally via ProxyBatch entry point.
+    ProxyCallForwarded {
+        agent_addr: Addr,
+        task_hash: Option<String>,
+    },
+
     /// Receive native coins to include them to the task
     RefillTaskBalance {
         task_hash: String,
