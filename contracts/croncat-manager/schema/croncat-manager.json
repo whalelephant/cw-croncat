@@ -181,16 +181,38 @@
         ],
         "properties": {
           "proxy_batch": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "description": "Execute task just like in ProxyCall but used in conjunction of ProxyBatch. Can only be used internally via ProxyBatch entry point.",
+        "type": "object",
+        "required": [
+          "proxy_call_forwarded"
+        ],
+        "properties": {
+          "proxy_call_forwarded": {
             "type": "object",
             "required": [
-              "proxy_calls"
+              "agent_addr"
             ],
             "properties": {
-              "proxy_calls": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/definitions/ProxyCall"
-                }
+              "agent_addr": {
+                "$ref": "#/definitions/Addr"
+              },
+              "task_hash": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               }
             },
             "additionalProperties": false
@@ -604,18 +626,6 @@
               "format": "uint8",
               "minimum": 0.0
             }
-          }
-        },
-        "additionalProperties": false
-      },
-      "ProxyCall": {
-        "type": "object",
-        "properties": {
-          "task_hash": {
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "additionalProperties": false

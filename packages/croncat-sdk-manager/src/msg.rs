@@ -8,11 +8,6 @@ use croncat_sdk_core::types::GasPrice;
 use cw20::Cw20Coin;
 
 #[cw_serde]
-pub struct ProxyCall {
-    pub task_hash: Option<String>,
-}
-
-#[cw_serde]
 pub struct ManagerInstantiateMsg {
     /// CW2 Version provided by factory
     pub version: Option<String>,
@@ -48,8 +43,13 @@ pub enum ManagerExecuteMsg {
     },
 
     /// Execute current task in the queue or task with queries if task_hash given
-    ProxyBatch {
-        proxy_calls: Vec<ProxyCall>,
+    ProxyBatch(Vec<Option<String>>),
+
+    /// Execute task just like in ProxyCall but used in conjunction of ProxyBatch.
+    /// Can only be used internally via ProxyBatch entry point.
+    ProxyCallForwarded {
+        agent_addr: Addr,
+        task_hash: Option<String>,
     },
 
     /// Receive native coins to include them to the task

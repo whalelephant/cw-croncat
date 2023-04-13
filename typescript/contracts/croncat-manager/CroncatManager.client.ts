@@ -6,7 +6,7 @@
 
 import { CosmWasmClient, SigningCosmWasmClient, ExecuteResult } from "@cosmjs/cosmwasm-stargate";
 import { StdFee } from "@cosmjs/amino";
-import { Addr, InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, UpdateConfig, ProxyCall, Cw20Coin, Cw20ReceiveMsg, ManagerCreateTaskBalance, AmountForOneTask, Coin, Cw20CoinVerified, ManagerRemoveTask, AgentWithdrawOnRemovalArgs, QueryMsg, Config, Boolean, TaskBalanceResponse, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
+import { Addr, InstantiateMsg, GasPrice, ExecuteMsg, Uint128, Binary, UpdateConfig, Cw20Coin, Cw20ReceiveMsg, ManagerCreateTaskBalance, AmountForOneTask, Coin, Cw20CoinVerified, ManagerRemoveTask, AgentWithdrawOnRemovalArgs, QueryMsg, Config, Boolean, TaskBalanceResponse, TaskBalance, ArrayOfCw20CoinVerified } from "./CroncatManager.types";
 export interface CroncatManagerReadOnlyInterface {
   contractAddress: string;
   config: () => Promise<Config>;
@@ -127,10 +127,13 @@ export interface CroncatManagerInterface extends CroncatManagerReadOnlyInterface
   }: {
     taskHash?: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
-  proxyBatch: ({
-    proxyCalls
+  proxyBatch: (fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
+  proxyCallForwarded: ({
+    agentAddr,
+    taskHash
   }: {
-    proxyCalls: ProxyCall[];
+    agentAddr: Addr;
+    taskHash?: string;
   }, fee?: number | StdFee | "auto", memo?: string, funds?: Coin[]) => Promise<ExecuteResult>;
   refillTaskBalance: ({
     taskHash
@@ -196,6 +199,7 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
     this.updateConfig = this.updateConfig.bind(this);
     this.proxyCall = this.proxyCall.bind(this);
     this.proxyBatch = this.proxyBatch.bind(this);
+    this.proxyCallForwarded = this.proxyCallForwarded.bind(this);
     this.refillTaskBalance = this.refillTaskBalance.bind(this);
     this.refillTaskCw20Balance = this.refillTaskCw20Balance.bind(this);
     this.receive = this.receive.bind(this);
@@ -248,14 +252,22 @@ export class CroncatManagerClient extends CroncatManagerQueryClient implements C
       }
     }, fee, memo, funds);
   };
-  proxyBatch = async ({
-    proxyCalls
+  proxyBatch = async (fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
+    return await this.client.execute(this.sender, this.contractAddress, {
+      proxy_batch: {}
+    }, fee, memo, funds);
+  };
+  proxyCallForwarded = async ({
+    agentAddr,
+    taskHash
   }: {
-    proxyCalls: ProxyCall[];
+    agentAddr: Addr;
+    taskHash?: string;
   }, fee: number | StdFee | "auto" = "auto", memo?: string, funds?: Coin[]): Promise<ExecuteResult> => {
     return await this.client.execute(this.sender, this.contractAddress, {
-      proxy_batch: {
-        proxy_calls: proxyCalls
+      proxy_call_forwarded: {
+        agent_addr: agentAddr,
+        task_hash: taskHash
       }
     }, fee, memo, funds);
   };
