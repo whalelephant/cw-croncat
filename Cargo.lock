@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-agents"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -256,7 +256,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-factory"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -279,7 +279,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-manager"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -300,7 +300,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
  "serde-cw-value",
  "serde-json-wasm",
  "serde_json",
@@ -309,7 +309,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-mod-balances"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -318,12 +318,12 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
 ]
 
 [[package]]
 name = "croncat-mod-dao"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -339,14 +339,14 @@ dependencies = [
  "dao-proposal-single",
  "dao-voting",
  "dao-voting-cw20-staked",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
  "schemars",
  "serde",
 ]
 
 [[package]]
 name = "croncat-mod-generic"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -358,7 +358,7 @@ dependencies = [
  "cw20-base 0.16.0",
  "cw4",
  "cw4-group",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
  "serde-cw-value",
  "serde-json-wasm",
  "serde_json",
@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-mod-nft"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -374,12 +374,12 @@ dependencies = [
  "cw2 1.0.1",
  "cw721 0.16.0",
  "cw721-base",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
 ]
 
 [[package]]
 name = "croncat-sdk-agents"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -390,7 +390,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-core"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -400,7 +400,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-factory"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -409,7 +409,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-manager"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -420,7 +420,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-tasks"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -429,13 +429,13 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
  "sha2 0.10.6",
 ]
 
 [[package]]
 name = "croncat-tasks"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -456,7 +456,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.4",
+ "mod-sdk 0.1.5",
  "serde-cw-value",
  "serde-json-wasm",
  "thiserror",
@@ -1538,7 +1538,7 @@ dependencies = [
 
 [[package]]
 name = "mod-sdk"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
