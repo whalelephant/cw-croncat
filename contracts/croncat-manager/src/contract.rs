@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
@@ -193,8 +195,6 @@ fn execute_proxy_call_internal(
     task_hash: Option<String>,
     agent_fwd_addr: Option<Addr>,
 ) -> Result<Response, ContractError> {
-    // let paused = PAUSED.load(deps.storage)?;
-    // check_ready_for_execution(&info, paused)?;
     let config: Config = CONFIG.load(deps.storage)?;
 
     let agent_addr = if let Some(a) = agent_fwd_addr {
@@ -409,22 +409,33 @@ fn execute_proxy_batch(
     proxy_calls: Vec<Option<String>>,
 ) -> Result<Response, ContractError> {
     let mut sub_msgs = Vec::with_capacity(proxy_calls.len());
+    let mut unique_hashes = HashSet::new();
     let agent_addr = info.sender;
 
     for task_hash in proxy_calls {
-        sub_msgs.push(
-            // Not handling reply, as the individual proxy_call's will handle appropriately
-            SubMsg::new(WasmMsg::Execute {
-                // We can ONLY call ourselves
-                contract_addr: env.contract.address.to_string(),
-                // Instead of huge matcher, we require ONLY the proxy_call case
-                msg: to_binary(&ProxyCallForwarded {
-                    task_hash,
-                    agent_addr: agent_addr.clone(),
-                })?,
-                funds: vec![],
-            }),
-        );
+        // Not handling reply, as the individual proxy_call's will handle appropriately
+        let msg = SubMsg::new(WasmMsg::Execute {
+            // We can ONLY call ourselves
+            contract_addr: env.contract.address.to_string(),
+            // Instead of huge matcher, we require ONLY the proxy_call case
+            msg: to_binary(&ProxyCallForwarded {
+                task_hash: task_hash.clone(),
+                agent_addr: agent_addr.clone(),
+            })?,
+            funds: vec![],
+        });
+
+        match task_hash {
+            Some(th) => {
+                // dedupe task hashes because we dont want DoS single tasks
+                if unique_hashes.insert(th) {
+                    sub_msgs.push(msg);
+                }
+            }
+            None => {
+                sub_msgs.push(msg);
+            }
+        }
     }
 
     Ok(Response::new().add_submessages(sub_msgs))
