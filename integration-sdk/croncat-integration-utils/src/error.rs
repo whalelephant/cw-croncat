@@ -1,5 +1,6 @@
 use cosmwasm_std::{Addr, StdError, Uint64};
 use thiserror::Error;
+use serde_json::Error as SerdeJsonError;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum CronCatContractError {
@@ -26,4 +27,15 @@ pub enum CronCatContractError {
 
     #[error("Invocation not called by task owner. Expected owner: {expected_owner}")]
     WrongTaskOwner { expected_owner: Addr },
+
+    #[error("Serialization error|{msg}")]
+    SerdeError { msg: String },
+}
+
+impl From<SerdeJsonError> for CronCatContractError {
+    fn from(error: SerdeJsonError) -> Self {
+        CronCatContractError::SerdeError {
+            msg: format!("Serialization error: {}", error),
+        }
+    }
 }

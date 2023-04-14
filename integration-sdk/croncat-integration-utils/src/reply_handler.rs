@@ -39,7 +39,7 @@ pub fn reply_handle_task_creation(
 pub fn reply_complete_task_creation(
     created_task_info: CronCatTaskExecutionInfo,
 ) -> Result<Response, CronCatContractError> {
-    let task_info_json_vector = serde_json::to_vec(&created_task_info).unwrap();
+    let task_info_json_vector = serde_json::to_vec(&created_task_info)?;
 
     Ok(Response::new().set_data(&*task_info_json_vector))
 }
