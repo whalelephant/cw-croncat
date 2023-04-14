@@ -258,18 +258,20 @@ pub(crate) fn validate_msg_calculate_usage(
                 if let Ok(cw20_msg) = cosmwasm_std::from_binary(msg) {
                     match cw20_msg {
                         Cw20ExecuteMsg::Send { amount, .. } if !amount.is_zero() => {
-                            if !amount_for_one_task.add_cw20(Cw20CoinVerified {
+                            let c = amount_for_one_task.add_cw20(Cw20CoinVerified {
                                 address: deps.api.addr_validate(contract_addr)?,
                                 amount,
-                            }) {
+                            });
+                            if c.is_err() || !c.unwrap() {
                                 return Err(ContractError::InvalidAction {});
                             }
                         }
                         Cw20ExecuteMsg::Transfer { amount, .. } if !amount.is_zero() => {
-                            if !amount_for_one_task.add_cw20(Cw20CoinVerified {
+                            let c = amount_for_one_task.add_cw20(Cw20CoinVerified {
                                 address: deps.api.addr_validate(contract_addr)?,
                                 amount,
-                            }) {
+                            });
+                            if c.is_err() || !c.unwrap() {
                                 return Err(ContractError::InvalidAction {});
                             }
                         }

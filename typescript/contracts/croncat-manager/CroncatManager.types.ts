@@ -26,6 +26,13 @@ export type ExecuteMsg = {
     task_hash?: string | null;
   };
 } | {
+  proxy_batch: (string | null)[];
+} | {
+  proxy_call_forwarded: {
+    agent_addr: Addr;
+    task_hash?: string | null;
+  };
+} | {
   refill_task_balance: {
     task_hash: string;
   };

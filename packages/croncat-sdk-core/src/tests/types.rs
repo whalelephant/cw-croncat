@@ -101,7 +101,7 @@ fn amount_for_one_task_add_cw20() {
         address: Addr::unchecked("addr"),
         amount: 1u64.into(),
     };
-    assert!(amount.add_cw20(cw20.clone()));
+    assert!(amount.add_cw20(cw20.clone()).unwrap());
     assert_eq!(amount.cw20, Some(cw20));
 
     // Add cw20 coin with the same address
@@ -109,7 +109,7 @@ fn amount_for_one_task_add_cw20() {
         address: Addr::unchecked("addr"),
         amount: 10u64.into(),
     };
-    assert!(amount.add_cw20(cw20.clone()));
+    assert!(amount.add_cw20(cw20.clone()).unwrap());
     assert_eq!(
         amount.cw20,
         Some(Cw20CoinVerified {
@@ -123,7 +123,7 @@ fn amount_for_one_task_add_cw20() {
         address: Addr::unchecked("addr2"),
         amount: 10u64.into(),
     };
-    assert!(!amount.add_cw20(cw20));
+    assert!(!amount.add_cw20(cw20).unwrap());
     assert_eq!(
         amount.cw20,
         Some(Cw20CoinVerified {
@@ -242,7 +242,7 @@ fn amount_for_one_task_sub_cw20() {
     assert!(amount.sub_cw20(&cw20).is_err());
 
     // Add cw20 coin
-    assert!(amount.add_cw20(cw20.clone()));
+    assert!(amount.add_cw20(cw20.clone()).unwrap());
     assert_eq!(amount.cw20, Some(cw20));
 
     // Check sub_cw20

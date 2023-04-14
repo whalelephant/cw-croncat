@@ -68,21 +68,6 @@ const e2eTasks = async (cwClient) => {
 	const agentClient = new AgentClient(cwClient, versions.agents.contract_addr);
 	const taskClient = new TaskClient(cwClient, versions.tasks.contract_addr);
 
-	// // Register & check status
-	// try {
-	// 	const r = await agentClient.register(cwClient.accounts.agent1, executeGas);
-	// 	console.info(`Agents Register SUCCESS\n`, JSON.stringify(r), '\n')
-	// } catch (e) {
-	// 	console.info(`Agents Register ERROR`, e)
-	// }
-	// try {
-	// 	const as = await agentClient.status(cwClient.accounts.agent1);
-	// 	console.info(`Agents Status\n`, as.agent, '\n')
-	// 	if (as.agent.status !== 'active') process.exit(1)
-	// } catch (e) {
-	// 	console.info(`Agents Status ERROR`, e)
-	// }
-
   // const allTasks = tasks({
   //   currentHeight: currentBlockHeight + 64, // because it could take 64 blocks to create all these taskoids
 	// 	address: cwClient.accounts.deployer,
@@ -121,22 +106,6 @@ const e2eTasks = async (cwClient) => {
       console.info(`Task Create ERROR`, e)
     }
 	}
-
-	// // 1st agent do proxycall
-	// try {
-	// 	const a1pc = await managerClient.proxyCall(cwClient.accounts.agent1, executeGas);
-	// 	console.info(`Agent 1 ProxyCall\n`, JSON.stringify(a1pc), '\n')
-	// } catch (e) {
-	// 	console.info(`Agent 1 ProxyCall ERROR`, e)
-	// }
-
-	// // 1st agent unregister
-	// try {
-	// 	const as1u = await agentClient.unregister(cwClient.accounts.agent1, executeGas);
-	// 	console.info(`Agent 1 Unregister\n`, JSON.stringify(as1u), '\n')
-	// } catch (e) {
-	// 	console.info(`Agent 1 Unregister ERROR`, e)
-	// }
 
 	// Get list of all tasks
 	let tasksFound = []
