@@ -11,10 +11,24 @@ tarp:
 	cargo +nightly tarpaulin --skip-clean --workspace --out Xml --target-dir tmp
 
 build:
-	#!/bin/bash
-	set -e
-	export RUSTFLAGS='-C link-arg=-s'
-	cargo build --release --lib --target wasm32-unknown-unknown
+    #!/bin/sh
+    set -e
+    export RUSTFLAGS='-C link-arg=-s'
+    # Can't build the integration tests for wasm targets.
+    # Combine that with cargo workspaces; it's an odd situation.
+    EXCLUDED_PACKAGE="croncat_integration_testing"
+
+    # Thank you Gracie Paul Thoroldwood for the insight
+    for PACKAGE in $(cargo metadata --format-version 1 --no-deps | jq '.packages[] | .name' -r)
+    do
+      if [ "$PACKAGE" != "$EXCLUDED_PACKAGE" ]; then
+        echo "Building package: $PACKAGE"
+        cargo build --package "$PACKAGE"
+      fi
+    done
+    # Finally build the integration tests
+    cargo build --release --lib --manifest-path integration-sdk/croncat-integration-testing/Cargo.toml
+
 deploy:
 	#!/bin/bash
 	cd ./scripts/deployment
@@ -54,8 +68,7 @@ optimize:
 		--mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		--platform linux/amd64 \
-		cosmwasm/workspace-optimizer:0.12.11
-
+		cosmwasm/workspace-optimizer:0.12.12
 
 gen-schema:
 	./scripts/schema.sh

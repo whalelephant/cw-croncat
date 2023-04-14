@@ -1,0 +1,29 @@
+[package]
+name = "croncat-integration-utils"
+version = "0.1.4"
+authors = { workspace = true }
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+license = { workspace = true }
+description = "Integrate CosmWasm contracts with CronCat automation."
+
+[dependencies]
+thiserror = { workspace = true }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw20 = { workspace = true }
+croncat-sdk-agents = { workspace = true }
+croncat-sdk-factory = { workspace = true }
+croncat-sdk-tasks = { workspace = true }
+croncat-sdk-manager = { workspace = true }
+cw-utils = { workspace = true }
+serde-json-wasm = { workspace = true }
+serde_json = { workspace = true }
+# These are for the src/tests/contracts.rs file
+croncat-agents = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
+croncat-tasks = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
+croncat-manager = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
+croncat-factory = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
+
+[dev-dependencies]
+cw-multi-test = { workspace = true }

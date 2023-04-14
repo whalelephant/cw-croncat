@@ -1,7 +1,7 @@
 use cosmwasm_std::{Addr, StdError, Uint64};
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum CronCatContractError {
     #[error("{0}")]
     Std(#[from] StdError),
@@ -26,12 +26,4 @@ pub enum CronCatContractError {
 
     #[error("Invocation not called by task owner. Expected owner: {expected_owner}")]
     WrongTaskOwner { expected_owner: Addr },
-}
-
-impl From<CronCatContractError> for cosmwasm_std::StdError {
-    fn from(error: CronCatContractError) -> Self {
-        cosmwasm_std::StdError::GenericErr {
-            msg: error.to_string(),
-        }
-    }
 }

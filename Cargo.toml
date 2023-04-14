@@ -1,5 +1,8 @@
 [workspace]
-members = ["contracts/*", "packages/*"]
+members = ["contracts/*",
+  "packages/*",
+  "integration-sdk/*"
+]
 
 [profile.release]
 codegen-units = 1
@@ -37,7 +40,7 @@ rusty-hook = "0.11.2"
 #For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
 cw20 = { version = "0.16.0" }
-cw-multi-test = { version = "0.16.0" }
+cw-multi-test = { version = "0.16.4" }
 cw20-base = { version = "0.16.0" }
 cw-storage-plus = "1.0.1"
 cron_schedule = "0.2.3"
@@ -77,4 +80,3 @@ mod-sdk = { path = "./packages/mod-sdk" }
 croncat-sdk-factory = { path = "./packages/croncat-sdk-factory" }
 croncat-sdk-manager = { path = "./packages/croncat-sdk-manager" }
 cw-boolean-contract = "0.1.2"
-cosmwasm-storage = "1.2.3"
