@@ -82,6 +82,23 @@ export const getTaskHashFromLogs = (data: any) => {
   return task_hash
 }
 
+// Get the first instantiated address
+export const getInstantiatedAddrFromLogs = logs => {
+  let address
+
+  logs.forEach(log => {
+    log.events.forEach(e => {
+      if (e.type === 'instantiate') {
+        e.attributes.forEach(attr => {
+          if (attr.key === '_contract_address' && attr.value && !address) address = attr.value
+        })
+      }
+    })
+  })
+
+  return address
+}
+
 export function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
