@@ -42,6 +42,7 @@ pub mod test_helpers {
         AppBuilder::new().build(|router, _, storage| {
             let accounts: Vec<(u128, String)> = vec![
                 (6_000_000, ALICE.to_string()),
+                (6_000_000, AGENT.to_string()),
                 (600_000, BOB.to_string()),
                 (666_000, CHARLIZE.to_string()),
                 (u128::MAX.saturating_sub(1000), VERY_RICH.to_string()),
