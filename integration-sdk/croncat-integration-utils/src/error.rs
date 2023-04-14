@@ -1,6 +1,6 @@
 use cosmwasm_std::{Addr, StdError, Uint64};
-use thiserror::Error;
 use serde_json::Error as SerdeJsonError;
+use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum CronCatContractError {
