@@ -4,13 +4,17 @@ use crate::state::{
     DEFAULT_MIN_TASKS_PER_AGENT, DEFAULT_NOMINATION_BLOCK_DURATION,
 };
 use crate::tests::contracts;
-use cosmwasm_std::BlockInfo;
 use cosmwasm_std::{coins, to_binary, Addr};
+use cosmwasm_std::{BlockInfo, Coin, Uint128};
 use croncat_sdk_factory::msg::{
     ContractMetadataResponse, FactoryExecuteMsg, FactoryInstantiateMsg, ModuleInstantiateInfo,
     VersionKind,
 };
 use cw_multi_test::{App, AppBuilder, Executor};
+
+/// We set this to "TOKEN" to match the denom here:
+/// https://github.com/CosmWasm/cosmwasm/blob/32f308a1a56ae5b8278947891306f7a374c3df94/packages/vm/src/environment.rs#L383
+pub const NATIVE_DENOM: &str = "TOKEN";
 
 pub const AGENT0: &str = "agent0a7uhnpqthunr2rzj0ww0hwurpn42wyun6c5puz";
 pub const AGENT1: &str = "agent17muvdgkep4ndptnyg38eufxsssq8jr3wnkysy8";
@@ -34,9 +38,12 @@ pub const PARTICIPANT5: &str = "cosmos5t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT6: &str = "cosmos6t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT7: &str = "cosmos7t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 
-/// We set this to "TOKEN" to match the denom here:
-/// https://github.com/CosmWasm/cosmwasm/blob/32f308a1a56ae5b8278947891306f7a374c3df94/packages/vm/src/environment.rs#L383
-pub const NATIVE_DENOM: &str = "TOKEN";
+pub(crate) fn get_manager_instantiate_denom_fee() -> Coin {
+    Coin {
+        denom: NATIVE_DENOM.to_string(),
+        amount: Uint128::new(1),
+    }
+}
 
 #[allow(dead_code)]
 pub(crate) struct TestScope {
@@ -146,7 +153,7 @@ pub(crate) fn init_test_scope(app: &mut App) -> TestScope {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 

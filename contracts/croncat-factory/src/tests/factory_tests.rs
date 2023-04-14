@@ -9,6 +9,7 @@ use croncat_sdk_factory::msg::{
 use cw_multi_test::Executor;
 
 use super::{contracts, helpers::default_app, ADMIN, AGENT2, ANYONE, PAUSE_ADMIN};
+use crate::tests::get_manager_instantiate_denom_fee;
 use crate::{msg::*, tests::PARTICIPANT0, ContractError};
 
 #[test]
@@ -138,7 +139,7 @@ fn deploy_check() {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 
@@ -357,7 +358,7 @@ fn failure_deploy() {
                 kind: VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info,
             },
-            &[],
+            &[get_manager_instantiate_denom_fee()],
         )
         .unwrap_err()
         .downcast()
@@ -432,7 +433,7 @@ fn failure_deploy() {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info_2.clone(),
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .expect("first deploy went well thank you");
 
@@ -803,7 +804,7 @@ fn remove_paused_checks() {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_contract_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
     // Deploy the second version of the contract
@@ -824,7 +825,7 @@ fn remove_paused_checks() {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_v2_contract_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 
@@ -1088,7 +1089,7 @@ fn fail_and_success_proxy() {
             kind: VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 
@@ -1283,7 +1284,7 @@ fn invalid_changelog_url() {
                 kind: VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info.clone(),
             },
-            &[],
+            &[get_manager_instantiate_denom_fee()],
         )
         .unwrap_err()
         .downcast()
@@ -1301,7 +1302,7 @@ fn invalid_changelog_url() {
                 kind: VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info,
             },
-            &[],
+            &[get_manager_instantiate_denom_fee()],
         )
         .is_ok());
 

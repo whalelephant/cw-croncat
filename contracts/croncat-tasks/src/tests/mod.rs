@@ -1,3 +1,5 @@
+use cosmwasm_std::{Coin, Uint128};
+
 mod common;
 mod contracts;
 mod helpers;
@@ -26,3 +28,10 @@ pub const PARTICIPANT4: &str = "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd";
 pub const PARTICIPANT5: &str = "cosmos1k5k7y4hgy5lkq0kj3k3e9k38lquh0m66kxsu5c";
 pub const PARTICIPANT6: &str = "cosmos14a8clxc49z9e3mjzhamhkprt2hgf0y53zczzj0";
 pub const VERY_RICH: &str = "cosmos1c3cy3wzzz3698ypklvh7shksvmefj69xhm89z2";
+
+pub(crate) fn get_manager_instantiate_denom_fee() -> Coin {
+    Coin {
+        denom: DENOM.to_string(),
+        amount: Uint128::new(1),
+    }
+}

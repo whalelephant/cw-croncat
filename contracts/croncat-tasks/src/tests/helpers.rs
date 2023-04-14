@@ -1,7 +1,7 @@
 use super::{
-    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
-    PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
+    contracts, get_manager_instantiate_denom_fee, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4,
+    AGENT_BENEFICIARY, ANYONE, DENOM, PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3,
+    PARTICIPANT4, PARTICIPANT5, PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
 };
 use crate::msg::InstantiateMsg;
 
@@ -116,7 +116,7 @@ pub(crate) fn init_manager(app: &mut App, factory_addr: &Addr) -> Addr {
             kind: VersionKind::Tasks,
             module_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 

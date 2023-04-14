@@ -25,6 +25,7 @@ use croncat_sdk_tasks::types::{
 use cw20::{Cw20Coin, Cw20CoinVerified, Cw20ExecuteMsg, Cw20QueryMsg};
 use cw_multi_test::AppResponse;
 
+use crate::tests::get_manager_instantiate_denom_fee;
 use crate::tests::PARTICIPANT3;
 use crate::tests::PAUSE_ADMIN;
 use crate::{
@@ -58,7 +59,7 @@ use super::{
 };
 
 mod instantiate_tests {
-    use crate::tests::{PARTICIPANT3, PAUSE_ADMIN};
+    use crate::tests::{get_manager_instantiate_denom_fee, PARTICIPANT3, PAUSE_ADMIN};
     use croncat_sdk_factory::msg::{ModuleInstantiateInfo, VersionKind};
 
     use super::*;
@@ -108,7 +109,7 @@ mod instantiate_tests {
             treasury_addr: Some(AGENT2.to_owned()),
             cw20_whitelist: Some(vec![PARTICIPANT3.to_owned()]),
         };
-        let attach_funds = vec![coin(5000, "denom"), coin(2400, DENOM)];
+        let attach_funds = vec![coin(1, DENOM), coin(5000, "denom")];
 
         app.sudo(
             BankSudo::Mint {
@@ -172,8 +173,10 @@ mod instantiate_tests {
         };
         assert_eq!(config, expected_config);
 
+        // Send funds separately
+
         let manager_balances = query_manager_balances(&app, &manager_addr);
-        assert_eq!(manager_balances, Uint128::new(2400));
+        assert_eq!(manager_balances, Uint128::new(1));
     }
 
     #[test]
@@ -195,7 +198,7 @@ mod instantiate_tests {
                 code_id,
                 Addr::unchecked(ADMIN),
                 &instantiate_msg,
-                &[],
+                &[get_manager_instantiate_denom_fee()],
                 "croncat-manager",
                 None,
             )
@@ -215,7 +218,7 @@ mod instantiate_tests {
                 code_id,
                 Addr::unchecked(ADMIN),
                 &instantiate_msg,
-                &[],
+                &[get_manager_instantiate_denom_fee()],
                 "croncat-manager",
                 None,
             )
@@ -631,7 +634,7 @@ fn withdraw_balances() {
 
     let instantiate_msg: InstantiateMsg = default_instantiate_message();
 
-    let attach_funds = vec![coin(2400, DENOM)];
+    let attach_funds = vec![coin(1, DENOM)];
     app.sudo(
         BankSudo::Mint {
             to_address: ADMIN.to_owned(),
@@ -667,7 +670,7 @@ fn withdraw_balances() {
     //Check if sending Cw20 does not effect on treasury
     let treasury_balance = query_manager_balances(&app, &manager_addr);
 
-    assert_eq!(treasury_balance, attach_funds[0].amount);
+    assert_eq!(treasury_balance, Uint128::new(1));
 
     // Withdraw all of balances
     app.execute_contract(
@@ -855,7 +858,7 @@ fn simple_bank_transfers_block() {
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 + 1));
 
     // Checking we don't get same task over and over
     // Check multi-action transfer
@@ -1165,7 +1168,7 @@ fn simple_bank_transfers_cron() {
     assert_eq!(
         treasury_balance,
         // amount_for_fees is enough for 2 executions, so we adjust
-        Uint128::new(amount_for_fees as u128 - (fee_profit / 2))
+        Uint128::new(amount_for_fees as u128 + 1 - (fee_profit / 2))
     );
 
     // Check manager balances accounts for both agent & treasury
@@ -1516,7 +1519,10 @@ fn multi_coin_bank_transfers() {
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 / 2));
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128 / 2) + 1)
+    );
 }
 
 #[test]
@@ -1742,7 +1748,7 @@ fn cw20_action_transfer() {
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 + 1));
 }
 
 #[test]
@@ -1892,7 +1898,7 @@ fn task_with_query() {
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128));
+    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 + 1));
 
     // repeat to check contract state is progressing as expected
     // first clear up rewards
@@ -2174,7 +2180,10 @@ fn recurring_task_block_immediate() {
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 * 2));
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128 * 2) + 1)
+    );
 
     // repeat to check contract state is progressing as expected
     // first clear up rewards
@@ -2490,7 +2499,10 @@ fn recurring_task_block_block_interval() {
         .wrap()
         .query_wasm_smart(manager_addr, &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 * 3));
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128 * 3) + 1)
+    );
 }
 
 #[test]
@@ -2635,7 +2647,10 @@ fn recurring_task_cron() {
         .wrap()
         .query_wasm_smart(manager_addr.clone(), &QueryMsg::TreasuryBalance {})
         .unwrap();
-    assert_eq!(treasury_balance, Uint128::new(amount_for_fees as u128 * 2));
+    assert_eq!(
+        treasury_balance,
+        Uint128::new((amount_for_fees as u128 * 2) + 1)
+    );
 
     // repeat to check contract state is progressing as expected
     // first clear up rewards
@@ -5179,7 +5194,7 @@ fn pause_admin_cases() {
                 kind: croncat_sdk_factory::msg::VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info,
             },
-            &[],
+            &[get_manager_instantiate_denom_fee()],
         )
         .unwrap_err()
         .downcast()
@@ -5205,7 +5220,7 @@ fn pause_admin_cases() {
                 kind: croncat_sdk_factory::msg::VersionKind::Manager,
                 module_instantiate_info: manager_module_instantiate_info,
             },
-            &[],
+            &[get_manager_instantiate_denom_fee()],
         )
         .unwrap_err()
         .downcast()
@@ -5232,7 +5247,7 @@ fn pause_admin_cases() {
             kind: croncat_sdk_factory::msg::VersionKind::Manager,
             module_instantiate_info: manager_module_instantiate_info,
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 

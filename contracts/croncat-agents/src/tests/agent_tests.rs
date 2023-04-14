@@ -1860,7 +1860,7 @@ fn pause_admin_cases() {
 }
 
 #[test]
-fn agent_registration_whitelist() {
+fn test_agent_registration_whitelist() {
     let mut app = default_app();
 
     let factory_code_id = app.store_code(contracts::croncat_factory_contract());
@@ -1907,7 +1907,7 @@ fn agent_registration_whitelist() {
                 contract_name: "manager".to_owned(),
             },
         },
-        &[],
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 
