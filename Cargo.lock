@@ -274,6 +274,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "croncat-errors-macro"
+version = "0.1.5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "thiserror",
+]
+
+[[package]]
 name = "croncat-factory"
 version = "0.1.4"
 source = "git+https://github.com/CronCats/cw-croncat.git?branch=beta-0.1.4#e5b9cca8d3e2000528dace7387b0288b1218bc6e"
@@ -313,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-integration-testing"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -335,7 +345,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-integration-utils"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
