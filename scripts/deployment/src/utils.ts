@@ -13,14 +13,20 @@ const networkType = process.env.NETWORK_TYPE || 'testnet'
 // NOTE: MUST Be a contract wallet - multisig prefered!
 // If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
 export const pauseAdmins = {
+  anomatestnet: process.env.PAUSE_ADMIN_MULTISIG_ANOMATESTNET || '',
+  anoma: process.env.PAUSE_ADMIN_MULTISIG_ANOMA || '',
   archwaytestnet: process.env.PAUSE_ADMIN_MULTISIG_ARCHWAYTESTNET || '',
   archway: process.env.PAUSE_ADMIN_MULTISIG_ARCHWAY || '',
   junotestnet: process.env.PAUSE_ADMIN_MULTISIG_JUNOTESTNET || '',
   juno: process.env.PAUSE_ADMIN_MULTISIG_JUNO || '',
   migalootestnet: process.env.PAUSE_ADMIN_MULTISIG_MIGALOOTESTNET || '',
   migaloo: process.env.PAUSE_ADMIN_MULTISIG_MIGALOO || '',
+  namadatestnet: process.env.PAUSE_ADMIN_MULTISIG_NAMADATESTNET || '',
+  namada: process.env.PAUSE_ADMIN_MULTISIG_NAMADA || '',
   neutrontestnet: process.env.PAUSE_ADMIN_MULTISIG_NEUTRONTESTNET || '',
   neutron: process.env.PAUSE_ADMIN_MULTISIG_NEUTRON || '',
+  noistestnet: process.env.PAUSE_ADMIN_MULTISIG_NOISTESTNET || '',
+  nois: process.env.PAUSE_ADMIN_MULTISIG_NOIS || '',
   osmosistestnet: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET || '',
   osmosis: process.env.PAUSE_ADMIN_MULTISIG_OSMOSIS || '',
   quasartestnet: process.env.PAUSE_ADMIN_MULTISIG_QUASARTESTNET || '',
