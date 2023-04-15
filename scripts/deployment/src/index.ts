@@ -29,7 +29,7 @@ const deployNetwork = async (cwClient) => {
     const ps = []
     accountBalances.forEach(ab => {
         const curAmt = parseInt(`${ab.amount}`, 10)
-        if (ab.id != 'deployer' && curAmt < sendAmount) {
+        if (ab.id != 'deployer' && ab.id != 'pause_admin' && curAmt < sendAmount) {
             ps.push([ab.id, sendAmount - curAmt])
         }
     })

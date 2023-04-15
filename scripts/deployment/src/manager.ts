@@ -3,7 +3,7 @@ import { StdFee, calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 config({ path: '.env' })
-import { getContractVersionFromCargoToml, getGitHash, getChecksums } from './utils'
+import { getContractVersionFromCargoToml, getGitHash, getChecksums, getInstantiatedAddrFromLogs } from './utils'
 import { DeploySigner } from "./signer"
 
 export class ManagerClient {
@@ -61,8 +61,21 @@ export class ManagerClient {
 			}
 		}
 
-		const instRes = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, deployMsg, this.executeGas);
-		this.address = instRes.logs[0].events[1].attributes[0].value
+		// SUPER PANIC MODE if we dont have the denom to use
+		if (!this.client.fee_token || !this.client.fee_token.denom) {
+			return Promise.reject("Missing denom from fee_token.denom!")
+		}
+
+		const instRes = await this.client.client.execute(
+			this.client.accounts.deployer,
+			factoryAddress,
+			deployMsg,
+			this.executeGas,
+			null,
+			[{ "amount": "1", "denom": this.client.fee_token.denom }],
+		);
+		// Get the first instantiated address
+		this.address = getInstantiatedAddrFromLogs(instRes.logs)
 
 		return [this.codeId, this.address];
 	}

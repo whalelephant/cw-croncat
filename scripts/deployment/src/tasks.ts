@@ -3,7 +3,7 @@ import { Coin, StdFee, QueryClient, calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 config({ path: '.env' })
-import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
+import { getGitHash, getChecksums, getContractVersionFromCargoToml, getInstantiatedAddrFromLogs } from './utils'
 import { DeploySigner } from "./signer"
 
 export class TaskClient {
@@ -66,7 +66,8 @@ export class TaskClient {
       }
     }
     const instRes = await this.client.client.execute(this.client.accounts.deployer, factoryAddress, deployMsg, this.executeGas);
-    this.address = instRes.logs[0].events[1].attributes[0].value
+    // Get the first instantiated address
+		this.address = getInstantiatedAddrFromLogs(instRes.logs)
 
     return [this.codeId, this.address];
   }

@@ -43,7 +43,14 @@ export class FactoryClient {
 
     // instantiate
     const instantiateGas = calculateFee(700_000, this.client.defaultGasPrice)
-    const factoryInst = await this.client.client.instantiate(this.client.accounts.deployer, this.codeId, {}, `CronCat:factory:${version}`, instantiateGas, instantiateOptions)
+    const factoryInst = await this.client.client.instantiate(
+      this.client.accounts.deployer,
+      this.codeId,
+      {},
+      `CronCat:factory:${version[0]}.${version[1]}`,
+      instantiateGas,
+      instantiateOptions
+    )
     this.address = factoryInst.contractAddress
 
     return [this.codeId, this.address];
