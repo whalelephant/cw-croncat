@@ -20,10 +20,10 @@ cw-utils = { workspace = true }
 serde-json-wasm = { workspace = true }
 serde_json = { workspace = true }
 # These are for the src/tests/contracts.rs file
-croncat-agents = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
-croncat-tasks = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
-croncat-manager = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
-croncat-factory = { git = "https://github.com/CronCats/cw-croncat.git", branch = "beta-0.1.4" }
+croncat-agents = { workspace = true }
+croncat-tasks = { workspace = true }
+croncat-manager = { workspace = true }
+croncat-factory = { workspace = true }
 cw-multi-test = { workspace = true }
 
 [dev-dependencies]
