@@ -2,12 +2,21 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Ident, Variant};
+use syn::{parse_macro_input, Data, DataEnum, DeriveInput, Error, Ident, Variant};
 
 #[proc_macro_attribute]
 pub fn croncat_error(_attrs: TokenStream, input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
     let enum_name = input.ident.clone();
+
+    // Ensure they've placed the attribute macro above the derive
+    if !input.attrs.iter().any(|attr| attr.path.is_ident("derive")) {
+        let msg = "😻 Please move the `#[croncat_error]` macro above the `#[derive]` attribute with the `Error` trait. 😻";
+        let error = Error::new_spanned(enum_name, msg).to_compile_error();
+        return TokenStream::from(quote! {
+            #error
+        });
+    }
 
     let mut is_croncat_error_present = false;
     if let Data::Enum(DataEnum {
