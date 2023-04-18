@@ -16,14 +16,17 @@ build:
     export RUSTFLAGS='-C link-arg=-s'
     # Can't build the integration tests for wasm targets.
     # Combine that with cargo workspaces; it's an odd situation.
-    EXCLUDED_PACKAGE="croncat_integration_testing"
+    EXCLUDED_PACKAGE="croncat-integration-testing"
 
     # Thank you Gracie Paul Thoroldwood for the insight
     for PACKAGE in $(cargo metadata --format-version 1 --no-deps | jq '.packages[] | .name' -r)
     do
+      echo "aloha"
+      echo $PACKAGE
+      echo "honua"
       if [ "$PACKAGE" != "$EXCLUDED_PACKAGE" ]; then
         echo "Building package: $PACKAGE"
-        cargo build --package "$PACKAGE"
+        cargo build --release --lib --package "$PACKAGE" --target wasm32-unknown-unknown
       fi
     done
     # Finally build the integration tests
