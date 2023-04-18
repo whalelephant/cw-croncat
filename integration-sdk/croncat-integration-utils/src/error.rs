@@ -30,6 +30,15 @@ pub enum CronCatContractError {
 
     #[error("Serialization error|{msg}")]
     SerdeError { msg: String },
+
+    #[error("Must attach funds for task creation")]
+    TaskCreationNoFunds,
+
+    #[error("No contract named {contract_name} on factory {factory_addr}")]
+    NoSuchContractOnFactory {
+        contract_name: String,
+        factory_addr: Addr,
+    },
 }
 
 impl From<SerdeJsonError> for CronCatContractError {
