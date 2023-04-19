@@ -42,7 +42,7 @@ jobs:
           done
           
           # Finally build the integration tests
-          cargo test --release --lib --manifest-path integration-sdk/croncat-integration-testing/Cargo.toml
+          cargo test --manifest-path integration-sdk/croncat-integration-testing/Cargo.toml
 
   lints:
     name: Lints
