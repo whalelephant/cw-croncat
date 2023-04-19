@@ -21,9 +21,6 @@ build:
     # Thank you Gracie Paul Thoroldwood for the insight
     for PACKAGE in $(cargo metadata --format-version 1 --no-deps | jq '.packages[] | .name' -r)
     do
-      echo "aloha"
-      echo $PACKAGE
-      echo "honua"
       if [ "$PACKAGE" != "$EXCLUDED_PACKAGE" ]; then
         echo "Building package: $PACKAGE"
         cargo build --release --lib --package "$PACKAGE" --target wasm32-unknown-unknown
