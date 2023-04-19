@@ -16,10 +16,10 @@ pub enum CronCatContractError {
     #[error("Could not deserialize task info")]
     DeserializeTaskInfo {},
 
-    #[error("No response from factory regarding manager version")]
+    #[error("No response from factory regarding potential manager ({manager_addr}) for version {version}")]
     FactoryManagerQueryFailed { manager_addr: Addr, version: String },
 
-    #[error("Attempted invocation from unsanctioned manager contract")]
+    #[error("Attempted invocation from unsanctioned manager contract ({manager_addr}) for version {version}")]
     UnsanctionedInvocation { manager_addr: Addr, version: String },
 
     #[error("Invocation not in the same block and transaction index")]
@@ -28,7 +28,7 @@ pub enum CronCatContractError {
     #[error("Invocation not called by task owner. Expected owner: {expected_owner}")]
     WrongTaskOwner { expected_owner: Addr },
 
-    #[error("Serialization error|{msg}")]
+    #[error("Serialization error: {msg}")]
     SerdeError { msg: String },
 
     #[error("Must attach funds for task creation")]
