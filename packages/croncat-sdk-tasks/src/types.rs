@@ -192,12 +192,12 @@ pub struct Transform {
     /// Action key path to the value that should get replaced
     /// for example:
     /// X: {Y: {Z: value}}
-    /// [X,Y,Z] to reach that value
+    /// \[X,Y,Z\] to reach that value
     pub action_path: PathToValue,
     /// Query response key's path to the value that needs to be taken to replace value from the above
     /// for example query gave that response:
     /// A: {B: {C: value}}
-    /// In order to reach a value [A,B,C] should be used as input
+    /// In order to reach a value \[A,B,C\] should be used as input
     pub query_response_path: PathToValue,
 }
 

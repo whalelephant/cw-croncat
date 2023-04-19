@@ -12,8 +12,13 @@ pub struct CronCatTestEnv {
     pub agents: Addr,
 }
 
-pub fn set_up_croncat_contracts() -> CronCatTestEnv {
-    let mut app = default_app();
+pub fn set_up_croncat_contracts(app: Option<App>) -> CronCatTestEnv {
+    let mut app = if let Some(passed_in_app) = app {
+        passed_in_app
+    } else {
+        default_app()
+    };
+
     let factory_addr = init_factory(&mut app);
 
     let manager_instantiate_msg: croncat_sdk_manager::msg::ManagerInstantiateMsg =

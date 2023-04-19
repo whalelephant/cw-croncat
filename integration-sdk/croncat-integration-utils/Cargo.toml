@@ -19,6 +19,7 @@ croncat-sdk-manager = { workspace = true }
 cw-utils = { workspace = true }
 serde-json-wasm = { workspace = true }
 serde_json = { workspace = true }
+croncat-mod-generic = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

@@ -1,8 +1,8 @@
-use crate::cosmwasm_storage_helpers::to_length_prefixed_nested;
 use crate::error::CronCatContractError;
 use crate::types::HandleIncomingTaskParams;
-use cosmwasm_std::{Addr, Binary, Env, MessageInfo, QuerierWrapper};
-use croncat_sdk_manager::types::LAST_TASK_EXECUTION_INFO_KEY;
+use cosmwasm_std::{Addr, Env, MessageInfo, QuerierWrapper};
+use croncat_sdk_factory::state::CONTRACT_ADDRS;
+use croncat_sdk_manager::state::LAST_TASK_EXECUTION_INFO;
 use croncat_sdk_tasks::types::TaskExecutionInfo;
 
 /// Handles and validates an incoming CronCat task
@@ -15,7 +15,7 @@ pub fn handle_incoming_task(
     querier: &QuerierWrapper,
     env: Env,
     info: MessageInfo,
-    croncat_factory_address: &Addr,
+    croncat_factory_address: Addr,
     custom_validation: Option<HandleIncomingTaskParams>,
 ) -> Result<TaskExecutionInfo, CronCatContractError> {
     // First we'll create helper vars addressing any custom validation
@@ -32,28 +32,13 @@ pub fn handle_incoming_task(
     // We want to confirm this comes from a sanctioned, CronCat manager
     // contract, which we'll do when we query the factory a bit later
     // This does an efficient query to the sender contract (which may or may not be a sanction manager, which comes later)
-    let latest_task_execution_res = querier.query_wasm_raw(
-        sender.clone(),
-        LAST_TASK_EXECUTION_INFO_KEY.as_bytes().to_vec(),
-    )?;
-
-    // Not a manager or a contract pretending to be a manager
-    if latest_task_execution_res.is_none() {
-        return Err(CronCatContractError::LatestTaskInfoFailed {
-            manager_addr: sender,
-        });
-    }
-
-    let latest_task_execution_cast_res =
-        serde_json_wasm::from_slice(latest_task_execution_res.unwrap().as_slice());
-
-    // Catching deserialization issues
-    if latest_task_execution_cast_res.is_err() {
-        return Err(CronCatContractError::DeserializeTaskInfo {});
-    }
 
     // Pertinent info containing, among other things, the task version
-    let latest_task_execution: TaskExecutionInfo = latest_task_execution_cast_res.unwrap();
+    let latest_task_execution: TaskExecutionInfo = LAST_TASK_EXECUTION_INFO
+        .query(querier, sender.clone())
+        .map_err(|_| CronCatContractError::LatestTaskInfoFailed {
+            manager_addr: sender.clone(),
+        })?;
 
     // We turn (for example) "0.1" into [0, 1] so we can query the factory with this value and the contract name ("manager")
     let versions = latest_task_execution
@@ -62,12 +47,11 @@ pub fn handle_incoming_task(
         .map(|v| -> u8 { v.parse().unwrap() })
         .collect::<Vec<u8>>();
 
-    let mut state_key =
-        to_length_prefixed_nested(&["contract_addrs".as_bytes(), "manager".as_bytes()]);
-    state_key.extend_from_slice(versions.as_slice());
-
-    let sanctioned_manager_res =
-        querier.query_wasm_raw(croncat_factory_address.to_string(), Binary::from(state_key))?;
+    let sanctioned_manager_res: Option<Addr> = CONTRACT_ADDRS.query(
+        querier,
+        croncat_factory_address,
+        ("manager", versions.as_slice()),
+    )?;
 
     if sanctioned_manager_res.is_none() {
         return Err(CronCatContractError::FactoryManagerQueryFailed {
@@ -78,12 +62,9 @@ pub fn handle_incoming_task(
 
     let sanctioned_manager_address = sanctioned_manager_res.unwrap();
 
-    let quoted_sender = format!(r#""{}""#, sender);
-    let quoted_sender_bytes = quoted_sender.as_bytes();
-
     // If the sender and the sanctioned manager address differ,
     // then this isn't being called by CronCat
-    if sanctioned_manager_address != quoted_sender_bytes {
+    if sanctioned_manager_address != sender {
         return Err(CronCatContractError::UnsanctionedInvocation {
             manager_addr: sender,
             version: latest_task_execution.version,

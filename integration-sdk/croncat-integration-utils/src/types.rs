@@ -16,3 +16,19 @@ pub struct HandleIncomingTaskParams {
     /// If disable_owner_check is true, this value is irrelevant.
     pub expected_owner: Option<Addr>,
 }
+
+/// CosmWasm "reply on" types for submessages.
+/// See <https://book.cosmwasm.com/actor-model/contract-as-actor.html#sending-submessages>
+pub enum SubMessageReplyType {
+    Always,
+    OnError,
+    OnSuccess,
+}
+
+/// Extra (optional) parameters when creating a submessage during task creation
+pub struct CronCatTaskSubmessageParams {
+    /// Defaults to [REPLY_CRONCAT_TASK_CREATION](crate::REPLY_CRONCAT_TASK_CREATION)
+    pub reply_id: Option<u64>,
+    /// Defaults to [Always](SubMessageReplyType::Always)
+    pub reply_type: Option<SubMessageReplyType>,
+}

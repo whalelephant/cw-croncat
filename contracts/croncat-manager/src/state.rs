@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Uint128};
-use croncat_sdk_manager::types::{TaskBalance, LAST_TASK_EXECUTION_INFO_KEY};
+use croncat_sdk_manager::types::TaskBalance;
 use cw_storage_plus::{Item, Map};
 
 pub use croncat_sdk_manager::types::Config;
@@ -27,7 +27,7 @@ pub const TASKS_BALANCES: Map<&[u8], TaskBalance> = Map::new("tasks_balances");
 pub const REPLY_QUEUE: Item<QueueItem> = Item::new("reply_queue");
 
 pub const LAST_TASK_EXECUTION_INFO: Item<TaskExecutionInfo> =
-    Item::new(LAST_TASK_EXECUTION_INFO_KEY);
+    croncat_sdk_manager::state::LAST_TASK_EXECUTION_INFO;
 
 /// This struct will keep the task and who is doing it until the last action
 #[cw_serde]

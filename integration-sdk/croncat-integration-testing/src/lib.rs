@@ -7,7 +7,7 @@ pub mod test_helpers;
 pub use croncat_sdk_tasks::types::TaskExecutionInfo as CronCatTaskExecutionInfo;
 
 /// We set this to "TOKEN" to match the denom here:
-/// https://github.com/CosmWasm/cosmwasm/blob/32f308a1a56ae5b8278947891306f7a374c3df94/packages/vm/src/environment.rs#L383
+/// <https://github.com/CosmWasm/cosmwasm/blob/32f308a1a56ae5b8278947891306f7a374c3df94/packages/vm/src/environment.rs#L383>
 pub const DENOM: &str = "TOKEN";
 
 // Test accounts
