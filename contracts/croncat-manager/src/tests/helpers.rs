@@ -8,9 +8,9 @@ use cw_multi_test::{App, AppBuilder, Executor};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 use super::{
-    contracts, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4, AGENT_BENEFICIARY, ANYONE, DENOM,
-    PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3, PARTICIPANT4, PARTICIPANT5,
-    PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
+    contracts, get_manager_instantiate_denom_fee, ADMIN, AGENT0, AGENT1, AGENT2, AGENT3, AGENT4,
+    AGENT_BENEFICIARY, ANYONE, DENOM, PARTICIPANT0, PARTICIPANT1, PARTICIPANT2, PARTICIPANT3,
+    PARTICIPANT4, PARTICIPANT5, PARTICIPANT6, PAUSE_ADMIN, VERSION, VERY_RICH,
 };
 
 pub(crate) fn default_app() -> App {
@@ -60,7 +60,7 @@ pub(crate) fn init_manager(
     app: &mut App,
     msg: &InstantiateMsg,
     factory_addr: &Addr,
-    funds: &[Coin],
+    _funds: &[Coin],
 ) -> Addr {
     let code_id = app.store_code(contracts::croncat_manager_contract());
 
@@ -81,7 +81,7 @@ pub(crate) fn init_manager(
             kind: VersionKind::Manager,
             module_instantiate_info,
         },
-        funds,
+        &[get_manager_instantiate_denom_fee()],
     )
     .unwrap();
 

@@ -291,23 +291,28 @@ pub(crate) fn finalize_task(
             .is_err()
     {
         // Transfer unused balances to the task creator and cw20s to the temp balances
+        let task_hash = queue_item.task.task_hash;
         let coins_transfer = remove_task_balance(
             deps.storage,
             task_balance,
             &queue_item.task.owner_addr,
             &config.native_denom,
-            queue_item.task.task_hash.as_bytes(),
+            task_hash.as_bytes(),
         )?;
         // Remove task on tasks contract
         let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
         let msg = croncat_sdk_core::internal_messages::tasks::TasksRemoveTaskByManager {
-            task_hash: queue_item.task.task_hash.into_bytes(),
+            task_hash: task_hash.clone().into_bytes(),
         }
         .into_cosmos_msg(tasks_addr)?;
-        Ok(Response::new().add_message(msg).add_message(BankMsg::Send {
-            to_address: queue_item.task.owner_addr.into_string(),
-            amount: coins_transfer,
-        }))
+        Ok(Response::new()
+            .add_message(msg)
+            .add_message(BankMsg::Send {
+                to_address: queue_item.task.owner_addr.into_string(),
+                amount: coins_transfer,
+            })
+            .add_attribute("lifecycle", "task_ended")
+            .add_attribute("task_hash", task_hash))
     } else {
         let tasks_addr = get_tasks_addr(&deps.querier, &config)?;
         TASKS_BALANCES.save(

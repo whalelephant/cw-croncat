@@ -139,6 +139,12 @@ export class DeploySigner {
       }
     } catch (e) {
       console.log(`No funds found for ${id}`, e)
+      return {
+        id,
+        address: this.accounts[id],
+        amount: '0',
+        note: '',
+      }
     }
   }
 

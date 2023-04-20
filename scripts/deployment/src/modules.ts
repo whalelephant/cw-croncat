@@ -2,7 +2,7 @@ import { calculateFee } from "@cosmjs/stargate";
 import * as fs from "fs"
 import { config } from "dotenv"
 config({ path: '.env' })
-import { getGitHash, getChecksums, getContractVersionFromCargoToml } from './utils'
+import { getGitHash, getChecksums, getContractVersionFromCargoToml, getInstantiatedAddrFromLogs } from './utils'
 import { DeploySigner } from "./signer"
 
 export class ModulesClient {
@@ -107,10 +107,10 @@ export class ModulesClient {
     }, this.executeGas)
 
     return [
-      { name: 'mod_balances', code_id: upload0.codeId, address: exec0.logs[0].events[1].attributes[0].value },
-      { name: 'mod_dao', code_id: upload1.codeId, address: exec1.logs[0].events[1].attributes[0].value },
-      { name: 'mod_generic', code_id: upload2.codeId, address: exec2.logs[0].events[1].attributes[0].value },
-      { name: 'mod_nft', code_id: upload3.codeId, address: exec3.logs[0].events[1].attributes[0].value },
+      { name: 'mod_balances', code_id: upload0.codeId, address: getInstantiatedAddrFromLogs(exec0.logs) },
+      { name: 'mod_dao', code_id: upload1.codeId, address: getInstantiatedAddrFromLogs(exec1.logs) },
+      { name: 'mod_generic', code_id: upload2.codeId, address: getInstantiatedAddrFromLogs(exec2.logs) },
+      { name: 'mod_nft', code_id: upload3.codeId, address: getInstantiatedAddrFromLogs(exec3.logs) },
     ];
   }
 }

@@ -65,8 +65,32 @@ pub fn instantiate(
         cw20_whitelist,
     } = msg;
 
-    // Query for the denom
-    let denom = deps.querier.query_bonded_denom()?;
+    // require minimum balance for denom establishment
+    if info.funds.is_empty() {
+        return Err(ContractError::EmptyBalance {});
+    }
+
+    // Get the denom from the only balance available at time of this instantiation
+    // Factory will pass along 1 unit for us to safely know what native denom is.
+    // We can't use "deps.querier.query_bonded_denom" because it will error on ICS chains
+    let funds_denom = info
+        .funds
+        .iter()
+        .find(|coin| coin.amount == Uint128::new(1))
+        .map(|coin| coin.denom.clone());
+
+    let denom = if let Some(d) = funds_denom {
+        d
+    } else {
+        return Err(ContractError::EmptyBalance {});
+    };
+
+    // Check if we attached some funds in native denom, add them into treasury
+    let treasury_funds = may_pay(&info, denom.as_str());
+    if treasury_funds.is_err() {
+        return Err(ContractError::RedundantFunds {});
+    }
+    TREASURY_BALANCE.save(deps.storage, &treasury_funds.unwrap())?;
 
     let gas_price = gas_price.unwrap_or_default();
     // Make sure gas_price is valid
@@ -80,17 +104,11 @@ pub fn instantiate(
     // MUST: only be contract address
     // MUST: not be same address as factory owner (DAO)
     // Any factory action should be done by the owner_addr
+    // NOTE: different networks have diff bech32 prefix lengths. Capturing min/max here
     let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
-    if owner_addr == pause_addr || !(63usize..=64usize).contains(&pause_addr.to_string().len()) {
+    if owner_addr == pause_addr || !(61usize..=74usize).contains(&pause_addr.to_string().len()) {
         return Err(ContractError::InvalidPauseAdmin {});
     }
-
-    // Check if we attached some funds in native denom, add them into treasury
-    let treasury_funds = may_pay(&info, denom.as_str());
-    if treasury_funds.is_err() {
-        return Err(ContractError::RedundantFunds {});
-    }
-    TREASURY_BALANCE.save(deps.storage, &treasury_funds.unwrap())?;
 
     let cw20_whitelist = cw20_whitelist
         .unwrap_or_default()

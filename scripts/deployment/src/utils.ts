@@ -13,10 +13,26 @@ const networkType = process.env.NETWORK_TYPE || 'testnet'
 // NOTE: MUST Be a contract wallet - multisig prefered!
 // If you need one, go to https://github.com/CosmWasm/cw-plus/tree/main/contracts/cw3-fixed-multisig, compile, instantiate & get deployed address.
 export const pauseAdmins = {
+  anomatestnet: process.env.PAUSE_ADMIN_MULTISIG_ANOMATESTNET || '',
+  anoma: process.env.PAUSE_ADMIN_MULTISIG_ANOMA || '',
+  archwaytestnet: process.env.PAUSE_ADMIN_MULTISIG_ARCHWAYTESTNET || '',
+  archway: process.env.PAUSE_ADMIN_MULTISIG_ARCHWAY || '',
   junotestnet: process.env.PAUSE_ADMIN_MULTISIG_JUNOTESTNET || '',
   juno: process.env.PAUSE_ADMIN_MULTISIG_JUNO || '',
+  migalootestnet: process.env.PAUSE_ADMIN_MULTISIG_MIGALOOTESTNET || '',
+  migaloo: process.env.PAUSE_ADMIN_MULTISIG_MIGALOO || '',
+  namadatestnet: process.env.PAUSE_ADMIN_MULTISIG_NAMADATESTNET || '',
+  namada: process.env.PAUSE_ADMIN_MULTISIG_NAMADA || '',
+  neutrontestnet: process.env.PAUSE_ADMIN_MULTISIG_NEUTRONTESTNET || '',
+  neutron: process.env.PAUSE_ADMIN_MULTISIG_NEUTRON || '',
+  noistestnet: process.env.PAUSE_ADMIN_MULTISIG_NOISTESTNET || '',
+  nois: process.env.PAUSE_ADMIN_MULTISIG_NOIS || '',
   osmosistestnet: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET || '',
   osmosis: process.env.PAUSE_ADMIN_MULTISIG_OSMOSIS || '',
+  quasartestnet: process.env.PAUSE_ADMIN_MULTISIG_QUASARTESTNET || '',
+  quasar: process.env.PAUSE_ADMIN_MULTISIG_QUASAR || '',
+  seitestnet: process.env.PAUSE_ADMIN_MULTISIG_SEITESTNET || '',
+  sei: process.env.PAUSE_ADMIN_MULTISIG_SEI || '',
   stargazetestnet: process.env.PAUSE_ADMIN_MULTISIG_STARGAZETESTNET || '',
   stargaze: process.env.PAUSE_ADMIN_MULTISIG_STARGAZE || '',
 }
@@ -80,6 +96,23 @@ export const getTaskHashFromLogs = (data: any) => {
   })
 
   return task_hash
+}
+
+// Get the first instantiated address
+export const getInstantiatedAddrFromLogs = logs => {
+  let address
+
+  logs.forEach(log => {
+    log.events.forEach(e => {
+      if (e.type === 'instantiate') {
+        e.attributes.forEach(attr => {
+          if (attr.key === '_contract_address' && attr.value && !address) address = attr.value
+        })
+      }
+    })
+  })
+
+  return address
 }
 
 export function sleep(ms) {

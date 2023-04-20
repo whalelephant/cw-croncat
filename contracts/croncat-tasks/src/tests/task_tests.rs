@@ -311,7 +311,7 @@ fn create_task_without_query() {
         .query_balance(manager_addr.clone(), DENOM)
         .unwrap();
     let tasks_balance = app.wrap().query_balance(tasks_addr.clone(), DENOM).unwrap();
-    assert_eq!(manager_balance, coin(30000, DENOM));
+    assert_eq!(manager_balance, coin(30001, DENOM));
     assert_eq!(tasks_balance, coin(0, DENOM));
 
     // Create second task do same checks, but add second coin
@@ -467,7 +467,7 @@ fn create_task_without_query() {
     let tasks_balance = app.wrap().query_all_balances(tasks_addr).unwrap();
     assert_eq!(
         manager_balance,
-        vec![coin(30000 + 60000, DENOM), coin(10, "test_coins")]
+        vec![coin(30001 + 60000, DENOM), coin(10, "test_coins")]
     );
     assert_eq!(tasks_balance, vec![]);
 }
@@ -828,7 +828,7 @@ fn create_tasks_with_queries_and_transforms() {
 
     let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
     let tasks_balance = app.wrap().query_all_balances(tasks_addr).unwrap();
-    assert_eq!(manager_balance, vec![coin(50000, DENOM)]);
+    assert_eq!(manager_balance, vec![coin(50001, DENOM)]);
     assert_eq!(tasks_balance, vec![]);
 }
 
@@ -1480,7 +1480,7 @@ fn remove_tasks_with_queries_success() {
 
     // Check all balances moved from manager contract
     let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
-    assert!(manager_balance.is_empty());
+    assert_eq!(manager_balance[0].amount, Uint128::new(1));
 }
 
 #[test]
@@ -1683,7 +1683,7 @@ fn remove_tasks_without_queries_success() {
 
     // Check all balances moved from manager contract
     let manager_balance = app.wrap().query_all_balances(manager_addr).unwrap();
-    assert!(manager_balance.is_empty());
+    assert_eq!(manager_balance[0].amount, Uint128::new(1));
 }
 
 #[test]
