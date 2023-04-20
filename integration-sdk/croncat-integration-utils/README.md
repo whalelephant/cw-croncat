@@ -40,7 +40,7 @@ pub enum SubMessageReplyType {
 
 When you create a task using a submessage with replies, you can utilize two functions in your contract's reply entry point.
 
-- `reply_handle_task_creation` — this takes the `msg: Reply` argument and parses it into the more useful `CronCatTaskExecutionInfo`, which is just the `croncat-sdk-tasks`'s `TaskExecutionInfo`. It returns a tuple with the logic in the reply entry point and the binary message data. The latter is useful to include in the reply's Response, like by using `Reply::new().set_data(…`.
+- `reply_handle_croncat_task_creation` — this takes the `msg: Reply` argument and parses it into the more useful `CronCatTaskExecutionInfo`, which is just the `croncat-sdk-tasks`'s `TaskExecutionInfo`. It returns a tuple with the logic in the reply entry point and the binary message data. The latter is useful to include in the reply's Response, like by using `Reply::new().set_data(…`.
 
 ## Handle invocation from a task
 

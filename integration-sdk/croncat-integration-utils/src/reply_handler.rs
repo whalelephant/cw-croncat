@@ -5,7 +5,7 @@ use cw_utils::parse_reply_execute_data;
 
 /// Reply handler when a contract calls [`create_task`](croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask).
 /// This will handle [`reply_always`](cosmwasm_std::ReplyOn::Always) covering success and failure.
-pub fn reply_handle_task_creation(
+pub fn reply_handle_croncat_task_creation(
     msg: Reply,
 ) -> Result<(CronCatTaskExecutionInfo, Binary), CronCatContractError> {
     if msg.clone().result.into_result().is_err() {
