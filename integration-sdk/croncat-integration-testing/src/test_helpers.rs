@@ -1,6 +1,6 @@
 /// Various helper functions allowing integrating projects to properly write tests
 use crate::{contracts, AGENT, ALICE, BOB, CHARLIZE, DENOM, PAUSE_ADMIN, VERSION, VERY_RICH};
-use cosmwasm_std::{coins, to_binary, Addr, BlockInfo, Coin, coin};
+use cosmwasm_std::{coin, coins, to_binary, Addr, BlockInfo, Coin};
 use croncat_sdk_factory::msg::{ContractMetadataResponse, ModuleInstantiateInfo, VersionKind};
 use cw_multi_test::{App, AppBuilder, Executor};
 
@@ -23,7 +23,12 @@ pub fn set_up_croncat_contracts(app: Option<App>) -> CronCatTestEnv {
 
     let manager_instantiate_msg: croncat_sdk_manager::msg::ManagerInstantiateMsg =
         default_manager_instantiate_message();
-    let manager_addr = init_manager(&mut app, &manager_instantiate_msg, &factory_addr, &[coin(1, DENOM)]);
+    let manager_addr = init_manager(
+        &mut app,
+        &manager_instantiate_msg,
+        &factory_addr,
+        &[coin(1, DENOM)],
+    );
 
     let agents_instantiate_msg: croncat_sdk_agents::msg::InstantiateMsg =
         default_agents_instantiate_message();
