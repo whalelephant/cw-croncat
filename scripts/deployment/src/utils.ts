@@ -28,6 +28,7 @@ export const pauseAdmins = {
   noistestnet: process.env.PAUSE_ADMIN_MULTISIG_NOISTESTNET || '',
   nois: process.env.PAUSE_ADMIN_MULTISIG_NOIS || '',
   osmosistestnet: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET || '',
+  osmosistestnet5: process.env.PAUSE_ADMIN_MULTISIG_OSMOSISTESTNET5 || '',
   osmosis: process.env.PAUSE_ADMIN_MULTISIG_OSMOSIS || '',
   quasartestnet: process.env.PAUSE_ADMIN_MULTISIG_QUASARTESTNET || '',
   quasar: process.env.PAUSE_ADMIN_MULTISIG_QUASAR || '',

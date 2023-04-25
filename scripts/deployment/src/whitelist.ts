@@ -1,7 +1,7 @@
 import { config } from "dotenv"
 import { calculateFee } from "@cosmjs/stargate"
 import * as fs from "fs"
-import { getChainForAccount } from './utils'
+import { getChainForAccount, getChainByChainName } from './utils'
 import { DeploySigner } from "./signer"
 import { FactoryClient } from './factory';
 config({ path: '.env' })
@@ -11,6 +11,8 @@ import yargs from 'yargs'
 import { hideBin } from 'yargs/helpers'
 
 // CMD: yarn whitelist stars1b4kls73st8k5flxkwjyr4dfa3rwqtfary7ku86
+// OR:
+// CMD: yarn whitelist stars1b4kls73st8k5flxkwjyr4dfa3rwqtfary7ku86 stargazetestnet
 const start = async () => {
   const args = yargs(hideBin(process.argv)).argv
   if (!args._ || args._.length <= 0) {
@@ -20,8 +22,22 @@ const start = async () => {
   const whitelistAddr = args._[0]
   console.info(`Adding ${whitelistAddr} to whitelisted agents...`)
 
+	let chainName
+	let network
+	if (args._ && args._.length > 1) {
+		chainName = args._[1]
+		const chain = getChainByChainName(chainName)
+		if (chain) {
+			network = chain
+		} else {
+			console.error(`Couldn't find ${chainName}, please try different chain_name and try again.`)
+			process.exit()
+		}
+	} else {
+		network = getChainForAccount(whitelistAddr)
+	}
+
 	// Get the network client based on prefix from address
-	const network = getChainForAccount(whitelistAddr)
 	const ds = new DeploySigner()
 	const cwClient = await ds.init(network)
 	const rawDeployed = fs.readFileSync(`${artifactsRoot}/${cwClient.chain.chain_name}-deployed_contracts.json`, 'utf8')
