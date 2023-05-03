@@ -232,7 +232,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-agents"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -266,7 +266,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-factory"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-manager"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -351,7 +351,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
  "serde-cw-value",
  "serde-json-wasm",
  "serde_json",
@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-mod-balances"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -369,12 +369,12 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
 ]
 
 [[package]]
 name = "croncat-mod-dao"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -390,14 +390,14 @@ dependencies = [
  "dao-proposal-single",
  "dao-voting",
  "dao-voting-cw20-staked",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
  "schemars",
  "serde",
 ]
 
 [[package]]
 name = "croncat-mod-generic"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -409,7 +409,7 @@ dependencies = [
  "cw20-base 0.16.0",
  "cw4",
  "cw4-group",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
  "serde-cw-value",
  "serde-json-wasm",
  "serde_json",
@@ -417,7 +417,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-mod-nft"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -425,12 +425,12 @@ dependencies = [
  "cw2 1.0.1",
  "cw721 0.16.0",
  "cw721-base",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
 ]
 
 [[package]]
 name = "croncat-sdk-agents"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -441,7 +441,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-core"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -451,7 +451,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-factory"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -460,7 +460,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-manager"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-sdk-tasks"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -482,13 +482,13 @@ dependencies = [
  "croncat-sdk-core",
  "cw20 0.16.0",
  "hex",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
  "sha2 0.10.6",
 ]
 
 [[package]]
 name = "croncat-tasks"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cosmwasm-schema",
@@ -509,7 +509,7 @@ dependencies = [
  "cw2 1.0.1",
  "cw20 0.16.0",
  "cw20-base 0.16.0",
- "mod-sdk 0.1.5",
+ "mod-sdk 1.0.0",
  "serde-cw-value",
  "serde-json-wasm",
  "thiserror",
@@ -575,7 +575,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus 0.16.0",
  "cw2 0.16.0",
- "mod-sdk 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mod-sdk 0.1.5",
  "schemars",
  "thiserror",
 ]
@@ -1603,6 +1603,8 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 [[package]]
 name = "mod-sdk"
 version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce046f6337ae8c6497b6022dc7368566e4fb6e2d9dab1e164915785e4832c60b"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -1611,9 +1613,7 @@ dependencies = [
 
 [[package]]
 name = "mod-sdk"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce046f6337ae8c6497b6022dc7368566e4fb6e2d9dab1e164915785e4832c60b"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

@@ -1,6 +1,6 @@
 [package]
 name = "croncat-sdk-factory"
-version = "0.1.5"
+version = "1.0.0"
 authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
