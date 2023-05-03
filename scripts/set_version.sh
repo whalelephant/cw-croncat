@@ -20,13 +20,13 @@ if [[ "$(realpath "$SCRIPT_DIR/..")" != "$(pwd)" ]]; then
   exit 2
 fi
 
-# # Ensure repo is not dirty
-# CHANGES_IN_REPO=$(git status --porcelain --untracked-files=no)
-# if [[ -n "$CHANGES_IN_REPO" ]]; then
-#     echo "Repository is dirty. Showing 'git status' and 'git --no-pager diff' for debugging now:"
-#     git status && git --no-pager diff
-#     exit 3
-# fi
+# Ensure repo is not dirty
+CHANGES_IN_REPO=$(git status --porcelain --untracked-files=no)
+if [[ -n "$CHANGES_IN_REPO" ]]; then
+    echo "Repository is dirty. Showing 'git status' and 'git --no-pager diff' for debugging now:"
+    git status && git --no-pager diff
+    exit 3
+fi
 
 NEW="$1"
 OLD=$(sed -n -e 's/^version[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' packages/croncat-sdk-core/Cargo.toml)
@@ -43,6 +43,13 @@ done
 
 for contract_dir in contracts/*; do
   CARGO_TOML="$contract_dir/Cargo.toml"
+  sed -i -e "s/version[[:space:]]*=[[:space:]]*\"$OLD\"/version = \"$NEW\"/" "$CARGO_TOML"
+  FILES_MODIFIED+=("$CARGO_TOML")
+  # mv "$CARGO_TOML-e" "$CARGO_TOML"
+done
+
+for integration_dir in integration-sdk/*; do
+  CARGO_TOML="$integration_dir/Cargo.toml"
   sed -i -e "s/version[[:space:]]*=[[:space:]]*\"$OLD\"/version = \"$NEW\"/" "$CARGO_TOML"
   FILES_MODIFIED+=("$CARGO_TOML")
   # mv "$CARGO_TOML-e" "$CARGO_TOML"

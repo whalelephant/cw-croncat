@@ -16,7 +16,7 @@ incremental = false
 overflow-checks = true
 
 [workspace.package]
-version = "0.1.5"
+version = "1.0.0"
 authors = [
   "meow@cron.cat",
   "@tjtc",
