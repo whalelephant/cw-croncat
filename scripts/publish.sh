@@ -15,11 +15,11 @@ fi
 
 # these are imported by other packages
 BASE_PACKAGES="mod-sdk croncat-sdk-core croncat-sdk-factory"
-ALL_PACKAGES="croncat-sdk-manager croncat-sdk-agents croncat-sdk-tasks"
+ALL_PACKAGES="croncat-sdk-tasks croncat-sdk-manager croncat-sdk-agents"
 
 # these are imported by other contracts
-BASE_CONTRACTS="mod-generic"
-ALL_CONTRACTS="mod-balances mod-dao mod-nft croncat-agents croncat-factory croncat-manager croncat-tasks"
+BASE_CONTRACTS="mod-balances mod-generic"
+ALL_CONTRACTS="mod-nft croncat-agents croncat-factory croncat-manager croncat-tasks"
 
 # these are imported by other apps
 ALL_INTEGRATION_SDKS="croncat-errors-macro croncat-integration-testing croncat-integration-utils"
@@ -30,7 +30,7 @@ for pack in $BASE_PACKAGES; do
   (
     cd "packages/$pack"
     echo "Publishing $pack"
-    cargo publish
+    cargo publish --allow-dirty
   )
 done
 
@@ -42,7 +42,7 @@ for cont in $BASE_CONTRACTS; do
   (
     cd "contracts/$cont"
     echo "Publishing $cont"
-    cargo publish
+    cargo publish --allow-dirty
   )
 done
 
@@ -54,7 +54,7 @@ for pack in $ALL_PACKAGES; do
   (
     cd "packages/$pack"
     echo "Publishing $pack"
-    cargo publish
+    cargo publish --allow-dirty
   )
 done
 
@@ -66,7 +66,7 @@ for cont in $ALL_CONTRACTS; do
   (
     cd "contracts/$cont"
     echo "Publishing $cont"
-    cargo publish
+    cargo publish --allow-dirty
   )
 done
 
@@ -78,7 +78,7 @@ for sdk in $ALL_INTEGRATION_SDKS; do
   (
     cd "integration-sdk/$sdk"
     echo "Publishing $sdk"
-    cargo publish
+    cargo publish --allow-dirty
   )
 done
 

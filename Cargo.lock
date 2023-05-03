@@ -256,7 +256,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-errors-macro"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-integration-testing"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "croncat-integration-utils"
-version = "0.1.5"
+version = "1.0.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

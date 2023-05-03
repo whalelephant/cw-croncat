@@ -30,11 +30,11 @@ library = []
 [dependencies]
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
-croncat-sdk-agents = { workspace = true }
-croncat-sdk-tasks = { workspace = true }
-croncat-sdk-core = { workspace = true }
-croncat-sdk-manager = { workspace = true }
-croncat-sdk-factory = { workspace = true }
+croncat-sdk-agents = { version = "1.0.0" }
+croncat-sdk-tasks = { version = "1.0.0" }
+croncat-sdk-core = { version = "1.0.0" }
+croncat-sdk-manager = { version = "1.0.0" }
+croncat-sdk-factory = { version = "1.0.0" }
 cw-storage-plus = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
@@ -44,8 +44,7 @@ cw-utils = { workspace = true }
 [dev-dependencies]
 cw-multi-test = { workspace = true }
 anyhow = { workspace = true }
-croncat-manager = { workspace = true }
-croncat-tasks = { workspace = true }
-croncat-factory = { workspace = true }
-croncat-agents = { workspace = true }
-croncat-sdk-factory = { workspace = true }
+croncat-manager = { version = "1.0.0" }
+croncat-tasks = { version = "1.0.0" }
+croncat-factory = { version = "1.0.0" }
+croncat-sdk-factory = { version = "1.0.0" }

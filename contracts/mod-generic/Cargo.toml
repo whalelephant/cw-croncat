@@ -31,7 +31,7 @@ library = []
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
-mod-sdk = { workspace = true }
+mod-sdk = { version = "1.0.0" }
 serde-cw-value = { workspace = true }
 serde-json-wasm = { workspace = true }
 
@@ -42,5 +42,5 @@ cw4-group = { workspace = true }
 cw20 = { workspace = true }
 cw20-base = { workspace = true }
 cw-multi-test = { workspace = true }
-croncat-mod-balances = { workspace = true }
+croncat-mod-balances = { version = "1.0.0" }
 cw-utils = { workspace = true }

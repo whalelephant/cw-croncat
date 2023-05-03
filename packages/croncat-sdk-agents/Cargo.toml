@@ -12,4 +12,4 @@ cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 thiserror = { workspace = true }
-croncat-sdk-core = { workspace = true }
+croncat-sdk-core = { version = "1.0.0" }

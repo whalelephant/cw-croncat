@@ -31,7 +31,7 @@ library = []
 cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 cw2 = { workspace = true }
-mod-sdk = { workspace = true }
+mod-sdk = { version = "1.0.0" }
 schemars = "0.8.11"
 serde = { workspace = true }
 dao-proposal-single = { workspace = true, features = ["library"] }
