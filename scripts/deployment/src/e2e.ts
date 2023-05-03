@@ -358,7 +358,10 @@ const start = async () => {
 		console.log(e);
 	}
 
-	if (!Object.keys(networkClients) || !Object.keys(networkClients).length) process.exit()
+	if (!Object.keys(networkClients) || !Object.keys(networkClients).length) {
+		console.error(`No clients found, try again.`)
+		process.exit()
+	}
 
 	// loop all clients and display their address/balances
 	const p = []

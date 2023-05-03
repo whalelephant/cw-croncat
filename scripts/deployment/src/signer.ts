@@ -44,7 +44,8 @@ export class DeploySigner {
     this.pauseAdmin = pauseAdmins[chain.chain_name]
     const prefix = this.prefix;
     this.fee_token = chain.fees.fee_tokens[0];
-    this.defaultGasPrice = GasPrice.fromString(`${this.fee_token.average_gas_price}${this.fee_token.denom}`)
+    const avg_gas_price = this.fee_token.average_gas_price || '0.025'
+    this.defaultGasPrice = GasPrice.fromString(`${avg_gas_price}${this.fee_token.denom}`)
     const signerWallet = await DirectSecp256k1HdWallet.fromMnemonic(seedPhrase, {
       prefix,
       hdPaths: [
@@ -79,11 +80,15 @@ export class DeploySigner {
     try {
       const rpcFin = await Promise.any(p)
       if (rpcFin.status === 200) endpoint = rpcFin.config.url.replace('/status', '')
-      // console.log('RPC endpoint won the race:', endpoint);
     } catch (e) {
       return Promise.reject(e)
     }
     if (!endpoint) return
+
+    if (endpoint === 'https://testnet-rpc.osmosis.zone/') endpoint = 'https://rpc.testnet.osmosis.zone'
+    if (endpoint === 'https://rpc-juno.whispernode.com:443') endpoint = 'https://juno-rpc.reece.sh'
+    if (endpoint === 'https://rpc.baryon-sentry-01.rs-testnet.polypore.xyz') endpoint = 'https://rpc.pion.rs-testnet.polypore.xyz'
+    console.log('RPC endpoint won the race:', endpoint);
 
     // signer client
     const options = { prefix: this.prefix, gasPrice: this.defaultGasPrice }
