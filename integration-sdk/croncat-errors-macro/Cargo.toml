@@ -1,0 +1,17 @@
+[package]
+name = "croncat-errors-macro"
+version = "0.1.5"
+authors = { workspace = true }
+edition = "2021"
+repository = "https://github.com/CronCats/cw-croncat"
+license = { workspace = true }
+description = "Procedural macro meant to annotate a CosmWasm contract's ContractError enum"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+thiserror = { version = "1.0.37" }

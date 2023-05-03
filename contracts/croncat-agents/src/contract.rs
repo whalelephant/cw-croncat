@@ -67,8 +67,7 @@ pub fn instantiate(
     // MUST: not be same address as factory owner (DAO)
     // Any factory action should be done by the owner_addr
     // NOTE: different networks have diff bech32 prefix lengths. Capturing min/max here
-    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
-    if owner_addr == pause_addr || !(61usize..=74usize).contains(&pause_addr.to_string().len()) {
+    if !(61usize..=74usize).contains(&pause_admin.to_string().len()) {
         return Err(ContractError::InvalidPauseAdmin {});
     }
 
@@ -638,7 +637,7 @@ fn get_agent_status(
     // If agent is pending, Check if they should get nominated to checkin to become active
     let agent_position = if let Some(pos) = pending_iter.position(|address| {
         if let Ok(addr) = address {
-            &addr == account_id
+            addr == account_id
         } else {
             false
         }

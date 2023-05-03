@@ -12,5 +12,6 @@ cosmwasm-std = { workspace = true }
 cosmwasm-schema = { workspace = true }
 thiserror = { workspace = true }
 cw20 = { workspace = true }
-
+cw-storage-plus = { workspace = true}
 croncat-sdk-core = { workspace = true }
+croncat-sdk-tasks = { workspace = true }

@@ -5,7 +5,6 @@ on: [push, pull_request]
 name: Basic
 
 jobs:
-
   test:
     name: Test Suite
     runs-on: ubuntu-latest
@@ -29,12 +28,21 @@ jobs:
           RUST_BACKTRACE: 1
 
       - name: Compile WASM contract
-        uses: actions-rs/cargo@v1
-        with:
-          command: wasm
-          args: --locked
-        env:
-          RUSTFLAGS: "-C link-arg=-s"
+        run: |
+          set -e
+          export RUSTFLAGS='-C link-arg=-s'
+          EXCLUDED_PACKAGE="croncat_integration_testing"
+          
+          for PACKAGE in $(cargo metadata --format-version 1 --no-deps | jq '.packages[] | .name' -r)
+          do
+            if [ "$PACKAGE" != "$EXCLUDED_PACKAGE" ]; then
+              echo "Testing package: $PACKAGE"
+              cargo test --package "$PACKAGE"
+            fi
+          done
+          
+          # Finally build the integration tests
+          cargo test --manifest-path integration-sdk/croncat-integration-testing/Cargo.toml
 
   lints:
     name: Lints

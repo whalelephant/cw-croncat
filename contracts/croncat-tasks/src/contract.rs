@@ -72,8 +72,7 @@ pub fn instantiate(
     // MUST: not be same address as factory owner (DAO)
     // Any factory action should be done by the owner_addr
     // NOTE: different networks have diff bech32 prefix lengths. Capturing min/max here
-    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
-    if owner_addr == pause_addr || !(61usize..=74usize).contains(&pause_addr.to_string().len()) {
+    if !(61usize..=74usize).contains(&pause_admin.to_string().len()) {
         return Err(ContractError::InvalidPauseAdmin {});
     }
 
@@ -470,9 +469,6 @@ fn execute_create_task(
     let agent_new_task_msg = AgentOnTaskCreated {}.into_cosmos_msg(agent_addr)?;
     let response_data = TaskExecutionInfo {
         block_height: env.block.height,
-        // We should be able to safely unwrap since our context is an execute message
-        // but it appears there's an issue as of the time of this writing
-        // Please refer to this issue: https://github.com/CosmWasm/cosmwasm/issues/1651
         tx_info: env.transaction,
         task_hash: hash.clone(),
         owner_addr: item.owner_addr,

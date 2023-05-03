@@ -1,9 +1,11 @@
 [package]
 name = "croncat-agents"
 version = "0.1.5"
-authors = []
+authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
+description = "CronCat agent smart contract"
+license = { workspace = true }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

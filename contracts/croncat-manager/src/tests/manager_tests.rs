@@ -13,7 +13,7 @@ use croncat_sdk_core::internal_messages::agents::AgentWithdrawOnRemovalArgs;
 use croncat_sdk_factory::msg::ContractMetadataResponse;
 use croncat_sdk_manager::{
     msg::AgentWithdrawCallback,
-    types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig, LAST_TASK_EXECUTION_INFO_KEY},
+    types::{Config, TaskBalance, TaskBalanceResponse, UpdateConfig},
 };
 use croncat_sdk_tasks::msg::TasksExecuteMsg::CreateTask;
 use croncat_sdk_tasks::types::CosmosQuery;
@@ -225,12 +225,7 @@ mod instantiate_tests {
             .unwrap_err()
             .downcast()
             .unwrap();
-        assert_eq!(
-            error,
-            ContractError::Std(StdError::generic_err(
-                "Invalid input: address not normalized"
-            ))
-        );
+        assert_eq!(error, ContractError::InvalidPauseAdmin);
     }
 }
 
@@ -5366,7 +5361,7 @@ fn last_task_execution_info_simple() {
     let tasks_addr = init_tasks(&mut app, &factory_addr);
 
     // Right after instantiation, expect it to return all default vals
-    let mut raw_task_execution_info_res = app
+    let raw_task_execution_info_res = app
         .wrap()
         .query_wasm_raw(manager_addr.clone(), b"last_task_execution_info".as_slice())
         .unwrap();
@@ -5437,11 +5432,9 @@ fn last_task_execution_info_simple() {
     let proxy_call_height = app.block_info().height;
 
     // Now we compare the saved value with the state key last_task_execution_info
-    raw_task_execution_info_res = app
-        .wrap()
-        .query_wasm_raw(manager_addr, LAST_TASK_EXECUTION_INFO_KEY.as_bytes())
+    raw_task_execution_info = crate::state::LAST_TASK_EXECUTION_INFO
+        .query(&app.wrap(), manager_addr)
         .unwrap();
-    raw_task_execution_info = from_slice(raw_task_execution_info_res.unwrap().as_slice()).unwrap();
 
     // We must modify the data we received upon task creation
     // since the block height returned was for the creation time,
