@@ -485,7 +485,7 @@ fn accept_nomination_agent(
     Ok(Response::new()
         .add_attribute("action", "accept_nomination_agent")
         .add_attribute("new_agent", info.sender.as_str())
-        .add_attribute("kicked_agents: ", format!("{kicked_agents:?}")))
+        .add_attribute("kicked_agents", format!("{kicked_agents:?}")))
 }
 
 /// Removes the agent from the active set of AGENTS.
