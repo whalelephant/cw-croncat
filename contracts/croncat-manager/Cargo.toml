@@ -50,6 +50,8 @@ cw20-base = { workspace = true }
 croncat-factory = { version = "1.0.0" }
 croncat-sdk-factory = { version = "1.0.0" }
 croncat-sdk-manager = { version = "1.0.0" }
+croncat-tasks = { version = "1.0.0" }
+croncat-agents = { version = "1.0.0" }
 croncat-mod-balances = { version = "1.0.0" }
 croncat-mod-generic = { version = "1.0.0" }
 cw-boolean-contract = { workspace = true }

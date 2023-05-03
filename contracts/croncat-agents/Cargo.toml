@@ -47,4 +47,5 @@ anyhow = { workspace = true }
 croncat-manager = { version = "1.0.0" }
 croncat-tasks = { version = "1.0.0" }
 croncat-factory = { version = "1.0.0" }
+croncat-agents = { workspace = true }
 croncat-sdk-factory = { version = "1.0.0" }
