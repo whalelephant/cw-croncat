@@ -1,6 +1,6 @@
 <div align="center">
   <h1>
-    Cron.cat CW Contracts
+    Cron.Cat CosmWasm Contracts
   </h1>
   <p>
   The "crontracts" for cosmwasm runtime of croncat service
