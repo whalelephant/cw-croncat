@@ -112,7 +112,7 @@ pub fn instantiate(
     let cw20_whitelist: Vec<Addr> = cw20_whitelist
         .unwrap_or_default()
         .into_iter()
-        .map(|human| Addr::unchecked(&human))
+        .map(Addr::unchecked)
         .collect();
 
     let config = Config {

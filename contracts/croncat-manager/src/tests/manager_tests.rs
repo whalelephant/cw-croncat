@@ -225,10 +225,7 @@ mod instantiate_tests {
             .unwrap_err()
             .downcast()
             .unwrap();
-        assert_eq!(
-            error,
-            ContractError::InvalidPauseAdmin
-        );
+        assert_eq!(error, ContractError::InvalidPauseAdmin);
     }
 }
 
