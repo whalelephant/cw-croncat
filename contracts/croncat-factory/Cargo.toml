@@ -1,6 +1,6 @@
 [package]
 name = "croncat-factory"
-version = "0.1.5"
+version = "1.0.0"
 authors = { workspace = true }
 edition = "2021"
 repository = "https://github.com/CronCats/cw-croncat"
@@ -34,18 +34,18 @@ thiserror = { workspace = true }
 cw2 = { workspace = true }
 cw-storage-plus = { workspace = true }
 cw-utils = { workspace = true }
-croncat-sdk-core = { workspace = true }
-croncat-sdk-factory = { workspace = true }
+croncat-sdk-core = { version = "1.0.0" }
+croncat-sdk-factory = { version = "1.0.0" }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }
-croncat-tasks = { workspace = true }
-croncat-manager = { workspace = true }
-croncat-agents = { workspace = true }
-croncat-mod-balances = { workspace = true }
-croncat-sdk-core = { workspace = true }
-croncat-sdk-factory = { workspace = true }
-croncat-sdk-manager = { workspace = true }
+croncat-tasks = { version = "1.0.0" }
+croncat-manager = { version = "1.0.0" }
+croncat-agents = { version = "1.0.0" }
+croncat-mod-balances = { version = "1.0.0" }
+croncat-sdk-core = { version = "1.0.0" }
+croncat-sdk-factory = { version = "1.0.0" }
+croncat-sdk-manager = { version = "1.0.0" }
 anyhow = { workspace = true }
 cw20-base = { workspace = true }
 cw20 = { workspace = true }
