@@ -32,7 +32,7 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 serde = { version = "1.0" }
-cosmwasm-std = { version = "=1.1.9" }
+cosmwasm-std = { version = "1.1.9" }
 serde-cw-value = "0.7.0"
 thiserror = { version = "1.0" }
 cosmwasm-schema = { version = "=1.1.9" }
@@ -40,7 +40,7 @@ rusty-hook = "0.11.2"
 #For some reason it tries to deploy cw_core here
 # voting = { version = "0.2.0", default-features = false, git = "https://github.com/DA0-DA0/dao-contracts" }
 cw20 = { version = "0.16.0" }
-cw-multi-test = { version = "=0.16.2" }
+cw-multi-test = { version = "0.16.0" }
 cw20-base = { version = "0.16.0" }
 cw-storage-plus = "1.0.1"
 cron_schedule = "0.2.3"

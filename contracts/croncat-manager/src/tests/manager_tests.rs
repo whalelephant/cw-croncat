@@ -227,9 +227,7 @@ mod instantiate_tests {
             .unwrap();
         assert_eq!(
             error,
-            ContractError::Std(StdError::generic_err(
-                "Invalid input: address not normalized"
-            ))
+            ContractError::InvalidPauseAdmin
         );
     }
 }

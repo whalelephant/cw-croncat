@@ -105,16 +105,15 @@ pub fn instantiate(
     // MUST: not be same address as factory owner (DAO)
     // Any factory action should be done by the owner_addr
     // NOTE: different networks have diff bech32 prefix lengths. Capturing min/max here
-    let pause_addr = deps.api.addr_validate(pause_admin.as_str())?;
-    if owner_addr == pause_addr || !(61usize..=74usize).contains(&pause_addr.to_string().len()) {
+    if !(61usize..=74usize).contains(&pause_admin.to_string().len()) {
         return Err(ContractError::InvalidPauseAdmin {});
     }
 
-    let cw20_whitelist = cw20_whitelist
+    let cw20_whitelist: Vec<Addr> = cw20_whitelist
         .unwrap_or_default()
         .into_iter()
-        .map(|human| deps.api.addr_validate(&human))
-        .collect::<StdResult<_>>()?;
+        .map(|human| Addr::unchecked(&human))
+        .collect();
 
     let config = Config {
         owner_addr,
